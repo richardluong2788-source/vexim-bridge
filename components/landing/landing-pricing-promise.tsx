@@ -14,15 +14,15 @@ const FEE_COMPONENTS = [
     label: "Bước 2",
     title: "Phí duy trì hàng tháng",
     subtitle: "Vận hành đội sales chuyên trách",
-    desc: "Nuôi một đội sales tại Mỹ, chuyên gia FDA, nhân viên đàm phán và hạ tầng nền tảng cho riêng nhà máy của bạn. Đây là lý do Vexim có thể cam kết tiếp cận 50+ buyer tiềm năng mỗi tháng — không phải đăng tin chờ khách.",
-    highlight: "Trả theo tháng, báo cáo công việc hàng tuần",
+    desc: "Nuôi một đội sales chuyên nghiệp, chuyên gia FDA, nhân viên đàm phán và hạ tầng nền tảng cho riêng nhà máy của bạn. Đây là lý do Vexim có thể cam kết tiếp cận 50+ buyer tiềm năng mỗi tháng - không phải đăng tin chờ khách.",
+    highlight: "Trả theo tháng, Hoàn 50% phí duy trì vào hoa hồng của đơn hàng thành công đầu tiên",
   },
   {
     icon: HandCoins,
     label: "Bước 3",
     title: "Hoa hồng thành công",
-    subtitle: "Chỉ thu khi tiền USD đã về tài khoản",
-    desc: "Tỷ lệ % trên kim ngạch của những đơn hàng đã được thanh toán thành công. Nếu đơn chưa thu được tiền, Vexim không nhận đồng nào từ khoản này — lợi ích của chúng tôi gắn trực tiếp với dòng tiền USD thực tế của bạn.",
+    subtitle: "Chỉ thu khi tiền đã về tài khoản",
+    desc: "Tỷ lệ % trên kim ngạch của những đơn hàng đã được thanh toán thành công. Nếu đơn chưa thu được tiền, Vexim không nhận đồng nào từ khoản này - lợi ích của chúng tôi gắn trực tiếp với dòng tiền USD thực tế của bạn.",
     highlight: "Không có thanh toán, không thu hoa hồng",
   },
 ]
@@ -45,7 +45,7 @@ export function LandingPricingPromise() {
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
             Vexim Bridge không phải sàn tự phục vụ. Bạn đang thuê một phòng sales xuất khẩu
-            vận hành bởi chuyên gia và công nghệ — chi phí gồm ba cấu phần rõ ràng, ghi trong
+            vận hành bởi chuyên gia và công nghệ - chi phí gồm ba cấu phần rõ ràng, ghi trong
             hợp đồng từ đầu, không phí ẩn.
           </p>
         </div>

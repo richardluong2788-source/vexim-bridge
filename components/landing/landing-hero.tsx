@@ -29,8 +29,8 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
         className="pointer-events-none absolute -top-32 right-[-10%] h-[480px] w-[480px] rounded-full bg-accent/10 blur-3xl"
       />
 
-      <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:gap-8 lg:px-8 lg:py-24">
-        <div className="lg:col-span-6">
+      <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:gap-10 lg:px-8 lg:py-24">
+        <div className="lg:col-span-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
@@ -67,7 +67,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
             Thay vì tuyển và đào tạo một đội kinh doanh riêng cho thị trường Mỹ, bạn thuê
             Vexim Bridge làm phòng sales xuất khẩu. Chuyên gia của chúng tôi chủ động tìm
-            buyer, đàm phán, xử lý FDA và thanh toán USD — vận hành trên nền tảng quản lý
+            buyer, đàm phán, xử lý FDA và thủ tục tuân thủ thị trường Hoa Kỳ theo từng ngành hàng - vận hành trên nền tảng quản lý
             minh bạch mà cả nhà máy và buyer cùng sử dụng.
           </p>
 
@@ -118,14 +118,14 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           </dl>
         </div>
 
-        <div className="relative lg:col-span-6">
-          <div className="relative mx-auto aspect-[16/11] w-full max-w-2xl overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl shadow-primary/10">
+        <div className="relative lg:col-span-4">
+          <div className="relative mx-auto aspect-[4/3] w-full max-w-sm overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl shadow-primary/10">
             <Image
               src="/landing/hero-dashboard.jpg"
               alt="Dashboard Vexim Bridge hiển thị đơn hàng xuất khẩu từ Việt Nam sang Mỹ"
               fill
               priority
-              sizes="(min-width: 1024px) 600px, 100vw"
+              sizes="(min-width: 1024px) 360px, 100vw"
               className="object-cover"
             />
           </div>

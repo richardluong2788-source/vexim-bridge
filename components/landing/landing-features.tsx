@@ -17,13 +17,13 @@ const FEATURES = [
   {
     icon: EyeOff,
     title: "Liên hệ trực tiếp, không qua trung gian",
-    desc: "Vexim kết nối thẳng nhà máy với buyer Mỹ — không có tầng broker ép giá hay chen vào đơn hàng. Thông tin buyer được bảo mật trong giai đoạn đàm phán để tránh bị cướp mối.",
+    desc: "Vexim kết nối thẳng nhà máy với buyer Mỹ - không có tầng broker ép giá hay chen vào đơn hàng. Thông tin buyer được bảo mật trong giai đoạn đàm phán để tránh bị cướp mối.",
     tag: "Bảo mật",
   },
   {
     icon: BadgeCheck,
     title: "Xác thực chuyển tiền hai lớp",
-    desc: "Người nhập chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán — không ai có thể làm tắt.",
+    desc: "Người nhập chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán - không ai có thể làm tắt.",
     tag: "An toàn",
   },
   {
@@ -34,8 +34,8 @@ const FEATURES = [
   },
   {
     icon: Receipt,
-    title: "Hoá đơn USD & lịch thanh toán",
-    desc: "Phát hành hoá đơn USD, chia nhỏ theo từng đợt giao hàng, quản lý chi phí vận hành — tất cả gắn với đơn hàng gốc để dễ đối chiếu.",
+    title: "Hoá đơn & lịch thanh toán",
+    desc: "Phát hành hoá đơn, chia nhỏ theo từng đợt giao hàng, quản lý chi phí vận hành - tất cả gắn với đơn hàng gốc để dễ đối chiếu.",
     tag: "Tài chính",
   },
   {

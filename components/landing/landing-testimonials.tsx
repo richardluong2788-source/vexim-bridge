@@ -18,7 +18,7 @@ const STORIES = [
     name: "Chị Trần Thanh H.",
     role: "Phó giám đốc công ty thủy sản An Giang",
     location: "Bình Dương · 120 nhân sự",
-    industry: "Máy móc & thiết bị công nghiệp",
+    industry: "Thực phẩm & đồ uống",
     result: "3/3",
     resultLabel: "đợt thanh toán đúng hạn",
     initial: "H",

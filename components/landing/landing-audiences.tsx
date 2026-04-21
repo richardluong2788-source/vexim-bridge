@@ -1,4 +1,4 @@
-import { Coffee, Sparkles, Cog, Check } from "lucide-react"
+import { Coffee, Sparkles, Pill, Check } from "lucide-react"
 
 const INDUSTRIES = [
   {
@@ -22,13 +22,13 @@ const INDUSTRIES = [
     ],
   },
   {
-    icon: Cog,
-    badge: "Máy móc & thiết bị công nghiệp",
-    title: "Máy nông nghiệp, phụ tùng, thiết bị chế biến, linh kiện",
+    icon: Pill,
+    badge: "Thực phẩm chức năng",
+    title: "Viên uống bổ sung, thảo dược, collagen, vitamin & khoáng chất",
     bullets: [
-      "Hỗ trợ chứng nhận kỹ thuật theo chuẩn Mỹ (UL, FCC, ETL) khi cần",
-      "Kết nối với nhà nhập khẩu công nghiệp và chuỗi phân phối B2B",
-      "Quản lý bản vẽ kỹ thuật, tài liệu CE, CO/CQ theo từng mã hàng",
+      "Hỗ trợ FDA Food Facility + hồ sơ DSHEA và nhãn Supplement Facts đúng chuẩn 21 CFR 101.36",
+      "Kết nối với chuỗi health store, phòng khám và nhà phân phối TPCN tại Mỹ",
+      "Rà soát claim sản phẩm (structure/function) để tránh bị FDA flag hoặc buyer từ chối",
     ],
   },
 ]
@@ -88,7 +88,7 @@ export function LandingAudiences() {
         </div>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Đang mở rộng sang thực phẩm chức năng, thiết bị y tế và các ngành khác.{" "}
+          Đang mở rộng sang thiết bị y tế (FDA 510(k), Establishment Registration) và một số ngành khác.{" "}
           <a href="#final-cta" className="font-semibold text-primary underline-offset-4 hover:underline">
             Liên hệ để chúng tôi đánh giá ngành của bạn
           </a>

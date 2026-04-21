@@ -52,7 +52,7 @@ export function LandingSecurity() {
                 Nguyên tắc kiểm soát chéo
               </p>
               <p className="text-sm leading-relaxed text-primary-foreground/90">
-                &ldquo;Người tải chứng từ thanh toán không được tự xác nhận.&rdquo; Việc xác
+                &ldquo;Người nhập chứng từ thanh toán không được tự xác nhận.&rdquo; Việc xác
                 nhận luôn do một người độc lập khác thực hiện — không ai có thể tự duyệt tiền
                 của chính mình, dù là quản lý cấp cao nhất.
               </p>

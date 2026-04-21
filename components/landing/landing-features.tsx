@@ -16,14 +16,14 @@ const FEATURES = [
   },
   {
     icon: EyeOff,
-    title: "Ẩn danh người mua đến khi chốt giá",
-    desc: "Thông tin người mua Mỹ được giữ kín trong giai đoạn đầu — bảo vệ cả hai bên khỏi việc bị vượt cầu, ép giá hoặc mất đơn hàng.",
+    title: "Liên hệ trực tiếp, không qua trung gian",
+    desc: "Vexim kết nối thẳng nhà máy với buyer Mỹ — không có tầng broker ép giá hay chen vào đơn hàng. Thông tin buyer được bảo mật trong giai đoạn đàm phán để tránh bị cướp mối.",
     tag: "Bảo mật",
   },
   {
     icon: BadgeCheck,
     title: "Xác thực chuyển tiền hai lớp",
-    desc: "Người tải chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán — không ai có thể làm tắt.",
+    desc: "Người nhập chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán — không ai có thể làm tắt.",
     tag: "An toàn",
   },
   {

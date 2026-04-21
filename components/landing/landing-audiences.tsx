@@ -1,4 +1,4 @@
-import { Coffee, Pill, Sparkles, Stethoscope, Check } from "lucide-react"
+import { Coffee, Sparkles, Cog, Check } from "lucide-react"
 
 const INDUSTRIES = [
   {
@@ -12,16 +12,6 @@ const INDUSTRIES = [
     ],
   },
   {
-    icon: Pill,
-    badge: "Thực phẩm chức năng",
-    title: "Viên uống, bột thảo dược, nước dinh dưỡng",
-    bullets: [
-      "Hỗ trợ hồ sơ FDA DSHEA và nhãn Supplement Facts theo chuẩn Mỹ",
-      "Ẩn công thức độc quyền trong giai đoạn đàm phán với buyer",
-      "Cảnh báo sớm nếu sản phẩm chứa thành phần thuộc danh sách cấm",
-    ],
-  },
-  {
     icon: Sparkles,
     badge: "Mỹ phẩm & chăm sóc cá nhân",
     title: "Serum, kem dưỡng, dầu gội, xà phòng thảo dược",
@@ -32,13 +22,13 @@ const INDUSTRIES = [
     ],
   },
   {
-    icon: Stethoscope,
-    badge: "Thiết bị y tế & PPE",
-    title: "Khẩu trang y tế, găng tay, dụng cụ y tế",
+    icon: Cog,
+    badge: "Máy móc & thiết bị công nghiệp",
+    title: "Máy nông nghiệp, phụ tùng, thiết bị chế biến, linh kiện",
     bullets: [
-      "Hỗ trợ FDA 510(k) và Medical Device Listing bởi chuyên gia riêng",
-      "Chỉ kết nối với buyer là đại lý được cấp phép phân phối tại Mỹ",
-      "Theo dõi thời hạn giấy phép, nhắc gia hạn 30 ngày trước khi hết hạn",
+      "Hỗ trợ chứng nhận kỹ thuật theo chuẩn Mỹ (UL, FCC, ETL) khi cần",
+      "Kết nối với nhà nhập khẩu công nghiệp và chuỗi phân phối B2B",
+      "Quản lý bản vẽ kỹ thuật, tài liệu CE, CO/CQ theo từng mã hàng",
     ],
   },
 ]
@@ -57,15 +47,15 @@ export function LandingAudiences() {
             id="audiences-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Chuyên sâu cho 4 ngành xuất khẩu chủ lực sang Mỹ
+            Chuyên sâu cho 3 ngành xuất khẩu chủ lực sang Mỹ
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Mỗi ngành có quy định FDA và thị trường buyer riêng. Vexim Bridge có chuyên gia
+            Mỗi ngành có quy định và thị trường buyer riêng. Vexim Bridge có chuyên gia
             am hiểu từng ngành — không áp dụng một công thức chung cho tất cả.
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {INDUSTRIES.map((industry) => {
             const Icon = industry.icon
             return (
@@ -98,9 +88,9 @@ export function LandingAudiences() {
         </div>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Ngành hàng của bạn chưa có ở đây?{" "}
+          Đang mở rộng sang thực phẩm chức năng, thiết bị y tế và các ngành khác.{" "}
           <a href="#final-cta" className="font-semibold text-primary underline-offset-4 hover:underline">
-            Liên hệ để chúng tôi đánh giá cùng bạn
+            Liên hệ để chúng tôi đánh giá ngành của bạn
           </a>
           .
         </p>

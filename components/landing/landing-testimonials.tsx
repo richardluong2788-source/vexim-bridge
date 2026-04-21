@@ -14,11 +14,11 @@ const STORIES = [
   },
   {
     quote:
-      "Lần đầu xuất TPCN sang Mỹ, tôi rất lo rủi ro lừa đảo chuyển tiền quốc tế. Quy trình xác thực hai lớp của Vexim khiến tôi an tâm — đã nhận đủ 3 đợt thanh toán, không phát sinh tranh chấp nào.",
+      "Chúng tôi xuất khẩu máy nông nghiệp nhưng đội ngũ trong nước không có ai nói được tiếng Anh thương mại. Vexim đàm phán thẳng với buyer và xử lý chứng từ kỹ thuật — đã nhận đủ 3 đợt thanh toán, không phát sinh tranh chấp nào.",
     name: "Chị Trần Thanh H.",
-    role: "Phó giám đốc công ty thực phẩm chức năng",
-    location: "TP.HCM · 120 nhân sự",
-    industry: "Thực phẩm chức năng",
+    role: "Phó giám đốc công ty cơ khí chế tạo",
+    location: "Bình Dương · 120 nhân sự",
+    industry: "Máy móc & thiết bị công nghiệp",
     result: "3/3",
     resultLabel: "đợt thanh toán đúng hạn",
     initial: "H",

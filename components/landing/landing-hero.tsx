@@ -43,9 +43,9 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
             id="hero-title"
             className="mt-6 text-balance text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl"
           >
-            Đưa hàng sang Mỹ,{" "}
+            Phòng kinh doanh xuất khẩu Mỹ,{" "}
             <span className="relative whitespace-nowrap text-primary">
-              không phải đi một mình
+              thuê ngoài trọn gói
               <svg
                 aria-hidden="true"
                 viewBox="0 0 200 8"
@@ -65,9 +65,10 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Đội ngũ Vexim Bridge chủ động tìm và thẩm định người mua Mỹ uy tín cho nhà máy
-            của bạn — đồng thời cung cấp nền tảng quản lý từ chào giá, kiểm tra FDA, đến
-            khi USD về tài khoản. Bạn chỉ tập trung sản xuất, phần còn lại chúng tôi lo.
+            Thay vì tuyển và đào tạo một đội kinh doanh riêng cho thị trường Mỹ, bạn thuê
+            Vexim Bridge làm phòng sales xuất khẩu. Chuyên gia của chúng tôi chủ động tìm
+            buyer, đàm phán, xử lý FDA và thanh toán USD — vận hành trên nền tảng quản lý
+            minh bạch mà cả nhà máy và buyer cùng sử dụng.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -82,7 +83,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <>
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/auth/login">
-                    Đăng ký nhà máy miễn phí
+                    Đặt lịch tư vấn 1:1
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>
@@ -96,22 +97,22 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           <dl className="mt-10 grid grid-cols-2 gap-6 border-t border-border/60 pt-6 sm:max-w-md">
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                Không có đơn, không mất phí
+                <BadgeCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                Buyer Mỹ tiếp cận mỗi tháng
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">0đ</dd>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">50+</dd>
               <p className="text-xs text-muted-foreground">
-                Chúng tôi chỉ thu hoa hồng khi bạn đã nhận được tiền USD
+                Được đội sales của Vexim chủ động tiếp cận và sàng lọc
               </p>
             </div>
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <BadgeCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                Đơn hàng đầu tiên sau
+                <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                Đơn hàng mẫu đầu tiên
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">45 ngày</dd>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">8–12 tuần</dd>
               <p className="text-xs text-muted-foreground">
-                Thời gian trung bình từ khi đăng ký đến khi ký hợp đồng đầu tiên
+                Thời gian trung bình từ khi ký hợp đồng dịch vụ đến khi có đơn mẫu
               </p>
             </div>
           </dl>

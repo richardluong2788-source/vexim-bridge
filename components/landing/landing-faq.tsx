@@ -8,11 +8,15 @@ import {
 export const LANDING_FAQS = [
   {
     q: "Vexim Bridge phù hợp với doanh nghiệp quy mô nào?",
-    a: "Mọi nhà sản xuất Việt Nam đã có hoặc sẵn sàng đăng ký FDA đều có thể tham gia. Chúng tôi đang phục vụ từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 4 ngành: thực phẩm & đồ uống, thực phẩm chức năng, mỹ phẩm & chăm sóc cá nhân, và thiết bị y tế.",
+    a: "Chúng tôi phục vụ các nhà máy Việt Nam đã có năng lực sản xuất ổn định và nghiêm túc muốn xây dựng thị trường Mỹ dài hạn. Quy mô từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 3 ngành chủ lực: thực phẩm & đồ uống, mỹ phẩm & chăm sóc cá nhân, và máy móc & thiết bị công nghiệp. Các ngành khác được đánh giá theo từng trường hợp.",
   },
   {
     q: "Chi phí sử dụng Vexim Bridge là bao nhiêu?",
-    a: "Nguyên tắc cốt lõi của chúng tôi là “không có đơn hàng, không mất phí”. Bạn đăng ký và sử dụng nền tảng miễn phí — Vexim chỉ thu hoa hồng trên những đơn hàng đã được thanh toán thành công bằng USD. Tỷ lệ hoa hồng cụ thể tuỳ ngành hàng và được ghi rõ trong hợp đồng ngay từ đầu, không phát sinh phí ẩn.",
+    a: "Vexim Bridge là dịch vụ “phòng kinh doanh xuất khẩu thuê ngoài”, không phải sàn tự phục vụ. Chi phí gồm ba cấu phần: (1) Phí khởi tạo một lần khi ký hợp đồng — để thẩm định nhà máy, chuẩn bị hồ sơ FDA và dựng profile buyer-ready; (2) Phí duy trì hàng tháng — nuôi đội sales tại Mỹ và nền tảng dành riêng cho nhà máy bạn; (3) Hoa hồng thành công — % trên kim ngạch chỉ thu khi đơn đã thanh toán bằng USD. Con số cụ thể được báo giá riêng theo ngành hàng và quy mô, ghi rõ trong hợp đồng từ đầu, không phí ẩn.",
+  },
+  {
+    q: "Tại sao phải có phí duy trì hàng tháng, không phải chỉ trả khi có đơn?",
+    a: "Vì Vexim nuôi một đội sales Mỹ, chuyên gia FDA và nhân sự đàm phán làm việc liên tục cho nhà máy của bạn — không phải chờ đơn mới hoạt động. Phí duy trì đảm bảo chúng tôi có thể cam kết tiếp cận và sàng lọc 50+ buyer tiềm năng mỗi tháng, thay vì đăng tin thụ động. Đây cũng là cơ chế lọc khách: chúng tôi chỉ nhận những nhà máy nghiêm túc đầu tư cho thị trường Mỹ.",
   },
   {
     q: "Vexim có đi tìm người mua Mỹ giúp tôi không, hay tôi phải tự đăng tin?",

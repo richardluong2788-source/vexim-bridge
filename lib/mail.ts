@@ -4,32 +4,40 @@ import nodemailer from "nodemailer"
 /**
  * Zoho SMTP configuration.
  *
- * Environment variables required:
- *  - ZOHO_EMAIL           : địa chỉ email Zoho (vd: bridge@veximglobal.com)
- *  - ZOHO_APP_PASSWORD    : app password tạo trong Zoho (KHÔNG phải mật khẩu đăng nhập web)
- *  - ZOHO_SMTP_HOST       : mặc định smtp.zoho.com (dùng smtp.zoho.eu nếu tài khoản đăng ký ở EU)
- *  - ZOHO_SMTP_PORT       : mặc định 465 (SSL). Có thể dùng 587 (STARTTLS).
- *  - MAIL_FROM            : (tuỳ chọn) địa chỉ hiển thị người gửi, mặc định = ZOHO_EMAIL
+ * Required env vars:
+ *  - ZOHO_EMAIL           : Zoho mailbox address (e.g. bridge@veximglobal.com)
+ *  - ZOHO_APP_PASSWORD    : Zoho App Password (NOT your regular login password)
+ *  - ZOHO_SMTP_HOST       : defaults to smtp.zoho.com (use smtp.zoho.eu for EU accounts)
+ *  - ZOHO_SMTP_PORT       : defaults to 465 (SSL). 587 also works with STARTTLS.
+ *  - MAIL_FROM            : (optional) display From address, defaults to ZOHO_EMAIL
  *
- * Lưu ý: Với Zoho Mail, bạn PHẢI dùng "App Password" chứ không dùng mật khẩu đăng nhập thường.
- * Tạo app password tại: https://accounts.zoho.com/home#security/app_password
+ * For Zoho Mail you MUST use an "App Password" — create one at
+ * https://accounts.zoho.com/home#security/app_password
  */
 
-const host = process.env.ZOHO_SMTP_HOST ?? "smtp.zoho.com"
-const port = Number(process.env.ZOHO_SMTP_PORT ?? 465)
-const secure = port === 465 // true cho 465 (SSL), false cho 587 (STARTTLS)
+const DEFAULT_HOST = "smtp.zoho.com"
+const DEFAULT_PORT = 465
+
+function resolveConfig() {
+  const user = process.env.ZOHO_EMAIL
+  const pass = process.env.ZOHO_APP_PASSWORD
+  const host = process.env.ZOHO_SMTP_HOST ?? DEFAULT_HOST
+  const port = Number(process.env.ZOHO_SMTP_PORT ?? DEFAULT_PORT)
+  const secure = port === 465 // true for 465 (SSL), false for 587 (STARTTLS)
+  return { user, pass, host, port, secure }
+}
 
 let cachedTransporter: nodemailer.Transporter | null = null
 
 function getTransporter() {
   if (cachedTransporter) return cachedTransporter
 
-  const user = process.env.ZOHO_EMAIL
-  const pass = process.env.ZOHO_APP_PASSWORD
+  const { user, pass, host, port, secure } = resolveConfig()
 
   if (!user || !pass) {
     throw new Error(
-      "[mail] Thiếu biến môi trường ZOHO_EMAIL hoặc ZOHO_APP_PASSWORD. Vui lòng cấu hình trước khi gửi mail.",
+      "[mail] Missing ZOHO_EMAIL or ZOHO_APP_PASSWORD environment variables. " +
+        "Configure them in the Vercel project before sending mail.",
     )
   }
 
@@ -43,6 +51,13 @@ function getTransporter() {
   return cachedTransporter
 }
 
+export type MailAttachment = {
+  filename: string
+  content?: string | Buffer
+  path?: string
+  contentType?: string
+}
+
 export type SendMailOptions = {
   to: string | string[]
   subject: string
@@ -52,12 +67,9 @@ export type SendMailOptions = {
   replyTo?: string
   cc?: string | string[]
   bcc?: string | string[]
-  attachments?: {
-    filename: string
-    content?: string | Buffer
-    path?: string
-    contentType?: string
-  }[]
+  attachments?: MailAttachment[]
+  /** Extra headers (e.g. List-Unsubscribe for one-click unsubscribe). */
+  headers?: Record<string, string>
 }
 
 export type SendMailResult = {
@@ -66,19 +78,28 @@ export type SendMailResult = {
   rejected: (string | { address: string; name: string })[]
 }
 
+/** Returns the From address used by default. */
+export function getDefaultFrom(): string {
+  const explicit = process.env.MAIL_FROM
+  if (explicit) return explicit
+  const email = process.env.ZOHO_EMAIL
+  if (email) return `Vexim Bridge <${email}>`
+  return "Vexim Bridge <no-reply@veximbridge.local>"
+}
+
 /**
- * Gửi email qua Zoho SMTP.
+ * Send an email via Zoho SMTP.
  *
- * Ví dụ:
+ * Usage:
  *   await sendMail({
  *     to: "user@example.com",
- *     subject: "Xin chào",
- *     html: "<p>Nội dung...</p>",
+ *     subject: "Hello",
+ *     html: "<p>Hi</p>",
  *   })
  */
 export async function sendMail(options: SendMailOptions): Promise<SendMailResult> {
   const transporter = getTransporter()
-  const from = options.from ?? process.env.MAIL_FROM ?? process.env.ZOHO_EMAIL!
+  const from = options.from ?? getDefaultFrom()
 
   const info = await transporter.sendMail({
     from,
@@ -90,6 +111,7 @@ export async function sendMail(options: SendMailOptions): Promise<SendMailResult
     html: options.html,
     text: options.text,
     attachments: options.attachments,
+    headers: options.headers,
   })
 
   return {
@@ -99,9 +121,7 @@ export async function sendMail(options: SendMailOptions): Promise<SendMailResult
   }
 }
 
-/**
- * Kiểm tra nhanh kết nối SMTP (dùng khi debug).
- */
+/** Quick SMTP connection check (useful for debugging). */
 export async function verifyMailConnection(): Promise<boolean> {
   const transporter = getTransporter()
   await transporter.verify()

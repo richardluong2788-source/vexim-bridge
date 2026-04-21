@@ -1,0 +1,28 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/weekly-report",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/fda-expiry-check",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/reengage-won",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/monthly-retainer",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/auto-success-fee",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/invoice-overdue",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}

@@ -43,7 +43,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
             id="hero-title"
             className="mt-6 text-balance text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl"
           >
-            Phòng kinh doanh xuất khẩu Mỹ,{" "}
+            Phòng kinh doanh xuất khẩu,{" "}
             <span className="relative whitespace-nowrap text-primary">
               thuê ngoài trọn gói
               <svg

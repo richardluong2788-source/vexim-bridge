@@ -1,38 +1,44 @@
-import type { Metadata } from "next"
-import { Inter, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
-import "./globals.css"
-import { LanguageProvider } from "@/components/i18n/language-provider"
-import { getLocale } from "@/lib/i18n/server"
-import { getDictionarySync } from "@/lib/i18n/dictionaries"
-import { Toaster } from "sonner"
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import './globals.css'
 
-const _inter = Inter({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = await getLocale()
-  const t = getDictionarySync(locale)
-  return {
-    title: t.app.name,
-    description: t.app.tagline,
-    generator: "v0.app",
-  }
+export const metadata: Metadata = {
+  title: 'v0 App',
+  description: 'Created with v0',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
+  },
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const locale = await getLocale()
-
   return (
-    <html lang={locale} className="bg-background">
+    <html lang="en">
       <body className="font-sans antialiased">
-        <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
-        <Toaster position="top-right" richColors />
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        {children}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

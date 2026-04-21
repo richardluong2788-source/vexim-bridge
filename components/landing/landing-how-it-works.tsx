@@ -42,7 +42,7 @@ export function LandingHowItWorks() {
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
             Khác với các sàn B2B thông thường, chúng tôi không chỉ cho bạn chỗ đăng sản phẩm.
-            Vexim chủ động đi tìm, thẩm định người mua Mỹ và và giám sát chặt chẽ quy trình thanh toán quốc tế..
+            Vexim chủ động đi tìm, thẩm định người mua Mỹ và và giám sát chặt chẽ quy trình thanh toán quốc tế.
           </p>
         </div>
 

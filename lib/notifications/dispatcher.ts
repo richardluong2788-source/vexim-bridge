@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getFromAddress, getResend } from "@/lib/email/resend"
+import { getFromAddress, sendMail } from "@/lib/email/mailer"
 import type {
   NotificationCategory,
   PreferredLanguage,
@@ -178,8 +178,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
   })
 
   try {
-    const resend = getResend()
-    const res = await resend.emails.send({
+    const res = await sendMail({
       from: getFromAddress(),
       to: profile.email,
       subject,
@@ -198,7 +197,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
         .update({ status: "failed", error: res.error.message })
         .eq("user_id", input.userId)
         .eq("dedup_key", input.dedupKey)
-      console.error("[notifications] resend rejected", res.error.message)
+      console.error("[notifications] smtp rejected", res.error.message)
       return
     }
 
@@ -214,6 +213,6 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
       .update({ status: "failed", error: message })
       .eq("user_id", input.userId)
       .eq("dedup_key", input.dedupKey)
-    console.error("[notifications] resend threw", message)
+    console.error("[notifications] smtp threw", message)
   }
 }

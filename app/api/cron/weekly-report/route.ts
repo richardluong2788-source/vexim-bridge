@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getFromAddress, getResend } from "@/lib/email/resend"
+import { getFromAddress, sendMail } from "@/lib/email/mailer"
 import {
   renderWeeklyReportHtml,
   type RecentLead,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/email/weekly-report"
 import type { Stage } from "@/lib/supabase/types"
 
-// Run on the Node.js runtime because the Resend SDK uses Node APIs.
+// Run on the Node.js runtime because nodemailer uses Node APIs.
 export const runtime = "nodejs"
 // Never cache — always send fresh data.
 export const dynamic = "force-dynamic"
@@ -70,7 +70,6 @@ export async function GET(request: Request) {
       ? `https://${process.env.VERCEL_URL}`
       : "https://example.com"
 
-  const resend = getResend()
   const from = getFromAddress()
   const results: Array<{ clientId: string; status: "sent" | "skipped" | "failed"; reason?: string }> = []
 
@@ -124,7 +123,7 @@ export async function GET(request: Request) {
     }
 
     try {
-      const { error: sendErr } = await resend.emails.send({
+      const { error: sendErr } = await sendMail({
         from,
         to: client.email,
         subject: "Your weekly pipeline report — Vexim Bridge",

@@ -1,34 +1,23 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import "./globals.css"
 import { LanguageProvider } from "@/components/i18n/language-provider"
 import { getLocale } from "@/lib/i18n/server"
-import "./globals.css"
+import { getDictionarySync } from "@/lib/i18n/dictionaries"
+import { Toaster } from "sonner"
 
-const _geist = Geist({ subsets: ["latin"] })
+const _inter = Inter({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "Vexim Bridge",
-  description: "International trade brokerage CRM & pipeline workspace",
-  generator: "v0.app",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const t = getDictionarySync(locale)
+  return {
+    title: t.app.name,
+    description: t.app.tagline,
+    generator: "v0.app",
+  }
 }
 
 export default async function RootLayout({
@@ -42,6 +31,7 @@ export default async function RootLayout({
     <html lang={locale} className="bg-background">
       <body className="font-sans antialiased">
         <LanguageProvider initialLocale={locale}>{children}</LanguageProvider>
+        <Toaster position="top-right" richColors />
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>

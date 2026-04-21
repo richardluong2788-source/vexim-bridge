@@ -1,16 +1,16 @@
 /**
- * Approves + sends an AI-generated email draft via Resend.
+ * Approves + sends an AI-generated email draft via Zoho SMTP.
  *
  * Flow:
  *  1. Verify caller is authenticated + allowed role.
  *  2. Load the draft; ensure it is still `pending_approval`.
- *  3. Send via Resend (rejects if draft lacks recipient).
+ *  3. Send via Zoho SMTP (rejects if draft lacks recipient).
  *  4. Flip draft -> 'sent', stamp `sent_at` + `approved_by`.
  *  5. Log an `email_sent` activity on the opportunity.
  */
 
 import { createClient } from "@/lib/supabase/server"
-import { getResend, getFromAddress } from "@/lib/email/resend"
+import { sendMail, getFromAddress } from "@/lib/email/mailer"
 
 export class EmailSenderAuthError extends Error {
   constructor(message = "Unauthorized") {
@@ -28,6 +28,7 @@ const ALLOWED_ROLES = new Set([
 
 export type SendDraftResult = {
   status: "sent"
+  /** Provider message id (e.g. SMTP Message-ID). Kept as `resendId` for backwards compatibility. */
   resendId: string | null
 }
 
@@ -92,14 +93,13 @@ export async function sendEmailDraft(
     throw new Error("Generated email body is empty")
   }
 
-  // 3. Send via Resend
-  const resend = getResend()
+  // 3. Send via Zoho SMTP
   const htmlBody = content
     .split(/\n{2,}/)
     .map((para) => `<p>${para.replace(/\n/g, "<br/>")}</p>`)
     .join("")
 
-  const sendRes = await resend.emails.send({
+  const sendRes = await sendMail({
     from: getFromAddress(),
     to: recipient,
     subject,
@@ -113,7 +113,7 @@ export async function sendEmailDraft(
       .from("email_drafts")
       .update({ status: "failed" })
       .eq("id", draftId)
-    throw new Error(sendRes.error.message ?? "Resend failed")
+    throw new Error(sendRes.error.message ?? "Email send failed")
   }
 
   // 4. Flip draft status

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { FDA_WARNING_DAYS, getFdaStatus } from "@/lib/fda/status"
 
-// Resend SDK uses Node APIs — force Node runtime.
+// nodemailer uses Node APIs — force Node runtime.
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
@@ -26,7 +26,7 @@ const RENOTIFY_EVERY_DAYS = 14
  *   - We haven't already notified them in the last RENOTIFY_EVERY_DAYS days.
  *
  * The dispatcher itself takes care of per-user preferences, email delivery
- * via Resend, and inserting the in-app notification record.
+ * via Zoho SMTP, and inserting the in-app notification record.
  */
 export async function GET(request: Request) {
   // 1. AuthN: cron secret header (same convention as weekly-report).

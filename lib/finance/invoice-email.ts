@@ -1,6 +1,6 @@
 import "server-only"
 
-import { getFromAddress, getResend } from "@/lib/email/resend"
+import { getFromAddress, sendMail } from "@/lib/email/mailer"
 import { buildVietQrImageUrl, usdToVnd } from "@/lib/finance/vietqr"
 import { formatUsd, formatVnd, formatDate } from "@/lib/finance/format"
 import { INVOICE_KIND_LABELS } from "@/lib/finance/types"
@@ -128,22 +128,17 @@ export async function sendInvoiceEmail(args: {
     publicUrl: publicInvoiceUrl(invoice.public_token),
   })
 
-  try {
-    const resend = getResend()
-    const res = await resend.emails.send({
-      from: getFromAddress(),
-      to: toEmail,
-      subject,
-      html,
-    })
-    return { ok: true, id: res.data?.id ?? null }
-  } catch (e) {
-    console.error("[v0] sendInvoiceEmail failed", e)
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "resend_error",
-    }
+  const res = await sendMail({
+    from: getFromAddress(),
+    to: toEmail,
+    subject,
+    html,
+  })
+  if (res.error) {
+    console.error("[v0] sendInvoiceEmail failed", res.error.message)
+    return { ok: false, error: res.error.message }
   }
+  return { ok: true, id: res.data.id }
 }
 
 function renderInvoiceEmailHtml(args: {

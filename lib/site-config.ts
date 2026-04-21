@@ -21,11 +21,11 @@ export const siteConfig = {
   legalName: "Vexim Bridge JSC",
   domain: "veximbridge.com",
   url: resolveBaseUrl(),
-  tagline: "Bắc cầu Tuân thủ & Thương mại",
+  tagline: "Cầu nối xuất khẩu Việt – Mỹ",
   description:
-    "Vexim Bridge là nền tảng B2B kết nối nhà sản xuất Việt Nam với người mua Mỹ. Đảm bảo tuân thủ FDA, xác minh SWIFT với Segregation of Duties, và pipeline xuất khẩu minh bạch từ lead đến thanh toán.",
+    "Vexim Bridge là sàn B2B kết nối nhà sản xuất Việt Nam với người mua Mỹ. Tự động kiểm tra giấy phép FDA, xác thực chuyển tiền quốc tế hai lớp, và theo dõi đơn hàng minh bạch từ chào giá đến khi nhận tiền USD.",
   descriptionEn:
-    "Vexim Bridge is a B2B platform connecting Vietnamese manufacturers with US buyers. FDA compliance, SWIFT verification with Segregation of Duties, and transparent export pipeline from lead to payment.",
+    "Vexim Bridge is a B2B platform connecting Vietnamese manufacturers with US buyers. Automatic FDA license checks, two-step international payment verification, and transparent order tracking from quote to USD payout.",
   keywords: [
     "xuất khẩu Việt Nam sang Mỹ",
     "nền tảng B2B xuất khẩu",

@@ -3,37 +3,37 @@ import { Check } from "lucide-react"
 
 const AUDIENCES = [
   {
-    badge: "Dành cho nhà sản xuất VN",
-    title: "Xuất khẩu không cần phòng pháp chế riêng",
+    badge: "Dành cho nhà sản xuất Việt Nam",
+    title: "Xuất khẩu sang Mỹ không cần phòng pháp chế riêng",
     bullets: [
-      "Auto-check FDA & cảnh báo trước khi hết hạn",
-      "Nhận lead đã qua sàng lọc của Lead Researcher",
-      "Được bảo vệ danh tính đến khi chốt giá",
+      "Tự động kiểm tra giấy phép FDA và nhắc trước khi hết hạn",
+      "Nhận đơn hàng đã được đội Vexim sàng lọc sẵn",
+      "Giữ kín thông tin nhà máy cho đến khi chốt giá",
     ],
     image: "/landing/audience-manufacturer.jpg",
     imageAlt: "Nhà máy xuất khẩu Việt Nam đạt chuẩn FDA",
   },
   {
-    badge: "Dành cho Account Executive",
-    title: "Pipeline sạch, cost-price được bảo vệ",
+    badge: "Dành cho nhân viên kinh doanh",
+    title: "Đơn hàng rõ ràng, giá gốc được bảo vệ",
     bullets: [
-      "Kanban 5 stage kèm SLA và compliance gate",
-      "Không được sửa giá gốc — chỉ thấy net profit margin",
-      "Mọi hoạt động ghi vào audit log tự động",
+      "Bảng đơn hàng 5 bước, nhắc nhở mốc thời gian và giấy tờ cần nộp",
+      "Không thấy giá gốc — chỉ thấy phần lợi nhuận thuộc về mình",
+      "Mọi thao tác tự động ghi vào lịch sử, không cần báo cáo thủ công",
     ],
     image: "/landing/audience-team.jpg",
-    imageAlt: "Đội ngũ Account Executive Vexim Bridge đang làm việc",
+    imageAlt: "Đội ngũ nhân viên kinh doanh Vexim Bridge đang làm việc",
   },
   {
-    badge: "Dành cho Finance",
-    title: "Invoice USD + billing plan trong một nơi",
+    badge: "Dành cho kế toán & tài chính",
+    title: "Hoá đơn USD và lịch thanh toán ở cùng một nơi",
     bullets: [
-      "Phát hành invoice theo milestone, tự đánh số",
-      "SWIFT verification 2-eye trước khi mark paid",
-      "Operating expense và P&L xuất export ready",
+      "Phát hành hoá đơn theo từng đợt giao hàng, tự động đánh số",
+      "Hai lớp xác thực chứng từ chuyển tiền trước khi ghi nhận thanh toán",
+      "Chi phí vận hành và báo cáo lãi/lỗ sẵn sàng để xuất ra Excel",
     ],
     image: "/landing/audience-buyer.jpg",
-    imageAlt: "Warehouse tại Mỹ, đại diện cho quy trình finance & logistics",
+    imageAlt: "Kho vận tại Mỹ, minh hoạ quy trình tài chính và logistics",
   },
 ]
 
@@ -46,7 +46,7 @@ export function LandingAudiences() {
     >
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Đối tượng</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Đối tượng sử dụng</p>
           <h2
             id="audiences-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"

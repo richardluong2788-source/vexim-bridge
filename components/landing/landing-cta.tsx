@@ -29,8 +29,8 @@ export function LandingCta({ isAuthed, dashboardHref }: LandingCtaProps) {
               Sẵn sàng xuất khẩu sang Mỹ một cách an toàn?
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-primary-foreground/80">
-              Mở tài khoản nhà sản xuất miễn phí trong 5 phút. Đội ngũ của chúng tôi sẽ liên hệ
-              hướng dẫn bạn hoàn tất FDA và nhận lead đầu tiên.
+              Mở tài khoản nhà sản xuất miễn phí trong 5 phút. Đội ngũ Vexim Bridge sẽ liên hệ
+              hướng dẫn bạn hoàn tất hồ sơ FDA và nhận đơn hàng đầu tiên.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {isAuthed ? (

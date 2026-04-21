@@ -36,7 +36,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            Đã có phiên bản Sprint 2 — FDA + SWIFT SoD
+            Phiên bản mới: Tự động kiểm tra FDA &amp; xác thực chuyển tiền
           </div>
 
           <h1
@@ -45,7 +45,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           >
             Xuất khẩu sang Mỹ,{" "}
             <span className="relative whitespace-nowrap text-primary">
-              tuân thủ từ ngày đầu
+              an tâm ngay từ đầu
               <svg
                 aria-hidden="true"
                 viewBox="0 0 200 8"
@@ -65,9 +65,9 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Vexim Bridge là nền tảng B2B giúp nhà sản xuất Việt Nam kết nối với người mua Mỹ —
-            kiểm tra FDA tự động, xác minh SWIFT với Segregation of Duties, và quản lý pipeline
-            xuất khẩu minh bạch từ lead đến thanh toán.
+            Vexim Bridge là sàn B2B giúp nhà sản xuất Việt Nam tìm người mua Mỹ uy tín —
+            tự động kiểm tra giấy phép FDA, xác thực chuyển tiền quốc tế hai lớp, và theo
+            dõi đơn hàng minh bạch từ lúc chào giá đến khi nhận tiền USD.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -82,7 +82,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <>
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/auth/login">
-                    Bắt đầu miễn phí
+                    Đăng ký miễn phí
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>
@@ -97,18 +97,22 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                Tuân thủ FDA
+                Đạt chuẩn FDA
               </dt>
               <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">100%</dd>
-              <p className="text-xs text-muted-foreground">Lead chỉ giao cho nhà sản xuất đã verify FDA</p>
+              <p className="text-xs text-muted-foreground">
+                Chỉ nhà máy có giấy phép hợp lệ mới được nhận đơn hàng
+              </p>
             </div>
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <BadgeCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                SWIFT SoD
+                Chuyển tiền an toàn
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">2-eye</dd>
-              <p className="text-xs text-muted-foreground">Người upload không được tự xác minh</p>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">2 lớp</dd>
+              <p className="text-xs text-muted-foreground">
+                Hai người độc lập cùng xác nhận mới ghi nhận thanh toán
+              </p>
             </div>
           </dl>
         </div>
@@ -117,7 +121,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           <div className="relative mx-auto aspect-[16/11] w-full max-w-2xl overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl shadow-primary/10">
             <Image
               src="/landing/hero-dashboard.jpg"
-              alt="Dashboard Vexim Bridge hiển thị pipeline bán hàng xuất khẩu từ Việt Nam sang Mỹ"
+              alt="Dashboard Vexim Bridge hiển thị đơn hàng xuất khẩu từ Việt Nam sang Mỹ"
               fill
               priority
               sizes="(min-width: 1024px) 600px, 100vw"
@@ -133,7 +137,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Đã xác minh SWIFT</span>
+                <span className="text-xs text-muted-foreground">Đã nhận thanh toán</span>
                 <span className="text-sm font-semibold text-foreground">$48,200 · paid</span>
               </div>
             </div>

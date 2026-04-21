@@ -10,39 +10,39 @@ import {
 const FEATURES = [
   {
     icon: FileCheck2,
-    title: "FDA Compliance Gate",
-    desc: "Mọi lead mới chỉ được giao cho nhà sản xuất có số đăng ký FDA hợp lệ. Theo dõi ngày hết hạn và cảnh báo tự động trước 30 ngày.",
-    tag: "R-02",
+    title: "Tự động kiểm tra FDA",
+    desc: "Đơn hàng chỉ giao cho nhà máy có giấy phép FDA còn hạn. Hệ thống tự nhắc trước 30 ngày để bạn kịp gia hạn, không lo hàng bị giữ ở cảng.",
+    tag: "FDA",
   },
   {
     icon: EyeOff,
-    title: "Buyer Anonymous Mode",
-    desc: "Danh tính người mua Mỹ được ẩn cho đến khi giá được chốt — bảo vệ cả hai phía khỏi bị bypass và ép giá trong đàm phán.",
-    tag: "R-04",
+    title: "Ẩn danh người mua đến khi chốt giá",
+    desc: "Thông tin người mua Mỹ được giữ kín trong giai đoạn đầu — bảo vệ cả hai bên khỏi việc bị vượt cầu, ép giá hoặc mất đơn hàng.",
+    tag: "Bảo mật",
   },
   {
     icon: BadgeCheck,
-    title: "SWIFT Verification 2-eye",
-    desc: "Người upload chứng từ SWIFT không được tự xác minh. Segregation of Duties cứng ở DB layer — không ai bypass được, kể cả admin.",
-    tag: "R-05",
+    title: "Xác thực chuyển tiền hai lớp",
+    desc: "Người tải chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán — không ai có thể làm tắt.",
+    tag: "An toàn",
   },
   {
     icon: KanbanSquare,
-    title: "Pipeline đa vai trò",
-    desc: "Kanban 5 giai đoạn (New → Contacted → Quoted → Won / Lost). AE, Lead Researcher, Finance mỗi người thấy đúng phần công việc của mình.",
-    tag: "RBAC",
+    title: "Theo dõi đơn hàng rõ ràng",
+    desc: "Bảng đơn hàng 5 bước (Mới → Đã liên hệ → Đã chào giá → Thành công / Thất bại). Mỗi bộ phận chỉ thấy đúng phần việc của mình.",
+    tag: "Quy trình",
   },
   {
     icon: Receipt,
-    title: "Invoice + Billing Plan",
-    desc: "Phát hành invoice USD, billing plan theo milestone, operating expenses — tất cả liên kết với opportunity gốc và audit trail WORM.",
-    tag: "FIN",
+    title: "Hoá đơn USD & lịch thanh toán",
+    desc: "Phát hành hoá đơn USD, chia nhỏ theo từng đợt giao hàng, quản lý chi phí vận hành — tất cả gắn với đơn hàng gốc để dễ đối chiếu.",
+    tag: "Tài chính",
   },
   {
     icon: Lock,
-    title: "Audit trail không thể xoá",
-    desc: "Mọi thay đổi cost_price, role, compliance doc đều ghi vào bảng activities với trigger chống update/delete. Sẵn sàng cho thanh tra.",
-    tag: "R-06",
+    title: "Lịch sử đơn hàng không thể chỉnh sửa",
+    desc: "Mọi thay đổi về giá, nhân sự phụ trách, giấy tờ đều được ghi lại và không ai có thể xoá — sẵn sàng khi cần đối chứng với đối tác hoặc thanh tra.",
+    tag: "Minh bạch",
   },
 ]
 
@@ -60,11 +60,11 @@ export function LandingFeatures() {
             id="features-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Mọi rào cản xuất khẩu, giải quyết ở tầng quy trình
+            Giải quyết mọi rào cản xuất khẩu, ngay trong quy trình
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Không phải checklist rời rạc. Vexim Bridge enforce từng rule ngay trong database,
-            server action và UI — nên team vận hành không cần nhớ thủ công.
+            Không phải danh sách kiểm tra thủ công. Vexim Bridge tự nhắc và tự chặn đúng lúc — đội
+            ngũ của bạn không cần nhớ từng quy định, chỉ cần làm đúng việc của mình.
           </p>
         </div>
 
@@ -80,7 +80,7 @@ export function LandingFeatures() {
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-inset ring-primary/10 transition-colors group-hover:bg-accent/10 group-hover:text-accent group-hover:ring-accent/20">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </div>
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {feature.tag}
                   </span>
                 </div>

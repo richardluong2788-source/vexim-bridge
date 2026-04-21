@@ -3,23 +3,23 @@ import { AlertTriangle, FileX, Languages, ShieldAlert } from "lucide-react"
 const PAIN_POINTS = [
   {
     icon: FileX,
-    title: "Thủ tục FDA khó nắm",
-    desc: "Thiếu 1 số đăng ký, lô hàng bị giữ ở cảng Mỹ — chi phí lưu kho và demurrage vượt lợi nhuận.",
+    title: "Hồ sơ FDA khó nắm",
+    desc: "Thiếu một giấy tờ nhỏ, lô hàng bị giữ ở cảng Mỹ — tiền lưu kho và phạt chậm trả vượt cả lợi nhuận của đơn hàng.",
   },
   {
     icon: ShieldAlert,
-    title: "Wire fraud khi chuyển tiền",
-    desc: "Kẻ gian mạo danh buyer gửi SWIFT giả. Doanh nghiệp VN mất hàng, mất tiền, không có evidence.",
+    title: "Lừa đảo chuyển tiền quốc tế",
+    desc: "Kẻ gian mạo danh người mua gửi chứng từ chuyển tiền giả. Doanh nghiệp mất hàng, mất tiền, không có bằng chứng để khiếu nại.",
   },
   {
     icon: Languages,
-    title: "Rào cản đàm phán",
-    desc: "Người bán lộ danh tính quá sớm, bị ép giá. Email qua lại tay đôi thiếu audit trail.",
+    title: "Dễ bị ép giá khi đàm phán",
+    desc: "Lộ thông tin nhà máy quá sớm khiến đối tác ép giá. Trao đổi qua email cá nhân không lưu lại để đối chiếu sau này.",
   },
   {
     icon: AlertTriangle,
-    title: "Không có single source of truth",
-    desc: "Thông tin nằm rải rác trên Excel, Zalo, email — không ai biết lead đang ở giai đoạn nào.",
+    title: "Thông tin đơn hàng phân tán",
+    desc: "Dữ liệu nằm rải rác trên Excel, Zalo, email — không ai biết đơn hàng đang ở bước nào, ai phụ trách, khi nào giao.",
   },
 ]
 
@@ -28,16 +28,16 @@ export function LandingProblem() {
     <section aria-labelledby="problem-title" className="border-b border-border/60 bg-background">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Vấn đề hiện tại</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Thách thức hiện tại</p>
           <h2
             id="problem-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Xuất khẩu sang Mỹ vẫn còn nhiều rủi ro
+            Xuất khẩu sang Mỹ vẫn nhiều rủi ro
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Chỉ 1 sai sót nhỏ về FDA hay SWIFT có thể phá huỷ nhiều tháng chuẩn bị. Vexim Bridge
-            được thiết kế để chặn đứng các rủi ro này ngay ở lớp quy trình.
+            Chỉ một sai sót nhỏ về giấy phép hay thanh toán có thể phá hỏng nhiều tháng chuẩn bị.
+            Vexim Bridge được thiết kế để chặn những rủi ro này ngay trong quy trình vận hành hàng ngày.
           </p>
         </div>
 

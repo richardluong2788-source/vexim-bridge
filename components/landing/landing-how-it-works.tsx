@@ -4,20 +4,20 @@ const STEPS = [
   {
     number: "01",
     icon: Building2,
-    title: "Onboard và verify FDA",
-    desc: "Đăng ký tài khoản nhà sản xuất, tải FDA cert và COA. Hệ thống kiểm tra định dạng số FDA và ngày hết hạn trước khi mở khoá nhận lead.",
+    title: "Đăng ký và gửi giấy phép FDA",
+    desc: "Tạo tài khoản nhà sản xuất, tải lên giấy phép FDA và chứng nhận chất lượng. Hệ thống tự kiểm tra định dạng và ngày hết hạn trước khi mở cho bạn nhận đơn hàng.",
   },
   {
     number: "02",
     icon: Handshake,
-    title: "Nhận lead ẩn danh",
-    desc: "Đội ngũ Lead Researcher giao buyer Mỹ đã sàng lọc. Bạn đàm phán qua email template của Vexim Bridge — mọi tin nhắn đều được lưu audit.",
+    title: "Nhận đơn hàng đã sàng lọc",
+    desc: "Đội ngũ Vexim Bridge chuyển đến bạn những người mua Mỹ đã qua thẩm định. Bạn trao đổi qua hệ thống — mọi tin nhắn, email đều được lưu để đối chiếu khi cần.",
   },
   {
     number: "03",
     icon: ShieldCheck,
-    title: "Chốt giá và SWIFT-verified",
-    desc: "Khi hai bên đồng ý giá, danh tính buyer được mở. Chứng từ SWIFT qua quy trình 2-eye verification rồi mới đánh dấu paid.",
+    title: "Chốt giá và nhận thanh toán an toàn",
+    desc: "Khi hai bên đồng thuận, thông tin người mua được mở. Chứng từ chuyển tiền quốc tế qua hai lớp xác thực độc lập rồi đơn hàng mới được đánh dấu đã thanh toán.",
   },
 ]
 
@@ -35,7 +35,7 @@ export function LandingHowItWorks() {
             id="how-it-works-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Từ đăng ký đến nhận tiền USD trong 3 bước
+            Từ đăng ký đến nhận tiền USD chỉ trong 3 bước
           </h2>
         </div>
 
@@ -49,7 +49,7 @@ export function LandingHowItWorks() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground ring-4 ring-accent/15">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </div>
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent font-mono text-[10px] font-semibold text-accent-foreground">
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground">
                       {step.number.replace("0", "")}
                     </span>
                   </div>

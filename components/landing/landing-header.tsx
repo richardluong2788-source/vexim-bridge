@@ -24,7 +24,7 @@ export function LandingHeader({ isAuthed, dashboardHref }: LandingHeaderProps) {
           <BrandMark className="h-8 w-8" />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold tracking-tight text-foreground">Vexim Bridge</span>
-            <span className="text-[11px] text-muted-foreground">Compliance &amp; Commerce</span>
+            <span className="text-[11px] text-muted-foreground">Cầu nối xuất khẩu Việt – Mỹ</span>
           </div>
         </Link>
 

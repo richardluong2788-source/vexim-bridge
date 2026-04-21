@@ -176,6 +176,33 @@ export function normaliseRole(raw: string | null | undefined): Role | null {
   return known.includes(raw as Role) ? (raw as Role) : null
 }
 
+/**
+ * Roles allowed into the `/admin` shell. Mirrors app/admin/layout.tsx.
+ * `client` is the only non-admin role — everyone else goes to /admin.
+ */
+const ADMIN_SHELL_ROLES: readonly Role[] = [
+  "super_admin",
+  "admin",
+  "account_executive",
+  "lead_researcher",
+  "finance",
+  "staff",
+]
+
+/** True iff the role is allowed into the /admin shell. */
+export function isAdminShellRole(role: Role | null | undefined): boolean {
+  if (!role) return false
+  return ADMIN_SHELL_ROLES.includes(role)
+}
+
+/**
+ * Resolve the post-login landing URL for a role. Unknown / client roles
+ * land in the customer portal; every staff role goes to /admin.
+ */
+export function landingPathForRole(role: Role | null | undefined): "/admin" | "/client" {
+  return isAdminShellRole(role) ? "/admin" : "/client"
+}
+
 /** True iff the given role has the capability. */
 export function can(role: Role | null | undefined, cap: Capability): boolean {
   if (!role) return false

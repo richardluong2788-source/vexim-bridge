@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { landingPathForRole, normaliseRole } from "@/lib/auth/permissions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -47,9 +48,7 @@ export default function LoginPage() {
         .eq("id", user.id)
         .single()
 
-      const role = profile?.role
-      const target = role === "admin" || role === "staff" ? "/admin" : "/client"
-      window.location.href = target
+      window.location.href = landingPathForRole(normaliseRole(profile?.role))
     }
   }
 

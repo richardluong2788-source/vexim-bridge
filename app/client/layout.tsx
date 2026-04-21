@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ClientSidebar } from "@/components/client/client-sidebar"
 import { AppTopbar } from "@/components/app-topbar"
+import { isAdminShellRole, normaliseRole } from "@/lib/auth/permissions"
 import type { Profile } from "@/lib/supabase/types"
 
 export default async function ClientLayout({
@@ -24,9 +25,13 @@ export default async function ClientLayout({
 
   // SOURCE OF TRUTH for authorization: profiles.role (falls back to
   // user_metadata only if the row is genuinely missing).
-  const role = dbProfile?.role ?? (user.user_metadata?.role as string | undefined)
+  const role = normaliseRole(
+    dbProfile?.role ?? (user.user_metadata?.role as string | undefined),
+  )
 
-  if (role && ["admin", "staff"].includes(role)) {
+  // Every non-client role (admin, super_admin, AE, LR, finance, staff)
+  // belongs in the /admin shell.
+  if (isAdminShellRole(role)) {
     redirect("/admin")
   }
 

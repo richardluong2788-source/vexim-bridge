@@ -170,31 +170,37 @@ BEGIN
     RETURN;
   END IF;
 
+  -- NB: the real `activities` table schema is
+  --   (id, opportunity_id, action_type, description,
+  --    performed_by, created_at).
+  -- We encode the role transition into description because there
+  -- is no dedicated user FK. Rows are still WORM thanks to 013.
   CREATE OR REPLACE FUNCTION public.profiles_role_change_audit()
   RETURNS TRIGGER
   LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = public
   AS $fn$
+  DECLARE
+    actor UUID := auth.uid();
   BEGIN
     IF NEW.role IS DISTINCT FROM OLD.role THEN
       INSERT INTO public.activities (
-        entity_type,
-        entity_id,
+        opportunity_id,
         action_type,
-        user_id,
-        metadata
+        description,
+        performed_by
       ) VALUES (
-        'profile',
-        NEW.id,
+        NULL,
         'role_changed',
-        auth.uid(),
-        jsonb_build_object(
-          'from', OLD.role,
-          'to', NEW.role,
-          'target_email', NEW.email,
-          'target_name', NEW.full_name
-        )
+        format(
+          'Role changed for %s (%s): %s -> %s',
+          COALESCE(NEW.full_name, NEW.email, NEW.id::text),
+          COALESCE(NEW.email, NEW.id::text),
+          COALESCE(OLD.role, 'null'),
+          COALESCE(NEW.role, 'null')
+        ),
+        actor
       );
     END IF;
     RETURN NEW;

@@ -110,7 +110,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
                 <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
                 Đơn hàng mẫu đầu tiên
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">8–12 tuần</dd>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">8 - 12 tuần</dd>
               <p className="text-xs text-muted-foreground">
                 Thời gian trung bình từ khi ký hợp đồng dịch vụ đến khi có đơn mẫu
               </p>

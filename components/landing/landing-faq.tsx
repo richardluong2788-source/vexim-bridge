@@ -12,7 +12,7 @@ export const LANDING_FAQS = [
   },
   {
     q: "Chi phí sử dụng nền tảng là bao nhiêu?",
-    a: "Tài khoản nhà sản xuất mở miễn phí. Vexim Bridge chỉ thu một khoản phí hoa hồng thành công (success fee) trên mỗi thương vụ đã được SWIFT-verified. Không có phí ẩn, không phí setup.",
+    a: "Mô hình phí của Vexim Bridge được thiết kế dựa trên hiệu suất và sự an toàn. Bạn sẽ trả một khoản phí dịch vụ ban đầu và phí duy trì định kỳ để chúng tôi vận hành bộ máy tìm kiếm và sàng lọc buyer. Sau đó, bạn chỉ trả thêm phí hoa hồng trên những đơn hàng đã được xác thực SWIFT an toàn tuyệt đối.",
   },
   {
     q: "FDA registration có bắt buộc không?",

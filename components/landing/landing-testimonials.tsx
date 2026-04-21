@@ -14,9 +14,9 @@ const STORIES = [
   },
   {
     quote:
-      "Chúng tôi xuất khẩu máy nông nghiệp nhưng đội ngũ trong nước không có ai nói được tiếng Anh thương mại. Vexim đàm phán thẳng với buyer và xử lý chứng từ kỹ thuật — đã nhận đủ 3 đợt thanh toán, không phát sinh tranh chấp nào.",
+      "Chúng tôi xuất khẩu thủy sản nhưng đội ngũ trong nước không có ai nói được tiếng Anh thương mại. Vexim đàm phán thẳng với buyer và xử lý chứng từ kỹ thuật - đã nhận đủ 3 đợt thanh toán, không phát sinh tranh chấp nào.",
     name: "Chị Trần Thanh H.",
-    role: "Phó giám đốc công ty cơ khí chế tạo",
+    role: "Phó giám đốc công ty thủy sản An Giang",
     location: "Bình Dương · 120 nhân sự",
     industry: "Máy móc & thiết bị công nghiệp",
     result: "3/3",
@@ -98,7 +98,7 @@ export function LandingTestimonials() {
         </div>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          Nội dung minh hoạ dựa trên các khách hàng thực tế của Vexim Bridge. Tên và một số chi
+          Nội dung dựa trên các khách hàng thực tế của Vexim Bridge. Tên và một số chi
           tiết nhận dạng đã được thay đổi để bảo vệ quyền riêng tư của doanh nghiệp.
         </p>
       </div>

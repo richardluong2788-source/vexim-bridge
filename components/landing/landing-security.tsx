@@ -9,7 +9,7 @@ const SECURITY_PROPS = [
   {
     icon: Fingerprint,
     title: "Phân quyền theo vai trò",
-    desc: "Nhân viên kinh doanh, kế toán, quản lý, nhà máy — mỗi vai trò có quyền xem và thao tác riêng, không ai thao túng ngoài phạm vi của mình.",
+    desc: "Nhân viên kinh doanh, kế toán, quản lý, nhà máy - mỗi vai trò có quyền xem và thao tác riêng, không ai thao túng ngoài phạm vi của mình.",
   },
   {
     icon: ScrollText,
@@ -43,7 +43,7 @@ export function LandingSecurity() {
               Tiêu chuẩn bảo mật như ngân hàng, cho xuất khẩu B2B
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-primary-foreground/80">
-              Vexim Bridge áp dụng những nguyên tắc bảo mật cao nhất của ngành tài chính —
+              Vexim Bridge áp dụng những nguyên tắc bảo mật cao nhất của ngành tài chính -
               phân quyền nhiều lớp, kiểm soát chéo và lưu vết đầy đủ. Mọi thao tác đều có
               dấu vết để bạn, đối tác và luật sư đều có thể đối chứng khi cần.
             </p>
@@ -53,7 +53,7 @@ export function LandingSecurity() {
               </p>
               <p className="text-sm leading-relaxed text-primary-foreground/90">
                 &ldquo;Người nhập chứng từ thanh toán không được tự xác nhận.&rdquo; Việc xác
-                nhận luôn do một người độc lập khác thực hiện — không ai có thể tự duyệt tiền
+                nhận luôn do một người độc lập khác thực hiện - không ai có thể tự duyệt tiền
                 của chính mình, dù là quản lý cấp cao nhất.
               </p>
             </div>

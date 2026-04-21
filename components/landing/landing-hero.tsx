@@ -67,7 +67,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
             Vexim Bridge là sàn B2B giúp nhà sản xuất Việt Nam tìm người mua Mỹ uy tín —
             tự động kiểm tra giấy phép FDA, xác thực chuyển tiền quốc tế hai lớp, và theo
-            dõi đơn hàng minh bạch từ lúc chào giá đến khi nhận tiền USD.
+            dõi đơn hàng minh bạch từ lúc chào giá đến khi nhận tiền.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -111,7 +111,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               </dt>
               <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">2 lớp</dd>
               <p className="text-xs text-muted-foreground">
-                Hai người độc lập cùng xác nhận mới ghi nhận thanh toán
+                Xác thực thanh toán độc lập đảm bảo an toàn tuyệt đối
               </p>
             </div>
           </dl>

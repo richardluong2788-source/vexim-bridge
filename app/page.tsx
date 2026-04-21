@@ -11,6 +11,8 @@ import { LandingFeatures } from "@/components/landing/landing-features"
 import { LandingHowItWorks } from "@/components/landing/landing-how-it-works"
 import { LandingSecurity } from "@/components/landing/landing-security"
 import { LandingAudiences } from "@/components/landing/landing-audiences"
+import { LandingTestimonials } from "@/components/landing/landing-testimonials"
+import { LandingPricingPromise } from "@/components/landing/landing-pricing-promise"
 import { LandingFaq } from "@/components/landing/landing-faq"
 import { LandingCta } from "@/components/landing/landing-cta"
 import { LandingFooter } from "@/components/landing/landing-footer"
@@ -102,7 +104,9 @@ export default async function RootPage() {
           <LandingHowItWorks />
           <LandingSecurity />
           <LandingAudiences />
+          <LandingTestimonials />
           <LandingFaq />
+          <LandingPricingPromise />
           <LandingCta isAuthed={false} dashboardHref="/auth/login" />
         </main>
         <LandingFooter />

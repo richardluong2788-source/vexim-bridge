@@ -4,20 +4,23 @@ const STEPS = [
   {
     number: "01",
     icon: Building2,
-    title: "Đăng ký và gửi giấy phép FDA",
-    desc: "Tạo tài khoản nhà sản xuất, tải lên giấy phép FDA và chứng nhận chất lượng. Hệ thống tự kiểm tra định dạng và ngày hết hạn trước khi mở cho bạn nhận đơn hàng.",
+    owner: "Bạn cung cấp — Vexim hỗ trợ",
+    title: "Đăng ký nhà máy và hoàn thiện hồ sơ FDA",
+    desc: "Bạn tạo tài khoản và tải lên giấy phép kinh doanh, FDA, chứng nhận chất lượng. Nếu thiếu giấy tờ, đội Vexim hướng dẫn hoàn tất trong vòng 24–48 giờ — bạn không cần thuê tư vấn riêng.",
   },
   {
     number: "02",
     icon: Handshake,
-    title: "Nhận đơn hàng đã sàng lọc",
-    desc: "Đội ngũ Vexim Bridge chuyển đến bạn những người mua Mỹ đã qua thẩm định. Bạn trao đổi qua hệ thống — mọi tin nhắn, email đều được lưu để đối chiếu khi cần.",
+    owner: "Vexim chủ động tìm buyer",
+    title: "Chúng tôi đưa đơn hàng đến cho bạn",
+    desc: "Đội sales của Vexim tại Mỹ và Việt Nam chủ động tìm kiếm, xác minh doanh nghiệp và khảo sát nhu cầu của người mua. Bạn chỉ nhận những đơn hàng phù hợp với ngành nghề và năng lực sản xuất của mình.",
   },
   {
     number: "03",
     icon: ShieldCheck,
-    title: "Chốt giá và nhận thanh toán an toàn",
-    desc: "Khi hai bên đồng thuận, thông tin người mua được mở. Chứng từ chuyển tiền quốc tế qua hai lớp xác thực độc lập rồi đơn hàng mới được đánh dấu đã thanh toán.",
+    owner: "Nền tảng đảm bảo an toàn",
+    title: "Bạn chốt giá — hệ thống lo phần thanh toán",
+    desc: "Khi hai bên đồng thuận, thông tin người mua được mở. Tiền USD từ Mỹ chuyển về qua quy trình xác thực hai lớp độc lập. Hệ thống chỉ đánh dấu “đã thanh toán” khi tiền thực sự vào tài khoản của bạn.",
   },
 ]
 
@@ -35,11 +38,15 @@ export function LandingHowItWorks() {
             id="how-it-works-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Từ đăng ký đến nhận tiền USD chỉ trong 3 bước
+            Đội ngũ Vexim đồng hành ở từng bước — bạn không phải đi một mình
           </h2>
+          <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
+            Khác với các sàn B2B thông thường, chúng tôi không chỉ cho bạn chỗ đăng sản phẩm.
+            Vexim chủ động đi tìm, thẩm định người mua Mỹ và lo cả phần thanh toán quốc tế.
+          </p>
         </div>
 
-        <ol className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <ol className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-3">
           {STEPS.map((step) => {
             const Icon = step.icon
             return (
@@ -53,8 +60,11 @@ export function LandingHowItWorks() {
                       {step.number.replace("0", "")}
                     </span>
                   </div>
-                  <div className="flex-1 pt-1.5">
-                    <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                  <div className="flex-1 pt-1">
+                    <span className="inline-block rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {step.owner}
+                    </span>
+                    <h3 className="mt-2 text-lg font-semibold text-foreground">{step.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.desc}</p>
                   </div>
                 </div>

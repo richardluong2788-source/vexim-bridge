@@ -8,11 +8,19 @@ import {
 export const LANDING_FAQS = [
   {
     q: "Vexim Bridge phù hợp với doanh nghiệp quy mô nào?",
-    a: "Mọi nhà sản xuất Việt Nam đã có hoặc sẵn sàng đăng ký FDA đều có thể tham gia. Chúng tôi đang phục vụ từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, ưu tiên các ngành thực phẩm, thực phẩm chức năng, mỹ phẩm và thiết bị y tế.",
+    a: "Mọi nhà sản xuất Việt Nam đã có hoặc sẵn sàng đăng ký FDA đều có thể tham gia. Chúng tôi đang phục vụ từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 4 ngành: thực phẩm & đồ uống, thực phẩm chức năng, mỹ phẩm & chăm sóc cá nhân, và thiết bị y tế.",
   },
   {
-    q: "Chi phí sử dụng nền tảng là bao nhiêu?",
-    a: "Mô hình phí của Vexim Bridge gồm một khoản phí khởi tạo và phí duy trì hàng tháng để chúng tôi vận hành đội ngũ tìm kiếm và sàng lọc người mua. Ngoài ra, bạn chỉ trả thêm hoa hồng trên những đơn hàng đã được xác thực thanh toán thành công — nghĩa là chúng tôi chỉ kiếm tiền khi bạn kiếm tiền.",
+    q: "Chi phí sử dụng Vexim Bridge là bao nhiêu?",
+    a: "Nguyên tắc cốt lõi của chúng tôi là “không có đơn hàng, không mất phí”. Bạn đăng ký và sử dụng nền tảng miễn phí — Vexim chỉ thu hoa hồng trên những đơn hàng đã được thanh toán thành công bằng USD. Tỷ lệ hoa hồng cụ thể tuỳ ngành hàng và được ghi rõ trong hợp đồng ngay từ đầu, không phát sinh phí ẩn.",
+  },
+  {
+    q: "Vexim có đi tìm người mua Mỹ giúp tôi không, hay tôi phải tự đăng tin?",
+    a: "Đội ngũ Vexim tại Mỹ và Việt Nam chủ động đi tìm, thẩm định doanh nghiệp và khảo sát nhu cầu của người mua — bạn không phải tự đăng tin chờ đợi. Khi có đơn hàng phù hợp với ngành nghề và năng lực sản xuất của nhà máy, chúng tôi sẽ chuyển trực tiếp cho bạn qua hệ thống.",
+  },
+  {
+    q: "Nếu buyer không thanh toán hoặc có tranh chấp, Vexim xử lý thế nào?",
+    a: "Vì chúng tôi đã thẩm định buyer trước khi kết nối và toàn bộ trao đổi, chứng từ đều được lưu trong hệ thống, khả năng xảy ra tranh chấp rất thấp. Nếu có vấn đề, đội pháp lý của Vexim sẽ đại diện bạn làm việc với buyer và đối tác tài chính Mỹ để xử lý — đây là một phần của dịch vụ, không tính phí thêm.",
   },
   {
     q: "Có bắt buộc phải có giấy phép FDA không?",

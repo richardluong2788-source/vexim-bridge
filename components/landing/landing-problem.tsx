@@ -3,7 +3,7 @@ import { AlertTriangle, FileX, Languages, ShieldAlert } from "lucide-react"
 const PAIN_POINTS = [
   {
     icon: FileX,
-    title: "Hồ sơ chuẩn FDA",
+    title: "Hồ sơ FDA khó nắm",
     desc: "Thiếu một giấy tờ nhỏ, lô hàng bị giữ ở cảng Mỹ — tiền lưu kho và phạt chậm trả vượt cả lợi nhuận của đơn hàng.",
   },
   {

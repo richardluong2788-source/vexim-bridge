@@ -1,39 +1,45 @@
-import Image from "next/image"
-import { Check } from "lucide-react"
+import { Coffee, Pill, Sparkles, Stethoscope, Check } from "lucide-react"
 
-const AUDIENCES = [
+const INDUSTRIES = [
   {
-    badge: "Dành cho nhà sản xuất Việt Nam",
-    title: "Xuất khẩu sang Mỹ không cần phòng pháp chế riêng",
+    icon: Coffee,
+    badge: "Thực phẩm & đồ uống",
+    title: "Cà phê, hạt điều, trà, gia vị, thực phẩm khô",
     bullets: [
-      "Tự động kiểm tra giấy phép FDA và nhắc trước khi hết hạn",
-      "Nhận đơn hàng đã được đội Vexim sàng lọc sẵn",
-      "Giữ kín thông tin nhà máy cho đến khi chốt giá",
+      "Hỗ trợ đăng ký FDA Food Facility và Prior Notice trước khi giao hàng",
+      "Kết nối với chuỗi phân phối thực phẩm nhập khẩu tại Mỹ",
+      "Lưu hồ sơ HACCP, CoA, hun trùng theo từng lô hàng",
     ],
-    image: "/landing/audience-manufacturer.jpg",
-    imageAlt: "Nhà máy xuất khẩu Việt Nam đạt chuẩn FDA",
   },
   {
-    badge: "Dành cho nhân viên kinh doanh",
-    title: "Đơn hàng rõ ràng, giá gốc được bảo vệ",
+    icon: Pill,
+    badge: "Thực phẩm chức năng",
+    title: "Viên uống, bột thảo dược, nước dinh dưỡng",
     bullets: [
-      "Bảng đơn hàng 5 bước, nhắc nhở mốc thời gian và giấy tờ cần nộp",
-      "Không thấy giá gốc — chỉ thấy phần lợi nhuận thuộc về mình",
-      "Mọi thao tác tự động ghi vào lịch sử, không cần báo cáo thủ công",
+      "Hỗ trợ hồ sơ FDA DSHEA và nhãn Supplement Facts theo chuẩn Mỹ",
+      "Ẩn công thức độc quyền trong giai đoạn đàm phán với buyer",
+      "Cảnh báo sớm nếu sản phẩm chứa thành phần thuộc danh sách cấm",
     ],
-    image: "/landing/audience-team.jpg",
-    imageAlt: "Đội ngũ nhân viên kinh doanh Vexim Bridge đang làm việc",
   },
   {
-    badge: "Dành cho kế toán & tài chính",
-    title: "Hoá đơn USD và lịch thanh toán ở cùng một nơi",
+    icon: Sparkles,
+    badge: "Mỹ phẩm & chăm sóc cá nhân",
+    title: "Serum, kem dưỡng, dầu gội, xà phòng thảo dược",
     bullets: [
-      "Phát hành hoá đơn theo từng đợt giao hàng, tự động đánh số",
-      "Hai lớp xác thực chứng từ chuyển tiền trước khi ghi nhận thanh toán",
-      "Chi phí vận hành và báo cáo lãi/lỗ sẵn sàng để xuất ra Excel",
+      "Hỗ trợ FDA Cosmetic Listing theo luật MoCRA mới nhất",
+      "Tìm buyer là chuỗi nhà thuốc, wellness store và salon tại Mỹ",
+      "Quản lý chứng nhận Organic, Cruelty-free, Halal kèm từng sản phẩm",
     ],
-    image: "/landing/audience-buyer.jpg",
-    imageAlt: "Kho vận tại Mỹ, minh hoạ quy trình tài chính và logistics",
+  },
+  {
+    icon: Stethoscope,
+    badge: "Thiết bị y tế & PPE",
+    title: "Khẩu trang y tế, găng tay, dụng cụ y tế",
+    bullets: [
+      "Hỗ trợ FDA 510(k) và Medical Device Listing bởi chuyên gia riêng",
+      "Chỉ kết nối với buyer là đại lý được cấp phép phân phối tại Mỹ",
+      "Theo dõi thời hạn giấy phép, nhắc gia hạn 30 ngày trước khi hết hạn",
+    ],
   },
 ]
 
@@ -46,59 +52,58 @@ export function LandingAudiences() {
     >
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Đối tượng sử dụng</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Ngành hàng phục vụ</p>
           <h2
             id="audiences-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Một nền tảng, đúng góc nhìn cho từng vai trò
+            Chuyên sâu cho 4 ngành xuất khẩu chủ lực sang Mỹ
           </h2>
+          <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
+            Mỗi ngành có quy định FDA và thị trường buyer riêng. Vexim Bridge có chuyên gia
+            am hiểu từng ngành — không áp dụng một công thức chung cho tất cả.
+          </p>
         </div>
 
-        <div className="mt-14 flex flex-col gap-20">
-          {AUDIENCES.map((audience, index) => {
-            const isReverse = index % 2 === 1
+        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2">
+          {INDUSTRIES.map((industry) => {
+            const Icon = industry.icon
             return (
               <article
-                key={audience.title}
-                className={`grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12 ${
-                  isReverse ? "lg:[&>div:first-child]:order-2" : ""
-                }`}
+                key={industry.title}
+                className="group relative flex flex-col gap-4 rounded-xl border border-border/80 bg-card p-6 transition-all hover:border-accent/60 hover:shadow-lg"
               >
-                <div className="lg:col-span-6">
-                  <span className="inline-block rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
-                    {audience.badge}
-                  </span>
-                  <h3 className="mt-4 text-balance text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                    {audience.title}
-                  </h3>
-                  <ul className="mt-6 flex flex-col gap-3">
-                    {audience.bullets.map((bullet) => (
-                      <li key={bullet} className="flex items-start gap-3 text-sm text-muted-foreground">
-                        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                          <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} />
-                        </span>
-                        <span className="leading-relaxed">{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="lg:col-span-6">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg">
-                    <Image
-                      src={audience.image}
-                      alt={audience.imageAlt}
-                      fill
-                      sizes="(min-width: 1024px) 540px, 100vw"
-                      className="object-cover"
-                    />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-inset ring-primary/10 transition-colors group-hover:bg-accent/10 group-hover:text-accent group-hover:ring-accent/20">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
                   </div>
+                  <span className="inline-block rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                    {industry.badge}
+                  </span>
                 </div>
+                <h3 className="text-lg font-semibold text-foreground">{industry.title}</h3>
+                <ul className="mt-1 flex flex-col gap-2.5">
+                  {industry.bullets.map((bullet) => (
+                    <li key={bullet} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                        <Check className="h-2.5 w-2.5" aria-hidden="true" strokeWidth={3} />
+                      </span>
+                      <span className="leading-relaxed">{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
               </article>
             )
           })}
         </div>
+
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          Ngành hàng của bạn chưa có ở đây?{" "}
+          <a href="#final-cta" className="font-semibold text-primary underline-offset-4 hover:underline">
+            Liên hệ để chúng tôi đánh giá cùng bạn
+          </a>
+          .
+        </p>
       </div>
     </section>
   )

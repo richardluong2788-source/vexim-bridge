@@ -36,16 +36,16 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            Phiên bản mới: Tự động kiểm tra FDA &amp; xác thực chuyển tiền
+            Đã có 180+ nhà sản xuất Việt Nam xuất khẩu cùng Vexim Bridge
           </div>
 
           <h1
             id="hero-title"
             className="mt-6 text-balance text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl"
           >
-            Xuất khẩu sang Mỹ,{" "}
+            Đưa hàng Việt sang Mỹ,{" "}
             <span className="relative whitespace-nowrap text-primary">
-              an tâm ngay từ đầu
+              không phải đi một mình
               <svg
                 aria-hidden="true"
                 viewBox="0 0 200 8"
@@ -65,9 +65,9 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Vexim Bridge là sàn B2B giúp nhà sản xuất Việt Nam tìm người mua Mỹ uy tín —
-            tự động kiểm tra giấy phép FDA, xác thực chuyển tiền quốc tế hai lớp, và theo
-            dõi đơn hàng minh bạch từ lúc chào giá đến khi nhận tiền.
+            Đội ngũ Vexim Bridge chủ động tìm và thẩm định người mua Mỹ uy tín cho nhà máy
+            của bạn — đồng thời cung cấp nền tảng quản lý từ chào giá, kiểm tra FDA, đến
+            khi USD về tài khoản. Bạn chỉ tập trung sản xuất, phần còn lại chúng tôi lo.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -82,12 +82,12 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <>
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/auth/login">
-                    Đăng ký miễn phí
+                    Đăng ký nhà máy miễn phí
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                  <a href="#how-it-works">Xem quy trình 3 bước</a>
+                  <a href="#how-it-works">Xem Vexim hoạt động thế nào</a>
                 </Button>
               </>
             )}
@@ -97,21 +97,21 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                Đạt chuẩn FDA
+                Không có đơn, không mất phí
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">100%</dd>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">0đ</dd>
               <p className="text-xs text-muted-foreground">
-                Chỉ nhà máy có giấy phép hợp lệ mới được nhận đơn hàng
+                Chúng tôi chỉ thu hoa hồng khi bạn đã nhận được tiền USD
               </p>
             </div>
             <div>
               <dt className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <BadgeCheck className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                Chuyển tiền an toàn
+                Đơn hàng đầu tiên sau
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">2 lớp</dd>
+              <dd className="mt-1 text-2xl font-semibold tracking-tight text-foreground">45 ngày</dd>
               <p className="text-xs text-muted-foreground">
-                Xác thực thanh toán độc lập đảm bảo an toàn tuyệt đối
+                Thời gian trung bình từ khi đăng ký đến khi ký hợp đồng đầu tiên
               </p>
             </div>
           </dl>

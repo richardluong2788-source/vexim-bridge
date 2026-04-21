@@ -16,7 +16,7 @@ export const LANDING_FAQS = [
   },
   {
     q: "FDA registration có bắt buộc không?",
-    a: "Có. Chúng tôi không giao lead cho tài khoản chưa verify FDA — đây là rule nền tảng (R-02). Nếu bạn chưa có số đăng ký, đội ngũ có thể hướng dẫn bạn hoàn tất trong 4–8 tuần.",
+    a: "Có. Chúng tôi không giao lead cho tài khoản chưa verify FDA — đây là rule nền tảng (R-02). Nếu bạn chưa có số đăng ký, đội ngũ có thể hướng dẫn bạn hoàn tất trong 24-48h và 5-7 ngày nếu bạn chưa có mã DUNS.",
   },
   {
     q: "Danh tính người mua Mỹ được bảo vệ như thế nào?",

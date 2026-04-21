@@ -2,7 +2,7 @@ const STATS = [
   { label: "Nhà sản xuất VN đang sử dụng", value: "180+" },
   { label: "Người mua Mỹ đã thẩm định", value: "420+" },
   { label: "Kim ngạch đã thanh toán", value: "$12.4M" },
-  { label: "Đạt FDA sau 30 ngày", value: "94%" },
+  { label: "Đạt chuẩn FDA sau 30 ngày", value: "94%" },
 ]
 
 export function LandingTrustBar() {

@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BrandMark } from "@/components/landing/brand-mark"
+import { ConsultationBookingDialog } from "@/components/landing/consultation-booking-dialog"
 
 interface LandingHeaderProps {
   isAuthed: boolean
@@ -53,12 +54,14 @@ export function LandingHeader({ isAuthed, dashboardHref }: LandingHeaderProps) {
               <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
                 <Link href="/auth/login">Đăng nhập</Link>
               </Button>
-              <Button asChild size="sm" className="gap-1.5">
-                <Link href="/auth/login">
-                  Bắt đầu ngay
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
+              <ConsultationBookingDialog
+                trigger={
+                  <Button size="sm" className="gap-1.5">
+                    Đặt lịch tư vấn
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                }
+              />
             </>
           )}
         </div>

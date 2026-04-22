@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
+import { siteConfig } from "@/lib/site-config"
 
 export interface CreateClientInput {
   email: string
@@ -111,7 +112,12 @@ export async function createClientAccount(
         full_name: fullName,
         company_name: company,
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/auth/callback`,
+      // Use siteConfig.url so we fall back to VERCEL_URL in preview deploys
+      // when NEXT_PUBLIC_SITE_URL is not explicitly set. Must match an entry
+      // in Supabase Dashboard → Authentication → URL Configuration →
+      // Redirect URLs, otherwise Supabase silently drops it and uses the
+      // "Site URL" value instead (which is what causes localhost:3000 links).
+      redirectTo: `${siteConfig.url}/auth/callback`,
     })
 
   if (inviteErr || !inviteData?.user) {

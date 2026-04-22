@@ -165,7 +165,7 @@ export default async function ShareTokenPage({ params }: PageProps) {
     : null
 
   return (
-    <div className="min-h-screen bg-muted/20 flex flex-col">
+    <div className="min-h-screen bg-muted/20 flex flex-col overflow-x-hidden">
       {/* Header */}
       <header className="bg-background border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
@@ -283,7 +283,9 @@ function DocSection({
   return (
     <section
       id={`doc-${doc.id}`}
-      className="flex flex-col gap-4 scroll-mt-24"
+      // `min-w-0` is critical: without it, a wide intrinsic image or
+      // PDF iframe would stretch this flex child past the viewport.
+      className="flex flex-col gap-4 scroll-mt-24 min-w-0"
     >
       {showHeader && (
         <div className="flex items-start gap-3 border-b border-border pb-3">
@@ -340,23 +342,38 @@ function DocViewer({
   mime: string | null
   title: string
 }) {
+  // Wrapper rules:
+  //   - `w-full min-w-0`: allow the element to shrink inside a flex
+  //     column. Without `min-w-0`, flex children default to
+  //     min-width:auto which lets large intrinsic media (a high-res
+  //     certificate scan) push the column wider than the viewport —
+  //     that's what caused the horizontal overflow on mobile.
+  //   - `overflow-hidden rounded-lg border`: keeps rounded corners and
+  //     clips any stray oversized content inside the frame.
+  const frame =
+    "w-full min-w-0 overflow-hidden rounded-lg border border-border"
+
   if (mime?.startsWith("video/")) {
     return (
-      <video
-        src={url}
-        controls
-        playsInline
-        className="w-full rounded-lg border border-border bg-black aspect-video"
-      />
+      <div className={`${frame} bg-black`}>
+        <video
+          src={url}
+          controls
+          playsInline
+          className="block w-full h-auto aspect-video"
+        />
+      </div>
     )
   }
   if (mime?.startsWith("image/")) {
     return (
-      <img
-        src={url || "/placeholder.svg"}
-        alt={title}
-        className="w-full rounded-lg border border-border"
-      />
+      <div className={frame}>
+        <img
+          src={url || "/placeholder.svg"}
+          alt={title}
+          className="block w-full max-w-full h-auto"
+        />
+      </div>
     )
   }
   if (mime === "application/pdf") {
@@ -364,12 +381,12 @@ function DocViewer({
       <iframe
         src={url}
         title={title}
-        className="w-full h-[70vh] rounded-lg border border-border bg-background"
+        className={`${frame} h-[70vh] bg-background`}
       />
     )
   }
   return (
-    <div className="rounded-lg border border-border bg-background p-8 text-center">
+    <div className={`${frame} bg-background p-8 text-center`}>
       <p className="text-sm text-muted-foreground">{title}</p>
     </div>
   )

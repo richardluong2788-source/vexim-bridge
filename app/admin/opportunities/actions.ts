@@ -62,7 +62,7 @@ export async function updateOpportunityDetails(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  if (!callerProfile || !["admin", "staff"].includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }
 
@@ -331,7 +331,7 @@ export async function updateOpportunityStage(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  if (!callerProfile || !["admin", "staff"].includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }
 
@@ -495,7 +495,7 @@ export async function notifyLeadAssigned(
     .select("role")
     .eq("id", user.id)
     .single()
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  if (!callerProfile || !["admin", "staff"].includes(callerProfile.role)) {
     return { ok: false }
   }
 
@@ -601,7 +601,7 @@ export async function suggestClientAction(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  if (!callerProfile || !["admin", "staff"].includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }
 

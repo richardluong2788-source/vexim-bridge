@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getDictionary } from "@/lib/i18n/server"
 import { ShieldAlert, Clock, Building2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { privateFileHref } from "@/lib/blob/file-url"
 
 export const dynamic = "force-dynamic"
 
@@ -131,11 +132,23 @@ export default async function ShareTokenPage({ params }: PageProps) {
             )}
           </div>
 
-          <DocViewer url={doc.url} mime={doc.mime_type} title={doc.title ?? doc.kind} />
+          {/* Stream the file through the authenticated proxy — the
+              share token authorizes the viewer server-side. The raw
+              `doc.url` (pathname) is never exposed to the browser. */}
+          <DocViewer
+            url={privateFileHref(doc.url, { token }) ?? "#"}
+            mime={doc.mime_type}
+            title={doc.title ?? doc.kind}
+          />
 
           <div className="flex items-center justify-end">
             <Button asChild variant="outline">
-              <a href={doc.url} download target="_blank" rel="noopener noreferrer">
+              <a
+                href={privateFileHref(doc.url, { token }) ?? "#"}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Download className="h-4 w-4" />
                 {s.download}
               </a>

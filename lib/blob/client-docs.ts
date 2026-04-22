@@ -8,9 +8,12 @@
  * Storage layout:
  *   clients/{ownerId}/{kind}/{timestamp}-{safeName}
  *
- * Uploads are written as `access: "public"` so the `url` field works
- * directly from a browser. Sharing is controlled by the tokenized link
- * layer (`/share/[token]`), not by blob ACLs.
+ * The Blob store is configured as `private`, so the `url` returned by
+ * `put()` is NOT publicly reachable. We store the **pathname** in
+ * `compliance_docs.url` and serve files through the authenticated
+ * proxy at `/api/files?path=...` (see `lib/blob/file-url.ts`).
+ * Tokenized sharing (`/share/[token]`) validates the token in the
+ * proxy and streams the file without requiring the viewer to log in.
  */
 import { put, del } from "@vercel/blob"
 
@@ -63,26 +66,34 @@ export async function uploadComplianceDoc(args: {
   ownerId: string
   kind: ComplianceDocKind
   file: File
-}): Promise<{ url: string; pathname: string }> {
+}): Promise<{ pathname: string }> {
   const { ownerId, kind, file } = args
   const pathname = `clients/${ownerId}/${kind}/${Date.now()}-${safeFilename(
     file.name,
   )}`
 
   const blob = await put(pathname, file, {
-    access: "public",
+    access: "private",
     addRandomSuffix: false,
     allowOverwrite: false,
     contentType: file.type,
   })
 
-  return { url: blob.url, pathname }
+  // `blob.url` from a private store is NOT publicly accessible — we
+  // persist the pathname and serve it through `/api/files`.
+  return { pathname: blob.pathname }
 }
 
-/** Best-effort delete — swallows errors so orphaned rows never block UI. */
-export async function deleteComplianceDocByUrl(url: string): Promise<void> {
+/**
+ * Best-effort delete — swallows errors so orphaned rows never block UI.
+ * Accepts either the pathname (preferred, new rows) or a legacy absolute
+ * URL (rows inserted before the private migration). `del()` handles both.
+ */
+export async function deleteComplianceDocByUrl(
+  pathOrUrl: string,
+): Promise<void> {
   try {
-    await del(url)
+    await del(pathOrUrl)
   } catch (err) {
     console.error("[v0] deleteComplianceDocByUrl failed", err)
   }

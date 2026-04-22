@@ -73,11 +73,16 @@ export async function uploadDealDoc(
 
   try {
     const blob = await put(path, file, {
-      access: "public", // Vercel Blob public URLs are unguessable (contain a random suffix);
+      // The Blob store is configured as `private`; `blob.url` is NOT
+      // publicly reachable. We persist the pathname and serve it
+      // through `/api/files?path=...` after auth checks.
+      access: "private",
       addRandomSuffix: true,
       contentType: file.type,
     })
-    return { ok: true, url: blob.url }
+    // Persist pathname (not url) in *_doc_url columns so the proxy
+    // route can resolve it with `get()`.
+    return { ok: true, url: blob.pathname }
   } catch (err) {
     console.error("[v0] uploadDealDoc failed", err)
     return { ok: false, error: "uploadFailed" }

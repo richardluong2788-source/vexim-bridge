@@ -162,7 +162,7 @@ export const vi: Dictionary = {
         targetCloseDate: "Ngày chốt dự kiến",
         notes: "Ghi chú nội bộ",
         notesPlaceholder: "Ghi chú chỉ admin/staff thấy (không hiển thị cho client).",
-        notesHelp: "Chỉ đội ngũ nội bộ xem được.",
+        notesHelp: "Chỉ đội ngũ nội bộ xem đư���c.",
         save: "Lưu thay đổi",
         saving: "Đang lưu...",
         cancel: "Đóng",
@@ -237,7 +237,7 @@ export const vi: Dictionary = {
         expiresAt: "Ngày hết hạn",
         docTitle: "Tên hiển thị",
         docTitlePlaceholder: "VD: FDA 2026 Renewal",
-        file: "Tệp",
+        file: "T���p",
         fileHint: "Chấp nhận PDF, PNG, JPEG, WebP, MP4, MOV, WebM. Tối đa 100MB.",
         uploading: "Đang tải lên...",
         upload2: "Tải lên",
@@ -339,7 +339,7 @@ export const vi: Dictionary = {
       confirmPromote: "Đổi vai trò cho {name}?",
       confirmPromoteDesc:
         "Thao tác này sẽ cấp cho họ quyền truy cập cổng {role}. Bạn có thể hoàn tác bất cứ lúc nào.",
-      updated: "Đã cập nhật vai trò",
+      updated: "Đã cập nh�����t vai trò",
       updateFailed: "Cập nhật vai trò thất bại",
       cannotChangeSelf: "Bạn không thể tự đổi vai trò của chính mình",
       superAdminOnly: "Chỉ Super Admin mới có quyền thực hiện thay đổi này.",
@@ -495,7 +495,7 @@ export const vi: Dictionary = {
       recentLeadsDesc: "Các cơ hội người mua mới nhất của bạn",
       viewAll: "Xem tất cả lead",
       empty: "Chưa có lead nào được giao",
-      emptyDesc: "Cơ hội từ người mua Mỹ sẽ xuất hiện ở đây khi đội ngũ của chúng tôi giao cho bạn.",
+      emptyDesc: "C�� hội từ người mua Mỹ sẽ xuất hiện ở đây khi đội ngũ của chúng tôi giao cho bạn.",
       updated: "Cập nhật",
       complianceWarningTitle: "Yêu cầu hành động: Thiếu số đăng ký FDA",
       complianceWarningDesc:
@@ -534,7 +534,7 @@ export const vi: Dictionary = {
       lostHint: "Cơ hội này không thành công. Đội ngũ sẽ tiếp tục tìm kiếm lead mới cho bạn.",
       nextStepTitle: "Chúng tôi đang làm gì tiếp theo",
       nextStepFallback:
-        "Đội ngũ đang chủ động xử lý lead này. Bạn sẽ được thông báo khi có cập nhật.",
+        "Đội ngũ đang chủ ��ộng xử lý lead này. B���n sẽ được thông báo khi có cập nhật.",
       actionRequiredTitle: "Việc bạn cần làm",
       dealDetailsTitle: "Chi tiết thương vụ",
       productLabel: "Sản phẩm",
@@ -664,7 +664,7 @@ export const vi: Dictionary = {
   },
   nav_extra: {
     settings: "Cài đặt",
-    notifications: "Thông báo",
+    notifications: "Th��ng báo",
   },
   share: {
     sharedBy: "Chia sẻ bởi",

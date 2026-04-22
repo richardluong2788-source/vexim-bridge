@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { privateFileHref } from "@/lib/blob/file-url"
 import {
   getOpportunityComplianceState,
   uploadDealDocumentAction,
@@ -412,7 +413,7 @@ function DocRow({
       <div className="flex items-center gap-2 shrink-0">
         {url && (
           <a
-            href={url}
+            href={privateFileHref(url) ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"

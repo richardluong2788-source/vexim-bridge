@@ -66,7 +66,7 @@ export async function uploadClientDocAction(
     return { ok: false, error: "missingToken" }
   }
 
-  let uploaded: { url: string; pathname: string }
+  let uploaded: { pathname: string }
   try {
     uploaded = await uploadComplianceDoc({ ownerId, kind, file })
   } catch (err) {
@@ -80,7 +80,10 @@ export async function uploadClientDocAction(
       owner_id: ownerId,
       kind,
       title,
-      url: uploaded.url,
+      // `compliance_docs.url` now holds the blob *pathname*, not a
+      // public URL — the store is private and files are served via
+      // `/api/files?path=<pathname>`.
+      url: uploaded.pathname,
       mime_type: file.type,
       size_bytes: file.size,
       expires_at: expiresAt,
@@ -92,7 +95,7 @@ export async function uploadClientDocAction(
 
   if (error || !data) {
     // Roll back the blob so we don't leak orphans.
-    await deleteComplianceDocByUrl(uploaded.url)
+    await deleteComplianceDocByUrl(uploaded.pathname)
     console.error("[v0] compliance_docs insert failed", error)
     return { ok: false, error: "dbInsertFailed" }
   }
@@ -100,7 +103,7 @@ export async function uploadClientDocAction(
   // The expiry date lives on the compliance_docs row itself; kanban checks
   // read it from there. No profile update needed.
   revalidatePath(`/admin/clients/${ownerId}`)
-  return { ok: true, data: { url: uploaded.url, id: data.id } }
+  return { ok: true, data: { url: uploaded.pathname, id: data.id } }
 }
 
 export async function deleteClientDocAction(

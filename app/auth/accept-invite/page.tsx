@@ -47,11 +47,56 @@ export default function AcceptInvitePage() {
     const supabase = createClient()
     let cancelled = false
 
-    // Kick off a getSession() call — by the time the Supabase client is
-    // created on the client, it will have already parsed the hash and
-    // written the session to storage. getSession() returns whatever is
-    // currently in storage.
-    supabase.auth.getSession().then(({ data }) => {
+    async function bootstrap() {
+      // `@supabase/ssr`'s `createBrowserClient` forces `flowType: "pkce"`,
+      // so it only auto-detects `?code=` query params, not the
+      // `#access_token=...&refresh_token=...` hash fragment that
+      // `admin.inviteUserByEmail` returns. We parse the hash manually
+      // and hand the tokens to `setSession` so the cookie-backed
+      // storage in the SSR client gets populated correctly.
+      if (typeof window !== "undefined" && window.location.hash) {
+        const hash = window.location.hash.startsWith("#")
+          ? window.location.hash.slice(1)
+          : window.location.hash
+        const params = new URLSearchParams(hash)
+
+        const hashError = params.get("error_description") || params.get("error")
+        if (hashError) {
+          if (!cancelled) setSessionReady(false)
+          return
+        }
+
+        const accessToken = params.get("access_token")
+        const refreshToken = params.get("refresh_token")
+
+        if (accessToken && refreshToken) {
+          const { data, error: setErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          // Clean the tokens out of the URL so a refresh doesn't reuse them
+          // and so they don't leak into the browser history / referrer.
+          window.history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search,
+          )
+
+          if (!cancelled) {
+            if (setErr || !data.session) {
+              setSessionReady(false)
+            } else {
+              setSessionReady(true)
+              setEmail(data.session.user.email ?? null)
+            }
+          }
+          return
+        }
+      }
+
+      // No hash tokens — fall back to whatever is already in storage
+      // (useful if the user refreshes the page after we cleared the hash).
+      const { data } = await supabase.auth.getSession()
       if (cancelled) return
       if (data.session) {
         setSessionReady(true)
@@ -59,23 +104,12 @@ export default function AcceptInvitePage() {
       } else {
         setSessionReady(false)
       }
-    })
+    }
 
-    // Also listen for the auth state change event in case the hash
-    // parsing hasn't finished by the time the effect ran.
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (cancelled) return
-        if (session) {
-          setSessionReady(true)
-          setEmail(session.user.email ?? null)
-        }
-      },
-    )
+    void bootstrap()
 
     return () => {
       cancelled = true
-      subscription.subscription.unsubscribe()
     }
   }, [])
 

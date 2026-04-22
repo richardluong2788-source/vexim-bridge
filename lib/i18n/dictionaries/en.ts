@@ -55,7 +55,7 @@ export const en = {
       loading: "Signing in...",
       errorTitle: "Authentication failed",
       demoTitle: "Demo",
-      demoHint: "Create an account via Supabase Auth with role metadata (admin or client) to get started.",
+      demoHint: "Contact the administrator to grant a login account.",
     },
     error: {
       title: "Authentication error",

@@ -57,7 +57,7 @@ export const vi: Dictionary = {
       loading: "Đang đăng nhập...",
       errorTitle: "Đăng nhập thất bại",
       demoTitle: "Demo",
-      demoHint: "Tạo tài khoản qua Supabase Auth với metadata role (admin hoặc client) để bắt đầu.",
+      demoHint: "Liên hệ admin để cấp tài khoản đăng nhập",
     },
     error: {
       title: "Lỗi xác thực",

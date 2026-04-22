@@ -18,7 +18,7 @@
  * This route is explicitly NOT protected by the admin middleware layer.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getDictionary } from "@/lib/i18n/server"
+import { getDictionarySync } from "@/lib/i18n/dictionaries"
 import {
   ShieldAlert,
   Clock,
@@ -75,7 +75,12 @@ type PublicDoc = {
 
 export default async function ShareTokenPage({ params }: PageProps) {
   const { token } = await params
-  const { t, locale } = await getDictionary()
+  // Buyers are predominantly US-based, and this public route is never viewed
+  // by internal Vietnamese staff in production. We intentionally ignore the
+  // visitor's locale cookie here so an admin who happens to have `vi` set
+  // from the portal doesn't see a Vietnamese share page when previewing a
+  // buyer link. The rest of the Admin UI stays localized as before.
+  const t = getDictionarySync("en")
   const s = t.share
 
   // Admin client: we intentionally bypass RLS because the token IS the
@@ -150,10 +155,11 @@ export default async function ShareTokenPage({ params }: PageProps) {
     (link.profiles as { full_name?: string | null } | null)?.full_name ??
     "Vexim Bridge"
 
-  const expiresLabel = new Date(link.expires_at).toLocaleDateString(
-    locale === "vi" ? "vi-VN" : "en-US",
-    { year: "numeric", month: "long", day: "numeric" },
-  )
+  const expiresLabel = new Date(link.expires_at).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
 
   const isBundle = docs.length > 1
   const pageTitle = isBundle

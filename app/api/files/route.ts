@@ -43,11 +43,16 @@ const STAFF_ROLES = new Set([
   "account_executive",
 ])
 
-// Mirrors the whitelist in app/share/[token]/page.tsx.
+// Mirrors the whitelist in app/share/[token]/page.tsx. The Vexim
+// team redacts sensitive fields before upload, so every doc kind
+// may be served via a valid tokenized share link.
 const PUBLICLY_SHAREABLE_KINDS = new Set([
+  "fda_certificate",
+  "coa",
+  "price_floor",
   "factory_video",
   "factory_photo",
-  "price_floor",
+  "other",
 ])
 
 export async function GET(request: NextRequest) {

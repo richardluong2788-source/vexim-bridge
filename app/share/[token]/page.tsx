@@ -41,12 +41,16 @@ interface PageProps {
   params: Promise<{ token: string }>
 }
 
-// Docs surfaceable over a public link. Everything else (FDA cert, COA)
-// MUST stay gated behind auth.
+// Docs surfaceable over a public link. The Vexim team redacts
+// sensitive fields (legal name, FDA reg, factory address) before
+// upload, so every supported kind is allowed on the public viewer.
 const PUBLICLY_SHAREABLE = new Set<string>([
+  "fda_certificate",
+  "coa",
+  "price_floor",
   "factory_video",
   "factory_photo",
-  "price_floor",
+  "other",
 ])
 
 const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {

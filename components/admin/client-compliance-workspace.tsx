@@ -109,7 +109,18 @@ const KIND_ICON: Record<ComplianceDocKind, React.ComponentType<{ className?: str
 }
 
 // Which kinds are eligible for public sharing via tokenized link.
-const SHAREABLE_KINDS: ComplianceDocKind[] = ["factory_video", "price_floor", "factory_photo"]
+// The Vexim team redacts sensitive fields before upload, so every
+// supported kind can be shared. Must stay in sync with the backend
+// whitelists (`TOKEN_SHAREABLE_KINDS` in compliance-actions.ts and
+// `PUBLICLY_SHAREABLE_KINDS` in app/api/files/route.ts).
+const SHAREABLE_KINDS: ComplianceDocKind[] = [
+  "fda_certificate",
+  "coa",
+  "price_floor",
+  "factory_video",
+  "factory_photo",
+  "other",
+]
 
 export function ClientComplianceWorkspace({
   clientId,

@@ -27,13 +27,19 @@ import {
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
 import { siteConfig } from "@/lib/site-config"
 
-// Which doc kinds are safe to share with external buyers. Must stay in
-// sync with `TOKEN_SHAREABLE_KINDS` in app/api/files/route.ts and
-// `SHAREABLE_KINDS` in the workspace UI.
+// Which doc kinds are safe to share with external buyers via a public
+// tokenized link. The Vexim team handles redaction of sensitive fields
+// (legal name, FDA reg number, factory address) at the upload step —
+// this whitelist is intentionally permissive. Keep in sync with
+// `PUBLICLY_SHAREABLE_KINDS` (app/api/files/route.ts) and
+// `SHAREABLE_KINDS` (workspace UI).
 const TOKEN_SHAREABLE_KINDS: ComplianceDocKind[] = [
+  "fda_certificate",
+  "coa",
+  "price_floor",
   "factory_video",
   "factory_photo",
-  "price_floor",
+  "other",
 ]
 
 const KIND_LABELS_VI: Record<ComplianceDocKind, string> = {

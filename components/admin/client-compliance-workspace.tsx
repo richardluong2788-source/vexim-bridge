@@ -221,7 +221,7 @@ export function ClientComplianceWorkspace({
             </Empty>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
             {DOC_KINDS.map((kind) => {
               const bucket = docs.filter((d) => d.kind === kind)
               if (bucket.length === 0) return null
@@ -948,70 +948,84 @@ function ShareLinkRow({
   }
 
   const isBundle = !!docCount && docCount > 1
+  const IconCmp = isBundle ? Layers : Link2
 
+  // Layout rationale:
+  //   The previous single-row flex tried to jam URL + meta + 3 icon
+  //   buttons into the same line. Inside a narrow column card that
+  //   caused URL wrap, cramped icons, and the "Hết hạn…" label
+  //   breaking into 5 vertical lines. We now stack in 2 rows:
+  //     Row 1 — icon + URL (truncated) + copy/email/revoke actions
+  //     Row 2 — meta chips (expiry + view count), wraps cleanly
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted/40 border border-border p-2 text-xs">
-      {isBundle ? (
-        <Layers
+    <div className="rounded-md bg-muted/40 border border-border p-2 text-xs">
+      <div className="flex items-center gap-2 min-w-0">
+        <IconCmp
           className={cn(
             "h-3.5 w-3.5 shrink-0",
             isExpired ? "text-destructive" : "text-primary",
           )}
         />
-      ) : (
-        <Link2
-          className={cn(
-            "h-3.5 w-3.5 shrink-0",
-            isExpired ? "text-destructive" : "text-primary",
-          )}
-        />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="font-mono truncate text-foreground">{publicUrl}</p>
-          {isBundle && (
-            <Badge variant="secondary" className="font-normal">
-              {s.bundleDocCount.replace("{count}", String(docCount))}
-            </Badge>
-          )}
-        </div>
-        <p className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          <Clock className="h-3 w-3" />
-          {isExpired ? s.expiredOn : s.expiresOn}: {expiresLabel}
-          {link.view_count > 0 && (
-            <span className="flex items-center gap-1 ml-1">
-              <Eye className="h-3 w-3" />
-              {link.view_count}
-            </span>
-          )}
+        <p className="flex-1 min-w-0 font-mono truncate text-foreground">
+          {publicUrl}
         </p>
-        {docLabels && docLabels.length > 0 && (
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-            {docLabels.join(" · ")}
-          </p>
+        <div className="flex items-center shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={handleCopy}
+            aria-label={s.copyLink}
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          {/* Resend-email only applies to single-doc tokens today. */}
+          {!isBundle && !isExpired && !link.revoked_at && (
+            <ResendEmailDialog token={link.token} />
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={handleRevoke}
+            disabled={pending}
+            title={s.confirmRevoke}
+          >
+            <ShieldBan className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Meta row: wraps so chips never overlap in narrow columns. */}
+      <div className="mt-1.5 pl-[22px] flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          <span className={cn(isExpired && "text-destructive font-medium")}>
+            {isExpired ? s.expiredOn : s.expiresOn}: {expiresLabel}
+          </span>
+        </span>
+        {link.view_count > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            {link.view_count}
+          </span>
+        )}
+        {isBundle && (
+          <Badge variant="secondary" className="font-normal h-4 px-1.5">
+            {s.bundleDocCount.replace("{count}", String(docCount))}
+          </Badge>
         )}
       </div>
-      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopy}>
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      </Button>
-      {/*
-       * Resend-email flow currently only supports single-doc links
-       * (see `resendShareLinkEmailAction`). For bundle tokens, admins
-       * can copy the URL and send manually for now.
-       */}
-      {!isBundle && !isExpired && !link.revoked_at && (
-        <ResendEmailDialog token={link.token} />
+
+      {docLabels && docLabels.length > 0 && (
+        <p className="mt-1 pl-[22px] text-[11px] text-muted-foreground truncate">
+          {docLabels.join(" · ")}
+        </p>
       )}
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2 text-destructive hover:text-destructive"
-        onClick={handleRevoke}
-        disabled={pending}
-        title={s.confirmRevoke}
-      >
-        <ShieldBan className="h-3 w-3" />
-      </Button>
     </div>
   )
 }

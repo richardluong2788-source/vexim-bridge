@@ -112,12 +112,19 @@ export async function createClientAccount(
         full_name: fullName,
         company_name: company,
       },
-      // Use siteConfig.url so we fall back to VERCEL_URL in preview deploys
-      // when NEXT_PUBLIC_SITE_URL is not explicitly set. Must match an entry
-      // in Supabase Dashboard → Authentication → URL Configuration →
-      // Redirect URLs, otherwise Supabase silently drops it and uses the
-      // "Site URL" value instead (which is what causes localhost:3000 links).
-      redirectTo: `${siteConfig.url}/auth/callback`,
+      // IMPORTANT: point at the client-side /auth/accept-invite page,
+      // NOT the server route /auth/callback.
+      //
+      // `admin.inviteUserByEmail` does not use PKCE, so Supabase returns
+      // the session tokens in the URL hash fragment (`#access_token=...`).
+      // Hash fragments are not sent to the server, so a Route Handler
+      // cannot read them — they must be parsed client-side by the
+      // Supabase browser client (which auto-detects `detectSessionInUrl`).
+      //
+      // This URL must also match an entry in Supabase Dashboard →
+      // Authentication → URL Configuration → Redirect URLs, otherwise
+      // Supabase silently falls back to "Site URL".
+      redirectTo: `${siteConfig.url}/auth/accept-invite`,
     })
 
   if (inviteErr || !inviteData?.user) {

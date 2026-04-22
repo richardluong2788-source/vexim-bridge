@@ -58,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { ComplianceDoc, ComplianceDocKind, TokenizedShareLink } from "@/lib/supabase/types"
+import { privateFileHref } from "@/lib/blob/file-url"
 import {
   uploadClientDocAction,
   deleteClientDocAction,
@@ -418,7 +419,12 @@ function DocCard({
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <Button asChild size="icon" variant="ghost" className="h-8 w-8">
-              <a href={doc.url} target="_blank" rel="noopener noreferrer" aria-label={s.view}>
+              <a
+                href={privateFileHref(doc.url) ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.view}
+              >
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </Button>
@@ -470,7 +476,7 @@ function DocCard({
   )
 }
 
-// ─────────────────────────────────────────────���──────────────────────────────
+// ─────────────────────────────────────────────�����──────────────────────────────
 // Tokenized share link row + dialog
 // ────────────────────────────────────────────────────────────────────────────
 

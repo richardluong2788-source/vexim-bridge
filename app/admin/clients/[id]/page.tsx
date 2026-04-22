@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
+import { ResendInviteButton } from "@/components/admin/resend-invite-button"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 
 interface PageProps {
@@ -151,6 +152,14 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
                   fda_registered_at: client.fda_registered_at,
                   fda_expires_at: client.fda_expires_at,
                 }}
+              />
+            </div>
+
+            {/* Account activation — resend invite / magic login link */}
+            <div className="pt-3 mt-1 border-t border-border">
+              <ResendInviteButton
+                clientId={client.id}
+                clientEmail={client.email}
               />
             </div>
           </div>

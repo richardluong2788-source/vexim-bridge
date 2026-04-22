@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, ShieldCheck, BadgeCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ConsultationBookingDialog } from "@/components/landing/consultation-booking-dialog"
 
 interface LandingHeroProps {
   isAuthed: boolean
@@ -81,12 +82,14 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               </Button>
             ) : (
               <>
-                <Button asChild size="lg" className="gap-2">
-                  <Link href="/auth/login">
-                    Đặt lịch tư vấn 1:1
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
+                <ConsultationBookingDialog
+                  trigger={
+                    <Button size="lg" className="gap-2">
+                      Đặt lịch tư vấn 1:1
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  }
+                />
                 <Button asChild size="lg" variant="outline">
                   <a href="#how-it-works">Xem Vexim hoạt động thế nào</a>
                 </Button>

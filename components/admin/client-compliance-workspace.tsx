@@ -33,7 +33,10 @@ import {
   ExternalLink,
   Clock,
   Eye,
+  Mail,
+  Send,
 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -64,6 +67,7 @@ import {
   deleteClientDocAction,
   createShareLinkAction,
   revokeShareLinkAction,
+  resendShareLinkEmailAction,
 } from "@/app/admin/clients/compliance-actions"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { cn } from "@/lib/utils"
@@ -557,12 +561,15 @@ function ShareLinkRow({
       >
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
       </Button>
+      {/* Only expose "Resend email" while the link is still usable. */}
+      {!isExpired && !link.revoked_at && <ResendEmailDialog token={link.token} />}
       <Button
         size="sm"
         variant="ghost"
         className="h-7 px-2 text-destructive hover:text-destructive"
         onClick={handleRevoke}
         disabled={pending}
+        title={s.confirmRevoke}
       >
         <ShieldBan className="h-3 w-3" />
       </Button>
@@ -584,7 +591,22 @@ function CreateLinkDialog({
   const [open, setOpen] = useState(false)
   const [ttl, setTtl] = useState("30")
   const [note, setNote] = useState("")
+  const [buyerEmail, setBuyerEmail] = useState("")
+  const [buyerName, setBuyerName] = useState("")
+  const [buyerCompany, setBuyerCompany] = useState("")
+  const [senderMessage, setSenderMessage] = useState("")
   const [pending, startTransition] = useTransition()
+
+  const hasEmail = buyerEmail.trim().length > 0
+
+  function resetForm() {
+    setTtl("30")
+    setNote("")
+    setBuyerEmail("")
+    setBuyerName("")
+    setBuyerCompany("")
+    setSenderMessage("")
+  }
 
   function handleCreate() {
     startTransition(async () => {
@@ -592,13 +614,31 @@ function CreateLinkDialog({
         docId,
         ttlDays: Number(ttl) || 30,
         note: note.trim() || null,
+        buyerEmail: buyerEmail.trim() || null,
+        buyerName: buyerName.trim() || null,
+        buyerCompany: buyerCompany.trim() || null,
+        senderMessage: senderMessage.trim() || null,
       })
       if (!res.ok) {
         toast.error(s.errorGeneric)
         return
       }
-      toast.success(s.linkCreated)
-      // Optimistic link
+
+      // Surface partial success if the link was made but the email
+      // could not be delivered.
+      if (hasEmail) {
+        if (res.data!.emailSent) {
+          toast.success(s.linkCreatedEmailSent)
+        } else if (res.data!.emailError === "invalidEmail") {
+          toast.warning(s.invalidEmail)
+        } else {
+          toast.warning(s.linkCreatedEmailFailed)
+        }
+      } else {
+        toast.success(s.linkCreated)
+      }
+
+      // Optimistic link so it shows up immediately without a refetch.
       const optimistic: TokenizedShareLink = {
         token: res.data!.token,
         doc_id: docId,
@@ -615,44 +655,114 @@ function CreateLinkDialog({
       }
       onCreated(optimistic)
       setOpen(false)
-      setNote("")
+      resetForm()
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) resetForm()
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="w-full">
           <Link2 className="h-3.5 w-3.5" />
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{s.createLinkTitle}</DialogTitle>
           <DialogDescription>{s.createLinkDesc}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ttl">{s.ttlDays}</Label>
-            <Input
-              id="ttl"
-              type="number"
-              min={1}
-              max={365}
-              value={ttl}
-              onChange={(e) => setTtl(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">{s.ttlHint}</p>
+        <div className="flex flex-col gap-5">
+          {/* --- Link settings ------------------------------------------------ */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ttl">{s.ttlDays}</Label>
+              <Input
+                id="ttl"
+                type="number"
+                min={1}
+                max={365}
+                value={ttl}
+                onChange={(e) => setTtl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{s.ttlHint}</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="linkNote">{s.note}</Label>
+              <Input
+                id="linkNote"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={s.notePlaceholder}
+              />
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="linkNote">{s.note}</Label>
-            <Input
-              id="linkNote"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={s.notePlaceholder}
-            />
+
+          {/* --- Buyer email (optional) -------------------------------------- */}
+          <div className="flex flex-col gap-4 rounded-md border border-border bg-muted/30 p-4">
+            <div className="flex items-start gap-2">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {s.emailSectionTitle}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {s.emailSectionHint}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="buyerEmail">{s.buyerEmail}</Label>
+                <Input
+                  id="buyerEmail"
+                  type="email"
+                  value={buyerEmail}
+                  onChange={(e) => setBuyerEmail(e.target.value)}
+                  placeholder={s.buyerEmailPlaceholder}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="buyerName">{s.buyerName}</Label>
+                  <Input
+                    id="buyerName"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    placeholder={s.buyerNamePlaceholder}
+                    disabled={!hasEmail}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="buyerCompany">{s.buyerCompany}</Label>
+                  <Input
+                    id="buyerCompany"
+                    value={buyerCompany}
+                    onChange={(e) => setBuyerCompany(e.target.value)}
+                    placeholder={s.buyerCompanyPlaceholder}
+                    disabled={!hasEmail}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="senderMessage">{s.senderMessage}</Label>
+                <Textarea
+                  id="senderMessage"
+                  value={senderMessage}
+                  onChange={(e) => setSenderMessage(e.target.value)}
+                  placeholder={s.senderMessagePlaceholder}
+                  rows={3}
+                  disabled={!hasEmail}
+                />
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -660,8 +770,137 @@ function CreateLinkDialog({
             {s.cancel}
           </Button>
           <Button onClick={handleCreate} disabled={pending}>
-            {pending ? <Spinner className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-            {s.create}
+            {pending ? (
+              <Spinner className="h-4 w-4" />
+            ) : hasEmail ? (
+              <Send className="h-4 w-4" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+            {hasEmail ? s.createAndSend : s.create}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Re-send an existing share link via Zoho SMTP. Useful when an admin
+ * needs to forward the same link to another buyer contact without
+ * rotating the token (preserves view_count analytics).
+ */
+function ResendEmailDialog({ token }: { token: string }) {
+  const { t } = useTranslation()
+  const s = t.admin.clients.compliance
+  const [open, setOpen] = useState(false)
+  const [buyerEmail, setBuyerEmail] = useState("")
+  const [buyerName, setBuyerName] = useState("")
+  const [buyerCompany, setBuyerCompany] = useState("")
+  const [senderMessage, setSenderMessage] = useState("")
+  const [pending, startTransition] = useTransition()
+
+  function handleSend() {
+    const email = buyerEmail.trim()
+    if (!email) {
+      toast.error(s.invalidEmail)
+      return
+    }
+    startTransition(async () => {
+      const res = await resendShareLinkEmailAction({
+        token,
+        buyerEmail: email,
+        buyerName: buyerName.trim() || null,
+        buyerCompany: buyerCompany.trim() || null,
+        senderMessage: senderMessage.trim() || null,
+      })
+      if (!res.ok) {
+        const map: Record<string, string> = {
+          invalidEmail: s.invalidEmail,
+          emailFailed: s.emailFailed,
+          linkRevoked: s.linkRevoked,
+          linkExpired: s.linkExpired,
+          notFound: s.errorGeneric,
+        }
+        toast.error(map[res.error] ?? s.errorGeneric)
+        return
+      }
+      toast.success(s.resendSent)
+      setOpen(false)
+      setBuyerEmail("")
+      setBuyerName("")
+      setBuyerCompany("")
+      setSenderMessage("")
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2"
+          title={s.resendEmail}
+        >
+          <Mail className="h-3 w-3" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{s.resendEmail}</DialogTitle>
+          <DialogDescription>{s.resendEmailDesc}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="resendBuyerEmail">{s.buyerEmail}</Label>
+            <Input
+              id="resendBuyerEmail"
+              type="email"
+              value={buyerEmail}
+              onChange={(e) => setBuyerEmail(e.target.value)}
+              placeholder={s.buyerEmailPlaceholder}
+              autoComplete="off"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="resendBuyerName">{s.buyerName}</Label>
+              <Input
+                id="resendBuyerName"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                placeholder={s.buyerNamePlaceholder}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="resendBuyerCompany">{s.buyerCompany}</Label>
+              <Input
+                id="resendBuyerCompany"
+                value={buyerCompany}
+                onChange={(e) => setBuyerCompany(e.target.value)}
+                placeholder={s.buyerCompanyPlaceholder}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="resendMessage">{s.senderMessage}</Label>
+            <Textarea
+              id="resendMessage"
+              value={senderMessage}
+              onChange={(e) => setSenderMessage(e.target.value)}
+              placeholder={s.senderMessagePlaceholder}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            {s.cancel}
+          </Button>
+          <Button onClick={handleSend} disabled={pending}>
+            {pending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            {s.resendEmail}
           </Button>
         </DialogFooter>
       </DialogContent>

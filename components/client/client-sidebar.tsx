@@ -8,7 +8,6 @@ import { TrendingUp, LayoutDashboard, List, LogOut, Settings } from "lucide-reac
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 
 interface ClientSidebarProps {
   profile: Profile | null
@@ -87,21 +86,15 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
             <span className="text-xs text-sidebar-foreground/50 truncate">{email}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSignOut}
-            className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground px-2"
-          >
-            <LogOut className="h-4 w-4" />
-            {t.common.signOut}
-          </Button>
-          <LanguageSwitcher
-            compact
-            className="text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          />
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSignOut}
+          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground px-2"
+        >
+          <LogOut className="h-4 w-4" />
+          {t.common.signOut}
+        </Button>
       </div>
     </aside>
   )

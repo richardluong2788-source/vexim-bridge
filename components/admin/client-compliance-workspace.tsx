@@ -7,15 +7,17 @@
  *   1. Upload the FDA registration scan, COA, price floor sheet, factory
  *      video/photos — each typed by `ComplianceDocKind`.
  *   2. Browse/delete existing documents, see file size / expiry / uploader.
- *   3. Mint a tokenized share link (default 30 days) for a factory video or
- *      price floor sheet so a buyer can view it via `/share/[token]` without
- *      a VXB account.
+ *   3. Mint tokenized share links (default 30 days) for shareable kinds:
+ *        - single-doc: one token per document (the classic flow)
+ *        - BUNDLE:    tick several docs, mint ONE token that renders
+ *                     all of them on a single /share/[token] page
+ *                     (migration 022 + `createBundleShareLinkAction`).
  *
  * Purely client-side — all writes go through server actions in
  * `app/admin/clients/compliance-actions.ts`.
  */
 
-import { useRef, useState, useTransition } from "react"
+import { useMemo, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 import {
   FileBadge2,
@@ -35,11 +37,14 @@ import {
   Eye,
   Mail,
   Send,
+  Layers,
+  X as XIcon,
 } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
@@ -60,12 +65,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { ComplianceDoc, ComplianceDocKind, TokenizedShareLink } from "@/lib/supabase/types"
+import type {
+  ComplianceDoc,
+  ComplianceDocKind,
+  TokenizedShareLinkWithDocs,
+} from "@/lib/supabase/types"
 import { privateFileHref } from "@/lib/blob/file-url"
 import {
   uploadClientDocAction,
   deleteClientDocAction,
   createShareLinkAction,
+  createBundleShareLinkAction,
   revokeShareLinkAction,
   resendShareLinkEmailAction,
 } from "@/app/admin/clients/compliance-actions"
@@ -76,7 +86,7 @@ interface Props {
   clientId: string
   clientName: string
   initialDocs: ComplianceDoc[]
-  initialLinks: TokenizedShareLink[]
+  initialLinks: TokenizedShareLinkWithDocs[]
 }
 
 // Ordered so the most critical docs (FDA, COA) sit at the top of the list.
@@ -111,16 +121,35 @@ export function ClientComplianceWorkspace({
   const s = t.admin.clients.compliance
 
   const [docs, setDocs] = useState<ComplianceDoc[]>(initialDocs)
-  const [links, setLinks] = useState<TokenizedShareLink[]>(initialLinks)
+  const [links, setLinks] = useState<TokenizedShareLinkWithDocs[]>(initialLinks)
+
+  // Selection state for batch bundle-link creation. Keyed by doc id.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   function handleUploaded(doc: ComplianceDoc) {
     setDocs((prev) => [doc, ...prev])
   }
   function handleDeleted(docId: string) {
     setDocs((prev) => prev.filter((d) => d.id !== docId))
-    setLinks((prev) => prev.filter((l) => l.doc_id !== docId))
+    // Drop from selection.
+    setSelected((prev) => {
+      if (!prev.has(docId)) return prev
+      const next = new Set(prev)
+      next.delete(docId)
+      return next
+    })
+    // Remove single-doc links; strip from bundle doc_ids lists.
+    setLinks((prev) =>
+      prev
+        .filter((l) => l.doc_id !== docId)
+        .map((l) =>
+          l.doc_ids.includes(docId)
+            ? { ...l, doc_ids: l.doc_ids.filter((id) => id !== docId) }
+            : l,
+        ),
+    )
   }
-  function handleLinkCreated(link: TokenizedShareLink) {
+  function handleLinkCreated(link: TokenizedShareLinkWithDocs) {
     setLinks((prev) => [link, ...prev])
   }
   function handleLinkRevoked(token: string) {
@@ -131,10 +160,45 @@ export function ClientComplianceWorkspace({
     )
   }
 
+  function toggleSelected(docId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(docId)) next.delete(docId)
+      else next.add(docId)
+      return next
+    })
+  }
+  function clearSelection() {
+    setSelected(new Set())
+  }
+
+  // Partition links into per-doc vs bundle (doc_id null) for distinct sections.
+  const { bundleLinks } = useMemo(() => {
+    return {
+      bundleLinks: links.filter((l) => !l.doc_id),
+    }
+  }, [links])
+
+  // Docs map for quick bundle membership labels.
+  const docsById = useMemo(() => {
+    const m = new Map<string, ComplianceDoc>()
+    for (const d of docs) m.set(d.id, d)
+    return m
+  }, [docs])
+
   return (
     <div className="flex flex-col gap-8">
       {/* Upload panel */}
       <UploadPanel clientId={clientId} onUploaded={handleUploaded} />
+
+      {/* Active bundle links (if any) */}
+      {bundleLinks.length > 0 && (
+        <BundleLinksSection
+          links={bundleLinks}
+          docsById={docsById}
+          onRevoked={handleLinkRevoked}
+        />
+      )}
 
       {/* Docs grouped by kind */}
       <div className="flex flex-col gap-6">
@@ -157,40 +221,370 @@ export function ClientComplianceWorkspace({
             </Empty>
           </Card>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
             {DOC_KINDS.map((kind) => {
               const bucket = docs.filter((d) => d.kind === kind)
               if (bucket.length === 0) return null
               const Icon = KIND_ICON[kind]
               return (
-                <section key={kind}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold text-foreground">
+                <section
+                  key={kind}
+                  className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <h3 className="text-sm font-semibold text-foreground truncate">
                       {s.kinds[kind]}
                     </h3>
-                    <Badge variant="secondary" className="font-normal">
+                    <Badge variant="secondary" className="font-normal ml-auto">
                       {bucket.length}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {bucket.map((doc) => (
-                      <DocCard
-                        key={doc.id}
-                        doc={doc}
-                        links={links.filter((l) => l.doc_id === doc.id)}
-                        onDeleted={handleDeleted}
-                        onLinkCreated={handleLinkCreated}
-                        onLinkRevoked={handleLinkRevoked}
-                        canShare={SHAREABLE_KINDS.includes(doc.kind)}
-                      />
-                    ))}
+                  <div className="flex flex-col gap-3">
+                    {bucket.map((doc) => {
+                      const selectable = SHAREABLE_KINDS.includes(doc.kind)
+                      return (
+                        <DocCard
+                          key={doc.id}
+                          doc={doc}
+                          links={links.filter((l) => l.doc_id === doc.id)}
+                          onDeleted={handleDeleted}
+                          onLinkCreated={handleLinkCreated}
+                          onLinkRevoked={handleLinkRevoked}
+                          canShare={selectable}
+                          selectable={selectable}
+                          isSelected={selected.has(doc.id)}
+                          onToggleSelect={() => toggleSelected(doc.id)}
+                        />
+                      )
+                    })}
                   </div>
                 </section>
               )
             })}
           </div>
         )}
+      </div>
+
+      {/* Sticky selection bar — only shows while docs are ticked. */}
+      {selected.size > 0 && (
+        <SelectionBar
+          clientId={clientId}
+          selectedIds={Array.from(selected)}
+          onClear={clearSelection}
+          onCreated={(link) => {
+            handleLinkCreated(link)
+            clearSelection()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Selection bar + bundle dialog
+// ────────────────────────────────────────────────────────────────────────────
+
+function SelectionBar({
+  clientId: _clientId,
+  selectedIds,
+  onClear,
+  onCreated,
+}: {
+  clientId: string
+  selectedIds: string[]
+  onClear: () => void
+  onCreated: (link: TokenizedShareLinkWithDocs) => void
+}) {
+  const { t } = useTranslation()
+  const s = t.admin.clients.compliance
+
+  return (
+    <div
+      // Floating footer — hugs the bottom of the viewport so the admin
+      // can keep scrolling the doc grid while reviewing the selection.
+      className="sticky bottom-4 z-30 mx-auto w-full max-w-3xl rounded-full border border-border bg-background/95 backdrop-blur shadow-lg"
+    >
+      <div className="flex items-center gap-3 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
+            {s.selectedCount.replace("{count}", String(selectedIds.length))}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onClear}>
+            <XIcon className="h-3.5 w-3.5" />
+            {s.clearSelection}
+          </Button>
+          <CreateBundleLinkDialog
+            docIds={selectedIds}
+            onCreated={onCreated}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CreateBundleLinkDialog({
+  docIds,
+  onCreated,
+}: {
+  docIds: string[]
+  onCreated: (link: TokenizedShareLinkWithDocs) => void
+}) {
+  const { t } = useTranslation()
+  const s = t.admin.clients.compliance
+  const [open, setOpen] = useState(false)
+  const [ttl, setTtl] = useState("30")
+  const [note, setNote] = useState("")
+  const [buyerEmail, setBuyerEmail] = useState("")
+  const [buyerName, setBuyerName] = useState("")
+  const [buyerCompany, setBuyerCompany] = useState("")
+  const [senderMessage, setSenderMessage] = useState("")
+  const [pending, startTransition] = useTransition()
+  const hasEmail = buyerEmail.trim().length > 0
+
+  function resetForm() {
+    setTtl("30")
+    setNote("")
+    setBuyerEmail("")
+    setBuyerName("")
+    setBuyerCompany("")
+    setSenderMessage("")
+  }
+
+  function handleCreate() {
+    if (docIds.length === 0) {
+      toast.error(s.selectAtLeastOne)
+      return
+    }
+    startTransition(async () => {
+      const res = await createBundleShareLinkAction({
+        docIds,
+        ttlDays: Number(ttl) || 30,
+        note: note.trim() || null,
+        buyerEmail: buyerEmail.trim() || null,
+        buyerName: buyerName.trim() || null,
+        buyerCompany: buyerCompany.trim() || null,
+        senderMessage: senderMessage.trim() || null,
+      })
+      if (!res.ok) {
+        toast.error(s.errorGeneric)
+        return
+      }
+
+      if (hasEmail) {
+        if (res.data!.emailSent) toast.success(s.bundleLinkEmailSent)
+        else if (res.data!.emailError === "invalidEmail")
+          toast.warning(s.invalidEmail)
+        else toast.warning(s.bundleLinkEmailFailed)
+      } else {
+        toast.success(s.bundleLinkCreated)
+      }
+
+      // Optimistic link row so the UI updates before the next revalidate.
+      const optimistic: TokenizedShareLinkWithDocs = {
+        token: res.data!.token,
+        doc_id: null,
+        owner_id: "",
+        created_by: null,
+        expires_at: new Date(
+          Date.now() + (Number(ttl) || 30) * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        revoked_at: null,
+        view_count: 0,
+        last_viewed_at: null,
+        note: note.trim() || null,
+        created_at: new Date().toISOString(),
+        doc_ids: docIds,
+      }
+      onCreated(optimistic)
+      setOpen(false)
+      resetForm()
+    })
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) resetForm()
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Layers className="h-3.5 w-3.5" />
+          {s.createBundleLink}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{s.createBundleTitle}</DialogTitle>
+          <DialogDescription>{s.createBundleDesc}</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-5">
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {s.bundleDocsListTitle}
+            </p>
+            <p className="text-sm text-foreground">
+              {s.bundleDocCount.replace("{count}", String(docIds.length))}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bundle-ttl">{s.ttlDays}</Label>
+              <Input
+                id="bundle-ttl"
+                type="number"
+                min={1}
+                max={365}
+                value={ttl}
+                onChange={(e) => setTtl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{s.ttlHint}</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bundle-note">{s.note}</Label>
+              <Input
+                id="bundle-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={s.notePlaceholder}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-md border border-border bg-muted/30 p-4">
+            <div className="flex items-start gap-2">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {s.emailSectionTitle}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {s.emailSectionHint}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bundle-buyerEmail">{s.buyerEmail}</Label>
+                <Input
+                  id="bundle-buyerEmail"
+                  type="email"
+                  value={buyerEmail}
+                  onChange={(e) => setBuyerEmail(e.target.value)}
+                  placeholder={s.buyerEmailPlaceholder}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="bundle-buyerName">{s.buyerName}</Label>
+                  <Input
+                    id="bundle-buyerName"
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
+                    placeholder={s.buyerNamePlaceholder}
+                    disabled={!hasEmail}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="bundle-buyerCompany">{s.buyerCompany}</Label>
+                  <Input
+                    id="bundle-buyerCompany"
+                    value={buyerCompany}
+                    onChange={(e) => setBuyerCompany(e.target.value)}
+                    placeholder={s.buyerCompanyPlaceholder}
+                    disabled={!hasEmail}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bundle-senderMessage">{s.senderMessage}</Label>
+                <Textarea
+                  id="bundle-senderMessage"
+                  value={senderMessage}
+                  onChange={(e) => setSenderMessage(e.target.value)}
+                  placeholder={s.senderMessagePlaceholder}
+                  rows={3}
+                  disabled={!hasEmail}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            {s.cancel}
+          </Button>
+          <Button onClick={handleCreate} disabled={pending}>
+            {pending ? (
+              <Spinner className="h-4 w-4" />
+            ) : hasEmail ? (
+              <Send className="h-4 w-4" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+            {hasEmail ? s.createAndSend : s.create}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Bundle links display section
+// ────────────────────────────────────────────────────────────────────────────
+
+function BundleLinksSection({
+  links,
+  docsById,
+  onRevoked,
+}: {
+  links: TokenizedShareLinkWithDocs[]
+  docsById: Map<string, ComplianceDoc>
+  onRevoked: (token: string) => void
+}) {
+  const { t } = useTranslation()
+  const s = t.admin.clients.compliance
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Layers className="h-4 w-4 text-primary" />
+        <h2 className="text-sm font-semibold text-foreground">
+          {s.bundleLinksTitle}
+        </h2>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        {s.bundleLinksSubtitle}
+      </p>
+      <div className="flex flex-col gap-2">
+        {links.map((link) => (
+          <ShareLinkRow
+            key={link.token}
+            link={link}
+            docCount={link.doc_ids.length}
+            docLabels={link.doc_ids
+              .map((id) => {
+                const d = docsById.get(id)
+                if (!d) return null
+                return d.title ?? s.kinds[d.kind]
+              })
+              .filter((label): label is string => !!label)}
+            onRevoked={() => onRevoked(link.token)}
+          />
+        ))}
       </div>
     </div>
   )
@@ -240,7 +634,6 @@ function UploadPanel({
       }
       toast.success(s.uploadSuccess)
 
-      // Build an optimistic doc record so the UI reflects the new file instantly.
       const optimistic: ComplianceDoc = {
         id: res.data!.id,
         owner_id: clientId,
@@ -258,7 +651,6 @@ function UploadPanel({
       }
       onUploaded(optimistic)
 
-      // Reset form
       setTitle("")
       setExpiresAt("")
       setNotes("")
@@ -354,13 +746,19 @@ function DocCard({
   onLinkCreated,
   onLinkRevoked,
   canShare,
+  selectable,
+  isSelected,
+  onToggleSelect,
 }: {
   doc: ComplianceDoc
-  links: TokenizedShareLink[]
+  links: TokenizedShareLinkWithDocs[]
   onDeleted: (docId: string) => void
-  onLinkCreated: (link: TokenizedShareLink) => void
+  onLinkCreated: (link: TokenizedShareLinkWithDocs) => void
   onLinkRevoked: (token: string) => void
   canShare: boolean
+  selectable: boolean
+  isSelected: boolean
+  onToggleSelect: () => void
 }) {
   const { t, locale } = useTranslation()
   const s = t.admin.clients.compliance
@@ -394,10 +792,23 @@ function DocCard({
   const activeLinks = links.filter((l) => !l.revoked_at)
 
   return (
-    <Card className="border-border">
+    <Card
+      className={cn(
+        "border-border transition-colors",
+        isSelected && "border-primary ring-1 ring-primary/20 bg-primary/5",
+      )}
+    >
       <CardContent className="p-4 flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col min-w-0">
+        <div className="flex items-start gap-2">
+          {selectable && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onToggleSelect}
+              aria-label={s.selectForBundle}
+              className="mt-1"
+            />
+          )}
+          <div className="flex flex-col min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground truncate">
               {doc.title ?? s.kinds[doc.kind]}
             </p>
@@ -480,16 +891,20 @@ function DocCard({
   )
 }
 
-// ─────────────────────────────────────────────�����──────────────────────────────
-// Tokenized share link row + dialog
+// ────────────────────────────────────────────────────────────────────────────
+// Tokenized share link row + dialogs
 // ────────────────────────────────────────────────────────────────────────────
 
 function ShareLinkRow({
   link,
   onRevoked,
+  docCount,
+  docLabels,
 }: {
-  link: TokenizedShareLink
+  link: TokenizedShareLinkWithDocs
   onRevoked: () => void
+  docCount?: number
+  docLabels?: string[]
 }) {
   const { t, locale } = useTranslation()
   const s = t.admin.clients.compliance
@@ -532,16 +947,34 @@ function ShareLinkRow({
     })
   }
 
+  const isBundle = !!docCount && docCount > 1
+
   return (
     <div className="flex items-center gap-2 rounded-md bg-muted/40 border border-border p-2 text-xs">
-      <Link2
-        className={cn(
-          "h-3.5 w-3.5 shrink-0",
-          isExpired ? "text-destructive" : "text-primary",
-        )}
-      />
+      {isBundle ? (
+        <Layers
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isExpired ? "text-destructive" : "text-primary",
+          )}
+        />
+      ) : (
+        <Link2
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isExpired ? "text-destructive" : "text-primary",
+          )}
+        />
+      )}
       <div className="flex-1 min-w-0">
-        <p className="font-mono truncate text-foreground">{publicUrl}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-mono truncate text-foreground">{publicUrl}</p>
+          {isBundle && (
+            <Badge variant="secondary" className="font-normal">
+              {s.bundleDocCount.replace("{count}", String(docCount))}
+            </Badge>
+          )}
+        </div>
         <p className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
           <Clock className="h-3 w-3" />
           {isExpired ? s.expiredOn : s.expiresOn}: {expiresLabel}
@@ -552,17 +985,23 @@ function ShareLinkRow({
             </span>
           )}
         </p>
+        {docLabels && docLabels.length > 0 && (
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {docLabels.join(" · ")}
+          </p>
+        )}
       </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2"
-        onClick={handleCopy}
-      >
+      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCopy}>
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
       </Button>
-      {/* Only expose "Resend email" while the link is still usable. */}
-      {!isExpired && !link.revoked_at && <ResendEmailDialog token={link.token} />}
+      {/*
+       * Resend-email flow currently only supports single-doc links
+       * (see `resendShareLinkEmailAction`). For bundle tokens, admins
+       * can copy the URL and send manually for now.
+       */}
+      {!isBundle && !isExpired && !link.revoked_at && (
+        <ResendEmailDialog token={link.token} />
+      )}
       <Button
         size="sm"
         variant="ghost"
@@ -583,7 +1022,7 @@ function CreateLinkDialog({
   triggerLabel,
 }: {
   docId: string
-  onCreated: (link: TokenizedShareLink) => void
+  onCreated: (link: TokenizedShareLinkWithDocs) => void
   triggerLabel: string
 }) {
   const { t } = useTranslation()
@@ -624,22 +1063,16 @@ function CreateLinkDialog({
         return
       }
 
-      // Surface partial success if the link was made but the email
-      // could not be delivered.
       if (hasEmail) {
-        if (res.data!.emailSent) {
-          toast.success(s.linkCreatedEmailSent)
-        } else if (res.data!.emailError === "invalidEmail") {
+        if (res.data!.emailSent) toast.success(s.linkCreatedEmailSent)
+        else if (res.data!.emailError === "invalidEmail")
           toast.warning(s.invalidEmail)
-        } else {
-          toast.warning(s.linkCreatedEmailFailed)
-        }
+        else toast.warning(s.linkCreatedEmailFailed)
       } else {
         toast.success(s.linkCreated)
       }
 
-      // Optimistic link so it shows up immediately without a refetch.
-      const optimistic: TokenizedShareLink = {
+      const optimistic: TokenizedShareLinkWithDocs = {
         token: res.data!.token,
         doc_id: docId,
         owner_id: "",
@@ -652,6 +1085,7 @@ function CreateLinkDialog({
         last_viewed_at: null,
         note: note.trim() || null,
         created_at: new Date().toISOString(),
+        doc_ids: [docId],
       }
       onCreated(optimistic)
       setOpen(false)
@@ -679,7 +1113,6 @@ function CreateLinkDialog({
           <DialogDescription>{s.createLinkDesc}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-5">
-          {/* --- Link settings ------------------------------------------------ */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ttl">{s.ttlDays}</Label>
@@ -704,7 +1137,6 @@ function CreateLinkDialog({
             </div>
           </div>
 
-          {/* --- Buyer email (optional) -------------------------------------- */}
           <div className="flex flex-col gap-4 rounded-md border border-border bg-muted/30 p-4">
             <div className="flex items-start gap-2">
               <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -785,11 +1217,6 @@ function CreateLinkDialog({
   )
 }
 
-/**
- * Re-send an existing share link via Zoho SMTP. Useful when an admin
- * needs to forward the same link to another buyer contact without
- * rotating the token (preserves view_count analytics).
- */
 function ResendEmailDialog({ token }: { token: string }) {
   const { t } = useTranslation()
   const s = t.admin.clients.compliance
@@ -908,10 +1335,6 @@ function ResendEmailDialog({ token }: { token: string }) {
   )
 }
 
-/**
- * Map a server-action error code to a user-facing translation from the
- * `compliance` dictionary. Falls back to a generic message for unknown keys.
- */
 function translateError(
   s: {
     errorGeneric: string

@@ -301,6 +301,183 @@ export async function createShareLinkAction(args: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Bundle share links — one tokenized URL → many compliance docs
+// (migration 022). Implementation notes:
+//   - Inserts tokenized_share_links with doc_id = NULL.
+//   - Lists the docs in tokenized_share_link_docs.
+//   - Only shareable kinds (factory_video, factory_photo, price_floor)
+//     may be bundled. All docs must belong to the same owner.
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function createBundleShareLinkAction(args: {
+  docIds: string[]
+  ttlDays?: number
+  note?: string | null
+  buyerEmail?: string | null
+  buyerName?: string | null
+  buyerCompany?: string | null
+  senderMessage?: string | null
+}): Promise<
+  ActionResult<{ token: string; emailSent: boolean; emailError?: string }>
+> {
+  const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin: adminClient, userId } = guard
+
+  // Dedupe incoming ids defensively — the UI passes a Set, but a direct
+  // caller could submit duplicates.
+  const docIds = Array.from(new Set(args.docIds.filter(Boolean)))
+  if (docIds.length === 0) return { ok: false, error: "noDocs" }
+
+  const ttlDays = args.ttlDays && args.ttlDays > 0 ? args.ttlDays : 30
+  const expiresAt = new Date(
+    Date.now() + ttlDays * 24 * 60 * 60 * 1000,
+  ).toISOString()
+
+  // Fetch every selected doc so we can validate ownership, kind, and
+  // assemble the email. `in()` is O(ids) so this is a single round-trip.
+  const { data: docs, error: docsErr } = await adminClient
+    .from("compliance_docs")
+    .select(
+      "id, owner_id, kind, title, owner:profiles!compliance_docs_owner_id_fkey(full_name, company_name)",
+    )
+    .in("id", docIds)
+
+  if (docsErr || !docs || docs.length === 0) {
+    return { ok: false, error: "notFound" }
+  }
+
+  // Every doc must belong to the same client — bundling across
+  // different owners would bypass client-scoped visibility.
+  const ownerId = docs[0].owner_id
+  if (docs.some((d) => d.owner_id !== ownerId)) {
+    return { ok: false, error: "mixedOwners" }
+  }
+
+  // Filter out non-shareable kinds. If nothing remains, bail early
+  // instead of creating an empty bundle.
+  const shareableDocs = docs.filter((d) =>
+    TOKEN_SHAREABLE_KINDS.includes(d.kind as ComplianceDocKind),
+  )
+  if (shareableDocs.length === 0) {
+    return { ok: false, error: "kindNotShareable" }
+  }
+
+  const { data: linkRow, error: linkErr } = await adminClient
+    .from("tokenized_share_links")
+    .insert({
+      doc_id: null,
+      owner_id: ownerId,
+      expires_at: expiresAt,
+      note: args.note ?? null,
+      created_by: userId ?? null,
+    })
+    .select("token")
+    .single()
+
+  if (linkErr || !linkRow) {
+    console.error("[v0] createBundleShareLink: link insert failed", linkErr)
+    return { ok: false, error: "dbInsertFailed" }
+  }
+
+  const token = linkRow.token as string
+
+  const joinRows = shareableDocs.map((d, idx) => ({
+    token,
+    doc_id: d.id,
+    position: idx,
+  }))
+  const { error: joinErr } = await adminClient
+    .from("tokenized_share_link_docs")
+    .insert(joinRows)
+
+  if (joinErr) {
+    // Roll back the parent link so we don't leave an empty bundle
+    // stuck in the table.
+    await adminClient
+      .from("tokenized_share_links")
+      .delete()
+      .eq("token", token)
+    console.error("[v0] createBundleShareLink: join insert failed", joinErr)
+    return { ok: false, error: "dbInsertFailed" }
+  }
+
+  revalidatePath(`/admin/clients/${ownerId}`)
+
+  // --- Optional buyer email ------------------------------------------------
+  let emailSent = false
+  let emailError: string | undefined
+
+  const buyerEmail = args.buyerEmail?.trim()
+  if (buyerEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
+      return {
+        ok: true,
+        data: { token, emailSent: false, emailError: "invalidEmail" },
+      }
+    }
+
+    const ownerRel = (shareableDocs[0] as { owner?: unknown }).owner
+    const owner = Array.isArray(ownerRel) ? ownerRel[0] : ownerRel
+    const clientCompany =
+      (owner as { company_name?: string | null } | undefined)?.company_name ??
+      (owner as { full_name?: string | null } | undefined)?.full_name ??
+      "Nhà sản xuất đối tác Vexim Bridge"
+
+    const shareUrl = `${siteConfig.url}/share/${token}`
+    const expiresLabel = new Intl.DateTimeFormat("vi-VN", {
+      dateStyle: "long",
+      timeZone: "Asia/Ho_Chi_Minh",
+    }).format(new Date(expiresAt))
+
+    // Build a human-readable list of docs for the email body.
+    const docItems = shareableDocs.map((d) => ({
+      label:
+        KIND_LABELS_VI[d.kind as ComplianceDocKind] ??
+        String(d.title ?? "Tài liệu"),
+      title: (d.title ?? null) as string | null,
+    }))
+
+    const result = await sendMail({
+      to: buyerEmail,
+      subject: `[Vexim Bridge] Hồ sơ từ ${clientCompany} (${shareableDocs.length} tài liệu)`,
+      html: renderBundleBuyerEmail({
+        buyerName: args.buyerName?.trim() || null,
+        buyerCompany: args.buyerCompany?.trim() || null,
+        clientCompany,
+        docs: docItems,
+        shareUrl,
+        expiresLabel,
+        ttlDays,
+        senderMessage: args.senderMessage?.trim() || null,
+      }),
+      text: renderBundleBuyerEmailText({
+        buyerName: args.buyerName?.trim() || null,
+        clientCompany,
+        docs: docItems,
+        shareUrl,
+        expiresLabel,
+        ttlDays,
+        senderMessage: args.senderMessage?.trim() || null,
+      }),
+      headers: { "Reply-To": getFromAddress() },
+    })
+
+    if (result.error) {
+      console.error(
+        "[v0] createBundleShareLink: buyer email failed",
+        result.error.message,
+      )
+      emailError = result.error.message
+    } else {
+      emailSent = true
+    }
+  }
+
+  return { ok: true, data: { token, emailSent, emailError } }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Resend an existing share link to a buyer (e.g. follow-up email).
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -511,6 +688,143 @@ function renderBuyerShareEmailText(d: BuyerEmailTextData): string {
   lines.push(
     "",
     "Xem tài liệu:",
+    d.shareUrl,
+    "",
+    `Liên kết hợp lệ đến ${d.expiresLabel} (khoảng ${d.ttlDays} ngày).`,
+    "",
+    "Nếu bạn muốn trao đổi thêm về giá, MOQ hoặc quy trình đặt hàng, hãy trả lời trực tiếp email này.",
+    "",
+    "— Đội ngũ Vexim Bridge",
+    siteConfig.url,
+  )
+  return lines.join("\n")
+}
+
+// --- Bundle variant (multi-doc) ------------------------------------------
+
+interface BundleBuyerEmailData {
+  buyerName: string | null
+  buyerCompany: string | null
+  clientCompany: string
+  docs: { label: string; title: string | null }[]
+  shareUrl: string
+  expiresLabel: string
+  ttlDays: number
+  senderMessage: string | null
+}
+
+function renderBundleBuyerEmail(d: BundleBuyerEmailData): string {
+  const greeting = d.buyerName
+    ? `Chào ${escapeHtml(d.buyerName)},`
+    : "Chào bạn,"
+
+  const senderMessageBlock = d.senderMessage
+    ? `
+      <tr><td style="padding:18px 28px 0;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px 18px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;white-space:pre-wrap;">
+          ${escapeHtml(d.senderMessage)}
+        </div>
+      </td></tr>`
+    : ""
+
+  const docListItems = d.docs
+    .map((item) => {
+      const titleLine = item.title
+        ? `<div style="color:#64748b;font-size:12px;line-height:18px;margin-top:2px;">${escapeHtml(item.title)}</div>`
+        : ""
+      return `
+        <li style="margin:0 0 10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;list-style:none;">
+          <div style="color:#0f172a;font-weight:600;font-size:14px;line-height:20px;">${escapeHtml(item.label)}</div>
+          ${titleLine}
+        </li>`
+    })
+    .join("")
+
+  return `<!DOCTYPE html>
+<html lang="vi">
+  <head><meta charset="utf-8" /><title>Hồ sơ từ ${escapeHtml(d.clientCompany)}</title></head>
+  <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:560px;width:100%;">
+          <tr>
+            <td style="background:#0f172a;padding:20px 28px;">
+              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge</div>
+              <div style="margin-top:4px;font:700 18px/26px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">Hồ sơ nhà sản xuất Việt Nam</div>
+            </td>
+          </tr>
+          <tr><td style="height:4px;background:#14b8a6;line-height:4px;font-size:0;">&nbsp;</td></tr>
+          <tr><td style="padding:28px 28px 0;">
+            <p style="margin:0 0 14px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475569;">
+              ${greeting}
+            </p>
+            <p style="margin:0 0 14px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
+              Vexim Bridge gửi bạn <strong>${d.docs.length} tài liệu</strong> của nhà sản xuất <strong>${escapeHtml(d.clientCompany)}</strong> để tham khảo trong quá trình đánh giá nguồn cung.
+            </p>
+          </td></tr>
+          ${senderMessageBlock}
+          <tr><td style="padding:18px 28px 0;">
+            <ul style="margin:0;padding:0;">
+              ${docListItems}
+            </ul>
+          </td></tr>
+          <tr><td style="padding:16px 28px 8px;" align="center">
+            <a href="${escapeAttr(d.shareUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font:600 14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              Xem tất cả tài liệu
+            </a>
+            <div style="margin-top:10px;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
+              Liên kết hợp lệ đến ${escapeHtml(d.expiresLabel)} (khoảng ${d.ttlDays} ngày).
+            </div>
+          </td></tr>
+          <tr><td style="padding:20px 28px 0;font:13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#64748b;">
+            Hoặc copy đường dẫn sau vào trình duyệt:<br/>
+            <a href="${escapeAttr(d.shareUrl)}" style="color:#0f172a;word-break:break-all;">${escapeHtml(d.shareUrl)}</a>
+          </td></tr>
+          <tr><td style="padding:22px 28px 0;font:13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475569;">
+            Vexim Bridge đóng vai trò phòng kinh doanh xuất khẩu thuê ngoài cho các nhà sản xuất Việt Nam đã đăng ký FDA. Nếu bạn muốn trao đổi thêm về giá, MOQ hoặc quy trình đặt hàng, hãy trả lời trực tiếp email này — đội ngũ của chúng tôi sẽ phản hồi trong 1 ngày làm việc.
+          </td></tr>
+          <tr><td style="padding:22px 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
+            Trân trọng,<br/>
+            <strong>Đội ngũ Vexim Bridge</strong>
+          </td></tr>
+          <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
+            Email tự động từ ${escapeHtml(siteConfig.name)} · ${escapeHtml(siteConfig.url)}<br/>
+            Bạn nhận được email này vì đối tác của chúng tôi đã chia sẻ hồ sơ nhà máy với bạn.
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`
+}
+
+interface BundleBuyerEmailTextData {
+  buyerName: string | null
+  clientCompany: string
+  docs: { label: string; title: string | null }[]
+  shareUrl: string
+  expiresLabel: string
+  ttlDays: number
+  senderMessage: string | null
+}
+
+function renderBundleBuyerEmailText(d: BundleBuyerEmailTextData): string {
+  const lines = [
+    d.buyerName ? `Chào ${d.buyerName},` : "Chào bạn,",
+    "",
+    `Vexim Bridge gửi bạn ${d.docs.length} tài liệu của nhà sản xuất ${d.clientCompany} để tham khảo trong quá trình đánh giá nguồn cung.`,
+  ]
+  if (d.senderMessage) {
+    lines.push("", "Ghi chú từ đội ngũ phụ trách:", d.senderMessage)
+  }
+  lines.push("", "Danh sách tài liệu:")
+  d.docs.forEach((item, idx) => {
+    const suffix = item.title ? ` — ${item.title}` : ""
+    lines.push(`  ${idx + 1}. ${item.label}${suffix}`)
+  })
+  lines.push(
+    "",
+    "Xem tất cả:",
     d.shareUrl,
     "",
     `Liên kết hợp lệ đến ${d.expiresLabel} (khoảng ${d.ttlDays} ngày).`,

@@ -121,7 +121,7 @@ async function authorizeViaShareToken(
   const { data: link } = await admin
     .from("tokenized_share_links")
     .select(
-      "token, revoked_at, expires_at, compliance_docs:doc_id ( url, kind )",
+      "token, doc_id, revoked_at, expires_at, compliance_docs:doc_id ( url, kind )",
     )
     .eq("token", token)
     .maybeSingle()
@@ -130,18 +130,44 @@ async function authorizeViaShareToken(
   if (link.revoked_at) return false
   if (new Date(link.expires_at).getTime() < Date.now()) return false
 
-  const doc = link.compliance_docs as
-    | { url: string; kind: string }
-    | { url: string; kind: string }[]
-    | null
-  // Supabase may return a single row OR an array depending on relation
-  // cardinality — normalize.
-  const docRow = Array.isArray(doc) ? doc[0] : doc
-  if (!docRow) return false
-  if (docRow.url !== path) return false
-  if (!PUBLICLY_SHAREABLE_KINDS.has(docRow.kind)) return false
+  // Single-doc token: existing fast path. The embedded compliance_docs
+  // row authorizes exactly one pathname.
+  if (link.doc_id) {
+    const doc = link.compliance_docs as
+      | { url: string; kind: string }
+      | { url: string; kind: string }[]
+      | null
+    const docRow = Array.isArray(doc) ? doc[0] : doc
+    if (!docRow) return false
+    if (docRow.url !== path) return false
+    if (!PUBLICLY_SHAREABLE_KINDS.has(docRow.kind)) return false
+    return true
+  }
 
-  return true
+  // Bundle token (migration 022): the token authorizes any of the docs
+  // listed in tokenized_share_link_docs. We look up *the doc matching
+  // the requested pathname* so we can also verify its kind is on the
+  // public whitelist — avoids a token being pivoted to a non-shareable
+  // doc that was somehow linked by mistake.
+  const { data: rows } = await admin
+    .from("tokenized_share_link_docs")
+    .select("compliance_docs:doc_id ( url, kind )")
+    .eq("token", token)
+
+  if (!rows || rows.length === 0) return false
+
+  for (const row of rows) {
+    const rel = (row as { compliance_docs?: unknown }).compliance_docs
+    const docRow = (Array.isArray(rel) ? rel[0] : rel) as
+      | { url: string; kind: string }
+      | null
+    if (!docRow) continue
+    if (docRow.url !== path) continue
+    if (!PUBLICLY_SHAREABLE_KINDS.has(docRow.kind)) continue
+    return true
+  }
+
+  return false
 }
 
 async function authorizeViaSession(path: string): Promise<boolean> {

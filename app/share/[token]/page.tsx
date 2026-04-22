@@ -2,20 +2,37 @@
  * Public tokenized share page.
  *
  * A buyer receives a link like `https://esh.example/share/<uuid-token>` and
- * can view the associated compliance doc (factory video, price floor, etc.)
- * without authenticating — but only as long as:
+ * can view the associated compliance doc(s) without authenticating — but only
+ * as long as:
  *   1. The token has NOT been revoked.
  *   2. `expires_at` is in the future.
  *
- * We increment `view_count` on every successful load and refresh
- * `last_viewed_at` so admins can audit engagement from the client workspace.
+ * Two shapes of token coexist:
+ *   - Single-doc: `tokenized_share_links.doc_id` is set. One doc is rendered.
+ *   - Bundle    : `doc_id` is null. Docs come from `tokenized_share_link_docs`
+ *                 and are rendered as a vertical stack on one page.
+ *
+ * We increment `view_count` once per page load and refresh `last_viewed_at`
+ * so admins can audit engagement from the client workspace.
  *
  * This route is explicitly NOT protected by the admin middleware layer.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getDictionary } from "@/lib/i18n/server"
-import { ShieldAlert, Clock, Building2, Download } from "lucide-react"
+import {
+  ShieldAlert,
+  Clock,
+  Building2,
+  Download,
+  FileBadge2,
+  FlaskConical,
+  DollarSign,
+  Video,
+  Image as ImageIcon,
+  File as FileIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { privateFileHref } from "@/lib/blob/file-url"
 
 export const dynamic = "force-dynamic"
@@ -24,13 +41,33 @@ interface PageProps {
   params: Promise<{ token: string }>
 }
 
-// SOP §0.3 — admin-chosen kinds surfaceable over a public link. Anything
-// else (FDA cert, COA) MUST stay gated behind auth.
-const PUBLICLY_SHAREABLE = new Set([
+// Docs surfaceable over a public link. Everything else (FDA cert, COA)
+// MUST stay gated behind auth.
+const PUBLICLY_SHAREABLE = new Set<string>([
   "factory_video",
   "factory_photo",
   "price_floor",
 ])
+
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  fda_certificate: FileBadge2,
+  coa: FlaskConical,
+  price_floor: DollarSign,
+  factory_video: Video,
+  factory_photo: ImageIcon,
+  other: FileIcon,
+}
+
+type PublicDoc = {
+  id: string
+  kind: string
+  title: string | null
+  url: string
+  mime_type: string | null
+  size_bytes: number | null
+  expires_at: string | null
+  notes: string | null
+}
 
 export default async function ShareTokenPage({ params }: PageProps) {
   const { token } = await params
@@ -44,40 +81,57 @@ export default async function ShareTokenPage({ params }: PageProps) {
   const { data: link } = await admin
     .from("tokenized_share_links")
     .select(
-      "token, doc_id, owner_id, expires_at, revoked_at, view_count, compliance_docs:doc_id ( id, kind, title, url, mime_type, size_bytes, expires_at, notes ), profiles:owner_id ( company_name, full_name )",
+      "token, doc_id, owner_id, expires_at, revoked_at, view_count, note, profiles:owner_id ( company_name, full_name )",
     )
     .eq("token", token)
     .maybeSingle()
 
   if (!link) return <ErrorScreen title={s.invalidTitle} desc={s.invalidDesc} />
-
   if (link.revoked_at)
     return <ErrorScreen title={s.revokedTitle} desc={s.revokedDesc} />
 
   const expired = new Date(link.expires_at).getTime() < Date.now()
   if (expired) return <ErrorScreen title={s.expiredTitle} desc={s.expiredDesc} />
 
-  const doc = link.compliance_docs as
-    | {
-        id: string
-        kind: string
-        title: string | null
-        url: string
-        mime_type: string | null
-        size_bytes: number | null
-        expires_at: string | null
-        notes: string | null
-      }
-    | null
+  // Resolve docs: either the single-doc row or the bundle's join rows.
+  let docs: PublicDoc[] = []
 
-  if (!doc) return <ErrorScreen title={s.invalidTitle} desc={s.invalidDesc} />
+  if (link.doc_id) {
+    const { data: doc } = await admin
+      .from("compliance_docs")
+      .select(
+        "id, kind, title, url, mime_type, size_bytes, expires_at, notes",
+      )
+      .eq("id", link.doc_id)
+      .maybeSingle()
+    if (doc) docs = [doc as PublicDoc]
+  } else {
+    const { data: rows } = await admin
+      .from("tokenized_share_link_docs")
+      .select(
+        "position, compliance_docs:doc_id ( id, kind, title, url, mime_type, size_bytes, expires_at, notes )",
+      )
+      .eq("token", token)
+      .order("position", { ascending: true })
 
-  if (!PUBLICLY_SHAREABLE.has(doc.kind)) {
+    if (rows) {
+      docs = rows
+        .map((r) => {
+          const rel = (r as { compliance_docs?: unknown }).compliance_docs
+          return (Array.isArray(rel) ? rel[0] : rel) as PublicDoc | null
+        })
+        .filter((d): d is PublicDoc => !!d)
+    }
+  }
+
+  // Defence-in-depth: drop any kinds that aren't on the public whitelist.
+  docs = docs.filter((d) => PUBLICLY_SHAREABLE.has(d.kind))
+
+  if (docs.length === 0) {
     return <ErrorScreen title={s.restrictedTitle} desc={s.restrictedDesc} />
   }
 
-  // Best-effort telemetry — never blocks rendering. Swallow errors since the
-  // page itself is more important than audit trail granularity.
+  // Best-effort telemetry — never blocks rendering.
   await admin
     .from("tokenized_share_links")
     .update({
@@ -96,6 +150,15 @@ export default async function ShareTokenPage({ params }: PageProps) {
     locale === "vi" ? "vi-VN" : "en-US",
     { year: "numeric", month: "long", day: "numeric" },
   )
+
+  const isBundle = docs.length > 1
+  const pageTitle = isBundle
+    ? s.bundleTitle.replace("{company}", ownerLabel)
+    : (docs[0].title ??
+      s.defaultTitleByKind[docs[0].kind as keyof typeof s.defaultTitleByKind])
+  const pageSubtitle = isBundle
+    ? s.bundleSubtitle.replace("{count}", String(docs.length))
+    : null
 
   return (
     <div className="min-h-screen bg-muted/20 flex flex-col">
@@ -120,40 +183,69 @@ export default async function ShareTokenPage({ params }: PageProps) {
 
       {/* Content */}
       <main className="flex-1">
-        <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
+        <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-8">
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold text-foreground text-balance">
-              {doc.title ?? s.defaultTitleByKind[doc.kind as keyof typeof s.defaultTitleByKind]}
+              {pageTitle}
             </h1>
-            {doc.notes && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {doc.notes}
-              </p>
+            {pageSubtitle && (
+              <p className="text-sm text-muted-foreground">{pageSubtitle}</p>
             )}
           </div>
 
-          {/* Stream the file through the authenticated proxy — the
-              share token authorizes the viewer server-side. The raw
-              `doc.url` (pathname) is never exposed to the browser. */}
-          <DocViewer
-            url={privateFileHref(doc.url, { token }) ?? "#"}
-            mime={doc.mime_type}
-            title={doc.title ?? doc.kind}
-          />
+          {/* Sticky jump-to nav when bundle has 2+ docs. Lets the
+              buyer skip around long videos without scroll-fatigue. */}
+          {isBundle && (
+            <nav
+              aria-label={s.bundleTocLabel}
+              className="rounded-lg border border-border bg-card p-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                {s.bundleTocLabel}
+              </p>
+              <ul className="flex flex-col gap-1">
+                {docs.map((doc, idx) => {
+                  const Icon = KIND_ICON[doc.kind] ?? FileIcon
+                  return (
+                    <li key={doc.id}>
+                      <a
+                        href={`#doc-${doc.id}`}
+                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted"
+                      >
+                        <span className="text-xs text-muted-foreground font-mono w-5 shrink-0">
+                          {idx + 1}.
+                        </span>
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate">
+                          {doc.title ??
+                            s.defaultTitleByKind[
+                              doc.kind as keyof typeof s.defaultTitleByKind
+                            ]}
+                        </span>
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+            </nav>
+          )}
 
-          <div className="flex items-center justify-end">
-            <Button asChild variant="outline">
-              <a
-                href={privateFileHref(doc.url, { token }) ?? "#"}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Download className="h-4 w-4" />
-                {s.download}
-              </a>
-            </Button>
-          </div>
+          {/* Doc sections */}
+          {docs.map((doc, idx) => (
+            <DocSection
+              key={doc.id}
+              doc={doc}
+              token={token}
+              kindLabel={
+                s.defaultTitleByKind[
+                  doc.kind as keyof typeof s.defaultTitleByKind
+                ] ?? doc.kind
+              }
+              showHeader={isBundle}
+              index={idx + 1}
+              downloadLabel={s.download}
+            />
+          ))}
         </div>
       </main>
 
@@ -163,6 +255,75 @@ export default async function ShareTokenPage({ params }: PageProps) {
         </div>
       </footer>
     </div>
+  )
+}
+
+function DocSection({
+  doc,
+  token,
+  kindLabel,
+  showHeader,
+  index,
+  downloadLabel,
+}: {
+  doc: PublicDoc
+  token: string
+  kindLabel: string
+  showHeader: boolean
+  index: number
+  downloadLabel: string
+}) {
+  const href = privateFileHref(doc.url, { token }) ?? "#"
+  const Icon = KIND_ICON[doc.kind] ?? FileIcon
+
+  return (
+    <section
+      id={`doc-${doc.id}`}
+      className="flex flex-col gap-4 scroll-mt-24"
+    >
+      {showHeader && (
+        <div className="flex items-start gap-3 border-b border-border pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted shrink-0">
+            <Icon className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-mono">
+                {String(index).padStart(2, "0")}
+              </span>
+              <Badge variant="secondary" className="font-normal">
+                {kindLabel}
+              </Badge>
+            </div>
+            <h2 className="text-lg font-semibold text-foreground mt-1 text-pretty">
+              {doc.title ?? kindLabel}
+            </h2>
+            {doc.notes && (
+              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                {doc.notes}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!showHeader && doc.notes && (
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {doc.notes}
+        </p>
+      )}
+
+      <DocViewer url={href} mime={doc.mime_type} title={doc.title ?? doc.kind} />
+
+      <div className="flex items-center justify-end">
+        <Button asChild variant="outline" size="sm">
+          <a href={href} download target="_blank" rel="noopener noreferrer">
+            <Download className="h-4 w-4" />
+            {downloadLabel}
+          </a>
+        </Button>
+      </div>
+    </section>
   )
 }
 
@@ -203,7 +364,6 @@ function DocViewer({
       />
     )
   }
-  // Fallback — just present a download link.
   return (
     <div className="rounded-lg border border-border bg-background p-8 text-center">
       <p className="text-sm text-muted-foreground">{title}</p>

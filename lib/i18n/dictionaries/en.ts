@@ -292,6 +292,26 @@ export const en = {
           factory_photo: "Factory photos",
           other: "Other document",
         },
+        // --- Bundle share links (one URL → many docs) ---
+        selectForBundle: "Select to bundle",
+        selectedCount: "{count} selected",
+        clearSelection: "Clear",
+        createBundleLink: "Create bundle link",
+        bundleLinksTitle: "Bundle share links",
+        bundleLinksSubtitle:
+          "Each link lets the buyer see multiple documents on a single page.",
+        bundleDocCount: "{count} docs",
+        createBundleTitle: "Create a bundle share link",
+        createBundleDesc:
+          "The buyer opens one page that shows every document you selected. The link auto-expires after the chosen window.",
+        bundleDocsListTitle: "Documents in bundle",
+        selectAtLeastOne: "Select at least one shareable document to continue.",
+        bundleLinkCreated: "Bundle link created.",
+        bundleLinkEmailSent: "Bundle link created and emailed to buyer.",
+        bundleLinkEmailFailed:
+          "Link created but email delivery failed. You can copy and send it manually.",
+        shareableHint:
+          "Only these kinds can be bundled: Factory video, Factory photos, Price floor.",
       },
       fdaDialog: {
         title: "Update FDA registration",
@@ -706,6 +726,9 @@ export const en = {
       factory_photo: "Factory photos",
       price_floor: "Price floor",
     } as Record<string, string>,
+    bundleTitle: "Documents shared by {company}",
+    bundleSubtitle: "{count} documents in this bundle",
+    bundleTocLabel: "Documents in this bundle",
   },
 } as const
 

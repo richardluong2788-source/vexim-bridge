@@ -36,6 +36,36 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
 
   if (!client || client.role !== "client") return notFound()
 
+  // Resolve bundle-link membership: for every link where doc_id IS NULL
+  // (migration 022), pull the join rows so the UI can display which docs
+  // are inside each bundle. Single-doc links keep their scalar doc_id.
+  const bundleTokens = (links ?? [])
+    .filter((l) => !l.doc_id)
+    .map((l) => l.token)
+
+  let bundleMembership: Record<string, string[]> = {}
+  if (bundleTokens.length > 0) {
+    const { data: joinRows } = await supabase
+      .from("tokenized_share_link_docs")
+      .select("token, doc_id, position")
+      .in("token", bundleTokens)
+      .order("position", { ascending: true })
+
+    bundleMembership = (joinRows ?? []).reduce<Record<string, string[]>>(
+      (acc, row) => {
+        ;(acc[row.token] ??= []).push(row.doc_id)
+        return acc
+      },
+      {},
+    )
+  }
+
+  // Collapse into a single array the workspace component can consume.
+  const linksWithDocs = (links ?? []).map((l) => ({
+    ...l,
+    doc_ids: l.doc_id ? [l.doc_id] : (bundleMembership[l.token] ?? []),
+  }))
+
   const fdaInfo = getFdaStatus(client.fda_expires_at)
   const companyLabel = client.company_name ?? client.full_name ?? client.email ?? "—"
   const s = t.admin.clients
@@ -162,7 +192,7 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
         clientId={client.id}
         clientName={companyLabel}
         initialDocs={docs ?? []}
-        initialLinks={links ?? []}
+        initialLinks={linksWithDocs}
       />
     </div>
   )

@@ -405,7 +405,9 @@ export type Database = {
       tokenized_share_links: {
         Row: {
           token: string
-          doc_id: string
+          // Nullable since migration 022 — bundle links (multi-doc)
+          // leave this NULL and list docs in `tokenized_share_link_docs`.
+          doc_id: string | null
           owner_id: string
           created_by: string | null
           expires_at: string
@@ -417,7 +419,7 @@ export type Database = {
         }
         Insert: {
           token?: string
-          doc_id: string
+          doc_id?: string | null
           owner_id: string
           created_by?: string | null
           expires_at: string
@@ -429,7 +431,7 @@ export type Database = {
         }
         Update: {
           token?: string
-          doc_id?: string
+          doc_id?: string | null
           owner_id?: string
           created_by?: string | null
           expires_at?: string
@@ -437,6 +439,26 @@ export type Database = {
           view_count?: number
           last_viewed_at?: string | null
           note?: string | null
+          created_at?: string
+        }
+      }
+      tokenized_share_link_docs: {
+        Row: {
+          token: string
+          doc_id: string
+          position: number
+          created_at: string
+        }
+        Insert: {
+          token: string
+          doc_id: string
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          token?: string
+          doc_id?: string
+          position?: number
           created_at?: string
         }
       }
@@ -611,6 +633,17 @@ export type ComplianceDoc =
   Database["public"]["Tables"]["compliance_docs"]["Row"]
 export type TokenizedShareLink =
   Database["public"]["Tables"]["tokenized_share_links"]["Row"]
+
+/**
+ * A tokenized share link joined with its bundle docs.
+ *
+ * - Single-doc links: `doc_id` is set, `doc_ids` is `[doc_id]`.
+ * - Bundle links:    `doc_id` is null, `doc_ids` lists every doc
+ *                    referenced via `tokenized_share_link_docs`.
+ */
+export type TokenizedShareLinkWithDocs = TokenizedShareLink & {
+  doc_ids: string[]
+}
 
 /** Sprint D — AI-classified buyer reply intents. Must match DB CHECK. */
 export type BuyerReplyIntent =

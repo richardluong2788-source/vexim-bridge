@@ -24,11 +24,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  INDUSTRIES,
-  INDUSTRY_LABELS_VI,
-  type Industry,
-} from "@/lib/constants/industries"
+import { INDUSTRY_LABELS_VI, type Industry } from "@/lib/constants/industries"
+
+/**
+ * Subset hiển thị trên form tư vấn công khai — chỉ các ngành xuất khẩu
+ * trọng điểm VN → Mỹ mà Vexim Bridge đang ưu tiên tiếp nhận. Value vẫn
+ * khớp canonical INDUSTRIES để dữ liệu vào DB nhất quán với admin.
+ * Các case ngoài danh sách này chọn "Other" và mô tả chi tiết ở ô
+ * "Nội dung cần tư vấn".
+ */
+const LANDING_INDUSTRIES: readonly Industry[] = [
+  "Food & Beverage",
+  "Agriculture",
+  "Seafood",
+  "Textiles & Garments",
+  "Footwear",
+  "Furniture & Home Decor",
+  "Electronics & Components",
+  "Other",
+] as const
 
 interface ConsultationBookingDialogProps {
   trigger: ReactNode
@@ -249,7 +263,7 @@ export function ConsultationBookingDialog({ trigger }: ConsultationBookingDialog
                       <SelectValue placeholder="Chọn ngành hàng" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDUSTRIES.map((industry) => (
+                      {LANDING_INDUSTRIES.map((industry) => (
                         <SelectItem key={industry} value={industry}>
                           {INDUSTRY_LABELS_VI[industry]}
                         </SelectItem>

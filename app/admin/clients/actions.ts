@@ -81,7 +81,10 @@ export async function updateFdaRegistration(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff"].includes(callerProfile.role)) {
+  if (
+    !callerProfile ||
+    !["admin", "staff", "super_admin"].includes(callerProfile.role)
+  ) {
     return { ok: false, error: "forbidden" }
   }
 

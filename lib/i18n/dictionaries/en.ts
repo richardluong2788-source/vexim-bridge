@@ -345,7 +345,7 @@ export const en = {
     pipeline: {
       title: "Pipeline",
       subtitle: "Drag opportunities between stages to update their status",
-      addLead: "Add Lead",
+    addLead: "Add Buyer",
       empty: "No opportunities in this stage",
       dragHint: "Drop here",
     },

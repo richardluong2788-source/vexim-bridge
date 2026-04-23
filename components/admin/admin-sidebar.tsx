@@ -15,6 +15,7 @@ import {
   Upload,
   Globe2,
   Wallet,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -42,7 +43,7 @@ interface NavItem {
 export function AdminSidebar({ profile, role }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
 
   const fullName = profile?.full_name ?? null
   const email = profile?.email ?? ""
@@ -54,8 +55,9 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
     { href: "/admin",                   label: t.nav.dashboard,                           icon: BarChart3, exact: true, cap: null },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW },
-    { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.CLIENT_WRITE },
-    { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.CLIENT_WRITE },
+    { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW },
+    { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.BUYER_WRITE },
+    { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.BUYER_WRITE },
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
     { href: "/admin/country-risk",      label: t.nav.countryRisk ?? "Country Risk",       icon: Globe2,                 cap: CAPS.COUNTRY_RISK_READ },
     { href: "/admin/finance",           label: t.nav.finance ?? "Tài chính",              icon: Wallet,                 cap: CAPS.FINANCE_READ },

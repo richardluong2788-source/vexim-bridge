@@ -271,12 +271,12 @@ export function SmartLeadForm() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 min-w-0">
               <Label htmlFor="needsIndustry">
                 {locale === "vi" ? "Ngành hàng" : "Industry"}
               </Label>
               <Select value={needsIndustry} onValueChange={setNeedsIndustry}>
-                <SelectTrigger id="needsIndustry">
+                <SelectTrigger id="needsIndustry" className="w-full">
                   <SelectValue
                     placeholder={
                       locale === "vi" ? "Chọn ngành hàng" : "Select industry"
@@ -295,7 +295,7 @@ export function SmartLeadForm() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 min-w-0">
               <Label htmlFor="needsProduct">
                 {locale === "vi"
                   ? "Sản phẩm buyer cần"
@@ -311,7 +311,7 @@ export function SmartLeadForm() {
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 min-w-0">
               <Label htmlFor="needsCapacity">
                 {locale === "vi"
                   ? "Công suất cần (/tháng)"
@@ -352,7 +352,7 @@ export function SmartLeadForm() {
             {!canFind && (
               <p className="text-xs text-muted-foreground">
                 {locale === "vi"
-                  ? "Chọn ngành hàng hoặc nhập sản phẩm để bắt đầu"
+                  ? "Chọn ngành hàng hoặc nhập sản phẩm đ�� bắt đầu"
                   : "Pick an industry or enter a product to start"}
               </p>
             )}

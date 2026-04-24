@@ -73,14 +73,17 @@ export type Capability = (typeof CAPS)[keyof typeof CAPS]
 const ALL_CAPS: readonly Capability[] = Object.values(CAPS)
 
 const ROLE_CAPS: Record<Role, readonly Capability[]> = {
+  // super_admin: full system access, including the exclusive right to
+  // promote/demote other super_admins (enforced in app/admin/users/actions.ts).
   super_admin: ALL_CAPS,
 
-  admin: ALL_CAPS.filter(
-    (c) =>
-      // Only super_admin can assign super_admin role — enforced separately
-      // in the users action layer, but we allow admin to manage normal users.
-      c !== CAPS.USERS_MANAGE || true, // admin can manage users; kept explicit
-  ),
+  // admin: same capability set as super_admin for day-to-day operations.
+  // The only super_admin-exclusive actions are:
+  //   1. Promote a user TO super_admin
+  //   2. Demote / modify an existing super_admin
+  // Both are enforced in the users action layer, not via capabilities,
+  // so the rest of the system works without requiring super_admin approval.
+  admin: ALL_CAPS,
 
   account_executive: [
     // Deals — R-06: cost_price is BLOCKED for AE

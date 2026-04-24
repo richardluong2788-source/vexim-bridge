@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Empty } from '@/components/ui/empty';
 import { listClientProductsAction } from '@/app/admin/clients/products-actions';
-import { ClientProductDialog } from './client-product-dialog';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 
 interface ClientProductsListProps {
@@ -17,8 +15,6 @@ interface ClientProductsListProps {
 export function ClientProductsList({ clientId }: ClientProductsListProps) {
   const [products, setProducts] = useState<ClientProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDialog, setShowDialog] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<ClientProduct | null>(null);
 
   // Load products
   useEffect(() => {
@@ -39,21 +35,6 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
     }
   };
 
-  const handleOpenDialog = (product?: ClientProduct) => {
-    setEditingProduct(product || null);
-    setShowDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setShowDialog(false);
-    setEditingProduct(null);
-  };
-
-  const handleProductSaved = () => {
-    loadProducts();
-    handleCloseDialog();
-  };
-
   const statusBadgeVariant = (status: string) => {
     switch (status) {
       case 'active':
@@ -70,15 +51,9 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-3xl font-bold">My Products</h1>
-            <p className="text-muted-foreground mt-2">Manage your product catalog</p>
-          </div>
-          <Button onClick={() => handleOpenDialog()} size="lg" gap-2>
-            <Plus className="w-4 h-4" />
-            Add Product
-          </Button>
+        <div className="mb-2">
+          <h1 className="text-3xl font-bold">My Products</h1>
+          <p className="text-muted-foreground mt-2">Your product catalog is managed by Admin. Contact Admin to add or modify products.</p>
         </div>
       </div>
 
@@ -160,35 +135,11 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
                     <p className="text-muted-foreground">{new Date(product.updated_at).toLocaleDateString()}</p>
                   </div>
                 </div>
-
-                <div className="flex gap-2 pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenDialog(product)}
-                    className="flex-1"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1" disabled>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
-
-      <ClientProductDialog
-        clientId={clientId}
-        product={editingProduct}
-        open={showDialog}
-        onOpenChange={setShowDialog}
-        onSaved={handleProductSaved}
-      />
     </div>
   );
 }

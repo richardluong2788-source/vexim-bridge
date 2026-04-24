@@ -4,7 +4,7 @@ import { ClientProductsList } from '@/components/client/client-products-list';
 
 export const metadata = {
   title: 'My Products | ESH Client Portal',
-  description: 'Manage your product catalog',
+  description: 'View your product catalog (managed by Admin)',
 };
 
 export default async function ClientProductsPage() {

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
+import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 
 interface PageProps {
@@ -186,6 +187,9 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Products */}
+      <AdminClientProductsManager clientId={client.id} clientName={companyLabel} />
 
       {/* Compliance workspace */}
       <ClientComplianceWorkspace

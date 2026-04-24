@@ -19,6 +19,7 @@ import { AlertTriangle, CheckCircle2, Loader2, ShieldAlert, Globe2 } from "lucid
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { notifyLeadAssigned } from "@/app/admin/opportunities/actions"
+import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
 
@@ -158,6 +159,16 @@ export function AddLeadForm({ clients }: AddLeadFormProps) {
       await notifyLeadAssigned(opp.id)
     } catch (err) {
       console.error("[v0] notifyLeadAssigned failed", err)
+    }
+
+    // Send buyer the acknowledgement email. Non-throwing, fully logged
+    // server-side — silent failure is OK here.
+    if (contactEmail.trim()) {
+      try {
+        await sendBuyerInquiryReceivedEmailAction(lead.id)
+      } catch (err) {
+        console.error("[v0] sendBuyerInquiryReceivedEmailAction failed", err)
+      }
     }
 
     setSuccess(true)

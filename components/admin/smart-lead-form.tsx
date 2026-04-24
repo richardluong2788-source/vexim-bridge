@@ -55,6 +55,7 @@ import {
   type ClientSuggestion,
   type MatchLevel,
 } from "@/app/admin/leads/new/actions"
+import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 
 export function SmartLeadForm() {
   const router = useRouter()
@@ -221,6 +222,17 @@ export function SmartLeadForm() {
       await notifyLeadAssigned(opp.id)
     } catch (err) {
       console.error("[v0] notifyLeadAssigned failed", err)
+    }
+
+    // Fire-and-forget buyer acknowledgement email. The server action is
+    // non-throwing and logs every outcome to buyer_email_log — we don't
+    // want a mail failure to block the success screen.
+    if (contactEmail.trim()) {
+      try {
+        await sendBuyerInquiryReceivedEmailAction(lead.id)
+      } catch (err) {
+        console.error("[v0] sendBuyerInquiryReceivedEmailAction failed", err)
+      }
     }
 
     setSuccess(true)

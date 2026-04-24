@@ -16,29 +16,57 @@ export default async function UnsubscribePage({
 
   const admin = createAdminClient()
 
-  // The token is a per-user random secret generated server-side, so
-  // presenting it is itself authorization — no login required.
-  const { data: prefs, error: findErr } = await admin
+  // The token is a per-user / per-buyer random secret generated server-side,
+  // so presenting it is itself authorization — no login required.
+  //
+  // We try two tables in order:
+  //   1. notification_preferences — registered users (clients / admins)
+  //   2. leads                    — buyers (no account)
+  // This lets a single /unsubscribe/[token] URL serve both audiences.
+
+  const { data: prefs } = await admin
     .from("notification_preferences")
     .select("user_id, email_enabled")
     .eq("unsubscribe_token", token)
     .maybeSingle()
 
-  if (findErr || !prefs) {
-    return <UnsubscribeResult status="invalid" />
-  }
+  if (prefs) {
+    if (prefs.email_enabled) {
+      const { error: updErr } = await admin
+        .from("notification_preferences")
+        .update({ email_enabled: false })
+        .eq("user_id", prefs.user_id)
 
-  // Idempotent: if already off, skip the write but still show success.
-  if (prefs.email_enabled) {
-    const { error: updErr } = await admin
-      .from("notification_preferences")
-      .update({ email_enabled: false })
-      .eq("user_id", prefs.user_id)
-
-    if (updErr) {
-      return <UnsubscribeResult status="invalid" />
+      if (updErr) {
+        return <UnsubscribeResult status="invalid" />
+      }
     }
+    return <UnsubscribeResult status="success" />
   }
 
-  return <UnsubscribeResult status="success" />
+  // Fall back to buyer tokens on the leads table.
+  const { data: lead } = await admin
+    .from("leads")
+    .select("id, email_unsubscribed")
+    .eq("unsubscribe_token", token)
+    .maybeSingle()
+
+  if (lead) {
+    if (!lead.email_unsubscribed) {
+      const { error: updErr } = await admin
+        .from("leads")
+        .update({
+          email_unsubscribed: true,
+          email_unsubscribed_at: new Date().toISOString(),
+        })
+        .eq("id", lead.id)
+
+      if (updErr) {
+        return <UnsubscribeResult status="invalid" />
+      }
+    }
+    return <UnsubscribeResult status="success" />
+  }
+
+  return <UnsubscribeResult status="invalid" />
 }

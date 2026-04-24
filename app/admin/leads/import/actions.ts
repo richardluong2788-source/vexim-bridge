@@ -15,6 +15,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { enrichPersonWithApollo, apolloConfigured } from "@/lib/enrich/apollo"
+import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
 
 const ALLOWED_ROLES = new Set([
   "admin",
@@ -301,6 +302,15 @@ export async function commitBulkImport(input: CommitInput): Promise<
     description: `Imported ${insertedLeads.length} leads → assigned to ${client.company_name ?? "client"}`,
     performed_by: who.userId,
   })
+
+  // Fire buyer acknowledgement emails in parallel. Each call is independently
+  // logged + dedup'd server-side, so Promise.allSettled gives us best-effort
+  // fan-out without any one failure bringing down the import.
+  await Promise.allSettled(
+    insertedLeads.map((l) =>
+      sendBuyerInquiryReceivedEmail(l.id, { sentBy: who.userId }),
+    ),
+  )
 
   revalidatePath("/admin/leads")
   revalidatePath("/admin/pipeline")

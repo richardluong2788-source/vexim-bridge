@@ -13,6 +13,9 @@ const migrationFile = process.argv[2] || '003_client_products.sql';
 async function runMigration() {
   const client = new Client({
     connectionString: process.env.POSTGRES_URL || process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false, // Allow self-signed certificates for development
+    },
   });
 
   try {

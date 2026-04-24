@@ -60,11 +60,6 @@ export const CAPS = {
   // --- System / audit ---
   ACTIVITY_LOG_VIEW:           "system:activity_log:view",
   NOTIFICATIONS_MANAGE:        "system:notifications:manage",
-
-  // --- Content / Insights (blog) ---
-  CONTENT_VIEW:                "content:view",               // access /admin/content/*
-  CONTENT_WRITE:               "content:write",              // create & edit drafts
-  CONTENT_PUBLISH:             "content:publish",            // publish, unpublish, delete
 } as const
 
 export type Capability = (typeof CAPS)[keyof typeof CAPS]

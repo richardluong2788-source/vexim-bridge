@@ -76,8 +76,8 @@ export async function updateBuyer(
 // Business rules:
 //   - Must hold BUYER_WRITE (same cap that creates new buyers).
 //   - Client must exist and have a VALID FDA registration (R-02). An
-//     expired or missing FDA is a hard block — matches add-lead-form.tsx
-//     and the defensive DB trigger in migration 013.
+//     expired or missing FDA surfaces as an "override" in smart-lead-form.tsx
+//     and is still enforced defensively by the DB trigger in migration 013.
 //   - An opportunity must not already exist for (client_id, buyer_id).
 //     If it does, return the existing opportunity id so the UI can jump
 //     the user to the sheet instead of creating a duplicate.

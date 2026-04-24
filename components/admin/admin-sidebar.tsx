@@ -16,6 +16,7 @@ import {
   Globe2,
   Wallet,
   Briefcase,
+  Newspaper,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -61,6 +62,7 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
     { href: "/admin/country-risk",      label: t.nav.countryRisk ?? "Country Risk",       icon: Globe2,                 cap: CAPS.COUNTRY_RISK_READ },
     { href: "/admin/finance",           label: t.nav.finance ?? "Tài chính",              icon: Wallet,                 cap: CAPS.FINANCE_READ },
+    { href: "/admin/content/posts",     label: locale === "vi" ? "Insights" : "Insights", icon: Newspaper,              cap: CAPS.CONTENT_VIEW },
     { href: "/admin/users",             label: t.nav.users,                               icon: UserCog,                cap: CAPS.USERS_VIEW },
     { href: "/settings/notifications",  label: t.nav_extra.settings,                      icon: Settings,               cap: null },
   ]

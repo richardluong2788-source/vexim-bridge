@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "#how-it-works", label: "Quy trình" },
   { href: "#security", label: "An toàn" },
   { href: "#audiences", label: "Đối tượng" },
+  { href: "/insights", label: "Insights" },
   { href: "#faq", label: "Câu hỏi" },
 ]
 

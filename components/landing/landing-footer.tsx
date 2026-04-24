@@ -9,6 +9,7 @@ const COLUMNS = [
       { label: "Tính năng", href: "#features" },
       { label: "Quy trình", href: "#how-it-works" },
       { label: "An toàn", href: "#security" },
+      { label: "Insights", href: "/insights" },
       { label: "Câu hỏi thường gặp", href: "#faq" },
     ],
   },

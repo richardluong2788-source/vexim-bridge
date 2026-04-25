@@ -10,12 +10,19 @@
  */
 import type { Stage } from "@/lib/supabase/types"
 
+// Re-export Stage so callers in components/admin/analytics/* don't need a
+// second import from the supabase types module.
+export type { Stage }
+
 // ---------------------------------------------------------------------------
 // Period
 // ---------------------------------------------------------------------------
-export type AnalyticsPeriod = "30d" | "90d" | "quarter" | "year" | "all"
+export type PeriodValue = "30d" | "90d" | "quarter" | "year" | "all"
 
-export const ANALYTICS_PERIODS: { value: AnalyticsPeriod; labelVi: string; labelEn: string }[] = [
+/** @deprecated Use PeriodValue. Kept as an alias to avoid churning legacy imports. */
+export type AnalyticsPeriod = PeriodValue
+
+export const PERIOD_OPTIONS: { value: PeriodValue; labelVi: string; labelEn: string }[] = [
   { value: "30d",     labelVi: "30 ngày qua",   labelEn: "Last 30 days" },
   { value: "90d",     labelVi: "90 ngày qua",   labelEn: "Last 90 days" },
   { value: "quarter", labelVi: "Quý này",       labelEn: "This quarter" },
@@ -23,7 +30,10 @@ export const ANALYTICS_PERIODS: { value: AnalyticsPeriod; labelVi: string; label
   { value: "all",     labelVi: "Tất cả",        labelEn: "All time" },
 ]
 
-export function parsePeriod(raw: string | undefined | null): AnalyticsPeriod {
+/** @deprecated Use PERIOD_OPTIONS. */
+export const ANALYTICS_PERIODS = PERIOD_OPTIONS
+
+export function parsePeriod(raw: string | undefined | null): PeriodValue {
   switch (raw) {
     case "30d":
     case "90d":
@@ -44,10 +54,10 @@ export interface PeriodWindow {
   label: string
 }
 
-export function resolvePeriod(period: AnalyticsPeriod, locale: "vi" | "en" = "vi"): PeriodWindow {
+export function resolvePeriod(period: PeriodValue, locale: "vi" | "en" = "vi"): PeriodWindow {
   const now = new Date()
   const toIso = now.toISOString()
-  const meta = ANALYTICS_PERIODS.find((p) => p.value === period)
+  const meta = PERIOD_OPTIONS.find((p) => p.value === period)
   const label = meta ? (locale === "vi" ? meta.labelVi : meta.labelEn) : period
 
   switch (period) {

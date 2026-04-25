@@ -9,16 +9,28 @@ import { Button } from "@/components/ui/button"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
+import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
+import { getCurrentRole } from "@/lib/auth/guard"
+import { CAPS, canAny } from "@/lib/auth/permissions"
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ perfPeriod?: string }>
 }
 
-export default async function AdminClientDetailPage({ params }: PageProps) {
+export default async function AdminClientDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  const sp = await searchParams
   const supabase = await createClient()
   const { t, locale } = await getDictionary()
+
+  // Decide whether to show the analytics performance card. AE/Researcher
+  // are only allowed to see analytics for clients they own — checked here
+  // to avoid leaking deal counts of unrelated clients.
+  const current = await getCurrentRole()
+  const canSeeAnalytics =
+    !!current && canAny(current.role, [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN])
 
   // Fetch profile, docs, and tokenized links in parallel — they're independent.
   const [{ data: client }, { data: docs }, { data: links }] = await Promise.all([
@@ -187,6 +199,20 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Performance / analytics — visible to admin/finance unconditionally,
+          and to AE/Researcher when this client is one they manage.
+          The query layer enforces the same scope so a stray URL guess returns
+          empty data rather than another client's deals. */}
+      {canSeeAnalytics &&
+        (canAny(current!.role, [CAPS.ANALYTICS_VIEW_ALL]) ||
+          client.account_manager_id === current!.userId) && (
+          <ClientPerformanceCard
+            clientId={client.id}
+            perfPeriodRaw={sp.perfPeriod}
+            basePath={`/admin/clients/${client.id}`}
+          />
+        )}
 
       {/* Products */}
       <AdminClientProductsManager clientId={client.id} clientName={companyLabel} />

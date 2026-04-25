@@ -122,6 +122,11 @@ export const en = {
       joined: "Joined",
       actions: "Actions",
       backToList: "Back to clients",
+      tabs: {
+        performance: "Performance",
+        products: "Products",
+        compliance: "Compliance",
+      },
       empty: "No clients yet",
       emptyDesc: "Vietnamese exporter accounts will appear here once registered.",
       oppSheet: {

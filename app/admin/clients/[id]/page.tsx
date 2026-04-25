@@ -1,11 +1,12 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Building2, Mail, Briefcase, Star } from "lucide-react"
+import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
@@ -200,30 +201,70 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
         </CardContent>
       </Card>
 
-      {/* Performance / analytics — visible to admin/finance unconditionally,
-          and to AE/Researcher when this client is one they manage.
-          The query layer enforces the same scope so a stray URL guess returns
-          empty data rather than another client's deals. */}
-      {canSeeAnalytics &&
-        (canAny(current!.role, [CAPS.ANALYTICS_VIEW_ALL]) ||
-          client.account_manager_id === current!.userId) && (
-          <ClientPerformanceCard
-            clientId={client.id}
-            perfPeriodRaw={sp.perfPeriod}
-            basePath={`/admin/clients/${client.id}`}
-          />
-        )}
+      {/* Tabbed content: Performance / Products / Compliance.
+          Tabs is a Client Component but accepts server-rendered children via
+          React's RSC boundary, so the data-fetching inside <ClientPerformanceCard />
+          (an async server component) still runs on the server. */}
+      {(() => {
+        const showPerf =
+          canSeeAnalytics &&
+          (canAny(current!.role, [CAPS.ANALYTICS_VIEW_ALL]) ||
+            client.account_manager_id === current!.userId)
+        const defaultTab = showPerf ? "performance" : "products"
+        const tabsCopy = (s as any).tabs ?? {
+          performance: "Performance",
+          products: "Products",
+          compliance: "Compliance",
+        }
 
-      {/* Products */}
-      <AdminClientProductsManager clientId={client.id} clientName={companyLabel} />
+        return (
+          <Tabs defaultValue={defaultTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
+              {showPerf && (
+                <TabsTrigger value="performance" className="gap-1.5">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{tabsCopy.performance}</span>
+                  <span className="sm:hidden">{tabsCopy.performance}</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="products" className="gap-1.5">
+                <Package className="h-3.5 w-3.5" />
+                {tabsCopy.products}
+              </TabsTrigger>
+              <TabsTrigger value="compliance" className="gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {tabsCopy.compliance}
+              </TabsTrigger>
+            </TabsList>
 
-      {/* Compliance workspace */}
-      <ClientComplianceWorkspace
-        clientId={client.id}
-        clientName={companyLabel}
-        initialDocs={docs ?? []}
-        initialLinks={linksWithDocs}
-      />
+            {showPerf && (
+              <TabsContent value="performance" className="mt-4">
+                <ClientPerformanceCard
+                  clientId={client.id}
+                  perfPeriodRaw={sp.perfPeriod}
+                  basePath={`/admin/clients/${client.id}`}
+                />
+              </TabsContent>
+            )}
+
+            <TabsContent value="products" className="mt-4">
+              <AdminClientProductsManager
+                clientId={client.id}
+                clientName={companyLabel}
+              />
+            </TabsContent>
+
+            <TabsContent value="compliance" className="mt-4">
+              <ClientComplianceWorkspace
+                clientId={client.id}
+                clientName={companyLabel}
+                initialDocs={docs ?? []}
+                initialLinks={linksWithDocs}
+              />
+            </TabsContent>
+          </Tabs>
+        )
+      })()}
     </div>
   )
 }

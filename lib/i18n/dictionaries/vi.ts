@@ -123,6 +123,11 @@ export const vi: Dictionary = {
       joined: "Ngày tham gia",
       actions: "Thao tác",
       backToList: "Về danh sách khách hàng",
+      tabs: {
+        performance: "Hiệu suất",
+        products: "Sản phẩm",
+        compliance: "Tuân thủ",
+      },
       empty: "Chưa có khách hàng",
       emptyDesc: "Tài khoản doanh nghiệp xuất khẩu Việt Nam sẽ xuất hiện ở đây khi đăng ký.",
       oppSheet: {
@@ -307,7 +312,7 @@ delete: "Xóa",
           "Người mua truy cập 1 trang xem được tất cả hồ sơ bạn đã chọn. Liên kết tự động hết hạn theo số ngày quy định.",
         bundleDocsListTitle: "Hồ sơ trong gói",
         selectAtLeastOne: "Chọn ít nhất một hồ sơ có thể chia sẻ để tiếp tục.",
-        bundleLinkCreated: "Liên kết gộp đã được t���������o.",
+        bundleLinkCreated: "Liên kết gộp đã được t�����������o.",
         bundleLinkEmailSent: "Liên kết gộp đã được tạo và gửi email cho người mua.",
         bundleLinkEmailFailed:
           "Liên kết đã tạo nhưng gửi email thất bại. Bạn có thể copy và gửi thủ công.",

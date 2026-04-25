@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Loader2, Plus, Upload, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,19 +24,11 @@ import {
 } from '@/components/ui/select';
 import { addClientProductAction, updateClientProductAction } from '@/app/admin/clients/products-actions';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
-
-const CATEGORIES = [
-  { value: 'Coffee', label: 'Cà phê' },
-  { value: 'Cocoa', label: 'Ca cao' },
-  { value: 'Pepper', label: 'Hồ tiêu' },
-  { value: 'Cashew', label: 'Hạt điều' },
-  { value: 'Spices', label: 'Gia vị' },
-  { value: 'Nuts', label: 'Các loại hạt' },
-  { value: 'Dried Fruits', label: 'Trái cây sấy' },
-  { value: 'Grains', label: 'Ngũ cốc' },
-  { value: 'Oils', label: 'Dầu' },
-  { value: 'Other', label: 'Khác' },
-];
+import {
+  listProductCategoriesAction,
+  type ProductCategory,
+} from '@/app/admin/clients/categories-actions';
+import { AddProductCategoryDialog } from '@/components/admin/add-product-category-dialog';
 
 const UNITS = [
   { value: 'kg', label: 'kg' },
@@ -67,6 +59,9 @@ export function AdminProductDialog({
 }: AdminProductDialogProps) {
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [canAddCategory, setCanAddCategory] = useState(false);
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [formData, setFormData] = useState({
     product_name: product?.product_name || '',
     product_code: product?.product_code || '',
@@ -105,6 +100,38 @@ export function AdminProductDialog({
     });
     setFiles([]);
   }, [product, open]);
+
+  // Load product categories from DB whenever the dialog opens.
+  // Categories used to be hard-coded; now super_admin/admin/staff can extend
+  // them via the "+" button next to the dropdown.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const res = await listProductCategoriesAction();
+      if (cancelled) return;
+      if (res.success) {
+        setCategories(res.data);
+        setCanAddCategory(res.canAdd);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // When a new category is added in the sub-dialog, prepend it to the local
+  // list and auto-select it on the form so the user doesn't have to re-pick.
+  const handleCategoryAdded = (cat: ProductCategory) => {
+    setCategories((prev) => {
+      // Avoid duplicates if the same category somehow round-trips twice.
+      if (prev.some((c) => c.id === cat.id)) return prev;
+      return [...prev, cat].sort(
+        (a, b) => a.display_order - b.display_order || a.label_vi.localeCompare(b.label_vi),
+      );
+    });
+    setFormData((prev) => ({ ...prev, category: cat.value }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -172,6 +199,7 @@ export function AdminProductDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -219,18 +247,35 @@ export function AdminProductDialog({
                 <Label htmlFor="category">
                   Danh mục <span className="text-destructive">*</span>
                 </Label>
-                <Select value={formData.category} onValueChange={(v) => handleSelectChange('category', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn danh mục" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={formData.category}
+                    onValueChange={(v) => handleSelectChange('category', v)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Chọn danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.value}>
+                          {cat.label_vi}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {canAddCategory && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setAddCategoryOpen(true)}
+                      aria-label="Thêm danh mục mới"
+                      title="Thêm danh mục mới"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subcategory">Danh mục phụ</Label>
@@ -424,5 +469,14 @@ export function AdminProductDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Sub-dialog for adding a new product category. Rendered as a sibling
+        so it overlays the parent dialog without z-index conflicts. */}
+    <AddProductCategoryDialog
+      open={addCategoryOpen}
+      onOpenChange={setAddCategoryOpen}
+      onAdded={handleCategoryAdded}
+    />
+    </>
   );
 }

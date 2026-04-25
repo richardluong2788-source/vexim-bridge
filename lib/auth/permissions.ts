@@ -60,6 +60,13 @@ export const CAPS = {
   // --- System / audit ---
   ACTIVITY_LOG_VIEW:           "system:activity_log:view",
   NOTIFICATIONS_MANAGE:        "system:notifications:manage",
+
+  // --- Analytics / Reporting (added in 029) ---
+  // VIEW_ALL — see every client's history (admin/super_admin/finance).
+  // VIEW_OWN — see only clients where profiles.account_manager_id = current user
+  //            (account_executive / lead_researcher).
+  ANALYTICS_VIEW_ALL:          "analytics:view:all",
+  ANALYTICS_VIEW_OWN:          "analytics:view:own",
 } as const
 
 export type Capability = (typeof CAPS)[keyof typeof CAPS]
@@ -105,6 +112,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // Read-only signals
     CAPS.COUNTRY_RISK_READ,
     CAPS.FINANCE_READ,
+
+    // Analytics — scoped to assigned clients only.
+    CAPS.ANALYTICS_VIEW_OWN,
   ],
 
   lead_researcher: [
@@ -116,6 +126,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.DEAL_VIEW,
     CAPS.CLIENT_VIEW,
     CAPS.COUNTRY_RISK_READ,
+
+    // Analytics — scoped to assigned clients only.
+    CAPS.ANALYTICS_VIEW_OWN,
   ],
 
   finance: [
@@ -130,6 +143,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.DEAL_VIEW,
     CAPS.CLIENT_VIEW,
     CAPS.BUYER_VIEW,
+
+    // Finance team needs full revenue / win-rate visibility for forecasting.
+    CAPS.ANALYTICS_VIEW_ALL,
   ],
 
   // Legacy — treat as account_executive.
@@ -146,6 +162,7 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.CLIENT_COMPLIANCE_WRITE,
     CAPS.COUNTRY_RISK_READ,
     CAPS.FINANCE_READ,
+    CAPS.ANALYTICS_VIEW_OWN,
   ],
 
   // Portal user — not enforced via capabilities here.

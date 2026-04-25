@@ -12,6 +12,8 @@ import {
   type BuyerReply,
   type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
+import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
+import { canAny } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
 
@@ -183,6 +185,15 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         canWrite={canWrite}
         canViewPII={canViewPII}
       />
+
+      {/* Aggregate buyer KPIs across all clients — gated by analytics caps.
+          Note: AE / Researcher already see ANALYTICS_VIEW_OWN, but at the
+          buyer level there is no client filter to apply (buyer cuts across
+          clients), so we show this whenever the user has ANY analytics cap.
+          The numbers do not reveal cost prices, only deal counts. */}
+      {canAny(current.role, [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN]) && (
+        <BuyerPerformanceCard leadId={buyer.id} />
+      )}
     </div>
   )
 }

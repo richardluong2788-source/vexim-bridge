@@ -9,6 +9,7 @@ import {
   PlusCircle,
   LogOut,
   BarChart3,
+  PieChart,
   Activity,
   UserCog,
   Settings,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile, Role } from "@/lib/supabase/types"
-import { CAPS, can, ROLE_META, type Capability } from "@/lib/auth/permissions"
+import { CAPS, can, canAny, ROLE_META, type Capability } from "@/lib/auth/permissions"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/i18n/language-provider"
@@ -36,8 +37,13 @@ interface NavItem {
   label: string
   icon: LucideIcon
   exact?: boolean
-  /** Capability required to see this item. `null` → visible to all admin-shell roles. */
-  cap: Capability | null
+  /**
+   * Capability required to see this item.
+   * - A single Capability → must have it.
+   * - An array → ANY of them (OR).
+   * - `null` → visible to all admin-shell roles.
+   */
+  cap: Capability | Capability[] | null
 }
 
 export function AdminSidebar({ profile, role }: AdminSidebarProps) {
@@ -59,13 +65,17 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
     { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.BUYER_WRITE },
     { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.BUYER_WRITE },
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
+    { href: "/admin/analytics",         label: locale === "vi" ? "Phân tích" : "Analytics", icon: PieChart,              cap: [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN] },
     { href: "/admin/country-risk",      label: t.nav.countryRisk ?? "Country Risk",       icon: Globe2,                 cap: CAPS.COUNTRY_RISK_READ },
     { href: "/admin/finance",           label: t.nav.finance ?? "Tài chính",              icon: Wallet,                 cap: CAPS.FINANCE_READ },
     { href: "/admin/users",             label: t.nav.users,                               icon: UserCog,                cap: CAPS.USERS_VIEW },
     { href: "/settings/notifications",  label: t.nav_extra.settings,                      icon: Settings,               cap: null },
   ]
 
-  const navItems = allItems.filter((item) => item.cap === null || can(role, item.cap))
+  const navItems = allItems.filter((item) => {
+    if (item.cap === null) return true
+    return Array.isArray(item.cap) ? canAny(role, item.cap) : can(role, item.cap)
+  })
 
   const roleMeta = ROLE_META[role]
   const roleLabel = roleMeta?.labelVi ?? roleMeta?.label ?? role

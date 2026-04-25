@@ -2,16 +2,10 @@
 
 /**
  * Admin Product Dialog
- * 
+ *
  * Purpose: Admin uses this dialog to add/edit products for clients
  * Workflow: Admin goes to client detail page → Products section → Add/Edit product
  * The product is then visible to client in /client/products (read-only)
- * 
- * Features:
- * - Upload images, certificates, videos
- * - Set capacity, pricing, specifications
- * - Activate/deactivate products
- * - Edit existing products
  */
 
 import { useState } from 'react';
@@ -28,24 +22,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { addClientProductAction, updateClientProductAction } from '@/app/admin/clients/products-actions';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 
 const CATEGORIES = [
-  'Coffee',
-  'Cocoa',
-  'Pepper',
-  'Cashew',
-  'Spices',
-  'Nuts',
-  'Dried Fruits',
-  'Grains',
-  'Oils',
-  'Other',
+  { value: 'Coffee', label: 'Cà phê' },
+  { value: 'Cocoa', label: 'Ca cao' },
+  { value: 'Pepper', label: 'Hồ tiêu' },
+  { value: 'Cashew', label: 'Hạt điều' },
+  { value: 'Spices', label: 'Gia vị' },
+  { value: 'Nuts', label: 'Các loại hạt' },
+  { value: 'Dried Fruits', label: 'Trái cây sấy' },
+  { value: 'Grains', label: 'Ngũ cốc' },
+  { value: 'Oils', label: 'Dầu' },
+  { value: 'Other', label: 'Khác' },
 ];
 
-const UNITS = ['kg', 'ton', 'liter', 'boxes', 'bags', 'units'];
+const UNITS = [
+  { value: 'kg', label: 'kg' },
+  { value: 'ton', label: 'tấn' },
+  { value: 'liter', label: 'lít' },
+  { value: 'boxes', label: 'thùng' },
+  { value: 'bags', label: 'bao' },
+  { value: 'units', label: 'cái' },
+];
 const CURRENCIES = ['USD', 'EUR', 'VND', 'CNY', 'SGD', 'MYR'];
 
 interface AdminProductDialogProps {
@@ -110,10 +110,10 @@ export function AdminProductDialog({
       const payload = {
         ...formData,
         monthly_capacity_units: formData.monthly_capacity_units
-          ? parseInt(formData.monthly_capacity_units)
+          ? Number.parseInt(formData.monthly_capacity_units)
           : null,
-        min_unit_price: formData.min_unit_price ? parseFloat(formData.min_unit_price) : null,
-        max_unit_price: formData.max_unit_price ? parseFloat(formData.max_unit_price) : null,
+        min_unit_price: formData.min_unit_price ? Number.parseFloat(formData.min_unit_price) : null,
+        max_unit_price: formData.max_unit_price ? Number.parseFloat(formData.max_unit_price) : null,
       };
 
       let result;
@@ -153,79 +153,83 @@ export function AdminProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? `Update product for ${clientName}`
-              : `Add a new product for ${clientName}`}
+              ? `Cập nhật sản phẩm cho ${clientName}`
+              : `Thêm sản phẩm mới cho ${clientName}`}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Basic Information</h3>
+            <h3 className="font-semibold">Thông tin cơ bản</h3>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="product_name">Product Name *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="product_name">
+                  Tên sản phẩm <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="product_name"
                   name="product_name"
                   value={formData.product_name}
                   onChange={handleInputChange}
-                  placeholder="e.g., Arabica Coffee Beans"
+                  placeholder="VD: Cà phê Arabica"
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="product_code">Product Code</Label>
+              <div className="space-y-2">
+                <Label htmlFor="product_code">Mã sản phẩm</Label>
                 <Input
                   id="product_code"
                   name="product_code"
                   value={formData.product_code}
                   onChange={handleInputChange}
-                  placeholder="e.g., COFFEE-001"
+                  placeholder="VD: COFFEE-001"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="category">
+                  Danh mục <span className="text-destructive">*</span>
+                </Label>
                 <Select value={formData.category} onValueChange={(v) => handleSelectChange('category', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Chọn danh mục" />
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="subcategory">Sub-Category</Label>
+              <div className="space-y-2">
+                <Label htmlFor="subcategory">Danh mục phụ</Label>
                 <Input
                   id="subcategory"
                   name="subcategory"
                   value={formData.subcategory}
                   onChange={handleInputChange}
-                  placeholder="e.g., Washed, Single Origin"
+                  placeholder="VD: Chế biến ướt, Single Origin"
                 />
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="description">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="description">Mô tả</Label>
               <Textarea
                 id="description"
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Detailed product description"
+                placeholder="Mô tả chi tiết về sản phẩm"
                 rows={3}
               />
             </div>
@@ -233,11 +237,11 @@ export function AdminProductDialog({
 
           {/* Capacity & Pricing */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Capacity & Pricing</h3>
+            <h3 className="font-semibold">Năng lực & Giá</h3>
 
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="monthly_capacity">Monthly Capacity</Label>
+              <div className="space-y-2">
+                <Label htmlFor="monthly_capacity">Năng lực hàng tháng</Label>
                 <Input
                   id="monthly_capacity"
                   name="monthly_capacity_units"
@@ -247,23 +251,23 @@ export function AdminProductDialog({
                   placeholder="500"
                 />
               </div>
-              <div>
-                <Label htmlFor="unit">Unit</Label>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Đơn vị</Label>
                 <Select value={formData.unit_of_measure} onValueChange={(v) => handleSelectChange('unit_of_measure', v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {UNITS.map((unit) => (
-                      <SelectItem key={unit} value={unit}>
-                        {unit}
+                      <SelectItem key={unit.value} value={unit.value}>
+                        {unit.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="currency">Currency</Label>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Tiền tệ</Label>
                 <Select value={formData.currency} onValueChange={(v) => handleSelectChange('currency', v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -280,8 +284,8 @@ export function AdminProductDialog({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="min_price">Min Unit Price</Label>
+              <div className="space-y-2">
+                <Label htmlFor="min_price">Giá tối thiểu</Label>
                 <Input
                   id="min_price"
                   name="min_unit_price"
@@ -292,8 +296,8 @@ export function AdminProductDialog({
                   placeholder="4.50"
                 />
               </div>
-              <div>
-                <Label htmlFor="max_price">Max Unit Price</Label>
+              <div className="space-y-2">
+                <Label htmlFor="max_price">Giá tối đa</Label>
                 <Input
                   id="max_price"
                   name="max_unit_price"
@@ -309,11 +313,11 @@ export function AdminProductDialog({
 
           {/* Compliance & Status */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Compliance & Status</h3>
+            <h3 className="font-semibold">Tuân thủ & Trạng thái</h3>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="hs_code">HS Code</Label>
+              <div className="space-y-2">
+                <Label htmlFor="hs_code">Mã HS</Label>
                 <Input
                   id="hs_code"
                   name="hs_code"
@@ -322,16 +326,18 @@ export function AdminProductDialog({
                   placeholder="0901110000"
                 />
               </div>
-              <div>
-                <Label htmlFor="status">Status *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="status">
+                  Trạng thái <span className="text-destructive">*</span>
+                </Label>
                 <Select value={formData.status} onValueChange={(v) => handleSelectChange('status', v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="active">Đang hoạt động</SelectItem>
+                    <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                    <SelectItem value="suspended">Tạm ngưng</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -340,9 +346,9 @@ export function AdminProductDialog({
 
           {/* File Upload */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Attachments (Images, Videos, Certificates)</h3>
+            <h3 className="font-semibold">Tệp đính kèm (Hình ảnh, Video, Chứng nhận)</h3>
             <p className="text-sm text-muted-foreground">
-              Upload product images, videos, certificates (max 5 files, 50MB each)
+              Tải lên hình ảnh, video, chứng nhận sản phẩm (tối đa 5 tệp, mỗi tệp 50MB)
             </p>
 
             <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
@@ -356,8 +362,8 @@ export function AdminProductDialog({
               />
               <Label htmlFor="files" className="cursor-pointer">
                 <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="font-medium">Drag files here or click to browse</p>
-                <p className="text-sm text-muted-foreground">Supports images, videos, and PDFs</p>
+                <p className="font-medium">Kéo thả tệp vào đây hoặc bấm để chọn</p>
+                <p className="text-sm text-muted-foreground">Hỗ trợ hình ảnh, video và PDF</p>
               </Label>
             </div>
 
@@ -386,11 +392,11 @@ export function AdminProductDialog({
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-              Cancel
+              Hủy
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEditing ? 'Update Product' : 'Add Product'}
+              {isEditing ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm'}
             </Button>
           </div>
         </form>

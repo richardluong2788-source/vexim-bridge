@@ -4,7 +4,14 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/supabase/types"
-import { TrendingUp, LayoutDashboard, List, LogOut, Settings } from "lucide-react"
+import {
+  TrendingUp,
+  LayoutDashboard,
+  List,
+  LogOut,
+  Settings,
+  BarChart3,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/i18n/language-provider"
@@ -26,6 +33,7 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
   const navItems = [
     { href: "/client", label: t.nav.dashboard, icon: LayoutDashboard, exact: true },
     { href: "/client/leads", label: t.nav.leads, icon: List },
+    { href: "/client/analytics", label: t.client.analytics.navLabel, icon: BarChart3 },
     { href: "/settings/notifications", label: t.nav_extra.settings, icon: Settings },
   ]
 

@@ -532,7 +532,7 @@ export const en = {
     dashboard: {
       title: "Dashboard",
       welcome: "Welcome back",
-      subtitle: "Your export sales pipeline at a glance",
+      subtitle: "Bring your goods to the international market.",
       totalLeads: "Total Leads",
       totalLeadsDesc: "Buyers assigned to you",
       inProgress: "In Progress",

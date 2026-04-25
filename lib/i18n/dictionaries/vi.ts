@@ -533,7 +533,7 @@ delete: "Xóa",
     dashboard: {
       title: "Tổng quan",
       welcome: "Chào mừng trở lại",
-      subtitle: "Pipeline bán hàng xuất khẩu của bạn trong nháy mắt",
+      subtitle: "Đưa hàng của bạn vào thị trường Quốc Tế",
       totalLeads: "Tổng số Lead",
       totalLeadsDesc: "Người mua được giao cho bạn",
       inProgress: "Đang xử lý",

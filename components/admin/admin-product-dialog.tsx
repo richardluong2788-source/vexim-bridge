@@ -8,7 +8,7 @@
  * The product is then visible to client in /client/products (read-only)
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Upload, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -83,6 +83,28 @@ export function AdminProductDialog({
   });
 
   const isEditing = !!product;
+
+  // Re-sync form whenever the dialog opens with a new product (or switches
+  // from "Add" to "Edit"). Without this, useState's initial value sticks
+  // and the edit form shows stale/empty data the second time it opens.
+  useEffect(() => {
+    if (!open) return;
+    setFormData({
+      product_name: product?.product_name || '',
+      product_code: product?.product_code || '',
+      category: product?.category || '',
+      subcategory: product?.subcategory || '',
+      description: product?.description || '',
+      monthly_capacity_units: product?.monthly_capacity_units?.toString() || '',
+      unit_of_measure: product?.unit_of_measure || 'kg',
+      min_unit_price: product?.min_unit_price?.toString() || '',
+      max_unit_price: product?.max_unit_price?.toString() || '',
+      currency: product?.currency || 'USD',
+      hs_code: product?.hs_code || '',
+      status: product?.status || 'active',
+    });
+    setFiles([]);
+  }, [product, open]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

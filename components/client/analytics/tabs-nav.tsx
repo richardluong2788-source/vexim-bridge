@@ -5,35 +5,18 @@
  * `?tab=` so refresh / share / back-forward all behave correctly. We must
  * be a client component to access the `useTranslation` hook for label
  * localisation.
+ *
+ * The `parseClientTab` helper + type live in `lib/analytics/client-tabs.ts`
+ * so the server page can import them without crossing the client/server
+ * function boundary.
  */
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
-
-export type ClientAnalyticsTab =
-  | "overview"
-  | "pipeline"
-  | "winloss"
-  | "financial"
-
-const TAB_ORDER: ClientAnalyticsTab[] = [
-  "overview",
-  "pipeline",
-  "winloss",
-  "financial",
-]
-
-export function parseClientTab(raw: string | undefined | null): ClientAnalyticsTab {
-  switch (raw) {
-    case "overview":
-    case "pipeline":
-    case "winloss":
-    case "financial":
-      return raw
-    default:
-      return "overview"
-  }
-}
+import {
+  CLIENT_ANALYTICS_TAB_ORDER,
+  type ClientAnalyticsTab,
+} from "@/lib/analytics/client-tabs"
 
 interface Props {
   current: ClientAnalyticsTab
@@ -50,7 +33,7 @@ export function ClientAnalyticsTabsNav({ current, period }: Props) {
       className="flex flex-wrap gap-1 border-b border-border"
       aria-label="Analytics sections"
     >
-      {TAB_ORDER.map((tab) => {
+      {CLIENT_ANALYTICS_TAB_ORDER.map((tab) => {
         const isActive = current === tab
         return (
           <Link

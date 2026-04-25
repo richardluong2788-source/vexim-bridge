@@ -8,11 +8,9 @@ import {
 } from "@/lib/analytics/constants"
 import { getDictionary } from "@/lib/i18n/server"
 import { isAdminShellRole, normaliseRole } from "@/lib/auth/permissions"
+import { parseClientTab } from "@/lib/analytics/client-tabs"
 import { ClientPeriodSelector } from "@/components/client/analytics/period-selector"
-import {
-  ClientAnalyticsTabsNav,
-  parseClientTab,
-} from "@/components/client/analytics/tabs-nav"
+import { ClientAnalyticsTabsNav } from "@/components/client/analytics/tabs-nav"
 import { ClientOverviewTab } from "@/components/client/analytics/overview-tab"
 import { ClientPipelineTab } from "@/components/client/analytics/pipeline-tab"
 import { ClientWinLossTab } from "@/components/client/analytics/win-loss-tab"

@@ -9,6 +9,7 @@ import {
   PlusCircle,
   LogOut,
   BarChart3,
+  PieChart,
   Activity,
   UserCog,
   Settings,

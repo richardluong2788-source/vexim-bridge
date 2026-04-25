@@ -364,7 +364,7 @@ export function SmartLeadForm() {
             {!canFind && (
               <p className="text-xs text-muted-foreground">
                 {locale === "vi"
-                  ? "Chọn ngành hàng hoặc nhập sản phẩm đ�� bắt đầu"
+                  ? "Chọn ngành hàng hoặc nhập sản phẩm để bắt đầu"
                   : "Pick an industry or enter a product to start"}
               </p>
             )}

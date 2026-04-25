@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Search, Loader2, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useDictionary } from "@/components/i18n/language-provider"
+import { useTranslation } from "@/components/i18n/language-provider"
 
 type LookupResult = {
   ok: boolean
@@ -27,7 +27,7 @@ type LookupResult = {
  */
 export function PipelineRefSearch() {
   const router = useRouter()
-  const { t } = useDictionary()
+  const { t } = useTranslation()
   const [query, setQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()

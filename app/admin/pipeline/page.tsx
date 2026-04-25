@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { KanbanBoard } from "@/components/admin/kanban-board"
+import { PipelineRefSearch } from "@/components/admin/pipeline-ref-search"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
 import { getDictionary } from "@/lib/i18n/server"
 
@@ -22,6 +23,7 @@ export default async function AdminPipelinePage() {
         <h1 className="text-2xl font-semibold text-foreground">{t.admin.pipeline.title}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t.admin.pipeline.subtitle}</p>
       </div>
+      <PipelineRefSearch />
       <KanbanBoard opportunities={(opportunities as OpportunityWithClient[]) ?? []} />
     </div>
   )

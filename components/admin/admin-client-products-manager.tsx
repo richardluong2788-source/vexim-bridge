@@ -2,37 +2,45 @@
 
 /**
  * Admin Client Products Manager
- * 
+ *
  * Location: Integrated into Admin Client Detail Page (/admin/clients/[id])
  * Purpose: Allow admin to manage all products for a specific client
- * 
- * Workflow:
- * 1. Admin clicks on a client in /admin/clients
- * 2. Scrolls to "Products" section
- * 3. Clicks "+ Add Product"
- * 4. Fills form with product info and uploads files
- * 5. Product appears on client's /client/products page (read-only)
- * 
- * Admin can also:
- * - Edit existing products
- * - Delete products
- * - Change product status (active/inactive/suspended)
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Empty } from '@/components/ui/empty';
-import { listClientProductsAction } from '@/app/admin/clients/products-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  listClientProductsAction,
+  deleteClientProductAction,
+} from '@/app/admin/clients/products-actions';
 import { AdminProductDialog } from './admin-product-dialog';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
+import { toast } from 'sonner';
 
 interface AdminClientProductsManagerProps {
   clientId: string;
   clientName: string;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Đang hoạt động',
+  inactive: 'Ngừng hoạt động',
+  suspended: 'Tạm ngưng',
+};
 
 export function AdminClientProductsManager({
   clientId,
@@ -42,9 +50,12 @@ export function AdminClientProductsManager({
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ClientProduct | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<ClientProduct | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   const loadProducts = async () => {
@@ -76,6 +87,26 @@ export function AdminClientProductsManager({
     handleCloseDialog();
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deletingProduct) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteClientProductAction(deletingProduct.id);
+      if (result.success) {
+        toast.success(`Đã xóa sản phẩm "${deletingProduct.product_name}"`);
+        setDeletingProduct(null);
+        await loadProducts();
+      } else {
+        toast.error(result.error || 'Không thể xóa sản phẩm');
+      }
+    } catch (error) {
+      console.error('[v0] Error deleting product:', error);
+      toast.error('Đã xảy ra lỗi khi xóa sản phẩm');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const statusBadgeVariant = (status: string) => {
     switch (status) {
       case 'active':
@@ -95,7 +126,7 @@ export function AdminClientProductsManager({
       <div className="flex justify-end">
         <Button onClick={() => handleOpenDialog()} size="lg">
           <Plus className="w-4 h-4 mr-2" />
-          Add Product
+          Thêm sản phẩm
         </Button>
       </div>
 
@@ -108,12 +139,12 @@ export function AdminClientProductsManager({
         </Card>
       ) : products.length === 0 ? (
         <Empty
-          title="No products yet"
-          description={`Start by adding the first product for ${clientName}`}
+          title="Chưa có sản phẩm nào"
+          description={`Bắt đầu bằng cách thêm sản phẩm đầu tiên cho ${clientName}`}
           action={
             <Button onClick={() => handleOpenDialog()}>
               <Plus className="w-4 h-4 mr-2" />
-              Add Product
+              Thêm sản phẩm
             </Button>
           }
         />
@@ -137,7 +168,7 @@ export function AdminClientProductsManager({
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge variant={statusBadgeVariant(product.status)}>
-                      {product.status}
+                      {STATUS_LABELS[product.status] ?? product.status}
                     </Badge>
                   </div>
                 </div>
@@ -152,7 +183,7 @@ export function AdminClientProductsManager({
                   {product.monthly_capacity_units && (
                     <div>
                       <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        Monthly Capacity
+                        Năng lực hàng tháng
                       </span>
                       <p className="font-semibold">
                         {product.monthly_capacity_units} {product.unit_of_measure}
@@ -163,7 +194,7 @@ export function AdminClientProductsManager({
                   {(product.min_unit_price || product.max_unit_price) && (
                     <div>
                       <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        Price Range
+                        Khoảng giá
                       </span>
                       <p className="font-semibold">
                         {product.currency} {product.min_unit_price || '—'} - {product.max_unit_price || '—'}
@@ -174,7 +205,7 @@ export function AdminClientProductsManager({
                   {product.hs_code && (
                     <div>
                       <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        HS Code
+                        Mã HS
                       </span>
                       <p className="font-semibold">{product.hs_code}</p>
                     </div>
@@ -182,9 +213,11 @@ export function AdminClientProductsManager({
 
                   <div>
                     <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                      Updated
+                      Cập nhật
                     </span>
-                    <p className="font-semibold">{new Date(product.updated_at).toLocaleDateString()}</p>
+                    <p className="font-semibold">
+                      {new Date(product.updated_at).toLocaleDateString('vi-VN')}
+                    </p>
                   </div>
                 </div>
 
@@ -197,17 +230,16 @@ export function AdminClientProductsManager({
                     className="flex-1"
                   >
                     <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
+                    Chỉnh sửa
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
-                    disabled
-                    title="Use Edit button to delete"
+                    className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setDeletingProduct(product)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
+                    Xóa
                   </Button>
                 </div>
               </CardContent>
@@ -225,6 +257,41 @@ export function AdminClientProductsManager({
         onOpenChange={setShowDialog}
         onSaved={handleProductSaved}
       />
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deletingProduct}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeletingProduct(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa sản phẩm?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa sản phẩm{' '}
+              <span className="font-semibold text-foreground">
+                {deletingProduct?.product_name}
+              </span>
+              ? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -11,6 +11,11 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
+import {
+  buildRefCode,
+  buildReplyToAddress,
+  prependRefToSubject,
+} from "@/lib/email/ref-code"
 
 export class EmailSenderAuthError extends Error {
   constructor(message = "Unauthorized") {
@@ -82,7 +87,7 @@ export async function sendEmailDraft(
     )
   }
 
-  const subject =
+  const baseSubject =
     opts?.overrideSubject?.trim() ||
     draft.generated_subject_en ||
     "Export opportunity"
@@ -93,6 +98,35 @@ export async function sendEmailDraft(
     throw new Error("Generated email body is empty")
   }
 
+  // 2b. Look up the owning client (for ref-code initials) so admins can
+  //     identify which client a buyer's reply belongs to just by scanning
+  //     their Zoho inbox.
+  let clientName: string | null = null
+  if (draft.opportunity_id) {
+    const { data: opp } = await supabase
+      .from("opportunities")
+      .select("client_id, profiles:client_id ( company_name )")
+      .eq("id", draft.opportunity_id)
+      .single()
+    // Supabase returns the embedded relation as either an object or array
+    // depending on the FK shape — handle both safely.
+    const profile = Array.isArray(opp?.profiles) ? opp?.profiles[0] : opp?.profiles
+    clientName = profile?.company_name ?? null
+  }
+
+  // 2c. Build ref code + Reply-To so buyer replies can be traced back to
+  //     this exact opportunity even with hundreds of inbound emails.
+  const fromAddress = getFromAddress()
+  const refCode = draft.opportunity_id
+    ? buildRefCode(draft.opportunity_id, clientName)
+    : null
+  const subject = refCode ? prependRefToSubject(baseSubject, refCode) : baseSubject
+  // Strip a leading display name like "Vexim Bridge <addr@x>" -> "addr@x"
+  const fromBare = fromAddress.match(/<([^>]+)>/)?.[1] ?? fromAddress
+  const replyTo = draft.opportunity_id
+    ? buildReplyToAddress(fromBare, draft.opportunity_id) ?? undefined
+    : undefined
+
   // 3. Send via Zoho SMTP
   const htmlBody = content
     .split(/\n{2,}/)
@@ -100,8 +134,9 @@ export async function sendEmailDraft(
     .join("")
 
   const sendRes = await sendMail({
-    from: getFromAddress(),
+    from: fromAddress,
     to: recipient,
+    replyTo,
     subject,
     html: htmlBody,
     text: content,
@@ -116,7 +151,8 @@ export async function sendEmailDraft(
     throw new Error(sendRes.error.message ?? "Email send failed")
   }
 
-  // 4. Flip draft status
+  // 4. Flip draft status — also persist the SMTP Message-ID so a future
+  //    inbound poller can match buyer replies via the In-Reply-To header.
   await supabase
     .from("email_drafts")
     .update({
@@ -125,15 +161,18 @@ export async function sendEmailDraft(
       sent_at: new Date().toISOString(),
       generated_subject_en: subject,
       generated_content_en: content,
+      smtp_message_id: sendRes.data?.id ?? null,
     })
     .eq("id", draftId)
 
-  // 5. Activity log (best-effort)
+  // 5. Activity log (best-effort) — include ref code so the timeline shows
+  //    the exact tag buyers will see in their reply subject.
   if (draft.opportunity_id) {
+    const refSuffix = refCode ? ` [ref: ${refCode}]` : ""
     await supabase.from("activities").insert({
       opportunity_id: draft.opportunity_id,
       action_type: "email_sent",
-      description: `Email sent to ${recipient}: "${subject}"`,
+      description: `Email sent to ${recipient}: "${subject}"${refSuffix}`,
       performed_by: user.id,
     })
   }

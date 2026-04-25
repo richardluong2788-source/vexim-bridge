@@ -348,6 +348,14 @@ export const en = {
     addLead: "Add Buyer",
       empty: "No opportunities in this stage",
       dragHint: "Drop here",
+      refSearch: {
+        label: "Look up a buyer reply",
+        placeholder: "Paste [VEX-LA-A3F9C2] or the last 6 hex characters",
+        hint: "Open the buyer's email in Zoho, copy the tag from the subject, then paste it here to jump to the right opportunity",
+        button: "Open opportunity",
+        notFound: "No opportunity matches this code",
+        invalid: "Invalid code — must be VEX-XX-XXXXXX or 6 hex characters",
+      },
     },
     activities: {
       title: "Activity Log",

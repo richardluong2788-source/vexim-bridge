@@ -58,6 +58,13 @@ export function getFromAddress(): string {
 export interface SendMailInput {
   from?: string
   to: string | string[]
+  /**
+   * Reply-To header. When set, recipients' "Reply" button targets this
+   * address instead of `from`. We use plus-addressing here (e.g.
+   * `notifications+opp-A3F9C2@vexim.com`) so inbound replies can be routed
+   * back to the originating opportunity.
+   */
+  replyTo?: string
   subject: string
   html?: string
   text?: string
@@ -81,6 +88,7 @@ export async function sendMail(
     const info = await transporter.sendMail({
       from: input.from ?? getFromAddress(),
       to: Array.isArray(input.to) ? input.to.join(", ") : input.to,
+      replyTo: input.replyTo,
       subject: input.subject,
       html: input.html,
       text: input.text,

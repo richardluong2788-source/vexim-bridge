@@ -9,13 +9,25 @@ import { AlertTriangle, CheckCircle2, XCircle, Building2, Clock, ExternalLink, S
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
+import { AccountManagerSelect, type ManagerOption } from "@/components/admin/account-manager-select"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 
 interface ClientsTableProps {
   clients: Profile[]
+  /** Staff list shown in the "Account Manager" dropdown. */
+  managers: ManagerOption[]
+  /** Map of managerId -> label, used to render read-only cells. */
+  managerLabels: Record<string, string>
+  /** True when the current viewer has CLIENT_WRITE. */
+  canAssignManager: boolean
 }
 
-export function ClientsTable({ clients }: ClientsTableProps) {
+export function ClientsTable({
+  clients,
+  managers,
+  managerLabels,
+  canAssignManager,
+}: ClientsTableProps) {
   const { t, locale } = useTranslation()
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
@@ -41,6 +53,7 @@ export function ClientsTable({ clients }: ClientsTableProps) {
             <TableHead className="font-medium">{t.auth.login.email}</TableHead>
             <TableHead className="font-medium">{t.admin.clients.industry}</TableHead>
             <TableHead className="font-medium">{t.admin.clients.fdaRegistration}</TableHead>
+            <TableHead className="font-medium">Account Manager</TableHead>
             <TableHead className="font-medium">{t.admin.clients.joined}</TableHead>
             <TableHead className="font-medium text-right">{t.admin.clients.actions}</TableHead>
           </TableRow>
@@ -78,6 +91,19 @@ export function ClientsTable({ clients }: ClientsTableProps) {
                   expiresAt={client.fda_expires_at}
                   t={t.admin.clients}
                   locale={locale}
+                />
+              </TableCell>
+              <TableCell>
+                <AccountManagerSelect
+                  clientId={client.id}
+                  currentManagerId={client.account_manager_id ?? null}
+                  currentManagerLabel={
+                    client.account_manager_id
+                      ? (managerLabels[client.account_manager_id] ?? null)
+                      : null
+                  }
+                  managers={managers}
+                  canEdit={canAssignManager}
                 />
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">

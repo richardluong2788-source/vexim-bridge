@@ -70,7 +70,9 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
       {/* Tab content */}
       {tab === "overview" && <OverviewTab scope={scope} period={period} />}
-      {tab === "clients" && <ByClientTab scope={scope} period={period} />}
+      {tab === "clients" && (
+        <ByClientTab scope={scope} period={period} periodValue={periodValue} />
+      )}
       {tab === "bottleneck" && <BottleneckTab scope={scope} />}
       {tab === "lost" && <LostTab scope={scope} period={period} />}
     </div>

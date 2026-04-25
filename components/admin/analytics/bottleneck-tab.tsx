@@ -4,9 +4,10 @@
  * triage quickly.
  */
 import Link from "next/link"
-import { AlertTriangle, ArrowUpRight, Clock } from "lucide-react"
+import { AlertTriangle, ArrowUpRight, Clock, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { getStuckOpportunities, type ClientScope } from "@/lib/analytics/queries"
 import { STAGE_LABEL_VI, formatDaysVi } from "@/lib/analytics/constants"
@@ -74,6 +75,12 @@ export async function BottleneckTab({ scope }: Props) {
               21 ngày, Đã gửi mẫu / Đàm phán 30 ngày, Chốt giá 14 ngày.
             </p>
           </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <a href="/api/export/analytics/stuck" download>
+              <Download className="h-3.5 w-3.5" />
+              Tải CSV
+            </a>
+          </Button>
         </CardContent>
       </Card>
 

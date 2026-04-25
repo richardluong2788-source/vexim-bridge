@@ -81,6 +81,10 @@ export type Database = {
           fda_renewal_notified_at: string | null
           avatar_url: string | null
           preferred_language: PreferredLanguage
+          // Sprint 3 — staff member responsible for this client.
+          // Populated by Admin / Super-Admin via /admin/clients UI.
+          // Drives ANALYTICS_VIEW_OWN scope for AE / Lead Researcher.
+          account_manager_id: string | null
           created_at: string
         }
         Insert: {
@@ -98,6 +102,7 @@ export type Database = {
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
+          account_manager_id?: string | null
           created_at?: string
         }
         Update: {
@@ -115,6 +120,7 @@ export type Database = {
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
+          account_manager_id?: string | null
           created_at?: string
         }
       }

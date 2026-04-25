@@ -4,19 +4,22 @@
  * primitive. Users can click a row to drill down to /admin/clients/[id].
  */
 import Link from "next/link"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Download } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { getByClient, type ClientScope } from "@/lib/analytics/queries"
-import { formatDaysVi, type PeriodWindow } from "@/lib/analytics/constants"
+import { formatDaysVi, type PeriodWindow, type PeriodValue } from "@/lib/analytics/constants"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 interface Props {
   scope: ClientScope
   period: PeriodWindow
+  /** Original period selector value, forwarded to the CSV download URL. */
+  periodValue: PeriodValue
 }
 
-export async function ByClientTab({ scope, period }: Props) {
+export async function ByClientTab({ scope, period, periodValue }: Props) {
   const rows = await getByClient(scope, period)
 
   // Sort: clients with most decided deals first; tiebreak by win rate.
@@ -52,6 +55,20 @@ export async function ByClientTab({ scope, period }: Props) {
 
   return (
     <Card className="border-border overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+        <p className="text-xs text-muted-foreground">
+          {rows.length} khách hàng — sắp xếp theo số deal đã chốt
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={`/api/export/analytics/by-client?period=${encodeURIComponent(periodValue)}`}
+            download
+          >
+            <Download className="h-3.5 w-3.5" />
+            Tải CSV
+          </a>
+        </Button>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs text-muted-foreground">

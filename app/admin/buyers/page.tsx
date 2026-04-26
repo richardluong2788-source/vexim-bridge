@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { PlusCircle, Upload } from "lucide-react"
+import { PlusCircle, Sparkles, Upload } from "lucide-react"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, can } from "@/lib/auth/permissions"
@@ -109,6 +109,12 @@ export default async function BuyersDirectoryPage() {
         </div>
         {canWrite && (
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/admin/buyers/import-importyeti">
+                <Sparkles className="mr-2 h-4 w-4" />
+                {locale === "vi" ? "Import từ ImportYeti" : "Import from ImportYeti"}
+              </Link>
+            </Button>
             <Button asChild variant="outline">
               <Link href="/admin/leads/import">
                 <Upload className="mr-2 h-4 w-4" />

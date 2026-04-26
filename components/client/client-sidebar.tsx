@@ -11,6 +11,7 @@ import {
   LogOut,
   Settings,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
     { href: "/client", label: t.nav.dashboard, icon: LayoutDashboard, exact: true },
     { href: "/client/leads", label: t.nav.leads, icon: List },
     { href: "/client/analytics", label: t.client.analytics.navLabel, icon: BarChart3 },
+    { href: "/client/sla", label: "SLA & Yêu cầu", icon: ShieldCheck },
     { href: "/settings/notifications", label: t.nav_extra.settings, icon: Settings },
   ]
 

@@ -67,6 +67,19 @@ export const CAPS = {
   //            (account_executive / lead_researcher).
   ANALYTICS_VIEW_ALL:          "analytics:view:all",
   ANALYTICS_VIEW_OWN:          "analytics:view:own",
+
+  // --- SLA tracking (added in 031) ---
+  // SLA_VIEW_ALL — see SLA performance for every client (admin/finance).
+  // SLA_VIEW_OWN — see SLA only for clients where profiles.account_manager_id
+  //                = current user (AE / Lead Researcher).
+  // SLA_TARGET_WRITE — edit per-plan target rows + global defaults.
+  // SLA_HOLIDAY_WRITE — manage public holiday calendar.
+  // SLA_RUN_TRIGGER — kick off an evaluation re-run from the admin UI.
+  SLA_VIEW_ALL:                "sla:view:all",
+  SLA_VIEW_OWN:                "sla:view:own",
+  SLA_TARGET_WRITE:            "sla:target:write",
+  SLA_HOLIDAY_WRITE:           "sla:holiday:write",
+  SLA_RUN_TRIGGER:             "sla:run:trigger",
 } as const
 
 export type Capability = (typeof CAPS)[keyof typeof CAPS]
@@ -115,6 +128,8 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // Analytics — scoped to assigned clients only.
     CAPS.ANALYTICS_VIEW_OWN,
+    // SLA — scoped, read-only.
+    CAPS.SLA_VIEW_OWN,
   ],
 
   lead_researcher: [
@@ -129,6 +144,8 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // Analytics — scoped to assigned clients only.
     CAPS.ANALYTICS_VIEW_OWN,
+    // SLA — scoped, read-only.
+    CAPS.SLA_VIEW_OWN,
   ],
 
   finance: [
@@ -146,6 +163,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // Finance team needs full revenue / win-rate visibility for forecasting.
     CAPS.ANALYTICS_VIEW_ALL,
+    // SLA — finance edits targets / penalties, sees full breakdown.
+    CAPS.SLA_VIEW_ALL,
+    CAPS.SLA_TARGET_WRITE,
   ],
 
   // Legacy — treat as account_executive.
@@ -163,6 +183,7 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.COUNTRY_RISK_READ,
     CAPS.FINANCE_READ,
     CAPS.ANALYTICS_VIEW_OWN,
+    CAPS.SLA_VIEW_OWN,
   ],
 
   // Portal user — not enforced via capabilities here.

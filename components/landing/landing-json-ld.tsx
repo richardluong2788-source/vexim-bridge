@@ -23,15 +23,23 @@ export function LandingJsonLd() {
         description: siteConfig.description,
         address: {
           "@type": "PostalAddress",
-          addressLocality: "Ho Chi Minh City",
-          addressCountry: "VN",
+          ...siteConfig.contact.addressParts,
         },
         sameAs: [siteConfig.social.linkedin, siteConfig.social.facebook],
         contactPoint: [
           {
             "@type": "ContactPoint",
             email: siteConfig.contact.email,
+            telephone: siteConfig.contact.phone,
             contactType: "sales",
+            areaServed: ["VN", "US"],
+            availableLanguage: ["Vietnamese", "English"],
+          },
+          {
+            "@type": "ContactPoint",
+            email: siteConfig.contact.support,
+            telephone: siteConfig.contact.phone,
+            contactType: "customer support",
             areaServed: ["VN", "US"],
             availableLanguage: ["Vietnamese", "English"],
           },

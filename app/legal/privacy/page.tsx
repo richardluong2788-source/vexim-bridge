@@ -33,7 +33,10 @@ const SECTIONS: LegalSection[] = [
   { id: "lien-he", title: "Liên hệ DPO" },
 ]
 
-const URL = `${siteConfig.url}${PATHNAME}`
+// IMPORTANT: do NOT name this `URL` — that shadows the global URL constructor
+// used by `new URL(...)` inside `metadataBase` and crashes the route at
+// module-load (rendered as a 404 in production).
+const PAGE_URL = `${siteConfig.url}${PATHNAME}`
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -59,7 +62,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "article",
     locale: "vi_VN",
-    url: URL,
+    url: PAGE_URL,
     siteName: siteConfig.name,
     title: `${TITLE} — ${siteConfig.name}`,
     description: SUMMARY,

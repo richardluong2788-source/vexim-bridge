@@ -45,8 +45,21 @@ export const siteConfig = {
   contact: {
     email: "hello@veximbridge.com",
     support: "support@veximbridge.com",
-    phone: "+84 28 0000 0000",
-    address: "TP. Hồ Chí Minh, Việt Nam",
+    // Vietnamese hotline as displayed (also surfaced as tel: link).
+    hotline: "0373 685 634",
+    // E.164 form for `tel:` href and JSON-LD telephone field.
+    phone: "+84373685634",
+    // Single-line address kept for inline use (footer first column, JSON-LD).
+    address:
+      "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch, Kim Chung, Hoài Đức, Hà Nội",
+    // Structured fields for schema.org PostalAddress (JSON-LD).
+    addressParts: {
+      streetAddress:
+        "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch",
+      addressLocality: "Kim Chung, Hoài Đức",
+      addressRegion: "Hà Nội",
+      addressCountry: "VN",
+    },
   },
   social: {
     linkedin: "https://www.linkedin.com/company/vexim-bridge",

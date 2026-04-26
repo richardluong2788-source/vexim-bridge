@@ -24,7 +24,9 @@ const SECTIONS: LegalSection[] = [
   { id: "lien-he", title: "Liên hệ" },
 ]
 
-const URL = `${siteConfig.url}${PATHNAME}`
+// See note in /app/legal/terms/page.tsx — never call this `URL`, it would
+// shadow the global URL constructor used by `metadataBase`.
+const PAGE_URL = `${siteConfig.url}${PATHNAME}`
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -47,7 +49,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "article",
     locale: "vi_VN",
-    url: URL,
+    url: PAGE_URL,
     siteName: siteConfig.name,
     title: `${TITLE} — ${siteConfig.name}`,
     description: SUMMARY,

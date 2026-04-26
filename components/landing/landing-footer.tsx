@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { MapPin, Phone } from "lucide-react"
 import { BrandMark } from "@/components/landing/brand-mark"
 import { siteConfig } from "@/lib/site-config"
 
@@ -49,7 +50,37 @@ export function LandingFooter() {
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
               {siteConfig.description}
             </p>
-            <p className="mt-4 text-xs text-muted-foreground">{siteConfig.contact.address}</p>
+            {/* Semantic <address>: helps assistive tech and SEO (combined with
+                JSON-LD PostalAddress on landing-json-ld.tsx). itemProp markers
+                stay lightweight — primary structured data is the JSON-LD. */}
+            <address className="mt-6 flex flex-col gap-2 not-italic text-xs leading-relaxed text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <MapPin
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/80"
+                  aria-hidden="true"
+                />
+                <span>
+                  <span className="font-medium text-foreground">Vexim Global</span>
+                  <br />
+                  {siteConfig.contact.address}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone
+                  className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80"
+                  aria-hidden="true"
+                />
+                <span>
+                  Hotline:{" "}
+                  <a
+                    href={`tel:${siteConfig.contact.phone}`}
+                    className="font-medium text-foreground transition-colors hover:text-primary"
+                  >
+                    {siteConfig.contact.hotline}
+                  </a>
+                </span>
+              </div>
+            </address>
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-8">

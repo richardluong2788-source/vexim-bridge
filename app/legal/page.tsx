@@ -8,7 +8,9 @@ const TITLE = "Trung tâm pháp lý"
 const SUMMARY =
   "Tổng hợp các tài liệu pháp lý của Vexim Bridge: điều khoản dịch vụ, chính sách bảo mật và chính sách cookie. Tất cả tài liệu được cập nhật định kỳ và áp dụng cho toàn bộ khách hàng sử dụng nền tảng tại veximbridge.com."
 
-const URL = `${siteConfig.url}${PATHNAME}`
+// See note in /app/legal/terms/page.tsx — never call this `URL`, it would
+// shadow the global URL constructor used by `metadataBase`.
+const PAGE_URL = `${siteConfig.url}${PATHNAME}`
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "vi_VN",
-    url: URL,
+    url: PAGE_URL,
     siteName: siteConfig.name,
     title: `${TITLE} — ${siteConfig.name}`,
     description: SUMMARY,

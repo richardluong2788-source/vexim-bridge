@@ -106,9 +106,9 @@ export const SLA_METRIC_META: Record<SlaMetricKey, SlaMetricMeta> = {
     labelVi: "Xác minh Swift",
     labelEn: "Swift verification",
     descVi:
-      "Swift wire copy phải được verify trong 2 ngày làm việc kể từ khi upload.",
+      "Swift wire copy phải được verify trong 2 ngày làm việc kể từ khi upload. Chỉ áp dụng với deal có buyer ở quốc gia rủi ro trung bình / cao (theo SOP §3 country-risk). Deal low-risk được miễn xác minh.",
     descEn:
-      "Swift wire copies must be verified within 2 business days of upload.",
+      "Swift wire copies must be verified within 2 business days of upload. Applies only to deals where the buyer country is medium / high risk (per SOP §3 country-risk policy). Low-risk deals are exempt.",
     direction: "max",
     unit: "business_days",
     perEvent: true,

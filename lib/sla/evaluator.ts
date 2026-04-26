@@ -428,10 +428,16 @@ export async function evaluateSwiftVerification(
     }
   }
 
+  // Pull every deal in the period that has a Swift upload — we filter the
+  // SLA scope below using risk_level so that low-risk buyers (where the SOP
+  // does NOT require admin Swift verification) are not penalised. See
+  // lib/risk/country-risk.ts: only "low" sets requiresVerifiedSwift=false;
+  // medium / high / unknown all require admin verification, so the SLA must
+  // only score on those.
   const { data: dealRows } = await ctx.admin
     .from("deals")
     .select(
-      "id, opportunity_id, swift_uploaded_at, swift_verified_at",
+      "id, opportunity_id, swift_uploaded_at, swift_verified_at, risk_level",
     )
     .in("opportunity_id", oppIds)
     .not("swift_uploaded_at", "is", null)
@@ -439,8 +445,21 @@ export async function evaluateSwiftVerification(
     .lt("swift_uploaded_at", ctx.periodEnd.toISOString())
 
   const breaches: BreachInput[] = []
+  let inScopeCount = 0
+  let lowRiskSkipped = 0
+
   for (const d of dealRows ?? []) {
     if (!d.swift_uploaded_at) continue
+
+    // SLA scope filter: skip deals where the buyer country is classified as
+    // low risk. Treat NULL risk_level as in-scope (medium-by-default per SOP).
+    const risk = (d.risk_level ?? "").toLowerCase()
+    if (risk === "low") {
+      lowRiskSkipped += 1
+      continue
+    }
+    inScopeCount += 1
+
     const uploaded = new Date(d.swift_uploaded_at)
     const verifiedOrPeriodEnd = d.swift_verified_at
       ? new Date(d.swift_verified_at)
@@ -462,6 +481,7 @@ export async function evaluateSwiftVerification(
         detail: {
           swift_uploaded_at: d.swift_uploaded_at,
           swift_verified_at: d.swift_verified_at,
+          risk_level: d.risk_level ?? null,
         },
       })
     }
@@ -473,7 +493,13 @@ export async function evaluateSwiftVerification(
       targetValue: target.target_value,
       measuredValue: breaches.length,
       newViolations: breaches.length,
-      detail: { scanned_deals: dealRows?.length ?? 0 },
+      detail: {
+        scanned_deals: dealRows?.length ?? 0,
+        in_scope_deals: inScopeCount,
+        low_risk_skipped: lowRiskSkipped,
+        scope_rule:
+          "deals.risk_level != 'low' (medium / high / unknown require admin Swift verification)",
+      },
     },
     breaches,
   }

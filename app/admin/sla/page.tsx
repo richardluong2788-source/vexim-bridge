@@ -124,9 +124,16 @@ export default async function AdminSlaPage({ searchParams }: PageProps) {
       }))
     : []
 
-  function buildPeriodHref(next: string): string {
-    return `/admin/sla?period=${next}`
+  // Precompute prev/next month ISO + hrefs server-side so we can pass plain
+  // strings (not functions) into the client SlaMonthPicker component.
+  function shiftMonthIso(iso: string, delta: number): string {
+    const [y, m] = iso.split("-").map(Number)
+    if (!y || !m) return iso
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1, 0, 0, 0))
+    return d.toISOString().slice(0, 10)
   }
+  const prevHref = `/admin/sla?period=${shiftMonthIso(periodMonth, -1)}`
+  const nextHref = `/admin/sla?period=${shiftMonthIso(periodMonth, 1)}`
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-[1400px] mx-auto w-full">
@@ -145,7 +152,8 @@ export default async function AdminSlaPage({ searchParams }: PageProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <SlaMonthPicker
             periodMonth={periodMonth}
-            buildHref={buildPeriodHref}
+            prevHref={prevHref}
+            nextHref={nextHref}
           />
           {can(current.role, CAPS.SLA_RUN_TRIGGER) && (
             <SlaRerunButton periodMonth={periodMonth} />

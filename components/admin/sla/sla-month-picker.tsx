@@ -7,15 +7,10 @@ import { Button } from "@/components/ui/button"
 interface SlaMonthPickerProps {
   /** Current period_month (first of month, 'YYYY-MM-DD'). */
   periodMonth: string
-  /** URL builder — receives the next periodMonth value, returns href. */
-  buildHref: (next: string) => string
-}
-
-function shiftMonthIso(periodMonth: string, delta: number): string {
-  const [y, m] = periodMonth.split("-").map(Number)
-  if (!y || !m) return periodMonth
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1, 0, 0, 0))
-  return d.toISOString().slice(0, 10)
+  /** Pre-built href for the previous month (server-side). */
+  prevHref: string
+  /** Pre-built href for the next month (server-side). */
+  nextHref: string
 }
 
 function vnLabel(periodMonth: string): string {
@@ -30,17 +25,19 @@ function vnLabel(periodMonth: string): string {
 }
 
 /**
- * Minimal previous/current/next month nav. Server-rendered: the surrounding
- * page reads ?period= from searchParams and rebuilds.
+ * Minimal previous/current/next month nav. The surrounding server page reads
+ * ?period= from searchParams and passes pre-built hrefs as plain strings —
+ * functions cannot cross the server→client boundary.
  */
-export function SlaMonthPicker({ periodMonth, buildHref }: SlaMonthPickerProps) {
-  const prev = shiftMonthIso(periodMonth, -1)
-  const next = shiftMonthIso(periodMonth, 1)
-
+export function SlaMonthPicker({
+  periodMonth,
+  prevHref,
+  nextHref,
+}: SlaMonthPickerProps) {
   return (
     <div className="flex items-center gap-1 rounded-lg border bg-card px-1 py-1">
       <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-        <Link href={buildHref(prev)} aria-label="Tháng trước">
+        <Link href={prevHref} aria-label="Tháng trước">
           <ChevronLeft className="h-4 w-4" />
         </Link>
       </Button>
@@ -48,7 +45,7 @@ export function SlaMonthPicker({ periodMonth, buildHref }: SlaMonthPickerProps) 
         {vnLabel(periodMonth)}
       </span>
       <Button asChild variant="ghost" size="icon" className="h-7 w-7">
-        <Link href={buildHref(next)} aria-label="Tháng sau">
+        <Link href={nextHref} aria-label="Tháng sau">
           <ChevronRight className="h-4 w-4" />
         </Link>
       </Button>

@@ -132,8 +132,10 @@ CREATE INDEX IF NOT EXISTS idx_client_requests_open
   ON public.client_requests (status, received_at)
   WHERE status IN ('open', 'in_progress');
 -- Speed up the monthly evaluator query that buckets by month of receipt.
-CREATE INDEX IF NOT EXISTS idx_client_requests_received_month
-  ON public.client_requests (date_trunc('month', received_at), client_id);
+-- NOTE: date_trunc('month', received_at) on a timestamptz is STABLE, not
+-- IMMUTABLE, so it cannot be used directly in an index expression. The
+-- composite (client_id, received_at DESC) index defined above already
+-- supports range scans by month, which is what the evaluator needs.
 
 ALTER TABLE public.client_requests ENABLE ROW LEVEL SECURITY;
 

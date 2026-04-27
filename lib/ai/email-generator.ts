@@ -174,11 +174,11 @@ export async function generateEmailDraft(
   // ------------------------------------------------------------
   // 4) Call OpenAI via AI Gateway and get structured output
   // ------------------------------------------------------------
-  const { experimental_output: generated } = await generateText({
+  const { output: generated } = await generateText({
     model: "openai/gpt-4o-mini",
     system,
     prompt: userPrompt,
-    experimental_output: Output.object({ schema: outputSchema }),
+    output: Output.object({ schema: outputSchema }),
   })
 
   // ------------------------------------------------------------

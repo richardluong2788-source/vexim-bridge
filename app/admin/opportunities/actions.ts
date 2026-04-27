@@ -664,14 +664,14 @@ export async function suggestClientAction(
   ].join("\n")
 
   try {
-    const { experimental_output } = await generateText({
+    const { output } = await generateText({
       model: "openai/gpt-4o-mini",
       system,
       prompt: userPrompt,
-      experimental_output: Output.object({ schema: SUGGESTION_SCHEMA }),
+      output: Output.object({ schema: SUGGESTION_SCHEMA }),
     })
 
-    const suggestion = experimental_output.suggestion?.trim()
+    const suggestion = output.suggestion?.trim()
     if (!suggestion) return { ok: false, error: "generic" }
 
     return { ok: true, suggestion }

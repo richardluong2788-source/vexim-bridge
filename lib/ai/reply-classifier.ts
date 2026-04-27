@@ -99,19 +99,19 @@ export async function classifyBuyerReply(
 
   const model = "openai/gpt-4o-mini"
 
-  const { experimental_output } = await generateText({
+  const { output } = await generateText({
     model,
     system,
     prompt,
-    experimental_output: Output.object({ schema: outputSchema }),
+    output: Output.object({ schema: outputSchema }),
   })
 
   return {
-    intent: experimental_output.intent,
-    confidence: experimental_output.confidence,
-    summaryVi: experimental_output.summary_vi,
-    translatedVi: experimental_output.translated_vi,
-    suggestedNextStepVi: experimental_output.suggested_next_step_vi,
+    intent: output.intent,
+    confidence: output.confidence,
+    summaryVi: output.summary_vi,
+    translatedVi: output.translated_vi,
+    suggestedNextStepVi: output.suggested_next_step_vi,
     model,
   }
 }

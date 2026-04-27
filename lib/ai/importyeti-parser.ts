@@ -173,9 +173,9 @@ export async function parseImportYetiText(input: string): Promise<{
       model: "openai/gpt-4o-mini",
       system,
       prompt: userPrompt,
-      experimental_output: Output.object({ schema: outputSchema }),
+      output: Output.object({ schema: outputSchema }),
     })
-    generated = result.experimental_output
+    generated = result.output
   } catch (err) {
     console.error("[v0] ImportYeti AI parse failed:", err)
     throw new ImportYetiParserError(

@@ -5,14 +5,14 @@
  * Allows Lead Researcher and Account Executive to manage CI data
  */
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import type { CommercialIntelligence } from "@/lib/supabase/types"
 
 export async function getCIByOpportunityId(
   opportunityId: string
 ): Promise<{ ok: true; ci: CommercialIntelligence | null } | { ok: false; error: string }> {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createClient()
     const { data, error } = await supabase
       .from("commercial_intelligence")
       .select("*")
@@ -43,7 +43,7 @@ export async function createOrUpdateCI({
   | { ok: false; error: string }
 > {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createClient()
     const { data: user } = await supabase.auth.getUser()
 
     if (!user?.user) {

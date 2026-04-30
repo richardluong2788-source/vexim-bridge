@@ -29,6 +29,7 @@ import type { OpportunityWithClient } from "@/lib/supabase/types"
 import { OpportunityComplianceSection } from "@/components/admin/opportunity-compliance-section"
 import { OpportunityFinancialSection } from "@/components/admin/opportunity-financial-section"
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
+import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -351,6 +352,12 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
             {/* Section 2.3: Buyer replies (SOP Phase 2.2) */}
             <OpportunityBuyerRepliesSection
+              opportunityId={opportunity.id}
+              open={open}
+            />
+
+            {/* Section 2.3.5: Commercial Intelligence (Ngăn Tình báo) */}
+            <OpportunityCISection
               opportunityId={opportunity.id}
               open={open}
             />

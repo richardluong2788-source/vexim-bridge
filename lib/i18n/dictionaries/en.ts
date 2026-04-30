@@ -481,6 +481,23 @@ export const en = {
         general: "General",
       },
     },
+    ci: {
+      sectionTitle: "Commercial Intelligence",
+      sectionSubtitle: "Verified trade intelligence (Được xác minh bởi Bên A trước khi bàn giao)",
+      mainHSCode: "Main HS Code (Mã HS Code chính)",
+      mainHSCodeHelp: "Primary harmonized tariff code from customs records",
+      importHistory: "Import History Summary (Tóm tắt lịch sử nhập khẩu)",
+      importHistoryHelp: "Description of buyer's import patterns and volume",
+      mainCompetitors: "Main Competitors (Đối thủ cạnh tranh chính)",
+      mainCompetitorsHelp: "Key suppliers/competitors the buyer currently uses",
+      edit: "Edit",
+      save: "Save",
+      cancel: "Cancel",
+      saving: "Saving...",
+      loading: "Loading...",
+      noData: "No commercial intelligence data yet",
+      verified: "Verified by",
+    },
     bulkImport: {
       title: "Bulk lead import",
       subtitle:

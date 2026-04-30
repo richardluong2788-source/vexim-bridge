@@ -676,6 +676,22 @@ export type BuyerReply = {
 }
 
 // ============================================================
+// Commercial Intelligence (Sprint - CI validation)
+// ============================================================
+
+export type CommercialIntelligence = {
+  id: string
+  opportunity_id: string
+  main_hs_code: string | null
+  import_history_summary: string | null
+  main_competitors: string | null
+  created_by: string | null
+  created_at: string
+  updated_by: string | null
+  updated_at: string
+}
+
+// ============================================================
 // Finance / Cash-flow (migration 016)
 // ============================================================
 

@@ -692,6 +692,52 @@ export type CommercialIntelligence = {
 }
 
 // ============================================================
+// Bank Directory & L/C Verification (Sprint - LC Bank Safety)
+// ============================================================
+
+export type BankDirectoryEntry = {
+  bic: string
+  bank_name: string
+  country_code: string
+  country_name: string | null
+  tier: 1 | 2 | 3 | 4
+  is_sanctioned: boolean
+  has_correspondent_vn: boolean
+  notes: string | null
+  source: string | null
+  updated_at: string
+}
+
+export type LCVerification = {
+  id: string
+  opportunity_id: string
+  // Issuing bank (Layer 1 + 2 + 3)
+  bank_bic: string | null
+  bank_name_snapshot: string | null
+  bank_country_snapshot: string | null
+  detected_tier: 1 | 2 | 3 | 4 | null
+  detected_sanctioned: boolean | null
+  recommendation: string | null
+  // Checklist 6 (Layer 4)
+  received_via_swift: boolean
+  bic_matches: boolean
+  amount_matches_po: boolean
+  description_matches_po: boolean
+  shipment_date_reasonable: boolean
+  no_soft_clauses: boolean
+  // Document
+  lc_document_url: string | null
+  // Status
+  verification_status: "pending" | "verified" | "rejected"
+  rejection_reason: string | null
+  // Audit
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ============================================================
 // Finance / Cash-flow (migration 016)
 // ============================================================
 

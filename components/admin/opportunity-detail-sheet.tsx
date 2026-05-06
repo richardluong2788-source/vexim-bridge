@@ -30,6 +30,7 @@ import { OpportunityComplianceSection } from "@/components/admin/opportunity-com
 import { OpportunityFinancialSection } from "@/components/admin/opportunity-financial-section"
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
 import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
+import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -370,6 +371,12 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
             {/* Section 2.5: Closing & Compliance (SOP Phase 3) */}
             <OpportunityComplianceSection
+              opportunityId={opportunity.id}
+              open={open}
+            />
+
+            {/* Section 2.6: L/C & Bank Verification (Anti-fraud LC) */}
+            <OpportunityLCSection
               opportunityId={opportunity.id}
               open={open}
             />

@@ -8,6 +8,8 @@ import { LandingHero } from "@/components/landing/landing-hero"
 import { LandingTrustBar } from "@/components/landing/landing-trust-bar"
 import { LandingProblem } from "@/components/landing/landing-problem"
 import { LandingFeatures } from "@/components/landing/landing-features"
+import { LandingComparison } from "@/components/landing/landing-comparison"
+import { LandingServiceScope } from "@/components/landing/landing-service-scope"
 import { LandingHowItWorks } from "@/components/landing/landing-how-it-works"
 import { LandingSecurity } from "@/components/landing/landing-security"
 import { LandingAudiences } from "@/components/landing/landing-audiences"
@@ -101,6 +103,8 @@ export default async function RootPage() {
           <LandingTrustBar />
           <LandingProblem />
           <LandingFeatures />
+          <LandingComparison />
+          <LandingServiceScope />
           <LandingHowItWorks />
           <LandingSecurity />
           <LandingAudiences />

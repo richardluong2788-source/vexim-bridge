@@ -3,23 +3,23 @@ import { AlertTriangle, FileX, Languages, ShieldAlert } from "lucide-react"
 const PAIN_POINTS = [
   {
     icon: FileX,
-    title: "FDA kiểm soát ngặt nghèo ",
-    desc: "Thiếu một giấy tờ nhỏ, lô hàng bị giữ ở cảng Mỹ - tiền lưu kho và phạt chậm trả vượt cả lợi nhuận của đơn hàng.",
+    title: "Hàng kẹt ở cảng vì FDA",
+    desc: "Một sai sót nhỏ trong FDA Prior Notice là container bị giữ ở Long Beach. Phí lưu container 150–300 USD/ngày, phí kho bãi cộng dồn - lỗ hết lợi nhuận đơn hàng trong 2 tuần.",
   },
   {
     icon: ShieldAlert,
-    title: "Lừa đảo chuyển tiền quốc tế",
-    desc: "Kẻ gian mạo danh người mua gửi chứng từ chuyển tiền giả. Doanh nghiệp mất hàng, mất tiền, không có bằng chứng để khiếu nại.",
+    title: "L/C giả và chuyển tiền lừa đảo",
+    desc: "Buyer gửi PDF L/C scan từ ngân hàng không có quan hệ đại lý với VCB/BIDV, hoặc Swift copy giả. Hàng đã lên tàu, tiền không về - không có bằng chứng để kiện.",
   },
   {
     icon: Languages,
-    title: "Dễ bị ép giá khi đàm phán",
-    desc: "Lộ thông tin nhà máy quá sớm khiến đối tác ép giá. Trao đổi qua email cá nhân không lưu lại để đối chiếu sau này.",
+    title: "Bị ép giá vì không có người tại Mỹ",
+    desc: "Đàm phán qua email cá nhân, lộ thông tin nhà máy quá sớm. Buyer Mỹ biết bạn không có ai theo dõi tại chỗ - giá bị ép xuống 15–25% so với mặt bằng thị trường.",
   },
   {
     icon: AlertTriangle,
-    title: "Thông tin đơn hàng phân tán",
-    desc: "Dữ liệu nằm rải rác trên Excel, Zalo, email — không ai biết đơn hàng đang ở bước nào, ai phụ trách, khi nào giao.",
+    title: "Tự xây phòng sale Mỹ tốn hàng tỷ đồng",
+    desc: "Lương 1 sales rep tại Mỹ tối thiểu 80–120K USD/năm chưa kể tools, đào tạo và bảo hiểm. Mất 9–18 tháng để có đơn đầu tiên - phần lớn nhà máy không đủ runway.",
   },
 ]
 
@@ -33,11 +33,12 @@ export function LandingProblem() {
             id="problem-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Xuất khẩu sang Mỹ vẫn nhiều rủi ro
+            4 lý do nhà máy Việt mất tiền khi tự bán sang Mỹ
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Chỉ một sai sót nhỏ về giấy phép hay thanh toán có thể phá hỏng nhiều tháng chuẩn bị.
-            Vexim Bridge được thiết kế để chặn những rủi ro này ngay trong quy trình vận hành hàng ngày.
+            Đây là những thiệt hại thực tế chúng tôi gặp hàng tuần khi tiếp nhận khách
+            hàng mới. Phần lớn không phải do chất lượng sản phẩm, mà do thiếu hệ thống
+            kiểm soát thị trường Mỹ.
           </p>
         </div>
 

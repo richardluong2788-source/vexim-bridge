@@ -1,4 +1,4 @@
-import { Coffee, Sparkles, Pill, Check } from "lucide-react"
+import { Coffee, Sparkles, Pill, Stethoscope, Check } from "lucide-react"
 
 const INDUSTRIES = [
   {
@@ -31,6 +31,16 @@ const INDUSTRIES = [
       "Rà soát claim sản phẩm (structure/function) để tránh bị FDA flag hoặc buyer từ chối",
     ],
   },
+  {
+    icon: Stethoscope,
+    badge: "Thiết bị y tế",
+    title: "Thiết bị Class I & II: vật tư tiêu hao, dụng cụ chẩn đoán, đồ bảo hộ",
+    bullets: [
+      "Hỗ trợ FDA Establishment Registration, Device Listing và 510(k) clearance",
+      "Đứng tên U.S. Agent và xử lý MDR (báo cáo sự cố) thay nhà máy",
+      "Kết nối với GPO, distributor y tế và chuỗi bệnh viện tại Mỹ",
+    ],
+  },
 ]
 
 export function LandingAudiences() {
@@ -47,7 +57,7 @@ export function LandingAudiences() {
             id="audiences-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Chuyên sâu cho 3 ngành xuất khẩu chủ lực sang Mỹ
+            Chuyên sâu cho 4 ngành FDA chủ lực sang Mỹ
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
             Mỗi ngành có quy định và thị trường buyer riêng. Vexim Bridge có chuyên gia
@@ -55,7 +65,7 @@ export function LandingAudiences() {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
           {INDUSTRIES.map((industry) => {
             const Icon = industry.icon
             return (
@@ -88,9 +98,9 @@ export function LandingAudiences() {
         </div>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Đang mở rộng sang thiết bị y tế (FDA 510(k), Establishment Registration) và một số ngành khác.{" "}
+          Ngành của bạn không nằm trong 4 nhóm trên?{" "}
           <a href="#final-cta" className="font-semibold text-primary underline-offset-4 hover:underline">
-            Liên hệ để chúng tôi đánh giá ngành của bạn
+            Liên hệ để chúng tôi đánh giá khả năng phục vụ
           </a>
           .
         </p>

@@ -8,7 +8,15 @@ import {
 export const LANDING_FAQS = [
   {
     q: "Vexim Bridge phù hợp với doanh nghiệp quy mô nào?",
-    a: "Chúng tôi phục vụ các nhà máy Việt Nam đã có năng lực sản xuất ổn định và nghiêm túc muốn xây dựng thị trường Mỹ dài hạn. Quy mô từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 3 ngành chủ lực: thực phẩm & đồ uống, mỹ phẩm & chăm sóc cá nhân, và máy móc & thiết bị công nghiệp. Các ngành khác được đánh giá theo từng trường hợp.",
+    a: "Chúng tôi phục vụ các nhà máy Việt Nam đã có năng lực sản xuất ổn định và nghiêm túc muốn xây dựng thị trường Mỹ dài hạn. Quy mô từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 4 ngành FDA chủ lực: thực phẩm & đồ uống, mỹ phẩm & chăm sóc cá nhân (MoCRA), thực phẩm chức năng (DSHEA) và thiết bị y tế Class I/II (510(k)). Các ngành khác được đánh giá theo từng trường hợp.",
+  },
+  {
+    q: "Vexim có hỗ trợ logistics, kho bãi và fulfillment tại Mỹ không?",
+    a: "Có. Vexim điều phối toàn bộ chuỗi logistics qua mạng lưới đối tác chiến lược đã được thẩm định: forwarder hai đầu Việt - Mỹ, customs broker, kho 3PL tại Bờ Đông, Bờ Tây và Trung Mỹ. Chúng tôi hỗ trợ Amazon FBA prep, retail compliance (Walmart, Target, Costco) và B2B distribution. Bạn không cần thuê kho riêng tại Mỹ hay làm việc với nhiều nhà cung cấp - chỉ một đầu mối duy nhất là Vexim.",
+  },
+  {
+    q: "So với tự xây phòng sale tại Mỹ, Vexim khác gì?",
+    a: "Tự tuyển 1 sales tại Mỹ tốn tối thiểu 80–120K USD/năm chưa kể tools, đào tạo và 9–18 tháng để có đơn đầu tiên. Khi nhân sự nghỉ, bạn mất luôn pipeline và quan hệ. Với Vexim, bạn thuê một đội đã có sẵn năng lực FDA, mạng lưới buyer, quy trình verify L/C và đối tác logistics - chỉ trả phí duy trì cố định + hoa hồng khi có doanh thu thực. Tổng chi phí thường thấp hơn 60–75% so với tự xây, và có đơn đầu tiên trong 8–12 tuần.",
   },
   {
     q: "Chi phí sử dụng Vexim Bridge là bao nhiêu?",

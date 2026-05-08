@@ -44,9 +44,9 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
             id="hero-title"
             className="mt-6 text-balance text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl"
           >
-            Phòng kinh doanh xuất khẩu,{" "}
+            Đưa nhà máy Việt vào Mỹ,{" "}
             <span className="relative whitespace-nowrap text-primary">
-              thuê ngoài trọn gói
+              thu USD an toàn
               <svg
                 aria-hidden="true"
                 viewBox="0 0 200 8"
@@ -66,10 +66,10 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Thay vì tuyển và đào tạo một đội kinh doanh riêng cho thị trường Mỹ, bạn thuê
-            Vexim Bridge làm phòng sales xuất khẩu. Chuyên gia của chúng tôi chủ động tìm
-            buyer, đàm phán, xử lý FDA và thủ tục tuân thủ thị trường Hoa Kỳ theo từng ngành hàng - vận hành trên nền tảng quản lý
-            minh bạch mà cả nhà máy và buyer cùng sử dụng.
+            Bạn không cần tuyển sales tại Mỹ, không cần thuê tư vấn FDA, không phải tự
+            tìm forwarder hay kho bãi. Vexim Bridge xử lý trọn gói: tìm buyer, đàm phán,
+            tuân thủ FDA, thẩm định L/C, vận tải và fulfillment - đến khi USD vào tài
+            khoản nhà máy của bạn.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

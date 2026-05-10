@@ -5,6 +5,7 @@ import { getDictionary } from "@/lib/i18n/server"
 import { Button } from "@/components/ui/button"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { can, CAPS, ROLE_META } from "@/lib/auth/permissions"
+import { getOperationalScope } from "@/lib/auth/scope"
 import type { ManagerOption } from "@/components/admin/account-manager-select"
 import type { Role } from "@/lib/supabase/types"
 
@@ -42,15 +43,26 @@ export default async function AdminClientsPage() {
   if (!current) {
     return null
   }
-  const { admin, role } = current
-  const canAssignManager = can(role, CAPS.CLIENT_WRITE)
+  const { admin, role, userId } = current
+  // Sprint client-management-for-AE — AE / lead_researcher / staff only
+  // see clients where they are the account_manager_id. Admin / super_admin
+  // / finance keep full visibility.
+  const scope = getOperationalScope(role, userId)
+  // Only super_admin / admin (CLIENT_WRITE) can re-assign the account
+  // manager dropdown. AE keeps the read-only label.
+  const canAssignManager = can(role, CAPS.CLIENT_WRITE) && scope.kind === "all"
+
+  let clientsQ = admin
+    .from("profiles")
+    .select("*")
+    .eq("role", "client")
+    .order("created_at", { ascending: false })
+  if (scope.kind === "owned") {
+    clientsQ = clientsQ.eq("account_manager_id", scope.managerId)
+  }
 
   const [{ data: clients }, { data: staff }] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("*")
-      .eq("role", "client")
-      .order("created_at", { ascending: false }),
+    clientsQ,
     admin
       .from("profiles")
       .select("id, full_name, email, role")

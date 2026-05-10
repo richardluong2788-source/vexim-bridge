@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache"
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type { Stage } from "@/lib/supabase/types"
 import { stageRequiresSwift } from "@/lib/risk/country-risk"
 import { assessCountryRiskDb } from "@/lib/risk/country-risk-db"
+import { requireAnyCap, requireCap } from "@/lib/auth/guard"
+import { CAPS } from "@/lib/auth/permissions"
+import { assertOpportunityOwnership } from "@/lib/auth/ownership"
 
 export interface UpdateOpportunityInput {
   id: string
@@ -50,20 +51,26 @@ export async function updateOpportunityDetails(
 ): Promise<UpdateOpportunityResult> {
   if (!input?.id) return { ok: false, error: "invalidId" }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "notAuthenticated" }
+  // Capability gate. AE has DEAL_QUANTITY_WRITE / DEAL_SELLING_PRICE_WRITE,
+  // admin / super_admin have everything — both pass here. Lead researchers
+  // are intentionally excluded (read-only on deals).
+  const guard = await requireAnyCap([
+    CAPS.DEAL_QUANTITY_WRITE,
+    CAPS.DEAL_SELLING_PRICE_WRITE,
+  ])
+  if (!guard.ok) {
+    return {
+      ok: false,
+      error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
+    }
+  }
+  const { admin, userId: user_id, role } = guard
 
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
-    return { ok: false, error: "forbidden" }
+  // Ownership gate — AE / lead_researcher / staff may only edit
+  // opportunities tied to clients they personally manage.
+  const ownership = await assertOpportunityOwnership(admin, role, user_id, input.id)
+  if (!ownership.ok) {
+    return { ok: false, error: ownership.error }
   }
 
   // Build update payload with normalised values
@@ -127,8 +134,6 @@ export async function updateOpportunityDetails(
   }
 
   payload.last_updated = new Date().toISOString()
-
-  const admin = createAdminClient()
 
   // Snapshot the BEFORE state so we can detect meaningful changes for the
   // notification dispatcher (e.g. next_step diff, new client_action_required).
@@ -319,23 +324,31 @@ export async function updateOpportunityStage(
     return { ok: false, error: "invalidInput" }
   }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "notAuthenticated" }
-
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
-    return { ok: false, error: "forbidden" }
+  // Capability gate — AE has DEAL_QUANTITY_WRITE, admins have everything.
+  const guard = await requireAnyCap([
+    CAPS.DEAL_QUANTITY_WRITE,
+    CAPS.DEAL_SELLING_PRICE_WRITE,
+  ])
+  if (!guard.ok) {
+    return {
+      ok: false,
+      error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
+    }
   }
+  const { admin, userId: user_id, role } = guard
 
-  const admin = createAdminClient()
+  // Ownership gate — AE / lead_researcher / staff can only move cards on
+  // their own clients' opportunities. We also reuse the resolved client
+  // owner below to snapshot `account_manager_at_won` when the deal closes.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    user_id,
+    opportunityId,
+  )
+  if (!ownership.ok) {
+    return { ok: false, error: ownership.error }
+  }
 
   // Fetch BEFORE state for notification context + activity log.
   // Also pull the buyer country so we can enforce the Swift verification
@@ -385,12 +398,48 @@ export async function updateOpportunityStage(
     return { ok: false, error: updateErr.message }
   }
 
+  // ------------------------------------------------------------------
+  // Sprint 035 — Snapshot the AE who owned the client at the moment the
+  // deal flipped to 'won'. Commission reports MUST read this column
+  // instead of joining live, so a later admin reassignment does not
+  // rewrite history. We use INSERT ... ON CONFLICT to seed a deals row
+  // when none exists yet, and we never overwrite an existing snapshot
+  // on subsequent won/lost flip-flops.
+  // ------------------------------------------------------------------
+  if (newStage === "won") {
+    try {
+      const wonManagerId = ownership.managerId
+      // First create the row if missing (compliance flow may already
+      // have created it).
+      await admin
+        .from("deals")
+        .upsert(
+          {
+            opportunity_id: opportunityId,
+            account_manager_at_won: wonManagerId,
+            created_by: user_id,
+          },
+          { onConflict: "opportunity_id", ignoreDuplicates: true },
+        )
+      // Then seed account_manager_at_won only when it's still NULL —
+      // this preserves the original snapshot if the deal was won before
+      // and admin re-flipped lost→won by mistake.
+      await admin
+        .from("deals")
+        .update({ account_manager_at_won: wonManagerId })
+        .eq("opportunity_id", opportunityId)
+        .is("account_manager_at_won", null)
+    } catch (err) {
+      console.error("[v0] won snapshot failed", err)
+    }
+  }
+
   // Activity audit
   await admin.from("activities").insert({
     opportunity_id: opportunityId,
     action_type: "stage_changed",
     description: `${before.stage} → ${newStage}`,
-    performed_by: user.id,
+    performed_by: user_id,
   })
 
   // Notify client
@@ -483,23 +532,21 @@ export async function notifyLeadAssigned(
 ): Promise<NotifyLeadAssignedResult> {
   if (!opportunityId) return { ok: false }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false }
+  // Same capability gate as the create flow — AE creates leads for their
+  // own clients; admins create across the board.
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false }
+  const { admin, role, userId: user_id } = guard
 
-  // Role gate — same as the create flow.
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
-    return { ok: false }
-  }
+  // Ownership — scoped roles cannot ping a client they don't manage.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    user_id,
+    opportunityId,
+  )
+  if (!ownership.ok) return { ok: false }
 
-  const admin = createAdminClient()
   const { data: opp } = await admin
     .from("opportunities")
     .select("id, client_id, buyer_code, leads:lead_id ( company_name, industry )")
@@ -588,26 +635,25 @@ export async function suggestClientAction(
   const nextStep = (input.nextStep ?? "").trim()
   if (!nextStep) return { ok: false, error: "missingContext" }
 
-  // Auth + role check (same guard as updateOpportunityDetails)
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "forbidden" }
+  // Auth + capability + ownership — same gate as updateOpportunityDetails.
+  const guard = await requireAnyCap([
+    CAPS.DEAL_QUANTITY_WRITE,
+    CAPS.DEAL_SELLING_PRICE_WRITE,
+  ])
+  if (!guard.ok) return { ok: false, error: "forbidden" }
+  const { admin: adminClient, role, userId: user_id } = guard
 
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
-    return { ok: false, error: "forbidden" }
-  }
+  const ownership = await assertOpportunityOwnership(
+    adminClient,
+    role,
+    user_id,
+    input.opportunityId,
+  )
+  if (!ownership.ok) return { ok: false, error: "forbidden" }
 
   // Fetch the opportunity + related lead/client profile for richer context.
   // We intentionally read a minimal, non-sensitive projection.
-  const { data: opp } = await supabase
+  const { data: opp } = await adminClient
     .from("opportunities")
     .select(
       `

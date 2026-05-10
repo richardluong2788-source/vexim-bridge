@@ -22,6 +22,7 @@
 import { revalidatePath } from "next/cache"
 import { requireAnyCap, requireCap } from "@/lib/auth/guard"
 import { can, CAPS } from "@/lib/auth/permissions"
+import { assertOpportunityOwnership } from "@/lib/auth/ownership"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -43,6 +44,16 @@ export async function updateDealFinancialsAction(args: {
 
   const { opportunityId } = args
   if (!opportunityId) return { ok: false, error: "missingOpportunity" }
+
+  // Ownership gate — AE / lead_researcher / staff may only edit deals
+  // tied to clients they personally manage.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    userId,
+    opportunityId,
+  )
+  if (!ownership.ok) return { ok: false, error: ownership.error }
 
   // Load existing row (if any) so we can enforce R-06 without leaking data.
   const { data: existing } = await admin
@@ -103,6 +114,15 @@ export async function updateDealFinancialsAction(args: {
 export async function getDealFinancials(opportunityId: string) {
   const guard = await requireCap(CAPS.DEAL_VIEW)
   if (!guard.ok) return null
+
+  // Scoped roles cannot read financials of opps they do not own.
+  const ownership = await assertOpportunityOwnership(
+    guard.admin,
+    guard.role,
+    guard.userId,
+    opportunityId,
+  )
+  if (!ownership.ok) return null
 
   const { data } = await guard.admin
     .from("deals")

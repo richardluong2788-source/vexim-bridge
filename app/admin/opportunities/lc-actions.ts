@@ -2,6 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { requireCap } from "@/lib/auth/guard"
+import { CAPS } from "@/lib/auth/permissions"
+import { assertOpportunityOwnership } from "@/lib/auth/ownership"
 import type { BankDirectoryEntry, LCVerification } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -85,9 +88,19 @@ export async function lookupBank(rawBic: string): Promise<BankLookupResult> {
 export async function getLCVerification(
   opportunityId: string,
 ): Promise<{ ok: true; data: LCVerification | null } | { ok: false; error: string }> {
+  const guard = await requireCap(CAPS.DEAL_VIEW)
+  if (!guard.ok) return { ok: false, error: "unauthorized" }
+
+  const ownership = await assertOpportunityOwnership(
+    guard.admin,
+    guard.role,
+    guard.userId,
+    opportunityId,
+  )
+  if (!ownership.ok) return { ok: false, error: ownership.error }
+
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
+    const { data, error } = await guard.admin
       .from("lc_verifications")
       .select("*")
       .eq("opportunity_id", opportunityId)

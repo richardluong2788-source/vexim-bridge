@@ -1,23 +1,101 @@
-import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { Users, Target, TrendingUp, Trophy } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDictionary } from "@/lib/i18n/server"
+import { getCurrentRole } from "@/lib/auth/guard"
+import {
+  getOperationalScope,
+  resolveScopedClientIds,
+} from "@/lib/auth/scope"
+
+export const dynamic = "force-dynamic"
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient()
+  const current = await getCurrentRole()
+  if (!current) redirect("/auth/login")
+  const { admin, role, userId } = current
   const { t } = await getDictionary()
+
+  // Sprint client-management-for-AE — every count below is scoped to the
+  // caller's managed clients for AE / lead_researcher / staff. Admin /
+  // super_admin / finance keep system-wide counts.
+  const scope = getOperationalScope(role, userId)
+  const allowedClientIds = await resolveScopedClientIds(admin, scope)
+
+  // Caller manages zero clients — render the dashboard with empty stats
+  // instead of leaking system-wide counts.
+  const noScope = allowedClientIds !== null && allowedClientIds.length === 0
+
+  // Resolve the lead set tied to scoped clients so "Active leads" mirrors
+  // what the buyers page shows for this role.
+  let allowedLeadIds: string[] | null = null
+  if (allowedClientIds !== null && !noScope) {
+    const { data: leadRows } = await admin
+      .from("opportunities")
+      .select("lead_id")
+      .in("client_id", allowedClientIds)
+    allowedLeadIds = Array.from(
+      new Set(
+        (leadRows ?? [])
+          .map((r: { lead_id: string | null }) => r.lead_id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
+    )
+  }
+
+  // 1) Client count
+  let clientCountQ = admin
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "client")
+  if (allowedClientIds !== null) {
+    if (noScope) {
+      clientCountQ = clientCountQ.eq(
+        "id",
+        "00000000-0000-0000-0000-000000000000",
+      )
+    } else {
+      clientCountQ = clientCountQ.in("id", allowedClientIds)
+    }
+  }
+
+  // 2) Lead (buyer) count — scoped roles see the leads tied to their
+  // opportunities only; admins see every lead.
+  let leadCountQ = admin
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+  if (allowedLeadIds !== null) {
+    if (allowedLeadIds.length === 0) {
+      leadCountQ = leadCountQ.eq("id", "00000000-0000-0000-0000-000000000000")
+    } else {
+      leadCountQ = leadCountQ.in("id", allowedLeadIds)
+    }
+  }
+
+  // 3) Opportunity count + stage distribution
+  let oppCountQ = admin
+    .from("opportunities")
+    .select("*", { count: "exact", head: true })
+  let stageQ = admin.from("opportunities").select("stage")
+  if (allowedClientIds !== null) {
+    if (noScope) {
+      oppCountQ = oppCountQ.eq(
+        "client_id",
+        "00000000-0000-0000-0000-000000000000",
+      )
+      stageQ = stageQ.eq("client_id", "00000000-0000-0000-0000-000000000000")
+    } else {
+      oppCountQ = oppCountQ.in("client_id", allowedClientIds)
+      stageQ = stageQ.in("client_id", allowedClientIds)
+    }
+  }
 
   const [
     { count: clientCount },
     { count: leadCount },
     { count: oppCount },
     { data: stageCounts },
-  ] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
-    supabase.from("leads").select("*", { count: "exact", head: true }),
-    supabase.from("opportunities").select("*", { count: "exact", head: true }),
-    supabase.from("opportunities").select("stage"),
-  ])
+  ] = await Promise.all([clientCountQ, leadCountQ, oppCountQ, stageQ])
 
   const won = stageCounts?.filter((o) => o.stage === "won").length ?? 0
   const total = oppCount ?? 0

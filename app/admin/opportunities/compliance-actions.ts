@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireCap, type GuardSuccess } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
+import { assertOpportunityOwnership } from "@/lib/auth/ownership"
 import { uploadDealDoc, type DealDocKind } from "@/lib/blob/deal-docs"
 import { assessCountryRisk, type RiskAssessment } from "@/lib/risk/country-risk"
 
@@ -96,7 +97,7 @@ export async function uploadDealDocumentAction(
       error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
     }
   }
-  const { admin, userId } = guard
+  const { admin, userId, role } = guard
 
   const opportunityId = String(formData.get("opportunityId") ?? "")
   const kindRaw = String(formData.get("kind") ?? "")
@@ -108,6 +109,20 @@ export async function uploadDealDocumentAction(
   }
   if (!(file instanceof File)) {
     return { ok: false, error: "invalidFile" }
+  }
+
+  // Ownership — AE cannot upload docs against another AE's opportunity.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    userId,
+    opportunityId,
+  )
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error === "notFound" ? "notFound" : "forbidden",
+    }
   }
 
   const dealId = await ensureDeal(admin, opportunityId, userId)
@@ -182,9 +197,23 @@ export async function verifySwiftAction(
       error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
     }
   }
-  const { admin, userId } = guard
+  const { admin, userId, role } = guard
 
   if (!input?.opportunityId) return { ok: false, error: "invalidInput" }
+
+  // Ownership — AE cannot verify Swift on another AE's opportunity.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    userId,
+    input.opportunityId,
+  )
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error === "notFound" ? "notFound" : "forbidden",
+    }
+  }
 
   // Fetch current deal state so we can enforce SoD at the application
   // layer BEFORE calling UPDATE. The DB CHECK is a safety net — this is
@@ -306,7 +335,21 @@ export async function getOpportunityComplianceState(
       error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
     }
   }
-  const { admin, userId } = guard
+  const { admin, userId, role } = guard
+
+  // Ownership — scoped roles only see their own opportunities here.
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    userId,
+    opportunityId,
+  )
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error === "notFound" ? "notFound" : "forbidden",
+    }
+  }
 
   const { data: opp } = await admin
     .from("opportunities")

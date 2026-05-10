@@ -4,6 +4,10 @@ import { PlusCircle, Sparkles, Upload } from "lucide-react"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, can } from "@/lib/auth/permissions"
+import {
+  getOperationalScope,
+  resolveScopedClientIds,
+} from "@/lib/auth/scope"
 import { Button } from "@/components/ui/button"
 import { BuyersTable, type BuyerRow } from "@/components/admin/buyers-table"
 import type { Stage } from "@/lib/supabase/types"
@@ -19,10 +23,32 @@ export default async function BuyersDirectoryPage() {
   const canWrite = can(current.role, CAPS.BUYER_WRITE)
   const canViewPII = can(current.role, CAPS.BUYER_PII_VIEW)
 
-  // One-shot read: buyer + every opportunity attached to it.
-  // We join the minimum client fields needed for the "latest client" chip
-  // so the admin can see who is currently working this buyer.
-  const { data: buyers } = await current.admin
+  // Sprint client-management-for-AE — scope to leads that have at least
+  // one opportunity tied to a client managed by the caller. Admin /
+  // super_admin / finance see every buyer.
+  const scope = getOperationalScope(current.role, current.userId)
+  const allowedClientIds = await resolveScopedClientIds(current.admin, scope)
+
+  let allowedLeadIds: string[] | null = null
+  if (allowedClientIds !== null) {
+    if (allowedClientIds.length === 0) {
+      allowedLeadIds = []
+    } else {
+      const { data: oppRows } = await current.admin
+        .from("opportunities")
+        .select("lead_id")
+        .in("client_id", allowedClientIds)
+      allowedLeadIds = Array.from(
+        new Set(
+          (oppRows ?? [])
+            .map((r: { lead_id: string | null }) => r.lead_id)
+            .filter((id): id is string => typeof id === "string"),
+        ),
+      )
+    }
+  }
+
+  let buyersQ = current.admin
     .from("leads")
     .select(`
       id,
@@ -40,20 +66,48 @@ export default async function BuyersDirectoryPage() {
         stage,
         last_updated,
         potential_value,
+        client_id,
         profiles:client_id ( id, full_name, company_name )
       )
     `)
     .order("created_at", { ascending: false })
     .limit(500)
 
+  if (allowedLeadIds !== null) {
+    if (allowedLeadIds.length === 0) {
+      // Caller manages zero clients (or none with opportunities) — short
+      // circuit to an empty table to avoid sending `.in("id", [])` which
+      // some drivers translate to "no filter".
+      buyersQ = buyersQ.eq("id", "00000000-0000-0000-0000-000000000000")
+    } else {
+      buyersQ = buyersQ.in("id", allowedLeadIds)
+    }
+  }
+
+  const { data: buyers } = await buyersQ
+
+  // Build a set lookup once for the per-row scope filter below.
+  const allowedClientIdSet =
+    allowedClientIds === null ? null : new Set(allowedClientIds)
+
   const rows: BuyerRow[] = (buyers ?? []).map((b: any) => {
-    const opps: Array<{
+    const allOpps: Array<{
       id: string
       stage: Stage
       last_updated: string | null
       potential_value: number | null
+      client_id: string | null
       profiles: { id: string; full_name: string | null; company_name: string | null } | null
     }> = b.opportunities ?? []
+
+    // For AE / lead_researcher: hide opportunities tied to clients they
+    // do not manage, even when the buyer itself is shared. This keeps
+    // "latest client" / lifetime counts honest per-AE.
+    const opps = allowedClientIdSet
+      ? allOpps.filter(
+          (o) => o.client_id && allowedClientIdSet.has(o.client_id),
+        )
+      : allOpps
 
     // Sort opportunities by most recent activity so the "latest" is always
     // the one the user wants to see.

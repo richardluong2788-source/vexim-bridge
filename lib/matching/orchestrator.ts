@@ -1,0 +1,484 @@
+/**
+ * AI Matching System - Orchestrator
+ *
+ * Coordinates the end-to-end matching pipeline:
+ * 1. Load buyer and all AE data
+ * 2. Calculate rule-based scores for each AE
+ * 3. (Optional) Apply LLM augmentation to top candidates
+ * 4. Store scores in database
+ * 5. Auto-assign or create inbox items based on thresholds
+ *
+ * This is the main entry point for the matching system.
+ */
+
+import { createClient } from "@/lib/supabase/server"
+import type { Lead, Profile } from "@/lib/supabase/types"
+import {
+  calculateScoresForBuyer,
+  normalizeHSCodes,
+  normalizeKeywords,
+} from "./scorer"
+import type {
+  MatchingRequest,
+  MatchingResult,
+  ScoringResult,
+  AEContext,
+  BuyerContext,
+  ScoringWeights,
+  MatchingThresholds,
+} from "./types"
+import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS } from "./types"
+
+// ============================================================
+// Main Orchestrator Function
+// ============================================================
+
+export async function runMatchingPipeline(
+  request: MatchingRequest
+): Promise<MatchingResult> {
+  const { leadId, triggeredBy } = request
+  const supabase = await createClient()
+
+  // 1. Load configuration
+  const config = await loadMatchingConfig(supabase)
+
+  // 2. Load buyer data
+  const buyer = await loadBuyerContext(supabase, leadId)
+  if (!buyer) {
+    throw new Error(`Buyer not found: ${leadId}`)
+  }
+
+  // 3. Load all AEs with their context
+  const aes = await loadAllAEContexts(supabase)
+  if (aes.length === 0) {
+    return {
+      leadId,
+      scores: [],
+      topCandidate: null,
+      autoAssigned: false,
+      assignedTo: null,
+      inboxItems: [],
+      timestamp: new Date().toISOString(),
+    }
+  }
+
+  // 4. Calculate scores for all AEs
+  const scores = calculateScoresForBuyer(
+    buyer,
+    aes,
+    config.weights,
+    config.thresholds
+  )
+
+  // 5. Store scores in database
+  await storeScores(supabase, leadId, scores, triggeredBy)
+
+  // 6. Process results based on thresholds
+  const result = await processResults(
+    supabase,
+    leadId,
+    scores,
+    config.thresholds,
+    triggeredBy
+  )
+
+  return result
+}
+
+// ============================================================
+// Data Loading Functions
+// ============================================================
+
+interface MatchingConfig {
+  weights: ScoringWeights
+  thresholds: MatchingThresholds
+}
+
+async function loadMatchingConfig(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<MatchingConfig> {
+  const { data: configs } = await supabase
+    .from("matching_config")
+    .select("config_key, config_value")
+
+  const weights =
+    (configs?.find((c) => c.config_key === "scoring_weights")
+      ?.config_value as ScoringWeights) || DEFAULT_SCORING_WEIGHTS
+
+  const thresholds =
+    (configs?.find((c) => c.config_key === "thresholds")
+      ?.config_value as MatchingThresholds) || DEFAULT_THRESHOLDS
+
+  return { weights, thresholds }
+}
+
+async function loadBuyerContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leadId: string
+): Promise<BuyerContext | null> {
+  const { data: lead, error } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("id", leadId)
+    .single<Lead>()
+
+  if (error || !lead) return null
+
+  // Access additional fields that may exist from migration 032
+  const enrichedData = lead.enriched_data as Record<string, unknown> | null
+  const hsCodes = (enrichedData?.hs_codes as string[]) || []
+  const productKeywords = (enrichedData?.product_keywords as string[]) || []
+
+  return {
+    lead,
+    hsCodesNormalized: normalizeHSCodes(hsCodes),
+    keywordsNormalized: normalizeKeywords(productKeywords),
+  }
+}
+
+async function loadAllAEContexts(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<AEContext[]> {
+  // Get all AEs
+  const { data: aes } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", "account_executive")
+
+  if (!aes || aes.length === 0) return []
+
+  // Load workload data
+  const { data: workloads } = await supabase
+    .from("ae_workload_summary")
+    .select("*")
+
+  // Load win rates
+  const { data: winRates } = await supabase
+    .from("ae_win_rate_by_industry")
+    .select("*")
+
+  // Load client products for each AE
+  const { data: clientProducts } = await supabase
+    .from("ae_client_products")
+    .select("*")
+
+  // Build context for each AE
+  return aes.map((ae) => ({
+    profile: ae as Profile,
+    workload: workloads?.find((w) => w.account_manager_id === ae.id) || null,
+    winRateByIndustry:
+      winRates?.filter((wr) => wr.account_manager_id === ae.id) || [],
+    clientProducts:
+      clientProducts?.filter((cp) => cp.account_manager_id === ae.id) || [],
+  }))
+}
+
+// ============================================================
+// Score Storage
+// ============================================================
+
+async function storeScores(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leadId: string,
+  scores: ScoringResult[],
+  triggeredBy: string
+): Promise<void> {
+  // Delete existing scores for this lead
+  await supabase.from("ae_match_scores").delete().eq("lead_id", leadId)
+
+  // Insert new scores
+  const scoreRows = scores.map((score) => ({
+    lead_id: leadId,
+    account_manager_id: score.accountManagerId,
+    total_score: score.totalScore,
+    product_match_score: score.factors.productMatch,
+    industry_match_score: score.factors.industryMatch,
+    fda_compliance_score: score.factors.fdaCompliance,
+    workload_score: score.factors.workload,
+    win_rate_score: score.factors.winRate,
+    country_match_score: score.factors.countryMatch,
+    factors: {
+      breakdown: score.breakdown,
+      recommendation: score.recommendation,
+      triggered_by: triggeredBy,
+    },
+  }))
+
+  const { error } = await supabase.from("ae_match_scores").insert(scoreRows)
+
+  if (error) {
+    console.error("[v0] Failed to store match scores:", error)
+    throw new Error(`Failed to store scores: ${error.message}`)
+  }
+}
+
+// ============================================================
+// Result Processing
+// ============================================================
+
+async function processResults(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leadId: string,
+  scores: ScoringResult[],
+  thresholds: MatchingThresholds,
+  triggeredBy: string
+): Promise<MatchingResult> {
+  const topCandidate = scores[0] || null
+  let autoAssigned = false
+  let assignedTo: string | null = null
+  const inboxItems: { accountManagerId: string; priority: "high" | "medium" | "low" }[] = []
+
+  // Clear existing inbox items for this lead
+  await supabase.from("ae_match_inbox").delete().eq("lead_id", leadId)
+
+  if (topCandidate) {
+    if (topCandidate.recommendation === "auto_assign") {
+      // Auto-assign: Mark the score as assigned
+      const { error: assignError } = await supabase
+        .from("ae_match_scores")
+        .update({
+          assignment_source: "auto",
+          assigned_at: new Date().toISOString(),
+          assigned_by: triggeredBy,
+        })
+        .eq("lead_id", leadId)
+        .eq("account_manager_id", topCandidate.accountManagerId)
+
+      if (!assignError) {
+        autoAssigned = true
+        assignedTo = topCandidate.accountManagerId
+
+        // Log activity
+        await logMatchingActivity(
+          supabase,
+          leadId,
+          topCandidate.accountManagerId,
+          "auto_assigned",
+          triggeredBy,
+          topCandidate.totalScore
+        )
+      }
+    } else {
+      // Add inbox items for candidates meeting minimum threshold
+      const inboxCandidates = scores.filter(
+        (s) => s.totalScore >= thresholds.inbox_min
+      )
+
+      for (const candidate of inboxCandidates) {
+        const priority = determinePriority(candidate.totalScore, thresholds)
+
+        const { error } = await supabase.from("ae_match_inbox").insert({
+          lead_id: leadId,
+          account_manager_id: candidate.accountManagerId,
+          match_score_id: null, // Will be linked via a separate query if needed
+          priority,
+          status: "pending",
+          expires_at: new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 7 days
+        })
+
+        if (!error) {
+          inboxItems.push({
+            accountManagerId: candidate.accountManagerId,
+            priority,
+          })
+        }
+      }
+    }
+  }
+
+  return {
+    leadId,
+    scores,
+    topCandidate,
+    autoAssigned,
+    assignedTo,
+    inboxItems,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+function determinePriority(
+  score: number,
+  thresholds: MatchingThresholds
+): "high" | "medium" | "low" {
+  const midPoint = (thresholds.inbox_max + thresholds.inbox_min) / 2
+
+  if (score >= thresholds.inbox_max - 5) return "high"
+  if (score >= midPoint) return "medium"
+  return "low"
+}
+
+// ============================================================
+// Activity Logging
+// ============================================================
+
+async function logMatchingActivity(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leadId: string,
+  accountManagerId: string,
+  action: "auto_assigned" | "manual_assigned" | "inbox_created",
+  performedBy: string,
+  score: number
+): Promise<void> {
+  // Find or create an opportunity for logging
+  // For now, we log to a general activity (without opportunity_id)
+  // This can be enhanced to create an opportunity on assignment
+
+  const description = `AI Matching: ${action} with score ${score.toFixed(1)}`
+
+  await supabase.from("activities").insert({
+    action_type: `ai_matching_${action}`,
+    description,
+    performed_by: performedBy,
+    // opportunity_id will be set when an opportunity is created
+  })
+}
+
+// ============================================================
+// Inbox Actions
+// ============================================================
+
+export async function acceptInboxItem(
+  inboxItemId: string,
+  clientId: string,
+  acceptedBy: string
+): Promise<{ opportunityId: string | null; error?: string }> {
+  const supabase = await createClient()
+
+  // Get inbox item
+  const { data: inbox, error: fetchError } = await supabase
+    .from("ae_match_inbox")
+    .select("*, leads(*)")
+    .eq("id", inboxItemId)
+    .single()
+
+  if (fetchError || !inbox) {
+    return { opportunityId: null, error: "Inbox item not found" }
+  }
+
+  if (inbox.status !== "pending") {
+    return { opportunityId: null, error: "Inbox item already processed" }
+  }
+
+  // Create opportunity
+  const { data: opportunity, error: oppError } = await supabase
+    .from("opportunities")
+    .insert({
+      client_id: clientId,
+      lead_id: inbox.lead_id,
+      stage: "new",
+      notes: `Created via AI Matching (score: ${inbox.match_score_id ? "see score" : "N/A"})`,
+    })
+    .select("id")
+    .single()
+
+  if (oppError) {
+    return { opportunityId: null, error: oppError.message }
+  }
+
+  // Update inbox item
+  await supabase
+    .from("ae_match_inbox")
+    .update({
+      status: "accepted",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: acceptedBy,
+    })
+    .eq("id", inboxItemId)
+
+  // Update match score
+  await supabase
+    .from("ae_match_scores")
+    .update({
+      assignment_source: "manual",
+      assigned_at: new Date().toISOString(),
+      assigned_by: acceptedBy,
+    })
+    .eq("lead_id", inbox.lead_id)
+    .eq("account_manager_id", inbox.account_manager_id)
+
+  return { opportunityId: opportunity.id }
+}
+
+export async function rejectInboxItem(
+  inboxItemId: string,
+  rejectedBy: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from("ae_match_inbox")
+    .update({
+      status: "rejected",
+      rejection_reason: reason || null,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: rejectedBy,
+    })
+    .eq("id", inboxItemId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+// ============================================================
+// Query Functions
+// ============================================================
+
+export async function getMatchScoresForBuyer(leadId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("ae_match_scores")
+    .select(
+      `
+      *,
+      profiles:account_manager_id (
+        id,
+        full_name,
+        email,
+        avatar_url
+      )
+    `
+    )
+    .eq("lead_id", leadId)
+    .order("total_score", { ascending: false })
+
+  if (error) return []
+  return data
+}
+
+export async function getInboxItemsForAE(accountManagerId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("ae_match_inbox")
+    .select(
+      `
+      *,
+      leads (*),
+      ae_match_scores (*)
+    `
+    )
+    .eq("account_manager_id", accountManagerId)
+    .eq("status", "pending")
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: false })
+
+  if (error) return []
+  return data
+}
+
+export async function getBuyerPoolWithScores() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.from("buyer_pool").select("*")
+
+  if (error) return []
+  return data
+}

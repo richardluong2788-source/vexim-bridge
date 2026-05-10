@@ -14,6 +14,7 @@ import { ClientPerformanceCard } from "@/components/admin/analytics/client-perfo
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, canAny } from "@/lib/auth/permissions"
+import { ownershipScopeFor } from "@/lib/auth/scope"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -49,6 +50,16 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
   ])
 
   if (!client || client.role !== "client") return notFound()
+
+  // Ownership gate: AE / Lead Researcher / staff cannot open clients that
+  // are not assigned to them. We return a 404 (not 403) so the URL doesn't
+  // leak the existence of other clients.
+  if (current) {
+    const scope = ownershipScopeFor(current.role, current.userId)
+    if (scope.kind === "owned" && client.account_manager_id !== scope.userId) {
+      return notFound()
+    }
+  }
 
   // Resolve bundle-link membership: for every link where doc_id IS NULL
   // (migration 022), pull the join rows so the UI can display which docs

@@ -3,8 +3,10 @@ import { UserPlus, Download } from "lucide-react"
 import { ClientsTable } from "@/components/admin/clients-table"
 import { getDictionary } from "@/lib/i18n/server"
 import { Button } from "@/components/ui/button"
+import { ScopeBanner } from "@/components/admin/scope-banner"
 import { getCurrentRole } from "@/lib/auth/guard"
-import { can, CAPS, ROLE_META } from "@/lib/auth/permissions"
+import { can, canAll, CAPS, ROLE_META } from "@/lib/auth/permissions"
+import { ownershipScopeFor } from "@/lib/auth/scope"
 import type { ManagerOption } from "@/components/admin/account-manager-select"
 import type { Role } from "@/lib/supabase/types"
 
@@ -42,15 +44,27 @@ export default async function AdminClientsPage() {
   if (!current) {
     return null
   }
-  const { admin, role } = current
-  const canAssignManager = can(role, CAPS.CLIENT_WRITE)
+  const { admin, role, userId } = current
+  // Only roles with OWNERSHIP_BYPASS may reassign — see
+  // setAccountManager() server action for the matching server-side check.
+  const canAssignManager = canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
+  // AEs can create clients (they will auto-become account manager)
+  const canCreateClient = can(role, CAPS.CLIENT_WRITE) || role === "account_executive"
+  const scope = ownershipScopeFor(role, userId)
+
+  // Build the client query. AEs without OWNERSHIP_BYPASS only see clients
+  // assigned to them via profiles.account_manager_id.
+  let clientsQ = admin
+    .from("profiles")
+    .select("*")
+    .eq("role", "client")
+    .order("created_at", { ascending: false })
+  if (scope.kind === "owned") {
+    clientsQ = clientsQ.eq("account_manager_id", scope.userId)
+  }
 
   const [{ data: clients }, { data: staff }] = await Promise.all([
-    admin
-      .from("profiles")
-      .select("*")
-      .eq("role", "client")
-      .order("created_at", { ascending: false }),
+    clientsQ,
     admin
       .from("profiles")
       .select("id, full_name, email, role")
@@ -79,9 +93,17 @@ export default async function AdminClientsPage() {
   return (
     <div className="flex flex-col gap-6 p-8">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-foreground">{t.admin.clients.title}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t.admin.clients.subtitle}</p>
+          <p className="text-sm text-muted-foreground">{t.admin.clients.subtitle}</p>
+          {scope.kind === "owned" && (
+            <ScopeBanner
+              locale={locale}
+              count={clients?.length ?? 0}
+              entityVi="khách hàng"
+              entityEn="clients"
+            />
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
@@ -90,7 +112,7 @@ export default async function AdminClientsPage() {
               {locale === "vi" ? "Tải CSV" : "Export CSV"}
             </a>
           </Button>
-          {canAssignManager && (
+          {canCreateClient && (
             <Button asChild>
               <Link href="/admin/clients/new">
                 <UserPlus className="mr-2 h-4 w-4" />

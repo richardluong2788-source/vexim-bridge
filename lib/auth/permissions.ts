@@ -80,6 +80,18 @@ export const CAPS = {
   SLA_TARGET_WRITE:            "sla:target:write",
   SLA_HOLIDAY_WRITE:           "sla:holiday:write",
   SLA_RUN_TRIGGER:             "sla:run:trigger",
+
+  // --- Ownership scope (added in 035) ---
+  // OWNERSHIP_BYPASS — when granted, the user sees & edits ALL clients,
+  //   opportunities, deals, activities, regardless of the
+  //   `profiles.account_manager_id` (live) and
+  //   `opportunities.account_manager_id` (snapshot) columns.
+  //
+  //   Roles that get bypass: super_admin, admin, finance.
+  //   Roles WITHOUT bypass — account_executive, lead_researcher, staff —
+  //   are scoped to records they own. This is what makes per-AE revenue
+  //   accounting reliable: AEs cannot accidentally touch another AE's deals.
+  OWNERSHIP_BYPASS:            "ownership:bypass",
 } as const
 
 export type Capability = (typeof CAPS)[keyof typeof CAPS]
@@ -166,6 +178,10 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // SLA — finance edits targets / penalties, sees full breakdown.
     CAPS.SLA_VIEW_ALL,
     CAPS.SLA_TARGET_WRITE,
+
+    // Bookkeeping needs cross-AE visibility — finance must see every deal
+    // to issue invoices and reconcile commission.
+    CAPS.OWNERSHIP_BYPASS,
   ],
 
   // Legacy — treat as account_executive.

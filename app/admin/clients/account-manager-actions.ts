@@ -25,7 +25,7 @@
  *     a staff role. We block setting another client as manager.
  */
 import { revalidatePath } from "next/cache"
-import { requireCap } from "@/lib/auth/guard"
+import { requireAllCaps } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import type { Role } from "@/lib/supabase/types"
 
@@ -54,7 +54,12 @@ export async function setAccountManager(
     return { ok: false, error: "invalidManager" }
   }
 
-  const guard = await requireCap(CAPS.CLIENT_WRITE)
+  // We require BOTH CLIENT_WRITE and OWNERSHIP_BYPASS. The bypass cap is
+  // what blocks an AE from re-assigning clients to themselves: AEs have
+  // CLIENT_WRITE (so they can update other client fields) but they do NOT
+  // have OWNERSHIP_BYPASS, which means only admin/super_admin/finance can
+  // change ownership.
+  const guard = await requireAllCaps([CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin } = guard
 
@@ -89,8 +94,30 @@ export async function setAccountManager(
 
   if (updErr) return { ok: false, error: updErr.message }
 
+  // Propagate the new owner to every IN-PROGRESS opportunity belonging to
+  // this client. Won/Lost opps are intentionally skipped — their snapshot
+  // is frozen so commission & revenue history stay attached to whoever
+  // actually closed the deal (per migration 035).
+  //
+  // Without this, an AE could reassign a client to themselves and immediately
+  // see only future opps (because the snapshot is in sync via the trigger
+  // only when the opp itself is updated). Doing it here makes the handover
+  // instant for the new AE.
+  const { error: oppSyncErr } = await admin
+    .from("opportunities")
+    .update({ account_manager_id: managerId })
+    .eq("client_id", clientId)
+    .not("stage", "in", "(won,lost)")
+
+  if (oppSyncErr) {
+    console.error("[v0] setAccountManager: opp snapshot sync failed", oppSyncErr)
+    // Not fatal — the trigger will catch it on the next opp UPDATE.
+  }
+
   revalidatePath("/admin/clients")
   revalidatePath(`/admin/clients/${clientId}`)
+  revalidatePath("/admin/pipeline")
   revalidatePath("/admin/analytics")
+  revalidatePath("/admin/finance/by-ae")
   return { ok: true }
 }

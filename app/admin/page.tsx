@@ -1,31 +1,87 @@
-import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { Users, Target, TrendingUp, Trophy } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScopeBanner } from "@/components/admin/scope-banner"
 import { getDictionary } from "@/lib/i18n/server"
+import { getCurrentRole } from "@/lib/auth/guard"
+import { ownershipScopeFor, resolveAllowedClientIds } from "@/lib/auth/scope"
+
+export const dynamic = "force-dynamic"
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient()
-  const { t } = await getDictionary()
+  const { t, locale } = await getDictionary()
 
-  const [
-    { count: clientCount },
-    { count: leadCount },
-    { count: oppCount },
-    { data: stageCounts },
-  ] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client"),
-    supabase.from("leads").select("*", { count: "exact", head: true }),
-    supabase.from("opportunities").select("*", { count: "exact", head: true }),
-    supabase.from("opportunities").select("stage"),
+  const current = await getCurrentRole()
+  if (!current) redirect("/auth/login")
+  const { admin, role, userId } = current
+  const scope = ownershipScopeFor(role, userId)
+
+  // For scoped users, resolve the allowed client_ids once and reuse on
+  // every count below. An AE who manages zero clients sees zeroes — never
+  // a mistakenly-global count.
+  const allowedClientIds = await resolveAllowedClientIds(scope, admin)
+  const noScope = allowedClientIds === null
+  const empty = !noScope && allowedClientIds.length === 0
+
+  // Helper: apply the scope filter to a count query if needed.
+  const scopedCount = async (
+    table: "profiles" | "leads" | "opportunities",
+    extra?: (q: any) => any,
+  ): Promise<number> => {
+    if (empty) return 0
+    let q = admin.from(table).select("*", { count: "exact", head: true })
+    if (extra) q = extra(q)
+    if (table === "profiles") {
+      q = q.eq("role", "client")
+      if (!noScope) q = q.eq("account_manager_id", scope.kind === "owned" ? scope.userId : "")
+    } else if (table === "opportunities") {
+      if (!noScope) q = q.in("client_id", allowedClientIds!)
+    } else if (table === "leads") {
+      // A "lead" (buyer) shows up if any opportunity in scope references it.
+      if (!noScope) {
+        const { data: leadIdRows } = await admin
+          .from("opportunities")
+          .select("lead_id")
+          .in("client_id", allowedClientIds!)
+        const leadIds = Array.from(
+          new Set(
+            (leadIdRows ?? [])
+              .map((r: any) => r.lead_id)
+              .filter((v: any): v is string => typeof v === "string"),
+          ),
+        )
+        if (leadIds.length === 0) return 0
+        q = q.in("id", leadIds)
+      }
+    }
+    const { count } = await q
+    return count ?? 0
+  }
+
+  // Stage counts: scoped to the AE's clients when applicable.
+  let stageQ = admin.from("opportunities").select("stage")
+  if (!noScope) {
+    if (allowedClientIds!.length === 0) {
+      stageQ = stageQ.eq("client_id", "00000000-0000-0000-0000-000000000000") // forces empty
+    } else {
+      stageQ = stageQ.in("client_id", allowedClientIds!)
+    }
+  }
+
+  const [clientCount, leadCount, oppCount, { data: stageCounts }] = await Promise.all([
+    scopedCount("profiles"),
+    scopedCount("leads"),
+    scopedCount("opportunities"),
+    stageQ,
   ])
 
-  const won = stageCounts?.filter((o) => o.stage === "won").length ?? 0
+  const won = stageCounts?.filter((o: { stage: string }) => o.stage === "won").length ?? 0
   const total = oppCount ?? 0
   const winRate = total > 0 ? Math.round((won / total) * 100) : 0
 
   const stats = [
-    { label: t.admin.dashboard.totalClients, value: clientCount ?? 0, icon: Users, color: "text-primary" },
-    { label: t.admin.dashboard.activeLeads, value: leadCount ?? 0, icon: Target, color: "text-accent" },
+    { label: t.admin.dashboard.totalClients, value: clientCount, icon: Users, color: "text-primary" },
+    { label: t.admin.dashboard.activeLeads, value: leadCount, icon: Target, color: "text-accent" },
     { label: t.admin.dashboard.pipelineValue, value: total, icon: TrendingUp, color: "text-chart-1" },
     { label: t.admin.dashboard.wonDeals, value: `${winRate}%`, icon: Trophy, color: "text-chart-4" },
   ]
@@ -46,14 +102,22 @@ export default async function AdminDashboardPage() {
   ).map((key) => ({
     stage: key,
     label: t.kanban.stages[key],
-    count: stageCounts?.filter((o) => o.stage === key).length ?? 0,
+    count: stageCounts?.filter((o: { stage: string }) => o.stage === key).length ?? 0,
   }))
 
   return (
     <div className="flex flex-col gap-8 p-8">
-      <div>
+      <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold text-foreground">{t.admin.dashboard.title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t.admin.dashboard.subtitle}</p>
+        <p className="text-sm text-muted-foreground">{t.admin.dashboard.subtitle}</p>
+        {scope.kind === "owned" && (
+          <ScopeBanner
+            locale={locale}
+            count={clientCount}
+            entityVi="khách hàng"
+            entityEn="clients"
+          />
+        )}
       </div>
 
       {/* KPI Cards */}

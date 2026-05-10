@@ -47,6 +47,7 @@ interface Props {
   locale: "vi" | "en"
   canViewPII: boolean
   canRunMatch?: boolean
+  isLeadResearcher?: boolean
 }
 
 // Compact labels for the "latest stage" badge. Matches the kanban
@@ -83,7 +84,7 @@ const RISK_STYLE: Record<RiskLevel, string> = {
   high: "border-destructive/40 bg-destructive/10 text-destructive",
 }
 
-export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false }: Props) {
+export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isLeadResearcher = false }: Props) {
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [industryFilter, setIndustryFilter] = useState<string>("all")
@@ -134,9 +135,13 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false }: P
               {locale === "vi" ? "Chưa có buyer nào" : "No buyers yet"}
             </EmptyTitle>
             <EmptyDescription>
-              {locale === "vi"
-                ? "Dùng 'Thêm Buyer' hoặc 'Import hàng loạt' để bắt đầu."
-                : "Use 'Add buyer' or 'Bulk import' to get started."}
+              {isLeadResearcher
+                ? locale === "vi"
+                  ? "Dùng 'Thêm Buyer' hoặc 'Import hàng loạt' để nhập buyer vào pool."
+                  : "Use 'Add buyer' or 'Bulk import' to add buyers to the pool."
+                : locale === "vi"
+                  ? "Không có buyer nào được gán cho bạn. AI matching sẽ gợi ý buyer phù hợp cho bạn."
+                  : "No buyers assigned to you yet. AI matching will suggest suitable buyers for you."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

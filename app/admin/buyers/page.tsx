@@ -18,21 +18,34 @@ export default async function BuyersDirectoryPage() {
   if (!can(current.role, CAPS.BUYER_VIEW)) redirect("/admin")
 
   const { locale } = await getDictionary()
-  const canWrite = can(current.role, CAPS.BUYER_WRITE)
   const canViewPII = can(current.role, CAPS.BUYER_PII_VIEW)
   const scope = ownershipScopeFor(current.role, current.userId)
+  const role = current.role
 
-  // For scoped users (AE / Lead Researcher), restrict the buyer list to
-  // those whose opportunities snapshot back to this user. We resolve the
-  // allowed lead_ids first, then re-read the buyer table — this is cheaper
-  // than post-filtering the joined payload because it lets us cap to 500
-  // *relevant* buyers.
+  // Business logic per role:
+  // - LR: Can CREATE/IMPORT buyers, sees ALL buyers in pool, can trigger AI Match
+  // - AE: CANNOT create buyers, only sees buyers ASSIGNED to them via opportunities
+  // - Admin/SuperAdmin: Full access
+  const isLR = role === "lead_researcher"
+  const isAE = role === "account_executive" || role === "staff"
+  const isAdmin = can(role, CAPS.OWNERSHIP_BYPASS)
+
+  // LR can write (create/import) buyers; AE cannot
+  const canWriteBuyer = isLR || isAdmin
+  // LR and Admin can trigger AI matching for buyers
+  const canRunMatch = isLR || isAdmin
+
+  // Scope logic:
+  // - AE: Only see buyers assigned to them via opportunities
+  // - LR: See ALL buyers in the pool (per business requirement)
+  // - Admin: See all
   let allowedLeadIds: string[] | null = null
-  if (scope.kind === "owned") {
+  if (isAE) {
+    // AE: restricted to buyers they have opportunities with
     const { data: oppLeadRows } = await current.admin
       .from("opportunities")
       .select("lead_id")
-      .eq("account_manager_id", scope.userId)
+      .eq("account_manager_id", current.userId)
     allowedLeadIds = Array.from(
       new Set(
         (oppLeadRows ?? [])
@@ -41,6 +54,7 @@ export default async function BuyersDirectoryPage() {
       ),
     )
   }
+  // LR and Admin see all buyers (allowedLeadIds stays null)
 
   // One-shot read: buyer + every opportunity attached to it.
   // We join the minimum client fields needed for the "latest client" chip
@@ -148,7 +162,7 @@ export default async function BuyersDirectoryPage() {
               ? "Tất cả người mua nước ngoài đã được thu thập. Tái sử dụng buyer có sẵn khi giao cho một client Việt Nam mới — tránh nhập trùng và giữ lịch sử đàm phán."
               : "Every foreign buyer captured so far. Re-use an existing buyer when assigning to a new Vietnamese client — prevents duplicates and preserves negotiation history."}
           </p>
-          {scope.kind === "owned" && (
+          {isAE && (
             <ScopeBanner
               locale={locale}
               count={rows.length}
@@ -156,8 +170,16 @@ export default async function BuyersDirectoryPage() {
               entityEn="buyers"
             />
           )}
+          {isLR && (
+            <p className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md inline-flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3" />
+              {locale === "vi"
+                ? `Bạn có thể xem tất cả ${rows.length} buyer trong pool và chạy AI Match để gợi ý AE phù hợp.`
+                : `You can view all ${rows.length} buyers in pool and run AI Match to suggest suitable AEs.`}
+            </p>
+          )}
         </div>
-        {canWrite && (
+        {canWriteBuyer && (
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <Link href="/admin/buyers/import-importyeti">
@@ -181,7 +203,7 @@ export default async function BuyersDirectoryPage() {
         )}
       </div>
 
-      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canWrite} />
+      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} />
     </div>
   )
 }

@@ -189,6 +189,9 @@ export default async function FinanceDashboardPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
+            <Link href="/admin/finance/by-ae">Doanh thu theo AE</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href="/admin/finance/billing-plans">Gói hợp đồng</Link>
           </Button>
           <Button asChild variant="outline" size="sm">

@@ -22,6 +22,7 @@
 import { revalidatePath } from "next/cache"
 import { requireAnyCap, requireCap } from "@/lib/auth/guard"
 import { can, CAPS } from "@/lib/auth/permissions"
+import { ownershipScopeFor, assertOpportunityOwned } from "@/lib/auth/scope"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -43,6 +44,16 @@ export async function updateDealFinancialsAction(args: {
 
   const { opportunityId } = args
   if (!opportunityId) return { ok: false, error: "missingOpportunity" }
+
+  // Ownership gate (035): AE without OWNERSHIP_BYPASS can only touch deal
+  // financials on opportunities snapshotted to them. Otherwise an AE could
+  // edit selling-price on another AE's deal and indirectly affect the
+  // commission attributed to the rightful owner.
+  {
+    const scope = ownershipScopeFor(role, userId)
+    const own = await assertOpportunityOwned(scope, admin, opportunityId)
+    if (!own.ok) return { ok: false, error: own.error }
+  }
 
   // Load existing row (if any) so we can enforce R-06 without leaking data.
   const { data: existing } = await admin

@@ -9,6 +9,8 @@ import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type { Stage } from "@/lib/supabase/types"
 import { stageRequiresSwift } from "@/lib/risk/country-risk"
 import { assessCountryRiskDb } from "@/lib/risk/country-risk-db"
+import { normaliseRole } from "@/lib/auth/permissions"
+import { ownershipScopeFor, assertOpportunityOwned } from "@/lib/auth/scope"
 
 export interface UpdateOpportunityInput {
   id: string
@@ -64,6 +66,18 @@ export async function updateOpportunityDetails(
 
   if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
+  }
+
+  // Ownership gate (added in 035): AE / Lead Researcher / staff can only
+  // edit opportunities snapshotted to them. Bypass roles (super_admin /
+  // admin / finance) skip the check.
+  {
+    const role = normaliseRole(callerProfile.role)
+    if (role) {
+      const scope = ownershipScopeFor(role, user.id)
+      const own = await assertOpportunityOwned(scope, createAdminClient(), input.id)
+      if (!own.ok) return { ok: false, error: own.error }
+    }
   }
 
   // Build update payload with normalised values
@@ -336,6 +350,18 @@ export async function updateOpportunityStage(
   }
 
   const admin = createAdminClient()
+
+  // Ownership gate (035): scoped users can only drag their own deals on the
+  // kanban. Without this an AE could move another AE's deal into "won" and
+  // hijack the commission snapshot.
+  {
+    const role = normaliseRole(callerProfile.role)
+    if (role) {
+      const scope = ownershipScopeFor(role, user.id)
+      const own = await assertOpportunityOwned(scope, admin, opportunityId)
+      if (!own.ok) return { ok: false, error: own.error }
+    }
+  }
 
   // Fetch BEFORE state for notification context + activity log.
   // Also pull the buyer country so we can enforce the Swift verification

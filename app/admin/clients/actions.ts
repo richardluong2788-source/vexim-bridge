@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { normaliseRole } from "@/lib/auth/permissions"
+import { ownershipScopeFor, assertClientOwned } from "@/lib/auth/scope"
 
 export interface UpdateFdaResult {
   ok: boolean
@@ -83,7 +85,9 @@ export async function updateFdaRegistration(
 
   if (
     !callerProfile ||
-    !["admin", "staff", "super_admin"].includes(callerProfile.role)
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+      callerProfile.role,
+    )
   ) {
     return { ok: false, error: "forbidden" }
   }
@@ -91,12 +95,23 @@ export async function updateFdaRegistration(
   const admin = createAdminClient()
   const { data: target, error: targetErr } = await admin
     .from("profiles")
-    .select("id, role, fda_registered_at, fda_expires_at")
+    .select("id, role, fda_registered_at, fda_expires_at, account_manager_id")
     .eq("id", input.clientId)
     .single()
 
   if (targetErr || !target) return { ok: false, error: "notFound" }
   if (target.role !== "client") return { ok: false, error: "notAClient" }
+
+  // Ownership gate (035): scoped users can only edit FDA for their own
+  // clients. Bypass roles (super_admin/admin/finance) skip the check.
+  {
+    const role = normaliseRole(callerProfile.role)
+    if (role) {
+      const scope = ownershipScopeFor(role, user.id)
+      const own = await assertClientOwned(scope, admin, input.clientId)
+      if (!own.ok) return { ok: false, error: own.error }
+    }
+  }
 
   // --- Reset notification flag if the validity window changed ------------
   const windowChanged =

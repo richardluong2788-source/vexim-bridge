@@ -4,8 +4,10 @@ import { PlusCircle, Sparkles, Upload } from "lucide-react"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, can } from "@/lib/auth/permissions"
+import { ownershipScopeFor } from "@/lib/auth/scope"
 import { Button } from "@/components/ui/button"
 import { BuyersTable, type BuyerRow } from "@/components/admin/buyers-table"
+import { ScopeBanner } from "@/components/admin/scope-banner"
 import type { Stage } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
@@ -18,11 +20,32 @@ export default async function BuyersDirectoryPage() {
   const { locale } = await getDictionary()
   const canWrite = can(current.role, CAPS.BUYER_WRITE)
   const canViewPII = can(current.role, CAPS.BUYER_PII_VIEW)
+  const scope = ownershipScopeFor(current.role, current.userId)
+
+  // For scoped users (AE / Lead Researcher), restrict the buyer list to
+  // those whose opportunities snapshot back to this user. We resolve the
+  // allowed lead_ids first, then re-read the buyer table — this is cheaper
+  // than post-filtering the joined payload because it lets us cap to 500
+  // *relevant* buyers.
+  let allowedLeadIds: string[] | null = null
+  if (scope.kind === "owned") {
+    const { data: oppLeadRows } = await current.admin
+      .from("opportunities")
+      .select("lead_id")
+      .eq("account_manager_id", scope.userId)
+    allowedLeadIds = Array.from(
+      new Set(
+        (oppLeadRows ?? [])
+          .map((r: any) => r.lead_id)
+          .filter((v: any): v is string => typeof v === "string"),
+      ),
+    )
+  }
 
   // One-shot read: buyer + every opportunity attached to it.
   // We join the minimum client fields needed for the "latest client" chip
   // so the admin can see who is currently working this buyer.
-  const { data: buyers } = await current.admin
+  let buyersQ = current.admin
     .from("leads")
     .select(`
       id,
@@ -40,20 +63,39 @@ export default async function BuyersDirectoryPage() {
         stage,
         last_updated,
         potential_value,
+        account_manager_id,
         profiles:client_id ( id, full_name, company_name )
       )
     `)
     .order("created_at", { ascending: false })
     .limit(500)
+  if (allowedLeadIds !== null) {
+    if (allowedLeadIds.length === 0) {
+      // Sentinel UUID guarantees an empty result without short-circuiting
+      // the rest of the page render.
+      buyersQ = buyersQ.eq("id", "00000000-0000-0000-0000-000000000000")
+    } else {
+      buyersQ = buyersQ.in("id", allowedLeadIds)
+    }
+  }
+  const { data: buyers } = await buyersQ
 
   const rows: BuyerRow[] = (buyers ?? []).map((b: any) => {
-    const opps: Array<{
+    const allOpps: Array<{
       id: string
       stage: Stage
       last_updated: string | null
       potential_value: number | null
+      account_manager_id: string | null
       profiles: { id: string; full_name: string | null; company_name: string | null } | null
     }> = b.opportunities ?? []
+    // For scoped users, hide any opportunities that don't belong to them.
+    // This prevents the "latest client" chip and counts from leaking other
+    // AEs' work via a buyer they happen to share.
+    const opps =
+      scope.kind === "owned"
+        ? allOpps.filter((o) => o.account_manager_id === scope.userId)
+        : allOpps
 
     // Sort opportunities by most recent activity so the "latest" is always
     // the one the user wants to see.
@@ -97,15 +139,23 @@ export default async function BuyersDirectoryPage() {
   return (
     <div className="flex flex-col gap-6 p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-foreground text-balance">
             {locale === "vi" ? "Danh sách Buyer" : "Buyer Directory"}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl text-pretty">
+          <p className="text-sm text-muted-foreground max-w-2xl text-pretty">
             {locale === "vi"
               ? "Tất cả người mua nước ngoài đã được thu thập. Tái sử dụng buyer có sẵn khi giao cho một client Việt Nam mới — tránh nhập trùng và giữ lịch sử đàm phán."
               : "Every foreign buyer captured so far. Re-use an existing buyer when assigning to a new Vietnamese client — prevents duplicates and preserves negotiation history."}
           </p>
+          {scope.kind === "owned" && (
+            <ScopeBanner
+              locale={locale}
+              count={rows.length}
+              entityVi="buyer"
+              entityEn="buyers"
+            />
+          )}
         </div>
         {canWrite && (
           <div className="flex flex-wrap gap-2">

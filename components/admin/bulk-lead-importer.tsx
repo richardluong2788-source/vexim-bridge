@@ -1,12 +1,15 @@
 "use client"
 
 /**
- * Bulk lead importer — Sprint D.
+ * Bulk lead importer — LR batch uploads buyers with auto-matching.
  *
- * Admins paste a tab-separated or CSV block (headers: company, contact, email,
- * phone, linkedin, industry, country, website, notes). We parse, preview with
- * dedup vs existing leads, optionally enrich via Apollo.io, and commit on
- * approval.
+ * Flow:
+ *   1. LR pastes CSV/TSV (company, contact, email, phone, linkedin, industry, country, website, notes).
+ *   2. System preview: dedup, validate, optional Apollo enrichment.
+ *   3. LR commits → creates leads + calls runMatchingPipeline per buyer.
+ *   4. AI matches each buyer to best AE, pushes to respective inboxes.
+ *
+ * Client selection removed — matching is AI-driven.
  */
 
 import { useState, useTransition } from "react"
@@ -29,13 +32,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Table,
   TableBody,
   TableCell,
@@ -47,32 +43,22 @@ import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
 import {
   previewBulkImport,
-  commitBulkImport,
+  commitBulkImportWithMatching,
   type PreviewRow,
   type RawImportRow,
 } from "@/app/admin/leads/import/actions"
 
-type ClientRow = {
-  id: string
-  full_name: string | null
-  company_name: string | null
-  industry: string | null
-  fda_registration_number: string | null
-}
-
 interface Props {
-  clients: ClientRow[]
   apolloConfigured: boolean
 }
 
-export function BulkLeadImporter({ clients, apolloConfigured }: Props) {
+export function BulkLeadImporter({ apolloConfigured }: Props) {
   const router = useRouter()
   const { t } = useTranslation()
   const s = t.admin.bulkImport
 
   const [raw, setRaw] = useState("")
   const [useEnrichment, setUseEnrichment] = useState(apolloConfigured)
-  const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
   const [stats, setStats] = useState<{
     total: number
@@ -82,9 +68,6 @@ export function BulkLeadImporter({ clients, apolloConfigured }: Props) {
   } | null>(null)
   const [previewing, startPreview] = useTransition()
   const [committing, startCommit] = useTransition()
-
-  const selectedClient = clients.find((c) => c.id === selectedClientId) ?? null
-  const compliant = !!selectedClient?.fda_registration_number?.trim()
 
   function parseRows(input: string): RawImportRow[] {
     const lines = input
@@ -146,16 +129,10 @@ export function BulkLeadImporter({ clients, apolloConfigured }: Props) {
   }
 
   function handleCommit() {
-    if (!selectedClientId || !preview) return
-    if (!compliant) {
-      toast.error(s.errorCompliance)
-      return
-    }
+    if (!preview || !stats || stats.valid === 0) return
+
     startCommit(async () => {
-      const res = await commitBulkImport({
-        clientId: selectedClientId,
-        rows: preview,
-      })
+      const res = await commitBulkImportWithMatching({ rows: preview })
       if (!res.ok) {
         toast.error(s.errorCommit)
         return
@@ -163,9 +140,9 @@ export function BulkLeadImporter({ clients, apolloConfigured }: Props) {
       toast.success(
         s.committed
           .replace("{leads}", String(res.leadsCreated))
-          .replace("{opps}", String(res.opportunitiesCreated)),
+          .replace("{opps}", "0"), // No opportunities created — buyers go to inbox
       )
-      router.push("/admin/pipeline")
+      router.push("/admin/buyers")
     })
   }
 
@@ -340,52 +317,45 @@ export function BulkLeadImporter({ clients, apolloConfigured }: Props) {
         </Card>
       )}
 
-      {/* STEP 3: Assign + commit */}
+      {/* STEP 3: Commit with auto-matching */}
       {preview && stats && stats.valid > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              {s.step3}
+              <Sparkles className="h-4 w-4 text-primary" />
+              {t.locale === "vi" ? "Bước 3: Xác nhận" : "Step 3: Confirm"}
             </CardTitle>
-            <p className="text-xs text-muted-foreground">{s.step3Hint}</p>
+            <p className="text-xs text-muted-foreground">
+              {t.locale === "vi"
+                ? "Hệ thống AI sẽ tự động phân tích và gán buyer cho Account Executive phù hợp nhất."
+                : "The AI system will automatically analyze and assign each buyer to the best Account Executive."}
+            </p>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="client-select">{s.client}</Label>
-              <Select
-                value={selectedClientId}
-                onValueChange={setSelectedClientId}
-              >
-                <SelectTrigger id="client-select">
-                  <SelectValue placeholder={s.selectClient} />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.company_name ?? c.full_name ?? c.id}
-                      {!c.fda_registration_number?.trim() ? (
-                        <span className="text-destructive ml-2 text-xs">
-                          ({s.notFda})
-                        </span>
-                      ) : null}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-md bg-muted/30 border border-dashed border-muted-foreground/30 p-3 flex items-start gap-2">
+              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground">
+                {t.locale === "vi"
+                  ? `Sẽ tạo ${stats.valid} buyer. Mỗi buyer sẽ được đẩy vào Inbox của AE tương ứng dựa trên chuyên môn và khối lượng công việc.`
+                  : `Will create ${stats.valid} buyers. Each buyer will be added to the matching AE's Inbox based on expertise and workload.`}
+              </p>
             </div>
 
-            {selectedClient && !compliant && (
-              <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-sm text-destructive">{s.errorCompliance}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPreview(null)
+                  setStats(null)
+                  setRaw("")
+                }}
+                disabled={committing}
+              >
+                {t.locale === "vi" ? "Quay lại" : "Back"}
+              </Button>
               <Button
                 onClick={handleCommit}
-                disabled={committing || !compliant || !selectedClientId}
+                disabled={committing}
                 className="gap-1.5"
               >
                 {committing ? (

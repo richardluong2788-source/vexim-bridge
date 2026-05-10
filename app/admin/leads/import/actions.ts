@@ -1,14 +1,14 @@
 "use server"
 
 /**
- * Sprint D — Bulk lead import server actions.
+ * Sprint D — Bulk lead import server actions with AI matching.
  *
  * Two-phase flow:
- *   1. previewBulkImport(rawRows) — parse rows, run dedup vs. existing leads
- *      (by email AND company_name), and optionally call Apollo.io to enrich.
- *      Returns a preview so the admin can eyeball before committing.
- *   2. commitBulkImport(preview, clientId) — inserts new leads and creates
- *      one opportunity per new lead, assigned to the chosen client.
+ *   1. previewBulkImport(rawRows) — parse rows, run dedup vs. existing leads,
+ *      optionally enrich via Apollo.io. Returns a preview for admin approval.
+ *   2. commitBulkImportWithMatching(previewRows) — insert new leads and call
+ *      runMatchingPipeline per lead. AI matches to best AE, pushes to inbox.
+ *      No opportunity creation here — that happens when AE accepts in inbox.
  */
 
 import { revalidatePath } from "next/cache"
@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { enrichPersonWithApollo, apolloConfigured } from "@/lib/enrich/apollo"
 import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
+import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 
 // Manual buyer-intake server actions. Mirrors BUYER_MANUAL_INTAKE in
 // lib/auth/permissions.ts: only super_admin and lead_researcher are
@@ -225,11 +226,104 @@ export async function previewBulkImport(
 }
 
 export type CommitInput = {
+  rows: PreviewRow[]
+}
+
+export async function commitBulkImportWithMatching(input: CommitInput): Promise<
+  | {
+      ok: true
+      leadsCreated: number
+      skipped: number
+    }
+  | { ok: false; error: "unauthorized" | "dbFailed" }
+> {
+  const who = await checkRole()
+  if (!who) return { ok: false, error: "unauthorized" }
+
+  const admin = createAdminClient()
+
+  const toInsert = input.rows.filter((r) => r.status === "new")
+  if (toInsert.length === 0) {
+    return { ok: true, leadsCreated: 0, skipped: 0 }
+  }
+
+  const payload = toInsert.map((r) => ({
+    company_name: r.raw.companyName.trim(),
+    contact_person:
+      (r.enriched.contactPerson ?? r.raw.contactPerson)?.trim() || null,
+    contact_email:
+      normalizeEmail(r.enriched.contactEmail ?? r.raw.contactEmail),
+    contact_phone:
+      (r.enriched.contactPhone ?? r.raw.contactPhone)?.trim() || null,
+    linkedin_url:
+      (r.enriched.linkedinUrl ?? r.raw.linkedinUrl)?.trim() || null,
+    industry: (r.enriched.industry ?? r.raw.industry)?.trim() || null,
+    country: (r.enriched.country ?? r.raw.country)?.trim() || null,
+    website: (r.enriched.website ?? r.raw.website)?.trim() || null,
+    notes: r.raw.notes?.trim() || null,
+    source: "bulk_import",
+    created_by: who.userId,
+  }))
+
+  const { data: insertedLeads, error: insertErr } = await admin
+    .from("leads")
+    .insert(payload)
+    .select("id")
+
+  if (insertErr || !insertedLeads) {
+    console.error("[v0] bulk leads insert failed", insertErr)
+    return { ok: false, error: "dbFailed" }
+  }
+
+  // Log activity summarizing the import.
+  await admin.from("activities").insert({
+    action_type: "bulk_lead_import",
+    description: `Imported ${insertedLeads.length} leads for AI matching`,
+    performed_by: who.userId,
+  })
+
+  // Trigger AI matching for each new lead in parallel (fire-and-forget).
+  // Non-blocking — if one fails, others continue. Errors are logged server-side.
+  for (const lead of insertedLeads) {
+    try {
+      await runMatchingPipeline(lead.id, {
+        needsIndustry: null, // Bulk import doesn't have granular needs,
+        needsProduct: null,  // so pipeline uses buyer's industry field
+        needsCapacity: null, // plus available company data.
+      })
+    } catch (err) {
+      console.error("[v0] runMatchingPipeline failed for bulk lead", lead.id, err)
+      // Non-fatal — lead was created, just matching had an issue.
+    }
+  }
+
+  // Fire buyer acknowledgement emails in parallel.
+  await Promise.allSettled(
+    insertedLeads.map((l) =>
+      sendBuyerInquiryReceivedEmail(l.id, { sentBy: who.userId }),
+    ),
+  )
+
+  revalidatePath("/admin/leads")
+  revalidatePath("/admin/buyers")
+
+  return {
+    ok: true,
+    leadsCreated: insertedLeads.length,
+    skipped: input.rows.length - insertedLeads.length,
+  }
+}
+
+/**
+ * @deprecated Use commitBulkImportWithMatching instead.
+ * Kept for backwards compatibility only; do NOT use in new code.
+ */
+export type CommitInputLegacy = {
   clientId: string
   rows: PreviewRow[]
 }
 
-export async function commitBulkImport(input: CommitInput): Promise<
+export async function commitBulkImport(input: CommitInputLegacy): Promise<
   | {
       ok: true
       leadsCreated: number
@@ -238,6 +332,10 @@ export async function commitBulkImport(input: CommitInput): Promise<
     }
   | { ok: false; error: "unauthorized" | "clientNotFound" | "dbFailed" }
 > {
+  console.warn(
+    "[v0] commitBulkImport is deprecated — use commitBulkImportWithMatching instead",
+  )
+
   const who = await checkRole()
   if (!who) return { ok: false, error: "unauthorized" }
 
@@ -305,9 +403,7 @@ export async function commitBulkImport(input: CommitInput): Promise<
     performed_by: who.userId,
   })
 
-  // Fire buyer acknowledgement emails in parallel. Each call is independently
-  // logged + dedup'd server-side, so Promise.allSettled gives us best-effort
-  // fan-out without any one failure bringing down the import.
+  // Fire buyer acknowledgement emails in parallel.
   await Promise.allSettled(
     insertedLeads.map((l) =>
       sendBuyerInquiryReceivedEmail(l.id, { sentBy: who.userId }),

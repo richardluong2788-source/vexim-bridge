@@ -11,17 +11,11 @@
  */
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireCap } from "@/lib/auth/guard"
+import { CAPS } from "@/lib/auth/permissions"
+import { assertOpportunityOwnership } from "@/lib/auth/ownership"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import type { BuyerReply } from "@/lib/supabase/types"
-
-const ALLOWED_ROLES = new Set([
-  "admin",
-  "staff",
-  "super_admin",
-  "account_executive",
-])
 
 type AddReplyInput = {
   opportunityId: string
@@ -39,25 +33,27 @@ export async function addBuyerReplyAction(
   const trimmed = input.rawContentEn.trim()
   if (!trimmed) return { ok: false, error: "empty" }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "unauthorized" }
+  // Capability + ownership gate. AE has DEAL_QUANTITY_WRITE so we reuse it
+  // here as the "can act on this opportunity" capability.
+  const guard = await requireCap(CAPS.DEAL_QUANTITY_WRITE)
+  if (!guard.ok) return { ok: false, error: "unauthorized" }
+  const { admin, userId, role } = guard
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-  if (!profile || !ALLOWED_ROLES.has(profile.role)) {
-    return { ok: false, error: "unauthorized" }
+  const ownership = await assertOpportunityOwnership(
+    admin,
+    role,
+    userId,
+    input.opportunityId,
+  )
+  if (!ownership.ok) {
+    return {
+      ok: false,
+      error: ownership.error === "notFound" ? "notFound" : "unauthorized",
+    }
   }
 
   // Load opportunity context for the classifier (buyer company / industry /
-  // current stage). We use the admin client to bypass RLS for the join — we
-  // already role-gated above.
-  const admin = createAdminClient()
+  // current stage).
   const { data: opp } = await admin
     .from("opportunities")
     .select(
@@ -98,7 +94,7 @@ export async function addBuyerReplyAction(
     ai_suggested_next_step: classification?.suggestedNextStepVi ?? null,
     ai_model: classification?.model ?? null,
     received_at: input.receivedAt ?? new Date().toISOString(),
-    created_by: user.id,
+    created_by: userId,
   }
 
   const { data: reply, error: insertErr } = await admin
@@ -120,7 +116,7 @@ export async function addBuyerReplyAction(
       classification
         ? `AI intent: ${classification.intent} · ${classification.summaryVi}`
         : "Buyer reply logged (AI classification skipped).",
-    performed_by: user.id,
+    performed_by: userId,
   })
 
   // If the AI suggests a next step and the opp has no active one, seed it.
@@ -145,8 +141,18 @@ export async function listBuyerRepliesAction(opportunityId: string): Promise<{
   ok: true
   replies: BuyerReply[]
 }> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const guard = await requireCap(CAPS.DEAL_VIEW)
+  if (!guard.ok) return { ok: true, replies: [] }
+
+  const ownership = await assertOpportunityOwnership(
+    guard.admin,
+    guard.role,
+    guard.userId,
+    opportunityId,
+  )
+  if (!ownership.ok) return { ok: true, replies: [] }
+
+  const { data } = await guard.admin
     .from("buyer_replies")
     .select("*")
     .eq("opportunity_id", opportunityId)

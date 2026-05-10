@@ -1,8 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireCap } from "@/lib/auth/guard"
+import { CAPS } from "@/lib/auth/permissions"
+import { canActOnClient } from "@/lib/auth/ownership"
 
 export interface UpdateFdaResult {
   ok: boolean
@@ -69,26 +70,20 @@ export async function updateFdaRegistration(
   // We don't hard-enforce here — admins sometimes only know the number.
 
   // --- AuthZ --------------------------------------------------------------
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "notAuthenticated" }
-
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (
-    !callerProfile ||
-    !["admin", "staff", "super_admin"].includes(callerProfile.role)
-  ) {
-    return { ok: false, error: "forbidden" }
+  const guard = await requireCap(CAPS.CLIENT_WRITE)
+  if (!guard.ok) {
+    return {
+      ok: false,
+      error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
+    }
   }
+  const { admin, userId, role } = guard
 
-  const admin = createAdminClient()
+  // Ownership — AE / lead_researcher / staff may only edit FDA on the
+  // clients they personally manage.
+  const ok = await canActOnClient(admin, role, userId, input.clientId)
+  if (!ok) return { ok: false, error: "forbidden" }
+
   const { data: target, error: targetErr } = await admin
     .from("profiles")
     .select("id, role, fda_registered_at, fda_expires_at")

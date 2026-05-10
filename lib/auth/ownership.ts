@@ -106,3 +106,21 @@ export async function assertClientOwnership(
   }
   return { ok: false, error: "forbidden" }
 }
+
+/**
+ * Boolean variant of `assertClientOwnership` used by callers that only
+ * need a yes/no decision (e.g. compliance doc upload / share / revoke).
+ *
+ * Returns `false` for missing rows, role-mismatch, and ownership
+ * failures. Returns `true` for unscoped roles regardless of who manages
+ * the client.
+ */
+export async function canActOnClient(
+  admin: AdminSB,
+  role: Role,
+  userId: string,
+  clientId: string,
+): Promise<boolean> {
+  const result = await assertClientOwnership(admin, role, userId, clientId)
+  return result.ok
+}

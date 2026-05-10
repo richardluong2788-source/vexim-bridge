@@ -17,6 +17,7 @@
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
+import { canActOnClient } from "@/lib/auth/ownership"
 import {
   uploadComplianceDoc,
   deleteComplianceDocByUrl,
@@ -69,7 +70,7 @@ export async function uploadClientDocAction(
 ): Promise<ActionResult<{ url: string; id: string }>> {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin: adminClient, userId } = guard
+  const { admin: adminClient, userId, role } = guard
 
   const ownerId = String(formData.get("ownerId") ?? "")
   const kind = String(formData.get("kind") ?? "") as ComplianceDocKind
@@ -84,6 +85,11 @@ export async function uploadClientDocAction(
     return { ok: false, error: "invalidDocType" }
   }
   if (!file || file.size === 0) return { ok: false, error: "missingFile" }
+
+  // Ownership — AE / lead_researcher / staff may only upload for clients
+  // they personally manage.
+  const allowed = await canActOnClient(adminClient, role, userId, ownerId)
+  if (!allowed) return { ok: false, error: "forbidden" }
 
   const validation = validateComplianceFile(file)
   if (!validation.ok) {
@@ -149,6 +155,15 @@ export async function deleteClientDocAction(
 
   if (fetchErr || !doc) return { ok: false, error: "notFound" }
 
+  // Ownership — scoped roles cannot delete docs of clients they don't own.
+  const ownerOk = await canActOnClient(
+    adminClient,
+    guard.role,
+    guard.userId,
+    doc.owner_id,
+  )
+  if (!ownerOk) return { ok: false, error: "forbidden" }
+
   const { error: delErr } = await adminClient
     .from("compliance_docs")
     .delete()
@@ -188,7 +203,7 @@ export async function createShareLinkAction(args: {
 > {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin: adminClient, userId } = guard
+  const { admin: adminClient, userId, role } = guard
 
   const ttlDays = args.ttlDays && args.ttlDays > 0 ? args.ttlDays : 30
   const expiresAt = new Date(
@@ -207,6 +222,10 @@ export async function createShareLinkAction(args: {
     .single()
 
   if (docErr || !doc) return { ok: false, error: "notFound" }
+
+  // Ownership — scoped roles can only share docs of their clients.
+  const allowed = await canActOnClient(adminClient, role, userId, doc.owner_id)
+  if (!allowed) return { ok: false, error: "forbidden" }
 
   // Defence-in-depth: never allow sharing kinds not on the whitelist,
   // even if the UI somehow submits one.
@@ -331,7 +350,7 @@ export async function createBundleShareLinkAction(args: {
 > {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin: adminClient, userId } = guard
+  const { admin: adminClient, userId, role } = guard
 
   // Dedupe incoming ids defensively — the UI passes a Set, but a direct
   // caller could submit duplicates.
@@ -362,6 +381,10 @@ export async function createBundleShareLinkAction(args: {
   if (docs.some((d) => d.owner_id !== ownerId)) {
     return { ok: false, error: "mixedOwners" }
   }
+
+  // Ownership — scoped roles can only bundle their own clients' docs.
+  const allowed = await canActOnClient(adminClient, role, userId, ownerId)
+  if (!allowed) return { ok: false, error: "forbidden" }
 
   // Filter out non-shareable kinds. If nothing remains, bail early
   // instead of creating an empty bundle.
@@ -874,7 +897,7 @@ export async function revokeShareLinkAction(
 ): Promise<ActionResult> {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin: adminClient } = guard
+  const { admin: adminClient, role, userId } = guard
 
   const { data: link, error: fetchErr } = await adminClient
     .from("tokenized_share_links")
@@ -883,6 +906,9 @@ export async function revokeShareLinkAction(
     .single()
 
   if (fetchErr || !link) return { ok: false, error: "notFound" }
+
+  const allowed = await canActOnClient(adminClient, role, userId, link.owner_id)
+  if (!allowed) return { ok: false, error: "forbidden" }
 
   const { error } = await adminClient
     .from("tokenized_share_links")

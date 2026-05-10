@@ -56,7 +56,16 @@ export async function setAccountManager(
 
   const guard = await requireCap(CAPS.CLIENT_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin } = guard
+  const { admin, role } = guard
+
+  // Sprint client-management-for-AE — Account-manager assignment must
+  // remain an admin-only operation. AE / lead_researcher / staff /
+  // finance can hold CLIENT_WRITE for other reasons (FDA edits, etc.)
+  // but they MUST NOT be able to reassign clients to themselves or
+  // away from another AE — that is the supervisor's job.
+  if (role !== "admin" && role !== "super_admin") {
+    return { ok: false, error: "forbidden" }
+  }
 
   // Target must be a client row.
   const { data: target, error: targetErr } = await admin

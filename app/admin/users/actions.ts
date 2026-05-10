@@ -5,6 +5,7 @@
  *
  * Responsibilities:
  *   - updateUserRole: change another user's role (admin + super_admin only)
+ *   - inviteTeamMember: invite internal staff (AE, LR, Finance, Admin)
  *
  * Security:
  *   - Caller must have USERS_ASSIGN_ROLE capability.
@@ -16,7 +17,9 @@
  */
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
+import { siteConfig } from "@/lib/site-config"
 import type { Role } from "@/lib/supabase/types"
 
 // Assignable roles surfaced in the UI. `staff` is legacy — left out on
@@ -88,4 +91,129 @@ export async function updateUserRole(
 
   revalidatePath("/admin/users")
   return { ok: true }
+}
+
+// ============================================================================
+// Invite Team Member
+// ============================================================================
+
+// Internal roles that can be invited (not client)
+const INTERNAL_ROLES: Role[] = [
+  "admin",
+  "account_executive",
+  "lead_researcher",
+  "finance",
+]
+
+export interface InviteTeamMemberInput {
+  email: string
+  full_name: string
+  role: Role
+}
+
+export interface InviteTeamMemberResult {
+  ok: boolean
+  userId?: string
+  error?: string
+}
+
+/**
+ * Invite a new internal team member (AE, LR, Finance, Admin).
+ *
+ * Flow:
+ *   1. Validate input and check caller permissions
+ *   2. Use service-role to invite via Supabase Auth
+ *   3. Create profile with the specified role
+ *   4. User receives email, clicks link, sets password
+ *   5. User enters system with correct role immediately
+ *
+ * Security:
+ *   - Only users with USERS_ASSIGN_ROLE can invite
+ *   - Only super_admin can invite admin or super_admin roles
+ */
+export async function inviteTeamMember(
+  input: InviteTeamMemberInput,
+): Promise<InviteTeamMemberResult> {
+  // ---- 1. Validate input ----------------------------------------------------
+  const email = input.email?.trim().toLowerCase()
+  const fullName = input.full_name?.trim()
+  const role = input.role
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: "invalid_email" }
+  }
+  if (!fullName) {
+    return { ok: false, error: "full_name_required" }
+  }
+  if (!INTERNAL_ROLES.includes(role) && role !== "super_admin") {
+    return { ok: false, error: "invalid_role" }
+  }
+
+  // ---- 2. Check caller permissions ------------------------------------------
+  const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, role: callerRole } = guard
+
+  // Only super_admin can create admin or super_admin
+  if ((role === "admin" || role === "super_admin") && callerRole !== "super_admin") {
+    return { ok: false, error: "super_admin_only" }
+  }
+
+  // ---- 3. Invite via Supabase Auth ------------------------------------------
+  const { data: inviteData, error: inviteErr } =
+    await admin.auth.admin.inviteUserByEmail(email, {
+      data: {
+        role,
+        full_name: fullName,
+      },
+      redirectTo: `${siteConfig.url}/auth/accept-invite`,
+    })
+
+  if (inviteErr || !inviteData?.user) {
+    const msg = inviteErr?.message ?? "invite_failed"
+    if (/already/i.test(msg)) return { ok: false, error: "email_exists" }
+    return { ok: false, error: msg }
+  }
+
+  const newUserId = inviteData.user.id
+
+  // ---- 4. Create profile with role ------------------------------------------
+  const { error: profileErr } = await admin
+    .from("profiles")
+    .upsert(
+      {
+        id: newUserId,
+        role,
+        email,
+        full_name: fullName,
+      },
+      { onConflict: "id" },
+    )
+
+  if (profileErr) {
+    // Rollback auth user
+    await admin.auth.admin.deleteUser(newUserId)
+    return { ok: false, error: profileErr.message }
+  }
+
+  // ---- 5. Audit trail -------------------------------------------------------
+  const adminClient = createAdminClient()
+  await adminClient.from("activities").insert({
+    user_id: guard.userId,
+    action: "team_member_invited",
+    details: {
+      new_user_id: newUserId,
+      email,
+      full_name: fullName,
+      role,
+      invited_by_role: callerRole,
+    },
+  })
+
+  revalidatePath("/admin/users")
+
+  return {
+    ok: true,
+    userId: newUserId,
+  }
 }

@@ -140,8 +140,8 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                   ? "Dùng 'Thêm Buyer' hoặc 'Import hàng loạt' để nhập buyer vào pool."
                   : "Use 'Add buyer' or 'Bulk import' to add buyers to the pool."
                 : locale === "vi"
-                  ? "Không có buyer nào được gán cho bạn. AI matching sẽ gợi ý buyer phù hợp cho bạn."
-                  : "No buyers assigned to you yet. AI matching will suggest suitable buyers for you."}
+                  ? "Không có buyer nào được gán cho bạn. Hệ thống sẽ tự động gợi ý buyer phù hợp cho bạn."
+                  : "No buyer has been assigned to you. The system will automatically suggest a suitable buyer for you."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

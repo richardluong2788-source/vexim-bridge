@@ -169,26 +169,17 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
   ],
 
   lead_researcher: [
+    // Lead Researcher is a narrow, buyer-only role: source buyers, enrich
+    // them, and analyse buyer/country signals. They do NOT see clients,
+    // pipeline (deals), the AE matching inbox, SLA, or pipeline analytics.
     // Buyers — WRITE allowed, but PII VIEW is denied → UI must mask.
     CAPS.BUYER_VIEW,
     CAPS.BUYER_WRITE,
-    // Lead Researcher is the human-in-the-loop sourcing role and may use
-    // the manual intake screens when ImportYeti / AI sourcing is not an
-    // option. AE is intentionally NOT granted this capability.
+    // Manual buyer intake screens — used when ImportYeti / AI sourcing
+    // is not an option. AE is intentionally NOT granted this capability.
     CAPS.BUYER_MANUAL_INTAKE,
-    // Researcher needs to monitor what the matching pipeline emits to
-    // QA the data they sourced.
-    CAPS.MATCH_INBOX_VIEW,
-
-    // Research context
-    CAPS.DEAL_VIEW,
-    CAPS.CLIENT_VIEW,
+    // Country risk signals are research context for vetting buyers.
     CAPS.COUNTRY_RISK_READ,
-
-    // Analytics — scoped to assigned clients only.
-    CAPS.ANALYTICS_VIEW_OWN,
-    // SLA — scoped, read-only.
-    CAPS.SLA_VIEW_OWN,
   ],
 
   finance: [

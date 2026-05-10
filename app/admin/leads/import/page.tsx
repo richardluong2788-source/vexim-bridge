@@ -6,12 +6,12 @@ import { apolloConfigured } from "@/lib/enrich/apollo"
 import { CAPS, can, normaliseRole } from "@/lib/auth/permissions"
 
 /**
- * Sprint D — Bulk lead import page.
+ * Sprint D — Bulk lead import with AI matching.
  *
- * SECURITY: this is the legacy manual buyer-intake flow that assigns
- * buyers DIRECTLY to a chosen client, bypassing AI matching. Only Lead
- * Researcher + Super Admin are allowed in via BUYER_MANUAL_INTAKE; AEs
- * must use the AE Inbox (AI auto-assign).
+ * SECURITY: Only Lead Researcher + Super Admin are allowed via
+ * BUYER_MANUAL_INTAKE. The flow no longer "picks a client" — after
+ * uploading buyers, each one is auto-matched to the best AE by the
+ * matching pipeline. AEs use the AE Inbox instead.
  */
 export default async function BulkImportLeadsPage() {
   const supabase = await createClient()
@@ -34,12 +34,6 @@ export default async function BulkImportLeadsPage() {
 
   const { t } = await getDictionary()
 
-  const { data: clients } = await supabase
-    .from("profiles")
-    .select("id, full_name, company_name, industry, fda_registration_number")
-    .eq("role", "client")
-    .order("company_name", { ascending: true })
-
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-8">
       <div>
@@ -50,10 +44,7 @@ export default async function BulkImportLeadsPage() {
           {t.admin.bulkImport.subtitle}
         </p>
       </div>
-      <BulkLeadImporter
-        clients={clients ?? []}
-        apolloConfigured={apolloConfigured()}
-      />
+      <BulkLeadImporter apolloConfigured={apolloConfigured()} />
     </div>
   )
 }

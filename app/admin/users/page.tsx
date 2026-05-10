@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getDictionary } from "@/lib/i18n/server"
 import { UsersTable } from "@/components/admin/users-table"
+import { InviteTeamDialog } from "@/components/admin/invite-team-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { can, CAPS, ROLE_META, normaliseRole } from "@/lib/auth/permissions"
@@ -57,15 +58,23 @@ export default async function UsersPage() {
     "client",
   ]
 
+  // Check if user can invite team members
+  const canInvite = can(current.role, CAPS.USERS_ASSIGN_ROLE)
+
   return (
     <div className="flex flex-col gap-6 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-balance text-foreground">
-          {t.admin.users.title}
-        </h1>
-        <p className="mt-1 text-pretty text-sm text-muted-foreground">
-          {t.admin.users.subtitle}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-balance text-foreground">
+            {t.admin.users.title}
+          </h1>
+          <p className="mt-1 text-pretty text-sm text-muted-foreground">
+            {t.admin.users.subtitle}
+          </p>
+        </div>
+        {canInvite && (
+          <InviteTeamDialog locale={locale} currentUserRole={current.role} />
+        )}
       </div>
 
       {/* Role overview — compact counts so the operator can see distribution */}

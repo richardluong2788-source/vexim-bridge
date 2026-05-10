@@ -114,6 +114,11 @@ export function InboxList({
     Record<string, string>
   >({})
 
+  // Lead Researcher has read-only access to monitor matching outcomes
+  // for the buyers they sourced. Claim/accept/reject controls are hidden
+  // because LR has no client portfolio to assign buyers to.
+  const isReadOnly = currentRole === "lead_researcher"
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -368,57 +373,68 @@ export function InboxList({
                   </div>
                 )}
 
-                {/* Actions */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Select
-                    value={selectedClients[item.id] || ""}
-                    onValueChange={(v) =>
-                      setSelectedClients((prev) => ({ ...prev, [item.id]: v }))
-                    }
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue
-                        placeholder={
-                          locale === "vi" ? "Chọn client..." : "Select client..."
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          {locale === "vi"
-                            ? "Không có client FDA hợp lệ"
-                            : "No FDA-valid clients"}
-                        </div>
-                      ) : (
-                        clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.company_name || client.full_name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                {/* Actions — hidden for read-only viewers (Lead Researcher) */}
+                {isReadOnly ? (
+                  <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>
+                      {locale === "vi"
+                        ? "Chế độ chỉ xem — chỉ AE được chấp nhận / từ chối đề xuất."
+                        : "Read-only — only AEs can accept or reject matches."}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <Select
+                      value={selectedClients[item.id] || ""}
+                      onValueChange={(v) =>
+                        setSelectedClients((prev) => ({ ...prev, [item.id]: v }))
+                      }
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue
+                          placeholder={
+                            locale === "vi" ? "Chọn client..." : "Select client..."
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            {locale === "vi"
+                              ? "Không có client FDA hợp lệ"
+                              : "No FDA-valid clients"}
+                          </div>
+                        ) : (
+                          clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.company_name || client.full_name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
 
-                  <Button
-                    onClick={() => handleAccept(item)}
-                    disabled={!selectedClients[item.id] || pending}
-                    className="gap-2"
-                  >
-                    <Check className="h-4 w-4" />
-                    {locale === "vi" ? "Chấp nhận" : "Accept"}
-                  </Button>
+                    <Button
+                      onClick={() => handleAccept(item)}
+                      disabled={!selectedClients[item.id] || pending}
+                      className="gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      {locale === "vi" ? "Chấp nhận" : "Accept"}
+                    </Button>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => handleReject(item)}
-                    disabled={pending}
-                    className="gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    {locale === "vi" ? "Từ chối" : "Reject"}
-                  </Button>
-                </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleReject(item)}
+                      disabled={pending}
+                      className="gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      {locale === "vi" ? "Từ chối" : "Reject"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )

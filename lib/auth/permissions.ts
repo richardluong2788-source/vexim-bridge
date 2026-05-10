@@ -181,6 +181,12 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // Manual buyer intake screens — used when ImportYeti / AI sourcing
     // is not an option. AE is intentionally NOT granted this capability.
     CAPS.BUYER_MANUAL_INTAKE,
+    // Read-only access to the AI matching inbox so LR can monitor
+    // whether the buyers they sourced are getting matched / claimed
+    // by AEs. UI MUST hide claim/accept controls for LR — see the
+    // AE Inbox component which gates write actions on `BUYER_WRITE`
+    // + role check.
+    CAPS.MATCH_INBOX_VIEW,
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
     // risk register is curated by super_admin / admin only to avoid
     // inconsistent classifications. LR can still SEE per-country risk on

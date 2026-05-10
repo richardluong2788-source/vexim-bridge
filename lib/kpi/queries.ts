@@ -336,22 +336,34 @@ export async function getAEKPIs(userId: string, period: PeriodWindow): Promise<A
 // ---------------------------------------------------------------------------
 // LR KPIs
 // ---------------------------------------------------------------------------
+
+/**
+ * Lead Researcher monthly target — the minimum number of unique buyers
+ * each LR is expected to source in a calendar month.
+ *
+ * Adjust here to roll out a new target across the org; it flows into the
+ * KPI dashboard and any future SLA enforcement.
+ */
+export const LR_MONTHLY_BUYER_TARGET = 40
+
 export interface LRKPIs {
   // Buyers
   buyersImportedThisMonth: number
   buyersImportedLastMonth: number
   buyersGrowth: number
 
-  // Matching
-  buyersMatched: number // buyers with opportunities
-  conversionRate: number // matched / imported
+  // Target tracking — primary metric for LR.
+  monthlyTarget: number               // = LR_MONTHLY_BUYER_TARGET
+  targetProgressPct: number           // 0..100+ (capped at 999 in UI)
+  targetRemaining: number             // max(0, target - imported)
+  targetMet: boolean                  // imported >= target
 
   // Top categories
   topCountries: { country: string; count: number }[]
   topIndustries: { industry: string; count: number }[]
 
-  // Trend
-  monthlyTrend: { month: string; imported: number; matched: number }[]
+  // Trend (target line shown alongside)
+  monthlyTrend: { month: string; imported: number }[]
 }
 
 export async function getLRKPIs(userId: string, period: PeriodWindow): Promise<LRKPIs> {
@@ -384,27 +396,14 @@ export async function getLRKPIs(userId: string, period: PeriodWindow): Promise<L
         ? 100
         : 0
 
-  // Matched buyers (those with opportunities)
-  const { data: allLRBuyers } = await admin
-    .from("leads")
-    .select("id")
-    .eq("created_by", userId)
-
-  const lrBuyerIds = (allLRBuyers ?? []).map((b) => b.id)
-
-  let buyersMatched = 0
-  if (lrBuyerIds.length > 0) {
-    const { data: matchedOpps } = await admin
-      .from("opportunities")
-      .select("lead_id")
-      .in("lead_id", lrBuyerIds)
-
-    const matchedBuyerIds = new Set((matchedOpps ?? []).map((o) => o.lead_id))
-    buyersMatched = matchedBuyerIds.size
-  }
-
-  const conversionRate =
-    lrBuyerIds.length > 0 ? Math.round((buyersMatched / lrBuyerIds.length) * 100) : 0
+  // Target tracking — buyers per month vs LR_MONTHLY_BUYER_TARGET.
+  // Progress is calculated against the *current period* count so it works
+  // for "this_month" and any other selected window the user previews.
+  const monthlyTarget = LR_MONTHLY_BUYER_TARGET
+  const targetProgressPct =
+    monthlyTarget > 0 ? Math.round((buyersImportedThisMonth / monthlyTarget) * 100) : 0
+  const targetRemaining = Math.max(0, monthlyTarget - buyersImportedThisMonth)
+  const targetMet = buyersImportedThisMonth >= monthlyTarget
 
   // Top countries
   const countryMap = new Map<string, number>()
@@ -428,8 +427,9 @@ export async function getLRKPIs(userId: string, period: PeriodWindow): Promise<L
     .slice(0, 5)
     .map(([industry, count]) => ({ industry, count }))
 
-  // Monthly trend (last 6 months)
-  const monthlyTrend: { month: string; imported: number; matched: number }[] = []
+  // Monthly trend (last 6 months) — only `imported` is needed; the target
+  // is a constant rendered as a reference line in the chart.
+  const monthlyTrend: { month: string; imported: number }[] = []
   for (let i = 5; i >= 0; i--) {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
@@ -443,23 +443,9 @@ export async function getLRKPIs(userId: string, period: PeriodWindow): Promise<L
       .gte("created_at", monthStart.toISOString())
       .lte("created_at", monthEnd.toISOString())
 
-    const monthBuyerIds = (monthBuyers ?? []).map((b) => b.id)
-    let monthMatched = 0
-    if (monthBuyerIds.length > 0) {
-      const { data: monthOpps } = await admin
-        .from("opportunities")
-        .select("lead_id")
-        .in("lead_id", monthBuyerIds)
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString())
-
-      monthMatched = new Set((monthOpps ?? []).map((o) => o.lead_id)).size
-    }
-
     monthlyTrend.push({
       month: monthStart.toLocaleDateString("vi-VN", { month: "short" }),
       imported: monthBuyers?.length ?? 0,
-      matched: monthMatched,
     })
   }
 
@@ -467,8 +453,10 @@ export async function getLRKPIs(userId: string, period: PeriodWindow): Promise<L
     buyersImportedThisMonth,
     buyersImportedLastMonth,
     buyersGrowth,
-    buyersMatched,
-    conversionRate,
+    monthlyTarget,
+    targetProgressPct,
+    targetRemaining,
+    targetMet,
     topCountries,
     topIndustries,
     monthlyTrend,

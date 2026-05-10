@@ -88,23 +88,31 @@ export function BulkLeadImporter({ apolloConfigured }: Props) {
       const [
         companyName = "",
         contactPerson = "",
+        contactTitle = "",
         contactEmail = "",
         contactPhone = "",
-        linkedinUrl = "",
         industry = "",
         country = "",
         website = "",
+        hsCode = "",
+        purchaseHistory = "",
+        competitors = "",
+        peakMonths = "",
         notes = "",
       ] = cells
       return {
         companyName,
         contactPerson: contactPerson || null,
+        contactTitle: contactTitle || null,
         contactEmail: contactEmail || null,
         contactPhone: contactPhone || null,
-        linkedinUrl: linkedinUrl || null,
         industry: industry || null,
         country: country || null,
         website: website || null,
+        hsCode: hsCode || null,
+        purchaseHistory: purchaseHistory || null,
+        competitors: competitors || null,
+        peakMonths: peakMonths || null,
         notes: notes || null,
       }
     })

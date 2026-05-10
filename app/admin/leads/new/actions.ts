@@ -16,9 +16,9 @@ import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer
 export interface CreateLeadWithAIMatchingInput {
   companyName: string
   contactPerson?: string | null
+  contactTitle?: string | null
   contactEmail?: string | null
   contactPhone?: string | null
-  linkedinUrl?: string | null
   country?: string | null
   website?: string | null
   notes?: string | null
@@ -27,6 +27,10 @@ export interface CreateLeadWithAIMatchingInput {
   productKeyword?: string | null
   capacityNeeded?: number | null
   potentialValue?: number | null
+  hsCode?: string | null
+  purchaseHistory?: string | null
+  competitors?: string | null
+  peakMonths?: string | null
 }
 
 export interface CreateLeadWithAIMatchingResult {
@@ -69,13 +73,17 @@ export async function createLeadWithAIMatchingAction(
     .insert({
       company_name: input.companyName.trim(),
       contact_person: input.contactPerson?.trim() ?? null,
+      contact_title: input.contactTitle?.trim() ?? null,
       contact_email: input.contactEmail?.trim() ?? null,
       contact_phone: input.contactPhone?.trim() ?? null,
-      linkedin_url: input.linkedinUrl?.trim() ?? null,
       country: input.country?.trim() ?? null,
       website: input.website?.trim() ?? null,
       industry: input.industry ?? null,
       notes: input.notes?.trim() ?? null,
+      hs_code: input.hsCode?.trim() ?? null,
+      purchase_history: input.purchaseHistory?.trim() ?? null,
+      competitors: input.competitors?.trim() ?? null,
+      peak_months: input.peakMonths?.trim() ?? null,
       created_by: user.id,
     })
     .select()

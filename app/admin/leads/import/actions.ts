@@ -31,12 +31,16 @@ const ALLOWED_ROLES = new Set([
 export type RawImportRow = {
   companyName: string
   contactPerson?: string | null
+  contactTitle?: string | null
   contactEmail?: string | null
   contactPhone?: string | null
-  linkedinUrl?: string | null
   industry?: string | null
   country?: string | null
   website?: string | null
+  hsCode?: string | null
+  purchaseHistory?: string | null
+  competitors?: string | null
+  peakMonths?: string | null
   notes?: string | null
 }
 
@@ -176,7 +180,6 @@ export async function previewBulkImport(
           contactEmail: raw.contactEmail ?? apollo.email,
           contactPerson: raw.contactPerson ?? apolloFullName,
           contactPhone: raw.contactPhone ?? apollo.phone,
-          linkedinUrl: raw.linkedinUrl ?? apollo.linkedinUrl,
           industry: raw.industry ?? apollo.companyIndustry,
           country: raw.country ?? apollo.companyCountry,
           website: raw.website ?? apollo.companyWebsite,
@@ -251,15 +254,18 @@ export async function commitBulkImportWithMatching(input: CommitInput): Promise<
     company_name: r.raw.companyName.trim(),
     contact_person:
       (r.enriched.contactPerson ?? r.raw.contactPerson)?.trim() || null,
+    contact_title: r.raw.contactTitle?.trim() || null,
     contact_email:
       normalizeEmail(r.enriched.contactEmail ?? r.raw.contactEmail),
     contact_phone:
       (r.enriched.contactPhone ?? r.raw.contactPhone)?.trim() || null,
-    linkedin_url:
-      (r.enriched.linkedinUrl ?? r.raw.linkedinUrl)?.trim() || null,
     industry: (r.enriched.industry ?? r.raw.industry)?.trim() || null,
     country: (r.enriched.country ?? r.raw.country)?.trim() || null,
     website: (r.enriched.website ?? r.raw.website)?.trim() || null,
+    hs_code: r.raw.hsCode?.trim() || null,
+    purchase_history: r.raw.purchaseHistory?.trim() || null,
+    competitors: r.raw.competitors?.trim() || null,
+    peak_months: r.raw.peakMonths?.trim() || null,
     notes: r.raw.notes?.trim() || null,
     source: "bulk_import",
     created_by: who.userId,
@@ -358,15 +364,18 @@ export async function commitBulkImport(input: CommitInputLegacy): Promise<
     company_name: r.raw.companyName.trim(),
     contact_person:
       (r.enriched.contactPerson ?? r.raw.contactPerson)?.trim() || null,
+    contact_title: r.raw.contactTitle?.trim() || null,
     contact_email:
       normalizeEmail(r.enriched.contactEmail ?? r.raw.contactEmail),
     contact_phone:
       (r.enriched.contactPhone ?? r.raw.contactPhone)?.trim() || null,
-    linkedin_url:
-      (r.enriched.linkedinUrl ?? r.raw.linkedinUrl)?.trim() || null,
     industry: (r.enriched.industry ?? r.raw.industry)?.trim() || null,
     country: (r.enriched.country ?? r.raw.country)?.trim() || null,
     website: (r.enriched.website ?? r.raw.website)?.trim() || null,
+    hs_code: r.raw.hsCode?.trim() || null,
+    purchase_history: r.raw.purchaseHistory?.trim() || null,
+    competitors: r.raw.competitors?.trim() || null,
+    peak_months: r.raw.peakMonths?.trim() || null,
     notes: r.raw.notes?.trim() || null,
     source: "bulk_import",
     created_by: who.userId,

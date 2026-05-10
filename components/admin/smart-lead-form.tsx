@@ -13,7 +13,7 @@
  * This ensures consistent, data-driven matching instead of guesswork.
  */
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -44,9 +44,9 @@ export function SmartLeadForm() {
   // ── Buyer details ─────────────────────────────────────────────────────
   const [companyName, setCompanyName] = useState("")
   const [contactPerson, setContactPerson] = useState("")
+  const [contactTitle, setContactTitle] = useState("") // Chức vụ
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
-  const [linkedinUrl, setLinkedinUrl] = useState("")
   const [country, setCountry] = useState("")
   const [website, setWebsite] = useState("")
   const [notes, setNotes] = useState("")
@@ -56,6 +56,10 @@ export function SmartLeadForm() {
   const [needsProduct, setNeedsProduct] = useState<string>("")
   const [needsCapacity, setNeedsCapacity] = useState<string>("")
   const [potentialValue, setPotentialValue] = useState("")
+  const [hsCode, setHsCode] = useState("") // Mã HS
+  const [purchaseHistory, setPurchaseHistory] = useState("") // Lịch sử mua hàng
+  const [competitors, setCompetitors] = useState("") // Đối thủ chính (3-5)
+  const [peakMonths, setPeakMonths] = useState("") // Tháng cao điểm
 
   // ── Submit state ──────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
@@ -86,9 +90,9 @@ export function SmartLeadForm() {
     const result = await createLeadWithAIMatchingAction({
       companyName,
       contactPerson: contactPerson || null,
+      contactTitle: contactTitle || null,
       contactEmail: contactEmail || null,
       contactPhone: contactPhone || null,
-      linkedinUrl: linkedinUrl || null,
       country: country.trim() || null,
       website: website || null,
       notes: notes || null,
@@ -96,6 +100,10 @@ export function SmartLeadForm() {
       productKeyword: needsProduct || null,
       capacityNeeded: needsCapacity ? Number.parseFloat(needsCapacity) : null,
       potentialValue: potentialValue ? Number.parseFloat(potentialValue) : null,
+      hsCode: hsCode || null,
+      purchaseHistory: purchaseHistory || null,
+      competitors: competitors || null,
+      peakMonths: peakMonths || null,
     })
 
     if (!result.success) {
@@ -214,6 +222,20 @@ export function SmartLeadForm() {
                   />
                 </div>
 
+                {/* Contact title (Chức vụ) */}
+                <div className="space-y-2">
+                  <Label htmlFor="contactTitle">
+                    {locale === "vi" ? "Chức vụ" : "Job Title"}
+                  </Label>
+                  <Input
+                    id="contactTitle"
+                    placeholder={locale === "vi" ? "VD: Purchasing Manager" : "E.g. Purchasing Manager"}
+                    value={contactTitle}
+                    onChange={(e) => setContactTitle(e.target.value)}
+                    className="border-border"
+                  />
+                </div>
+
                 {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="contactEmail">
@@ -285,21 +307,6 @@ export function SmartLeadForm() {
                     placeholder="https://..."
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
-                    className="border-border"
-                  />
-                </div>
-
-                {/* LinkedIn URL */}
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="linkedinUrl">
-                    {locale === "vi" ? "LinkedIn URL" : "LinkedIn URL"}
-                  </Label>
-                  <Input
-                    id="linkedinUrl"
-                    type="url"
-                    placeholder="https://linkedin.com/in/..."
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
                     className="border-border"
                   />
                 </div>
@@ -407,6 +414,72 @@ export function SmartLeadForm() {
                     value={potentialValue}
                     onChange={(e) => setPotentialValue(e.target.value)}
                     className="border-border"
+                  />
+                </div>
+
+                {/* HS Code */}
+                <div className="space-y-2">
+                  <Label htmlFor="hsCode">
+                    {locale === "vi" ? "Mã HS" : "HS Code"}
+                  </Label>
+                  <Input
+                    id="hsCode"
+                    placeholder={locale === "vi" ? "VD: 0901.21" : "E.g. 0901.21"}
+                    value={hsCode}
+                    onChange={(e) => setHsCode(e.target.value)}
+                    className="border-border"
+                  />
+                </div>
+
+                {/* Peak Months */}
+                <div className="space-y-2">
+                  <Label htmlFor="peakMonths">
+                    {locale === "vi" ? "Tháng cao điểm" : "Peak Months"}
+                  </Label>
+                  <Input
+                    id="peakMonths"
+                    placeholder={locale === "vi" ? "VD: Tháng 9-12" : "E.g. Sep-Dec"}
+                    value={peakMonths}
+                    onChange={(e) => setPeakMonths(e.target.value)}
+                    className="border-border"
+                  />
+                </div>
+
+                {/* Purchase History */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="purchaseHistory">
+                    {locale === "vi" ? "Lịch sử mua hàng" : "Purchase History"}
+                  </Label>
+                  <Textarea
+                    id="purchaseHistory"
+                    placeholder={
+                      locale === "vi"
+                        ? "VD: Mua 500 tấn cà phê Robusta từ Brazil năm 2024, 300 tấn từ Vietnam 2023…"
+                        : "E.g. Purchased 500 MT Robusta from Brazil in 2024, 300 MT from Vietnam 2023…"
+                    }
+                    value={purchaseHistory}
+                    onChange={(e) => setPurchaseHistory(e.target.value)}
+                    rows={3}
+                    className="resize-none border-border"
+                  />
+                </div>
+
+                {/* Competitors */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="competitors">
+                    {locale === "vi" ? "Đối thủ chính (3-5 đối thủ)" : "Main Competitors (3-5)"}
+                  </Label>
+                  <Textarea
+                    id="competitors"
+                    placeholder={
+                      locale === "vi"
+                        ? "VD: ABC Trading Co., XYZ Export Ltd., Global Foods Inc.…"
+                        : "E.g. ABC Trading Co., XYZ Export Ltd., Global Foods Inc.…"
+                    }
+                    value={competitors}
+                    onChange={(e) => setCompetitors(e.target.value)}
+                    rows={2}
+                    className="resize-none border-border"
                   />
                 </div>
               </div>

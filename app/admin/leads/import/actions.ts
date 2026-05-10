@@ -17,12 +17,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { enrichPersonWithApollo, apolloConfigured } from "@/lib/enrich/apollo"
 import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
 
+// Manual buyer-intake server actions. Mirrors BUYER_MANUAL_INTAKE in
+// lib/auth/permissions.ts: only super_admin and lead_researcher are
+// allowed to bulk-import buyers and self-assign them to a client.
+// admin / account_executive / staff must use the AI matching flow
+// (`/admin/ae-inbox`).
 const ALLOWED_ROLES = new Set([
-  "admin",
-  "staff",
   "super_admin",
   "lead_researcher",
-  "account_executive",
 ])
 
 export type RawImportRow = {

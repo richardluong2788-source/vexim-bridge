@@ -42,6 +42,13 @@ export const CAPS = {
   BUYER_VIEW:                  "buyer:view",
   BUYER_PII_VIEW:              "buyer:pii:view",             // email/phone unmasked
   BUYER_WRITE:                 "buyer:write",
+  // BUYER_MANUAL_INTAKE — access to the legacy manual-intake screens that
+  // let a user create/import buyers and assign them DIRECTLY to a client,
+  // bypassing AI matching (`runMatchingPipeline` → `ae_match_inbox`).
+  // Granted ONLY to lead_researcher (sources buyers when no ImportYeti
+  // source) and super_admin (system owner). Account executives MUST go
+  // through the AI inbox instead — they cannot self-assign buyers.
+  BUYER_MANUAL_INTAKE:         "buyer:manual_intake",
 
   // --- Clients ---
   CLIENT_VIEW:                 "client:view",
@@ -109,13 +116,21 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
   // promote/demote other super_admins (enforced in app/admin/users/actions.ts).
   super_admin: ALL_CAPS,
 
-  // admin: same capability set as super_admin for day-to-day operations.
+  // admin: same capability set as super_admin for day-to-day operations,
+  // EXCEPT for capabilities reserved to super_admin and a small set of
+  // lead-sourcing flows that should not be touched at the operations level.
+  //
   // The only super_admin-exclusive actions are:
   //   1. Promote a user TO super_admin
   //   2. Demote / modify an existing super_admin
   // Both are enforced in the users action layer, not via capabilities,
   // so the rest of the system works without requiring super_admin approval.
-  admin: ALL_CAPS,
+  //
+  // BUYER_MANUAL_INTAKE is intentionally excluded here: the manual buyer
+  // intake screens (`/admin/leads/new`, `/admin/leads/import`) are the
+  // legacy flow that bypasses AI matching. Only lead_researcher uses them
+  // day-to-day; super_admin keeps it for system-owner overrides.
+  admin: ALL_CAPS.filter((c) => c !== CAPS.BUYER_MANUAL_INTAKE),
 
   account_executive: [
     // Deals — R-06: cost_price is BLOCKED for AE
@@ -148,6 +163,10 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // Buyers — WRITE allowed, but PII VIEW is denied → UI must mask.
     CAPS.BUYER_VIEW,
     CAPS.BUYER_WRITE,
+    // Lead Researcher is the human-in-the-loop sourcing role and may use
+    // the manual intake screens when ImportYeti / AI sourcing is not an
+    // option. AE is intentionally NOT granted this capability.
+    CAPS.BUYER_MANUAL_INTAKE,
 
     // Research context
     CAPS.DEAL_VIEW,

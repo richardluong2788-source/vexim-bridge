@@ -49,6 +49,12 @@ export const CAPS = {
   // source) and super_admin (system owner). Account executives MUST go
   // through the AI inbox instead — they cannot self-assign buyers.
   BUYER_MANUAL_INTAKE:         "buyer:manual_intake",
+  // MATCH_INBOX_VIEW — see the AI matching inbox (`/admin/ae-inbox`)
+  // where the orchestrator pushes buyers ranked for the current AE.
+  // This is the *primary* workflow for account_executive; admin /
+  // super_admin / lead_researcher also need it for oversight & QA.
+  // Finance and staff are intentionally excluded.
+  MATCH_INBOX_VIEW:            "match:inbox:view",
 
   // --- Clients ---
   CLIENT_VIEW:                 "client:view",
@@ -144,6 +150,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.BUYER_PII_VIEW,
     CAPS.BUYER_WRITE,
 
+    // AI matching inbox — the AE's main daily queue.
+    CAPS.MATCH_INBOX_VIEW,
+
     // Clients
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
@@ -167,6 +176,9 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // the manual intake screens when ImportYeti / AI sourcing is not an
     // option. AE is intentionally NOT granted this capability.
     CAPS.BUYER_MANUAL_INTAKE,
+    // Researcher needs to monitor what the matching pipeline emits to
+    // QA the data they sourced.
+    CAPS.MATCH_INBOX_VIEW,
 
     // Research context
     CAPS.DEAL_VIEW,

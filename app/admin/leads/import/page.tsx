@@ -1,14 +1,37 @@
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { BulkLeadImporter } from "@/components/admin/bulk-lead-importer"
 import { apolloConfigured } from "@/lib/enrich/apollo"
+import { CAPS, can, normaliseRole } from "@/lib/auth/permissions"
 
 /**
  * Sprint D — Bulk lead import page.
- * Staff paste a tab-separated or CSV block, preview dedup, and commit.
+ *
+ * SECURITY: this is the legacy manual buyer-intake flow that assigns
+ * buyers DIRECTLY to a chosen client, bypassing AI matching. Only Lead
+ * Researcher + Super Admin are allowed in via BUYER_MANUAL_INTAKE; AEs
+ * must use the AE Inbox (AI auto-assign).
  */
 export default async function BulkImportLeadsPage() {
   const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/auth/login")
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  const role = normaliseRole(profile?.role)
+  if (!can(role, CAPS.BUYER_MANUAL_INTAKE)) {
+    redirect("/admin/ae-inbox")
+  }
+
   const { t } = await getDictionary()
 
   const { data: clients } = await supabase

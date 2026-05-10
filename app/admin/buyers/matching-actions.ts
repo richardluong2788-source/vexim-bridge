@@ -167,11 +167,14 @@ export async function acceptMatch(
   const user = await getCurrentUser()
   if (!user) return { ok: false, error: "unauthorized" }
 
-  // AEs can accept their own matches, admins can accept any
+  // AEs can accept their own matches; admins can accept any.
+  // Lead Researcher has read-only access to the inbox (monitoring) and
+  // MUST NOT be able to claim a buyer — they have no client portfolio
+  // and would bypass the AI-driven assignment workflow.
   const supabase = await createClient()
 
-  // Verify ownership if AE
   if (user.role === "account_executive") {
+    // Verify the AE owns the inbox item.
     const { data: inbox } = await supabase
       .from("ae_match_inbox")
       .select("account_manager_id")
@@ -181,11 +184,7 @@ export async function acceptMatch(
     if (!inbox || inbox.account_manager_id !== user.id) {
       return { ok: false, error: "not_your_inbox_item" }
     }
-  } else if (
-    user.role !== "admin" &&
-    user.role !== "super_admin" &&
-    user.role !== "lead_researcher"
-  ) {
+  } else if (user.role !== "admin" && user.role !== "super_admin") {
     return { ok: false, error: "forbidden" }
   }
 
@@ -229,10 +228,11 @@ export async function rejectMatch(
   const user = await getCurrentUser()
   if (!user) return { ok: false, error: "unauthorized" }
 
-  // AEs can reject their own matches, admins can reject any
+  // AEs can reject their own matches; admins can reject any.
+  // Lead Researcher is read-only on the inbox: rejecting matches would
+  // skew AI feedback signal since LR has no context on the AE/client fit.
   const supabase = await createClient()
 
-  // Verify ownership if AE
   if (user.role === "account_executive") {
     const { data: inbox } = await supabase
       .from("ae_match_inbox")
@@ -243,11 +243,7 @@ export async function rejectMatch(
     if (!inbox || inbox.account_manager_id !== user.id) {
       return { ok: false, error: "not_your_inbox_item" }
     }
-  } else if (
-    user.role !== "admin" &&
-    user.role !== "super_admin" &&
-    user.role !== "lead_researcher"
-  ) {
+  } else if (user.role !== "admin" && user.role !== "super_admin") {
     return { ok: false, error: "forbidden" }
   }
 

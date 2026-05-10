@@ -49,6 +49,12 @@ export const CAPS = {
   // source) and super_admin (system owner). Account executives MUST go
   // through the AI inbox instead — they cannot self-assign buyers.
   BUYER_MANUAL_INTAKE:         "buyer:manual_intake",
+  // MATCH_INBOX_VIEW — see the AI matching inbox (`/admin/ae-inbox`)
+  // where the orchestrator pushes buyers ranked for the current AE.
+  // This is the *primary* workflow for account_executive; admin /
+  // super_admin / lead_researcher also need it for oversight & QA.
+  // Finance and staff are intentionally excluded.
+  MATCH_INBOX_VIEW:            "match:inbox:view",
 
   // --- Clients ---
   CLIENT_VIEW:                 "client:view",
@@ -144,13 +150,19 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.BUYER_PII_VIEW,
     CAPS.BUYER_WRITE,
 
+    // AI matching inbox — the AE's main daily queue.
+    CAPS.MATCH_INBOX_VIEW,
+
     // Clients
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
 
-    // Read-only signals
-    CAPS.COUNTRY_RISK_READ,
+    // Read-only signals.
+    // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
+    // risk register is owned by super_admin / admin to keep classifications
+    // consistent across the org; AE consumes risk only via buyer/client
+    // surfaces (read-through DB, no cap check needed).
     CAPS.FINANCE_READ,
 
     // Analytics — scoped to assigned clients only.
@@ -160,23 +172,25 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
   ],
 
   lead_researcher: [
+    // Lead Researcher is a narrow, buyer-only role: source buyers, enrich
+    // them, and analyse buyer/country signals. They do NOT see clients,
+    // pipeline (deals), the AE matching inbox, SLA, or pipeline analytics.
     // Buyers — WRITE allowed, but PII VIEW is denied → UI must mask.
     CAPS.BUYER_VIEW,
     CAPS.BUYER_WRITE,
-    // Lead Researcher is the human-in-the-loop sourcing role and may use
-    // the manual intake screens when ImportYeti / AI sourcing is not an
-    // option. AE is intentionally NOT granted this capability.
+    // Manual buyer intake screens — used when ImportYeti / AI sourcing
+    // is not an option. AE is intentionally NOT granted this capability.
     CAPS.BUYER_MANUAL_INTAKE,
-
-    // Research context
-    CAPS.DEAL_VIEW,
-    CAPS.CLIENT_VIEW,
-    CAPS.COUNTRY_RISK_READ,
-
-    // Analytics — scoped to assigned clients only.
-    CAPS.ANALYTICS_VIEW_OWN,
-    // SLA — scoped, read-only.
-    CAPS.SLA_VIEW_OWN,
+    // Read-only access to the AI matching inbox so LR can monitor
+    // whether the buyers they sourced are getting matched / claimed
+    // by AEs. UI MUST hide claim/accept controls for LR — see the
+    // AE Inbox component which gates write actions on `BUYER_WRITE`
+    // + role check.
+    CAPS.MATCH_INBOX_VIEW,
+    // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
+    // risk register is curated by super_admin / admin only to avoid
+    // inconsistent classifications. LR can still SEE per-country risk on
+    // buyer pages (read-through DB), they just can't open the register.
   ],
 
   finance: [
@@ -215,7 +229,7 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
-    CAPS.COUNTRY_RISK_READ,
+    // COUNTRY_RISK_READ removed — register is admin-only.
     CAPS.FINANCE_READ,
     CAPS.ANALYTICS_VIEW_OWN,
     CAPS.SLA_VIEW_OWN,

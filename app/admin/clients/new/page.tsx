@@ -7,7 +7,8 @@ export default async function NewClientPage() {
   const supabase = await createClient()
   const { locale } = await getDictionary()
 
-  // Server-side guard: only admin/staff/super_admin can access.
+  // Server-side guard: admin/staff/super_admin and account_executive can access.
+  // AEs can create clients and will auto-become their account manager.
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -19,12 +20,12 @@ export default async function NewClientPage() {
     .eq("id", user.id)
     .single()
 
-  if (
-    !profile ||
-    !["admin", "staff", "super_admin"].includes(profile.role)
-  ) {
+  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  if (!profile || !allowedRoles.includes(profile.role)) {
     redirect("/client")
   }
+
+  const isAE = profile.role === "account_executive"
 
   return (
     <div className="flex flex-col gap-6 p-8">
@@ -35,9 +36,13 @@ export default async function NewClientPage() {
             : "Add New Client"}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {locale === "vi"
-            ? "Tạo tài khoản cho doanh nghiệp Việt Nam để họ có thể theo dõi pipeline xuất khẩu của mình."
-            : "Provision an account for a Vietnamese exporter so they can track their export pipeline."}
+          {isAE
+            ? locale === "vi"
+              ? "Tạo tài khoản khách hàng mới. Bạn sẽ tự động trở thành Account Manager của họ."
+              : "Create a new client account. You will automatically become their Account Manager."
+            : locale === "vi"
+              ? "Tạo tài khoản cho doanh nghiệp Việt Nam để họ có thể theo dõi pipeline xuất khẩu của mình."
+              : "Provision an account for a Vietnamese exporter so they can track their export pipeline."}
         </p>
       </div>
       <NewClientForm locale={locale} />

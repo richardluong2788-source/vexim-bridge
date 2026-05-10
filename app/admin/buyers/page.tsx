@@ -181,7 +181,7 @@ export default async function BuyersDirectoryPage() {
         )}
       </div>
 
-      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} />
+      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canWrite} />
     </div>
   )
 }

@@ -48,6 +48,8 @@ export default async function AdminClientsPage() {
   // Only roles with OWNERSHIP_BYPASS may reassign — see
   // setAccountManager() server action for the matching server-side check.
   const canAssignManager = canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
+  // AEs can create clients (they will auto-become account manager)
+  const canCreateClient = can(role, CAPS.CLIENT_WRITE) || role === "account_executive"
   const scope = ownershipScopeFor(role, userId)
 
   // Build the client query. AEs without OWNERSHIP_BYPASS only see clients
@@ -110,7 +112,7 @@ export default async function AdminClientsPage() {
               {locale === "vi" ? "Tải CSV" : "Export CSV"}
             </a>
           </Button>
-          {canAssignManager && (
+          {canCreateClient && (
             <Button asChild>
               <Link href="/admin/clients/new">
                 <UserPlus className="mr-2 h-4 w-4" />

@@ -95,12 +95,15 @@ export async function createClientAccount(
     .eq("id", caller.id)
     .single()
 
-  if (
-    !callerProfile ||
-    !["admin", "staff", "super_admin"].includes(callerProfile.role)
-  ) {
+  // Allow admin/staff/super_admin and account_executive to create clients
+  // AE can create clients and will auto-become their account manager
+  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }
+
+  // Determine if caller is an AE (for auto-assignment)
+  const isAE = callerProfile.role === "account_executive"
 
   // ---- 3. Provision auth user via service role ------------------------------
   const admin = createAdminClient()
@@ -140,6 +143,10 @@ export async function createClientAccount(
   // `profiles_sync_primary_industry` will set `industry = industries[1]`
   // automatically, so legacy reads (lead-card, kanban, clients-table, AI
   // email generator) keep working without code changes.
+  //
+  // If the caller is an AE, auto-assign them as the account manager so
+  // they can immediately see and work with this client. This enables
+  // AE self-service client creation per the business requirement.
   const { error: profileErr } = await admin
     .from("profiles")
     .upsert(
@@ -153,6 +160,8 @@ export async function createClientAccount(
         phone: input.phone?.trim() || null,
         fda_registration_number: fdaNumber,
         fda_expires_at: fdaExpiresAt,
+        // Auto-assign AE as account manager when they create the client
+        account_manager_id: isAE ? caller.id : null,
       },
       { onConflict: "id" },
     )
@@ -174,6 +183,8 @@ export async function createClientAccount(
       industries,
       primary_industry: industries[0],
       has_fda: !!fdaNumber,
+      auto_assigned_ae: isAE ? caller.id : null,
+      created_by_role: callerProfile.role,
     },
   })
 

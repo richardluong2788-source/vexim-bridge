@@ -876,3 +876,124 @@ export type FinanceSettings = {
   updated_by: string | null
   updated_at: string
 }
+
+// ============================================================
+// AI Matching (Sprint - AE Matching)
+// ============================================================
+
+export type MatchAssignmentSource = "auto" | "manual" | "llm_augmented"
+
+export type AEMatchScore = {
+  id: string
+  lead_id: string
+  account_manager_id: string
+  total_score: number
+  product_match_score: number
+  industry_match_score: number
+  fda_compliance_score: number
+  workload_score: number
+  win_rate_score: number
+  country_match_score: number
+  factors: Record<string, unknown>
+  assignment_source: MatchAssignmentSource | null
+  assigned_at: string | null
+  assigned_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MatchInboxStatus = "pending" | "accepted" | "rejected" | "expired"
+export type MatchInboxPriority = "high" | "medium" | "low"
+
+export type AEMatchInbox = {
+  id: string
+  lead_id: string
+  account_manager_id: string
+  match_score_id: string | null
+  status: MatchInboxStatus
+  priority: MatchInboxPriority
+  rejection_reason: string | null
+  created_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  expires_at: string
+}
+
+export type MatchingConfig = {
+  id: string
+  config_key: string
+  config_value: Record<string, unknown>
+  description: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Scoring weights configuration */
+export type ScoringWeights = {
+  product_match: number
+  industry_match: number
+  workload: number
+  win_rate: number
+  fda_compliance: number
+  country_match: number
+}
+
+/** Threshold configuration */
+export type MatchingThresholds = {
+  auto_assign: number
+  inbox_min: number
+  inbox_max: number
+}
+
+/** AE Workload summary from view */
+export type AEWorkloadSummary = {
+  account_manager_id: string
+  full_name: string | null
+  email: string | null
+  in_progress_count: number
+  new_count: number
+  contacted_count: number
+  active_count: number
+}
+
+/** AE Win Rate by industry from view */
+export type AEWinRateByIndustry = {
+  account_manager_id: string
+  industry: string | null
+  wins: number
+  losses: number
+  total_closed: number
+  win_rate: number
+}
+
+/** AE Client Products summary from view */
+export type AEClientProducts = {
+  account_manager_id: string
+  client_id: string
+  client_name: string | null
+  client_industry: string | null
+  client_industries: string[]
+  fda_expires_at: string | null
+  fda_valid: boolean
+  product_categories: string[]
+  product_subcategories: string[]
+}
+
+/** Buyer pool view row */
+export type BuyerPoolRow = Lead & {
+  has_opportunity: boolean
+  assigned_count: number
+  top_match_score: number | null
+}
+
+/** Match result with AE details */
+export type MatchResultWithAE = AEMatchScore & {
+  profiles: Profile
+}
+
+/** Inbox item with full details */
+export type InboxItemWithDetails = AEMatchInbox & {
+  leads: Lead
+  ae_match_scores: AEMatchScore | null
+}

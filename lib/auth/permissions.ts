@@ -158,8 +158,11 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
 
-    // Read-only signals
-    CAPS.COUNTRY_RISK_READ,
+    // Read-only signals.
+    // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
+    // risk register is owned by super_admin / admin to keep classifications
+    // consistent across the org; AE consumes risk only via buyer/client
+    // surfaces (read-through DB, no cap check needed).
     CAPS.FINANCE_READ,
 
     // Analytics — scoped to assigned clients only.
@@ -178,8 +181,10 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // Manual buyer intake screens — used when ImportYeti / AI sourcing
     // is not an option. AE is intentionally NOT granted this capability.
     CAPS.BUYER_MANUAL_INTAKE,
-    // Country risk signals are research context for vetting buyers.
-    CAPS.COUNTRY_RISK_READ,
+    // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
+    // risk register is curated by super_admin / admin only to avoid
+    // inconsistent classifications. LR can still SEE per-country risk on
+    // buyer pages (read-through DB), they just can't open the register.
   ],
 
   finance: [
@@ -218,7 +223,7 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
-    CAPS.COUNTRY_RISK_READ,
+    // COUNTRY_RISK_READ removed — register is admin-only.
     CAPS.FINANCE_READ,
     CAPS.ANALYTICS_VIEW_OWN,
     CAPS.SLA_VIEW_OWN,

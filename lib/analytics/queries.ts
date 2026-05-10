@@ -134,12 +134,22 @@ export async function getOverviewKpis(
   )
 
   // 4) Commission earned in period (paid deals only)
+  //
+  // Sprint 035 — credit MUST follow the AE who actually closed the deal,
+  // not whoever currently owns the client. We read `deals.account_manager_at_won`
+  // (snapshot taken at stage→won) and filter on it for scoped roles. This
+  // means: if a client is reassigned from Alice to Bob after Alice's deal
+  // is paid, Alice keeps the commission on her dashboard.
   let dealsQ = admin
     .from("deals")
-    .select("commission_amount, paid_at, opportunities!inner(client_id)")
+    .select(
+      "commission_amount, paid_at, account_manager_at_won, opportunities!inner(client_id)",
+    )
     .eq("payment_status", "paid")
   if (period.from) dealsQ = dealsQ.gte("paid_at", period.from)
-  if (allowed) dealsQ = dealsQ.in("opportunities.client_id", allowed)
+  if (scope.kind === "owned") {
+    dealsQ = dealsQ.eq("account_manager_at_won", scope.managerId)
+  }
   const { data: dealRows } = await dealsQ
   const commissionEarned = (dealRows ?? []).reduce(
     (acc: number, r: { commission_amount: number | null }) =>
@@ -870,5 +880,89 @@ export async function getBuyerMetrics(leadId: string): Promise<BuyerMetrics> {
     avgWinCycleDays,
     stageDistribution,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Commission leaderboard — Sprint 035
+//
+// Returns commission earned, broken down by `deals.account_manager_at_won`
+// (the AE who actually closed the deal). This is the canonical view for
+// admin / finance: it cannot be skewed by later client reassignments.
+//
+// Use cases:
+//   - /admin/analytics "By AE" tab (when the user is admin / finance)
+//   - Monthly digest payout summary
+//
+// We deliberately do NOT join through profiles.account_manager_id because
+// that mapping changes over time. The snapshot is the source of truth.
+// ---------------------------------------------------------------------------
+export interface CommissionByManagerRow {
+  managerId: string
+  managerName: string
+  /** Number of paid deals credited to this AE in the period. */
+  dealsCount: number
+  /** Sum of commission_amount for those deals. */
+  commissionTotal: number
+  /** Sum of invoice_value for those deals — useful to show GMV next to commission. */
+  invoiceTotal: number
+}
+
+export async function getCommissionByManager(
+  period: PeriodWindow,
+): Promise<CommissionByManagerRow[]> {
+  const admin = createAdminClient()
+
+  let q = admin
+    .from("deals")
+    .select(
+      "account_manager_at_won, commission_amount, invoice_value, paid_at",
+    )
+    .eq("payment_status", "paid")
+    .not("account_manager_at_won", "is", null)
+  if (period.from) q = q.gte("paid_at", period.from)
+  const { data: rows } = await q
+
+  type DealRow = {
+    account_manager_at_won: string
+    commission_amount: number | null
+    invoice_value: number | null
+  }
+
+  const acc = new Map<string, CommissionByManagerRow>()
+  for (const r of (rows ?? []) as DealRow[]) {
+    const id = r.account_manager_at_won
+    const slot = acc.get(id) ?? {
+      managerId: id,
+      managerName: "—",
+      dealsCount: 0,
+      commissionTotal: 0,
+      invoiceTotal: 0,
+    }
+    slot.dealsCount += 1
+    slot.commissionTotal += Number(r.commission_amount ?? 0)
+    slot.invoiceTotal += Number(r.invoice_value ?? 0)
+    acc.set(id, slot)
+  }
+
+  if (acc.size === 0) return []
+
+  // Resolve names for the managers present in the result set.
+  const ids = [...acc.keys()]
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, full_name, email")
+    .in("id", ids)
+  for (const p of (profiles ?? []) as Array<{
+    id: string
+    full_name: string | null
+    email: string | null
+  }>) {
+    const slot = acc.get(p.id)
+    if (slot) slot.managerName = p.full_name ?? p.email ?? "—"
+  }
+
+  return [...acc.values()].sort(
+    (a, b) => b.commissionTotal - a.commissionTotal,
+  )
 }
 

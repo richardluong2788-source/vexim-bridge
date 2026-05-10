@@ -12,7 +12,7 @@
  */
 
 import { revalidatePath } from "next/cache"
-import { requireCap, requireAllCaps, getCurrentUser } from "@/lib/auth/guard"
+import { requireCap, requireAllCaps, getCurrentRole } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import { createClient } from "@/lib/supabase/server"
 import {

@@ -121,7 +121,7 @@ export async function sendEmailDraft(
     ? buildRefCode(draft.opportunity_id, clientName)
     : null
   const subject = refCode ? prependRefToSubject(baseSubject, refCode) : baseSubject
-  // Strip a leading display name like "Vexim Bridge <addr@x>" -> "addr@x"
+  // Strip a leading display name like "Vexim Trade <addr@x>" -> "addr@x"
   const fromBare = fromAddress.match(/<([^>]+)>/)?.[1] ?? fromAddress
   const replyTo = draft.opportunity_id
     ? buildReplyToAddress(fromBare, draft.opportunity_id) ?? undefined

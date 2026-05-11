@@ -115,20 +115,20 @@ export async function GET(request: Request) {
             vi:
               `Đăng ký FDA của ${label} đã quá hạn ${absDays} ngày. ` +
               `Đây là yêu cầu bắt buộc để tiếp tục xuất khẩu sang thị trường Mỹ — ` +
-              `vui lòng gia hạn ngay và cập nhật số đăng ký mới cho đội ngũ Vexim Bridge.`,
+              `vui lòng gia hạn ngay và cập nhật số đăng ký mới cho đội ngũ Vexim Trade.`,
             en:
               `${label}'s FDA registration expired ${absDays} days ago. ` +
               `It is mandatory for continued shipments into the US market — ` +
-              `please renew it right away and send the updated number to the Vexim Bridge team.`,
+              `please renew it right away and send the updated number to the Vexim Trade team.`,
           }
         : {
             vi:
               `Đăng ký FDA của ${label} sẽ hết hạn sau ${absDays} ngày. ` +
               `Để tránh gián đoạn các lô hàng đang và sắp triển khai, ` +
-              `vui lòng gia hạn với FDA và gửi số đăng ký mới cho đội ngũ Vexim Bridge trước ngày hết hạn.`,
+              `vui lòng gia hạn với FDA và gửi số đăng ký mới cho đội ngũ Vexim Trade trước ngày hết hạn.`,
             en:
               `${label}'s FDA registration expires in ${absDays} days. ` +
-              `Please renew it with the FDA and share the updated number with the Vexim Bridge ` +
+              `Please renew it with the FDA and share the updated number with the Vexim Trade ` +
               `team before the expiry date to keep ongoing shipments on schedule.`,
           }
 

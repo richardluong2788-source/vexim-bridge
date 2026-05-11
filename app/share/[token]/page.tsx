@@ -153,7 +153,7 @@ export default async function ShareTokenPage({ params }: PageProps) {
     (link.profiles as { company_name?: string | null; full_name?: string | null } | null)
       ?.company_name ??
     (link.profiles as { full_name?: string | null } | null)?.full_name ??
-    "Vexim Bridge"
+    "Vexim Trade"
 
   const expiresLabel = new Date(link.expires_at).toLocaleDateString("en-US", {
     year: "numeric",

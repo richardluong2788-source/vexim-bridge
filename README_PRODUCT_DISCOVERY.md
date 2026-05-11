@@ -451,7 +451,7 @@ You now have a **complete, production-ready Product Discovery system** that:
 ✅ Links products to opportunities/deals
 ✅ Includes comprehensive documentation
 ✅ Has security & permission checks
-✅ Works with existing Vexim Bridge architecture
+✅ Works with existing Vexim Trade architecture
 
 **Next action:** 
 1. Run the 2 SQL migrations in Supabase

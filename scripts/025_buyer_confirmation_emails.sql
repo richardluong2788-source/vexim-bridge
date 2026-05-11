@@ -2,7 +2,7 @@
 -- 025 — Buyer confirmation emails (Phase 1)
 -- ============================================================
 -- Goal: when a lead is created, the buyer receives an acknowledgement
--- email from Vexim Bridge. This migration adds the building blocks:
+-- email from Vexim Trade. This migration adds the building blocks:
 --
 --   1. Per-lead unsubscribe token + opt-out flag on public.leads
 --   2. Trigger to auto-generate the token on insert

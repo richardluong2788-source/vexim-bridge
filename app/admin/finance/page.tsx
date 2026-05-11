@@ -184,7 +184,7 @@ export default async function FinanceDashboardPage() {
             Tài chính &amp; Dòng tiền
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Tổng quan thu — chi — công nợ của Vexim Bridge theo tháng.
+            Tổng quan thu — chi — công nợ của Vexim Trade theo tháng.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

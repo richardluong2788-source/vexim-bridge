@@ -173,7 +173,7 @@ export default function AcceptInvitePage() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <TrendingUp className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold">Vexim Bridge</span>
+          <span className="text-lg font-semibold">Vexim Trade</span>
         </div>
 
         <Card className="border-border shadow-sm">
@@ -222,7 +222,7 @@ export default function AcceptInvitePage() {
             <>
               <CardHeader className="pb-4">
                 <CardTitle className="text-2xl font-semibold">
-                  Chào mừng đến với Vexim Bridge
+                  Chào mừng đến với Vexim Trade
                 </CardTitle>
                 <CardDescription>
                   {email

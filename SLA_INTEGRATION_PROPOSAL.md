@@ -1,7 +1,7 @@
-# Đề xuất Tích hợp SLA Tracking vào Vexim Bridge
+# Đề xuất Tích hợp SLA Tracking vào Vexim Trade
 
 > **Phạm vi:** Đánh giá khả năng tự động hoá theo dõi 7 chỉ tiêu SLA tại Điều 7
-> hợp đồng (Bên A — Vexim Bridge), bao gồm cơ chế phạt 7.3 (a) & (b).
+> hợp đồng (Bên A — Vexim Trade), bao gồm cơ chế phạt 7.3 (a) & (b).
 >
 > **Ngày soạn:** 26/4/2026 | **Tham chiếu:** `SYSTEM_AUDIT.md` + 30 SQL migrations
 

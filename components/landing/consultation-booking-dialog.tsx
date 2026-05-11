@@ -28,7 +28,7 @@ import { INDUSTRY_LABELS_VI, type Industry } from "@/lib/constants/industries"
 
 /**
  * Subset hiển thị trên form tư vấn công khai — chỉ các ngành xuất khẩu
- * trọng điểm VN → Mỹ mà Vexim Bridge đang ưu tiên tiếp nhận. Value vẫn
+ * trọng điểm VN → Mỹ mà Vexim Trade đang ưu tiên tiếp nhận. Value vẫn
  * khớp canonical INDUSTRIES để dữ liệu vào DB nhất quán với admin.
  * Các case ngoài danh sách này chọn "Other" và mô tả chi tiết ở ô
  * "Nội dung cần tư vấn".
@@ -136,7 +136,7 @@ export function ConsultationBookingDialog({ trigger }: ConsultationBookingDialog
         return
       }
 
-      toast.success("Đã gửi yêu cầu tư vấn. Vexim Bridge sẽ liên hệ bạn sớm.")
+      toast.success("Đã gửi yêu cầu tư vấn. Vexim Trade sẽ liên hệ bạn sớm.")
       setSubmitted(true)
     } catch (err) {
       console.error("[v0] consultation submit failed:", err)
@@ -157,7 +157,7 @@ export function ConsultationBookingDialog({ trigger }: ConsultationBookingDialog
             <DialogHeader>
               <DialogTitle className="text-xl">Đặt lịch tư vấn 1:1</DialogTitle>
               <DialogDescription>
-                Để lại thông tin, chuyên gia Vexim Bridge sẽ liên hệ trong 24 giờ làm việc để xác nhận khung giờ tư vấn miễn phí về xuất khẩu sang Mỹ.
+                Để lại thông tin, chuyên gia Vexim Trade sẽ liên hệ trong 24 giờ làm việc để xác nhận khung giờ tư vấn miễn phí về xuất khẩu sang Mỹ.
               </DialogDescription>
             </DialogHeader>
 
@@ -312,7 +312,7 @@ export function ConsultationBookingDialog({ trigger }: ConsultationBookingDialog
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Thông tin bạn gửi được bảo mật và chỉ dùng cho mục đích tư vấn. Vexim Bridge sẽ không chia sẻ với bên thứ ba.
+                Thông tin bạn gửi được bảo mật và chỉ dùng cho mục đích tư vấn. Vexim Trade sẽ không chia sẻ với bên thứ ba.
               </p>
 
               <DialogFooter className="mt-2 gap-2 sm:gap-2">
@@ -355,7 +355,7 @@ function SuccessView({ onClose }: { onClose: () => void }) {
         </div>
         <DialogTitle className="text-xl">Đã gửi yêu cầu tư vấn</DialogTitle>
         <DialogDescription className="text-pretty">
-          Cảm ơn bạn. Chuyên gia Vexim Bridge sẽ liên hệ lại trong vòng <strong>24 giờ làm việc</strong> để xác nhận khung giờ tư vấn. Bạn cũng sẽ nhận được email xác nhận trong vài phút tới.
+          Cảm ơn bạn. Chuyên gia Vexim Trade sẽ liên hệ lại trong vòng <strong>24 giờ làm việc</strong> để xác nhận khung giờ tư vấn. Bạn cũng sẽ nhận được email xác nhận trong vài phút tới.
         </DialogDescription>
       </DialogHeader>
       <DialogFooter className="mt-2">

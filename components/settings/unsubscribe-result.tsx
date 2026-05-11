@@ -50,7 +50,7 @@ export function UnsubscribeResult({ status }: Props) {
         </div>
 
         <div className="mt-6 text-center text-xs text-muted-foreground">
-          Vexim Bridge
+          Vexim Trade
         </div>
       </div>
     </div>

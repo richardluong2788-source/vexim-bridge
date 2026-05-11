@@ -60,7 +60,7 @@ export function InvoicePrintable({ invoice, client, locale = "vi" }: Props) {
               {locale === "vi" ? "Từ" : "From"}
             </p>
             <p className="text-lg font-semibold text-foreground">
-              {issuer?.company_name ?? "Vexim Bridge"}
+              {issuer?.company_name ?? "Vexim Trade"}
             </p>
             {issuer?.company_address && (
               <p className="text-sm text-muted-foreground whitespace-pre-line">

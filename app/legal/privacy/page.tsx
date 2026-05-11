@@ -13,7 +13,7 @@ import {
 const PATHNAME = "/legal/privacy"
 const TITLE = "Chính sách bảo mật"
 const SUMMARY =
-  "Cách Vexim Bridge thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
+  "Cách Vexim Trade thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
 const EFFECTIVE_DATE = "2026-04-26"
 
 const SECTIONS: LegalSection[] = [
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   title: `${TITLE} — ${siteConfig.name}`,
   description: SUMMARY,
   keywords: [
-    "chính sách bảo mật Vexim Bridge",
+    "chính sách bảo mật Vexim Trade",
     "privacy policy",
     "bảo vệ dữ liệu cá nhân",
     "GDPR xuất khẩu Việt Mỹ",
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
     >
       <Section id="tong-quan" title="1. Tổng quan">
         <LegalParagraph>
-          Vexim Bridge cam kết bảo vệ dữ liệu cá nhân và dữ liệu kinh doanh của khách hàng. Chính
+          Vexim Trade cam kết bảo vệ dữ liệu cá nhân và dữ liệu kinh doanh của khách hàng. Chính
           sách này mô tả những loại dữ liệu chúng tôi thu thập khi bạn sử dụng nền tảng tại{" "}
           <strong>{siteConfig.domain}</strong>, cách chúng tôi sử dụng dữ liệu đó, đối tác mà chúng
           tôi chia sẻ dữ liệu, thời gian lưu trữ và quyền của bạn.
@@ -129,8 +129,8 @@ export default function PrivacyPolicyPage() {
         <LegalSubheading>2.2 Sinh ra trong quá trình sử dụng</LegalSubheading>
         <LegalList
           items={[
-            "Lead/buyer mà Vexim Bridge nghiên cứu thay mặt bạn (có thể được làm giàu bằng Apollo).",
-            "Email outreach do AI (Vercel AI Gateway) tạo, được bạn hoặc Vexim Bridge phê duyệt trước khi gửi qua Resend.",
+            "Lead/buyer mà Vexim Trade nghiên cứu thay mặt bạn (có thể được làm giàu bằng Apollo).",
+            "Email outreach do AI (Vercel AI Gateway) tạo, được bạn hoặc Vexim Trade phê duyệt trước khi gửi qua Resend.",
             "Phản hồi của buyer được phân loại tự động (intent: price_request, sample_request, objection, closing_signal, general).",
             "Hóa đơn (setup_fee, retainer, success_fee, manual) cùng tài liệu PO, SWIFT, B/L.",
             "Lịch sử pipeline (stage_transitions) — append-only audit log.",
@@ -182,12 +182,12 @@ export default function PrivacyPolicyPage() {
 
       <Section id="ben-thu-ba" title="5. Đối tác xử lý dữ liệu">
         <LegalParagraph>
-          Vexim Bridge sử dụng các nhà cung cấp dịch vụ (sub-processor) sau, mỗi đối tác chỉ truy
+          Vexim Trade sử dụng các nhà cung cấp dịch vụ (sub-processor) sau, mỗi đối tác chỉ truy
           cập dữ liệu ở mức tối thiểu cần thiết:
         </LegalParagraph>
         <LegalDefinitionList
           items={[
-            { term: "Supabase", definition: "Cơ sở dữ liệu PostgreSQL + Authentication + Realtime. Khu vực: tuỳ chọn của Vexim Bridge. Mọi truy vấn đều đi qua Row Level Security (RLS)." },
+            { term: "Supabase", definition: "Cơ sở dữ liệu PostgreSQL + Authentication + Realtime. Khu vực: tuỳ chọn của Vexim Trade. Mọi truy vấn đều đi qua Row Level Security (RLS)." },
             { term: "Vercel", definition: "Hosting Next.js (App Router), Vercel Blob private storage cho tài liệu, Vercel AI Gateway cho LLM, Vercel Cron cho job định kỳ, Vercel Analytics ẩn danh." },
             { term: "Resend", definition: "Gửi email giao dịch (mời, hóa đơn, nhắc nhở). Có nodemailer làm fallback." },
             { term: "Apollo", definition: "Làm giàu dữ liệu lead (B2B firmographic). Dữ liệu trả về được lưu trong cột enriched_data." },

@@ -100,7 +100,7 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
           <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
             <tr>
               <td style="background:#0f172a;padding:24px 32px;color:#ffffff;">
-                <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge</div>
+                <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Trade</div>
                 <div style="font:700 20px/28px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin-top:4px;">Weekly Pipeline Report</div>
               </td>
             </tr>
@@ -132,7 +132,7 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
             <tr>
               <td style="padding:20px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
                 <p style="margin:0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
-                  You are receiving this email because you are registered as an exporter on Vexim Bridge.
+                  You are receiving this email because you are registered as an exporter on Vexim Trade.
                 </p>
               </td>
             </tr>

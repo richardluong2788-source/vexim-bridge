@@ -63,7 +63,7 @@ export function LandingFeatures() {
             Giải quyết mọi rào cản xuất khẩu, ngay trong quy trình
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Không phải danh sách kiểm tra thủ công. Vexim Bridge tự nhắc và tự chặn đúng lúc — đội
+            Không phải danh sách kiểm tra thủ công. Vexim Trade tự nhắc và tự chặn đúng lúc — đội
             ngũ của bạn không cần nhớ từng quy định, chỉ cần làm đúng việc của mình.
           </p>
         </div>

@@ -3,7 +3,7 @@ import { Quote } from "lucide-react"
 const STORIES = [
   {
     quote:
-      "Trước đây chúng tôi mất 8 tháng chào hàng qua 15 đầu mối Mỹ nhưng không chốt được đơn nào vì hồ sơ FDA chưa đúng chuẩn. Sau 3 tháng dùng Vexim Bridge, nhà máy đã ký được 2 đơn với tổng kim ngạch hơn 180.000 USD.",
+      "Trước đây chúng tôi mất 8 tháng chào hàng qua 15 đầu mối Mỹ nhưng không chốt được đơn nào vì hồ sơ FDA chưa đúng chuẩn. Sau 3 tháng dùng Vexim Trade, nhà máy đã ký được 2 đơn với tổng kim ngạch hơn 180.000 USD.",
     name: "Anh Nguyễn Văn T.",
     role: "Giám đốc xưởng cà phê rang xay",
     location: "Đắk Lắk · 45 công nhân",
@@ -98,7 +98,7 @@ export function LandingTestimonials() {
         </div>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          Nội dung dựa trên các khách hàng thực tế của Vexim Bridge. Tên và một số chi
+          Nội dung dựa trên các khách hàng thực tế của Vexim Trade. Tên và một số chi
           tiết nhận dạng đã được thay đổi để bảo vệ quyền riêng tư của doanh nghiệp.
         </p>
       </div>

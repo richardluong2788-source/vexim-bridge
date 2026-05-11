@@ -9,7 +9,7 @@ import nodemailer, { type Transporter } from "nodemailer"
  *   ZOHO_SMTP_HOST      e.g. smtp.zoho.com (or smtp.zoho.in / smtppro.zoho.com for Zoho Mail Premium)
  *   ZOHO_SMTP_USER      full Zoho mailbox, e.g. notifications@yourdomain.com
  *   ZOHO_SMTP_PASSWORD  Zoho app password (NOT the web login password)
- *   ZOHO_FROM_EMAIL     (optional) the "From" header, e.g. "Vexim Bridge <notifications@yourdomain.com>"
+ *   ZOHO_FROM_EMAIL     (optional) the "From" header, e.g. "Vexim Trade <notifications@yourdomain.com>"
  *                       Defaults to ZOHO_SMTP_USER if not set.
  *   ZOHO_SMTP_PORT      (optional) defaults to 465 (SSL). Use 587 for STARTTLS.
  *

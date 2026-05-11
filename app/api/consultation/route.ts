@@ -133,7 +133,7 @@ export async function POST(req: Request) {
   const customerText = [
     `Chào ${data.fullName},`,
     "",
-    "Vexim Bridge đã nhận được yêu cầu đặt lịch tư vấn 1:1 của bạn.",
+    "Vexim Trade đã nhận được yêu cầu đặt lịch tư vấn 1:1 của bạn.",
     "Một chuyên gia sẽ liên hệ lại trong vòng 24 giờ làm việc để xác nhận khung giờ phù hợp.",
     "",
     "Thông tin bạn đã gửi:",
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
     "",
     "Nếu cần hỗ trợ gấp, bạn có thể trả lời trực tiếp email này.",
     "",
-    "— Đội ngũ Vexim Bridge",
+    "— Đội ngũ Vexim Trade",
     siteConfig.url,
   ].join("\n")
 
@@ -166,7 +166,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp hello@veximbridge.com.",
+          "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp hello@veximtrade.com.",
       },
       { status: 502 },
     )
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
 
   const customerResult = await sendMail({
     to: data.email,
-    subject: "Đã nhận yêu cầu tư vấn 1:1 · Vexim Bridge",
+    subject: "Đã nhận yêu cầu tư vấn 1:1 · Vexim Trade",
     html: customerHtml,
     text: customerText,
   })
@@ -236,7 +236,7 @@ function renderInternalEmail(d: InternalEmailData): string {
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:600px;width:100%;">
           <tr>
             <td style="background:#0f172a;padding:20px 24px;">
-              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge · Lead mới</div>
+              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Trade · Lead mới</div>
               <div style="margin-top:4px;font:700 18px/26px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">Yêu cầu đặt lịch tư vấn 1:1</div>
             </td>
           </tr>
@@ -288,7 +288,7 @@ function renderCustomerEmail(d: CustomerEmailData): string {
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:560px;width:100%;">
           <tr>
             <td style="background:#0f172a;padding:20px 28px;">
-              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge</div>
+              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Trade</div>
             </td>
           </tr>
           <tr><td style="height:4px;background:#14b8a6;line-height:4px;font-size:0;">&nbsp;</td></tr>
@@ -300,7 +300,7 @@ function renderCustomerEmail(d: CustomerEmailData): string {
               Chào ${escapeHtml(d.fullName)},
             </p>
             <p style="margin:0 0 14px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
-              Cảm ơn bạn đã quan tâm tới dịch vụ phòng kinh doanh xuất khẩu thuê ngoài của Vexim Bridge. Một chuyên gia phụ trách thị trường Mỹ sẽ liên hệ lại với bạn trong vòng <strong>24 giờ làm việc</strong> để xác nhận khung giờ tư vấn 1:1.
+              Cảm ơn bạn đã quan tâm tới dịch vụ phòng kinh doanh xuất khẩu thuê ngoài của Vexim Trade. Một chuyên gia phụ trách thị trường Mỹ sẽ liên hệ lại với bạn trong vòng <strong>24 giờ làm việc</strong> để xác nhận khung giờ tư vấn 1:1.
             </p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
               <tr>
@@ -320,7 +320,7 @@ function renderCustomerEmail(d: CustomerEmailData): string {
               Trong thời gian chờ, bạn có thể tham khảo quy trình làm việc của chúng tôi tại <a href="${escapeAttr(siteConfig.url)}#how-it-works" style="color:#0f172a;">${escapeAttr(siteConfig.url)}</a>.
             </p>
             <p style="margin:18px 0 0;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
-              Trân trọng,<br/>Đội ngũ Vexim Bridge
+              Trân trọng,<br/>Đội ngũ Vexim Trade
             </p>
           </td></tr>
           <tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">

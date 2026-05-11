@@ -1,5 +1,5 @@
 -- ============================================================
--- Vexim Bridge - Migration 018
+-- Vexim Trade - Migration 018
 -- profiles.industries TEXT[] — multi-industry support
 -- ============================================================
 -- Rationale: Vietnamese exporters often operate across several

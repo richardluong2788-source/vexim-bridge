@@ -51,7 +51,7 @@ export default async function BillingPlansPage() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold text-foreground">Gói dịch vụ</h1>
           <p className="text-sm text-muted-foreground text-pretty">
-            Hợp đồng tài chính giữa Vexim Bridge và từng khách hàng: phí khởi tạo, phí duy
+            Hợp đồng tài chính giữa Vexim Trade và từng khách hàng: phí khởi tạo, phí duy
             trì hàng tháng, phí thành công và chính sách hoàn phí.
           </p>
         </div>

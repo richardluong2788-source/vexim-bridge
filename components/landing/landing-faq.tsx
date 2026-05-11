@@ -7,12 +7,12 @@ import {
 
 export const LANDING_FAQS = [
   {
-    q: "Vexim Bridge phù hợp với doanh nghiệp quy mô nào?",
+    q: "Vexim Trade phù hợp với doanh nghiệp quy mô nào?",
     a: "Chúng tôi phục vụ các nhà máy Việt Nam đã có năng lực sản xuất ổn định và nghiêm túc muốn xây dựng thị trường Mỹ dài hạn. Quy mô từ xưởng 20 nhân sự đến nhà máy 500+ công nhân, tập trung vào 3 ngành chủ lực: thực phẩm & đồ uống, mỹ phẩm & chăm sóc cá nhân, và máy móc & thiết bị công nghiệp. Các ngành khác được đánh giá theo từng trường hợp.",
   },
   {
-    q: "Chi phí sử dụng Vexim Bridge là bao nhiêu?",
-    a: "Vexim Bridge là dịch vụ “phòng kinh doanh xuất khẩu thuê ngoài”, không phải sàn tự phục vụ. Chi phí gồm ba cấu phần: (1) Phí khởi tạo một lần khi ký hợp đồng — để thẩm định nhà máy, chuẩn bị hồ sơ FDA và dựng profile buyer-ready; (2) Phí duy trì hàng tháng — nuôi đội sales tại Mỹ và nền tảng dành riêng cho nhà máy bạn; (3) Hoa hồng thành công — % trên kim ngạch chỉ thu khi đơn đã thanh toán bằng USD. Con số cụ thể được báo giá riêng theo ngành hàng và quy mô, ghi rõ trong hợp đồng từ đầu, không phí ẩn.",
+    q: "Chi phí sử dụng Vexim Trade là bao nhiêu?",
+    a: "Vexim Trade là dịch vụ “phòng kinh doanh xuất khẩu thuê ngoài”, không phải sàn tự phục vụ. Chi phí gồm ba cấu phần: (1) Phí khởi tạo một lần khi ký hợp đồng — để thẩm định nhà máy, chuẩn bị hồ sơ FDA và dựng profile buyer-ready; (2) Phí duy trì hàng tháng — nuôi đội sales tại Mỹ và nền tảng dành riêng cho nhà máy bạn; (3) Hoa hồng thành công — % trên kim ngạch chỉ thu khi đơn đã thanh toán bằng USD. Con số cụ thể được báo giá riêng theo ngành hàng và quy mô, ghi rõ trong hợp đồng từ đầu, không phí ẩn.",
   },
   {
     q: "Tại sao phải có phí duy trì hàng tháng, không phải chỉ trả khi có đơn?",
@@ -40,7 +40,7 @@ export const LANDING_FAQS = [
   },
   {
     q: "Dữ liệu của tôi được lưu ở đâu?",
-    a: "Toàn bộ dữ liệu được lưu trên máy chủ đám mây tiêu chuẩn quốc tế, có sao lưu định kỳ. Chứng từ và hoá đơn được truy cập qua đường dẫn có thời hạn để đảm bảo an toàn. Vexim Bridge không chia sẻ dữ liệu của bạn với bên thứ ba khi chưa có sự đồng ý bằng văn bản.",
+    a: "Toàn bộ dữ liệu được lưu trên máy chủ đám mây tiêu chuẩn quốc tế, có sao lưu định kỳ. Chứng từ và hoá đơn được truy cập qua đường dẫn có thời hạn để đảm bảo an toàn. Vexim Trade không chia sẻ dữ liệu của bạn với bên thứ ba khi chưa có sự đồng ý bằng văn bản.",
   },
 ]
 

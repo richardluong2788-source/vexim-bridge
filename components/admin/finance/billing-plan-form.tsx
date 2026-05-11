@@ -159,7 +159,7 @@ export function BillingPlanForm({
         <CardHeader>
           <CardTitle className="text-base">Thông tin hợp đồng</CardTitle>
           <CardDescription>
-            Thiết lập điều khoản tài chính giữa Vexim Bridge và nhà cung cấp Việt Nam.
+            Thiết lập điều khoản tài chính giữa Vexim Trade và nhà cung cấp Việt Nam.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

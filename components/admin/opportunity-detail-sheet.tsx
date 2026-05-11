@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronRight, CheckCircle2,
+  ChevronLeft, CheckCircle2,
 } from "lucide-react"
 import {
   Sheet,
@@ -232,11 +232,11 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* Wide dialog: 95vw, max 1100px */}
-      <SheetContent className="w-[95vw] max-w-[1100px] p-0 flex flex-col overflow-hidden">
+      {/* Wide dialog: 95vw, max 1280px — use !important to override default sm:max-w-sm */}
+      <SheetContent className="!w-[95vw] !max-w-[1280px] sm:!max-w-[1280px] p-0 flex flex-col overflow-hidden">
 
-        {/* ── Top header ──────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border shrink-0">
+        {/* ── Top header (close button is provided by SheetContent itself) ── */}
+        <div className="flex items-start justify-between gap-4 px-6 py-4 pr-12 border-b border-border shrink-0">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-base font-semibold text-foreground leading-snug">
@@ -250,14 +250,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               {s.subtitle.replace("{company}", companyName)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus:outline-none mt-0.5"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Đóng</span>
-          </button>
         </div>
 
         {/* ── Pipeline stage tracker ───────────────────────────── */}
@@ -301,30 +293,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
         {/* ── 2-column body ────────────────────────────────────── */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
 
-          {/* Left sidebar nav */}
-          <nav className="w-48 shrink-0 border-r border-border bg-muted/20 flex flex-col py-3 gap-0.5 overflow-y-auto">
-            {NAV_ITEMS.map(({ id, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveSection(id)}
-                className={[
-                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors w-full rounded-none",
-                  activeSection === id
-                    ? "bg-background text-primary font-medium border-r-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                ].join(" ")}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{navLabel[id]}</span>
-                {activeSection === id && (
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
-                )}
-              </button>
-            ))}
-          </nav>
-
-          {/* Right content area */}
+          {/* Left content area */}
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <div className="flex-1 overflow-y-auto p-6">
 
@@ -575,6 +544,29 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               </div>
             )}
           </form>
+
+          {/* Right sidebar nav */}
+          <nav className="w-48 shrink-0 border-l border-border bg-muted/20 flex flex-col py-3 gap-0.5 overflow-y-auto">
+            {NAV_ITEMS.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSection(id)}
+                className={[
+                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors w-full rounded-none",
+                  activeSection === id
+                    ? "bg-background text-primary font-medium border-l-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{navLabel[id]}</span>
+                {activeSection === id && (
+                  <ChevronLeft className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
+                )}
+              </button>
+            ))}
+          </nav>
         </div>
       </SheetContent>
     </Sheet>

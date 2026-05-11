@@ -9,8 +9,7 @@ import { siteConfig } from "@/lib/site-config"
  *
  * Flow:
  *   1. Validate payload with zod (server-side — never trust the client).
- *   2. Send an internal notification email to the inbox that owns the
- *      Zoho mailbox (ZOHO_SMTP_USER, typically bridge@veximglobal.com).
+ *   2. Send an internal notification email to the inbox via Resend.
  *   3. Send an auto-reply confirmation to the lead so they know we got it.
  *
  * We deliberately do NOT persist to the DB here — the user said they

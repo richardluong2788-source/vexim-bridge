@@ -189,7 +189,7 @@ export default function PrivacyPolicyPage() {
           items={[
             { term: "Supabase", definition: "Cơ sở dữ liệu PostgreSQL + Authentication + Realtime. Khu vực: tuỳ chọn của Vexim Trade. Mọi truy vấn đều đi qua Row Level Security (RLS)." },
             { term: "Vercel", definition: "Hosting Next.js (App Router), Vercel Blob private storage cho tài liệu, Vercel AI Gateway cho LLM, Vercel Cron cho job định kỳ, Vercel Analytics ẩn danh." },
-            { term: "Resend", definition: "Gửi email giao dịch (mời, hóa đơn, nhắc nhở). Có nodemailer làm fallback." },
+            { term: "Resend", definition: "Gửi email giao dịch (mời, hóa đơn, nhắc nhở)." },
             { term: "Apollo", definition: "Làm giàu dữ liệu lead (B2B firmographic). Dữ liệu trả về được lưu trong cột enriched_data." },
             { term: "Vercel AI Gateway providers", definition: "Các mô hình LLM (OpenAI, Anthropic, Google) được gọi không lưu trữ — chúng tôi không cho phép sử dụng dữ liệu của bạn để huấn luyện mô hình của họ." },
           ]}

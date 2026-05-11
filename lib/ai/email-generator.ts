@@ -191,7 +191,7 @@ export async function generateEmailDraft(
     .insert({
       opportunity_id: input.opportunityId,
       email_type: input.emailType,
-      vi_prompt: input.viPrompt,
+      ai_prompt: input.viPrompt,
       generated_subject_en: generated.subject_en,
       generated_content_en: generated.content_en,
       translated_content_vi: generated.content_vi,

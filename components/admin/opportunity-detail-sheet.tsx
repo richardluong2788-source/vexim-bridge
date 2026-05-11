@@ -31,6 +31,7 @@ import { OpportunityFinancialSection } from "@/components/admin/opportunity-fina
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
 import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
+import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -350,6 +351,12 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                 </Field>
               </FieldGroup>
             </section>
+
+            {/* Section 2.25: Email to Buyer */}
+            <OpportunityEmailSection
+              opportunityId={opportunity.id}
+              open={open}
+            />
 
             {/* Section 2.3: Buyer replies (SOP Phase 2.2) */}
             <OpportunityBuyerRepliesSection

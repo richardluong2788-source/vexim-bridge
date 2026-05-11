@@ -182,26 +182,6 @@ export async function updateSlaTarget(
   return { ok: true }
 }
 
-// Quick update M2 (monthly_qualified_leads) to a specific value
-export async function updateM2Target(value: number): Promise<ActionResult> {
-  const guard = await requireCap(CAPS.SLA_TARGET_WRITE)
-  if (!guard.ok) return { ok: false, error: guard.error }
-  if (value < 0 || value > 10000) {
-    return { ok: false, error: "Value must be between 0 and 10000" }
-  }
-  const { error } = await guard.admin
-    .from("sla_targets" as never)
-    .update({
-      target_value: value,
-    } as never)
-    .eq("metric_key", "monthly_qualified_leads")
-    .is("client_id", null)
-  if (error) return { ok: false, error: error.message }
-  revalidatePath("/admin/sla")
-  revalidatePath("/admin/sla/targets")
-  return { ok: true }
-}
-
 // ---------------------------------------------------------------------
 // Client request management — admin response logging
 // ---------------------------------------------------------------------

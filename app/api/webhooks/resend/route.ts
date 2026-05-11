@@ -252,8 +252,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract clean reply body (prefer text over HTML)
-    const rawBody = emailContent.text || ""
-    const cleanBody = extractReplyBody(rawBody)
+    const emailBody = emailContent.text || ""
+    const cleanBody = extractReplyBody(emailBody)
 
     if (!cleanBody) {
       console.log("[v0] Empty email body after cleanup")

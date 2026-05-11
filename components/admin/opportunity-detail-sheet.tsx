@@ -232,11 +232,11 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* Wide dialog: 95vw, max 1100px */}
-      <SheetContent className="w-[95vw] max-w-[1100px] p-0 flex flex-col overflow-hidden">
+      {/* Wide dialog: 95vw, max 1280px — use !important to override default sm:max-w-sm */}
+      <SheetContent className="!w-[95vw] !max-w-[1280px] sm:!max-w-[1280px] p-0 flex flex-col overflow-hidden">
 
-        {/* ── Top header ──────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border shrink-0">
+        {/* ── Top header (close button is provided by SheetContent itself) ── */}
+        <div className="flex items-start justify-between gap-4 px-6 py-4 pr-12 border-b border-border shrink-0">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-base font-semibold text-foreground leading-snug">
@@ -250,14 +250,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               {s.subtitle.replace("{company}", companyName)}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus:outline-none mt-0.5"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Đóng</span>
-          </button>
         </div>
 
         {/* ── Pipeline stage tracker ───────────────────────────── */}

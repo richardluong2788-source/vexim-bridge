@@ -199,21 +199,31 @@ async function isDuplicate(messageId: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  console.log("[v0] Resend webhook POST received at", new Date().toISOString())
+  
   try {
-    const payload: ResendWebhookPayload = await req.json()
+    const rawBody = await req.text()
+    console.log("[v0] Webhook raw body length:", rawBody.length)
+    console.log("[v0] Webhook raw body preview:", rawBody.slice(0, 500))
+    
+    const payload: ResendWebhookPayload = JSON.parse(rawBody)
+    console.log("[v0] Parsed webhook payload type:", payload.type)
 
     // Only process email.received events
     if (payload.type !== "email.received") {
+      console.log("[v0] Skipping non-email.received event:", payload.type)
       return NextResponse.json({ ok: true, skipped: "not email.received" })
     }
 
     const { data } = payload
-    console.log("[v0] Resend webhook received:", {
+    console.log("[v0] Resend webhook email.received:", {
       type: payload.type,
       from: data.from,
       to: data.to,
       subject: data.subject,
       message_id: data.message_id,
+      in_reply_to: data.in_reply_to,
+      email_id: data.email_id,
     })
 
     // Check for duplicates

@@ -569,7 +569,7 @@ export type Database = {
           id: string
           opportunity_id: string | null
           email_type: EmailType
-          vi_prompt: string
+          ai_prompt: string
           generated_subject_en: string | null
           generated_content_en: string | null
           translated_content_vi: string | null
@@ -584,7 +584,7 @@ export type Database = {
           id?: string
           opportunity_id?: string | null
           email_type?: EmailType
-          vi_prompt: string
+          ai_prompt: string
           generated_subject_en?: string | null
           generated_content_en?: string | null
           translated_content_vi?: string | null
@@ -599,7 +599,7 @@ export type Database = {
           id?: string
           opportunity_id?: string | null
           email_type?: EmailType
-          vi_prompt?: string
+          ai_prompt?: string
           generated_subject_en?: string | null
           generated_content_en?: string | null
           translated_content_vi?: string | null

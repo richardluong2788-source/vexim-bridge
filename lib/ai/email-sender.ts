@@ -121,7 +121,9 @@ export async function sendEmailDraft(
   const refCode = draft.opportunity_id
     ? buildRefCode(draft.opportunity_id, clientName)
     : null
-  const subject = refCode ? prependRefToSubject(baseSubject, refCode) : baseSubject
+  // Keep subject line clean — no ref code visible to buyer.
+  // Ref code goes into custom X-Ref-Code header for internal tracking.
+  const subject = baseSubject
   // Strip a leading display name like "Vexim Trade <addr@x>" -> "addr@x"
   const fromBare = fromAddress.match(/<([^>]+)>/)?.[1] ?? fromAddress
   const replyTo = draft.opportunity_id
@@ -143,6 +145,8 @@ export async function sendEmailDraft(
     "X-Campaign": "transactional",
     // Gmail respects these headers for classification
     "X-Mailer": "Vexim-Trade-Transactional/1.0",
+    // Store ref code in custom header for internal tracking (not visible to buyer)
+    ...(refCode && { "X-Ref-Code": refCode }),
   }
 
   const sendRes = await sendMail({

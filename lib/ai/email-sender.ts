@@ -129,10 +129,21 @@ export async function sendEmailDraft(
     : undefined
 
   // 3. Send via Resend
+  // Add headers to prevent Gmail from filtering into Promotions folder.
+  // Transactional emails should NOT have List-Unsubscribe headers.
   const htmlBody = content
     .split(/\n{2,}/)
     .map((para) => `<p>${para.replace(/\n/g, "<br/>")}</p>`)
     .join("")
+
+  const headers: Record<string, string> = {
+    // Priority header - tells mail servers this is important business email
+    "X-Priority": "1",
+    // Remove any promotion-like headers
+    "X-Campaign": "transactional",
+    // Gmail respects these headers for classification
+    "X-Mailer": "Vexim-Trade-Transactional/1.0",
+  }
 
   const sendRes = await sendMail({
     from: fromAddress,
@@ -141,6 +152,7 @@ export async function sendEmailDraft(
     subject,
     html: htmlBody,
     text: content,
+    headers,
   })
 
   if (sendRes.error) {

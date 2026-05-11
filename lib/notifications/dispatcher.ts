@@ -178,16 +178,23 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
   })
 
   try {
+    console.log("[v0] dispatchNotification sending email:", {
+      to: profile.email,
+      subject,
+      category: input.category,
+      dedupKey: input.dedupKey,
+    })
+
     const res = await sendMail({
-      from: getFromAddress(),
+      from: getFromAddress("hello"),
       to: profile.email,
       subject,
       html,
       text,
       headers: {
-        // RFC 8058: one-click unsubscribe. Most ESPs surface this button.
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        // Use transactional headers to avoid Promotions folder
+        "X-Priority": "1",
+        "X-Mailer": "Vexim-Trade-Transactional/1.0",
       },
     })
 
@@ -197,9 +204,11 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
         .update({ status: "failed", error: res.error.message })
         .eq("user_id", input.userId)
         .eq("dedup_key", input.dedupKey)
-      console.error("[notifications] smtp rejected", res.error.message)
+      console.error("[v0] dispatchNotification smtp rejected:", res.error.message)
       return
     }
+
+    console.log("[v0] dispatchNotification email sent successfully:", res.data?.id)
 
     await admin
       .from("notification_email_log")
@@ -213,6 +222,6 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
       .update({ status: "failed", error: message })
       .eq("user_id", input.userId)
       .eq("dedup_key", input.dedupKey)
-    console.error("[notifications] smtp threw", message)
+    console.error("[v0] dispatchNotification smtp threw:", message)
   }
 }

@@ -81,11 +81,12 @@ export async function sendMail(
 ): Promise<SendMailResult> {
   try {
     const apiKey = getApiKey()
-    const toAddress = Array.isArray(input.to) ? input.to.join(", ") : input.to
+    // Resend API requires `to` as an array of strings
+    const toArray = Array.isArray(input.to) ? input.to : [input.to]
 
     const payload: Record<string, unknown> = {
       from: input.from ?? getFromAddress(),
-      to: toAddress,
+      to: toArray,
       subject: input.subject,
     }
 
@@ -93,6 +94,14 @@ export async function sendMail(
     if (input.text) payload.text = input.text
     if (input.replyTo) payload.reply_to = input.replyTo
     if (input.headers) payload.headers = input.headers
+
+    console.log("[v0] sendMail payload:", JSON.stringify({ 
+      from: payload.from, 
+      to: payload.to, 
+      subject: payload.subject,
+      hasHtml: !!payload.html,
+      hasText: !!payload.text,
+    }))
 
     const response = await fetch(RESEND_API_URL, {
       method: "POST",
@@ -103,18 +112,21 @@ export async function sendMail(
       body: JSON.stringify(payload),
     })
 
+    const responseText = await response.text()
+    console.log("[v0] Resend response:", response.status, responseText)
+
     if (!response.ok) {
-      const errorText = await response.text()
       throw new Error(
-        `Resend API error (${response.status}): ${errorText || response.statusText}`,
+        `Resend API error (${response.status}): ${responseText || response.statusText}`,
       )
     }
 
-    const data = (await response.json()) as { id?: string }
+    const data = JSON.parse(responseText) as { id?: string }
+    console.log("[v0] Email sent successfully, id:", data.id)
     return { data: { id: data.id ?? null }, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error("[sendMail] Error:", message)
+    console.error("[v0] sendMail Error:", message)
     return { data: null, error: { message } }
   }
 }

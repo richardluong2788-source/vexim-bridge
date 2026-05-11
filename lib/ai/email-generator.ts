@@ -26,19 +26,43 @@ import type { EmailType } from "@/lib/supabase/types"
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
   introduction: `COLD INTRODUCTION - "Partnership Invitation" approach (NOT a sales pitch).
 
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: THE "3 PILLARS OF TRUST" STRATEGY FOR NEW-TO-US-MARKET SUPPLIERS
+═══════════════════════════════════════════════════════════════════════════════
+If the supplier has NO proven U.S. export history, NEVER fabricate case studies or client references. 
+U.S. buyers can easily verify via ImportYeti or customs data. One lie = total credibility destruction.
+
+Instead, use the "3 Pillars of Trust" to build credibility through REAL capabilities:
+
+PILLAR 1 - "Who are they?" (Production Capability)
+→ Offer to send factory video/photos showing production line, lab, packaging area
+→ "I'd be happy to send a short video walkthrough of our facility..."
+
+PILLAR 2 - "How do they make it?" (Quality Control)
+→ Offer real COA (Certificate of Analysis) from a recent batch - doesn't need to be US shipment
+→ "I can share a recent COA showing our quality specs: moisture, screen size, defect count..."
+
+PILLAR 3 - "Are they trustworthy?" (Compliance)
+→ Highlight REAL certifications: FDA-registered, HACCP, ISO 22000, Organic, etc.
+→ "Our facility is FDA-registered and [other certs], so we're fully ready for U.S. import..."
+
+KEY PHRASE TO USE: "We may be new to the U.S. market, but we are not new to quality."
+This transforms the "weakness" into a strength of honesty and professionalism.
+═══════════════════════════════════════════════════════════════════════════════
+
 CRITICAL RULES:
-- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data. Empty promises destroy credibility instantly.
-- Instead, use softer framing: "very competitive landed cost", "structured pricing that typically outperforms [origin]", "cost structure worth comparing".
-- ALWAYS offer PROOF: "I can send our spec sheet and a recent case study showing how we helped a [similar client]..." This transforms empty claims into credible offers.
+- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
+- Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
+- ALWAYS offer TANGIBLE PROOF: factory video, COA, certification photos — NOT fake testimonials.
 
 STRUCTURE:
-1. SUBJECT LINE: Personalized + specific. Format: "[Name], re: [Company]'s [product] supply / [value hook]". Example: "Richard, re: Nodom's Arabica supply / A lower-cost, USDA Organic alternative"
+1. SUBJECT LINE: Personalized + specific. Format: "[Name], re: [Company]'s [product] supply / [value hook]". Example: "Richard, re: Nodom's Arabica supply / FDA-registered alternative from Vietnam"
 2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
-3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution. "Many in the F&B space are feeling this pressure. As an alternative, [Company] offers..."
-4. CREDIBILITY (1-2 sentences): Certifications + social proof offer. "To give you a concrete reference, I can send over our spec sheet and a recent client case study showing..."
-5. SOFT CTA (1 sentence): Low-pressure, partnership language. "Would you be open to a 15-minute call this week to compare notes?" (NOT "schedule a demo" or "get started")
+3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution with HONESTY. "We may be new to the U.S. market, but we are not new to quality..."
+4. 3 PILLARS PROOF (2-3 sentences): Offer concrete evidence from the 3 pillars. "I can send over our facility video, a recent COA, and our FDA registration certificate..."
+5. SOFT CTA (1 sentence): Low-pressure, partnership language. "Would you be open to a 15-minute call this week to compare notes?"
 
-TONE: Peer-to-peer, consultative. You're offering to "compare notes", not "pitch". Use "you/your" 3x more than "we/our".
+TONE: Peer-to-peer, consultative, HONEST. Admit newness to US market but showcase readiness.
 Word count: 100-150 words (shorter = better for cold emails).`,
 
   follow_up: `FOLLOW-UP - Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.

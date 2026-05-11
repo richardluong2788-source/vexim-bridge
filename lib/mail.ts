@@ -83,8 +83,8 @@ export function getDefaultFrom(): string {
   const explicit = process.env.MAIL_FROM
   if (explicit) return explicit
   const email = process.env.ZOHO_EMAIL
-  if (email) return `Vexim Bridge <${email}>`
-  return "Vexim Bridge <no-reply@veximbridge.local>"
+  if (email) return `Vexim Trade <${email}>`
+  return "Vexim Trade <no-reply@veximtrade.local>"
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { SVGProps } from "react"
 
 /**
- * Vexim Bridge logo mark. Two connected nodes (VN + US) bridged by a
+ * Vexim Trade logo mark. Two connected nodes (VN + US) bridged by a
  * teal arc, rendered on a navy rounded square. Pure SVG — scales
  * crisply at any size and inherits color from CSS tokens.
  */
@@ -10,7 +10,7 @@ export function BrandMark(props: SVGProps<SVGSVGElement>) {
     <svg
       viewBox="0 0 32 32"
       role="img"
-      aria-label="Vexim Bridge"
+      aria-label="Vexim Trade"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >

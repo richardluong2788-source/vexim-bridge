@@ -2,8 +2,8 @@ import type { Dictionary } from "./en"
 
 export const vi: Dictionary = {
   app: {
-    name: "Vexim Bridge",
-    tagline: "Bắc cầu Tuân thủ & Thương mại — Nền tảng kết nối nhà sản xuất Việt Nam với người mua Mỹ, đảm bảo an toàn pháp lý từ bước đầu tiên.",
+    name: "Vexim Trade",
+    tagline: "Dữ liệu thật - Giá trị thật",
   },
   language: {
     label: "Ngôn ngữ",
@@ -164,7 +164,7 @@ export const vi: Dictionary = {
         quantityPlaceholder: "Ví dụ: 20 FCL (24 tấn)",
         unitPrice: "Đơn giá (USD)",
         incoterms: "Incoterms",
-        incotermsPlaceholder: "Chọn điều kiện giao hàng",
+        incotermsPlaceholder: "Chọn điều ki���n giao hàng",
         paymentTerms: "Điều khoản thanh toán",
         paymentTermsPlaceholder: "Ví dụ: L/C tại chỗ 30 ngày",
         destinationPort: "Cảng đích",

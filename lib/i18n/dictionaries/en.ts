@@ -1,7 +1,7 @@
 export const en = {
   app: {
-    name: "Vexim Bridge",
-    tagline: "Bridging Compliance & Commerce — Connecting Vietnamese manufacturers with US buyers through a compliant, transparent, and secure platform.",
+    name: "Vexim Trade",
+    tagline: "Real Data - Real Value",
   },
   language: {
     label: "Language",

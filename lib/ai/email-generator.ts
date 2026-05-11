@@ -16,15 +16,56 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
 
+/**
+ * Email guidance using proven copywriting frameworks from masters:
+ * - Gary Halbert: "Reason Why" technique, specificity, curiosity hooks
+ * - Dan Kennedy: No-BS direct response, benefit-stacking, urgency
+ * - Eugene Schwartz: 5 Levels of Market Awareness, breakthrough advertising
+ * - PAS Framework: Problem → Agitate → Solution
+ */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction:
-    "Cold introduction. Briefly introduce the Vietnamese exporter, state why they are relevant to the buyer (product fit, FDA-registered, competitive origin), and propose a short intro call. Keep tone warm, confident, concise (120-180 words).",
-  follow_up:
-    "Polite follow-up on a previous thread. Reference the earlier exchange, reiterate the value proposition in one line, and propose a clear next step (sample, call, quote). Keep it short (80-140 words).",
-  quotation:
-    "Commercial quotation. Clearly state product, quantity, Incoterm (e.g. FOB Ho Chi Minh), unit price in USD, lead time, MOQ, payment terms, and validity. Use a clean structure with short bullets. Tone: professional and precise (140-220 words).",
-  custom:
-    "Freeform business email. Follow the admin's intent precisely while keeping US-English tone professional and export-sales appropriate.",
+  introduction: `COLD INTRODUCTION - Use Gary Halbert's "Reason Why" + Dan Kennedy's Direct Response approach.
+
+STRUCTURE (PAS Framework):
+1. HOOK (1-2 sentences): Open with a SPECIFIC, RELEVANT problem the buyer faces — supply chain gaps, margin pressure, quality inconsistency from current suppliers. Reference their industry specifically.
+2. AGITATE (1-2 sentences): Amplify the cost of NOT solving this — lost sales, customer complaints, competitor advantage.
+3. SOLUTION (2-3 sentences): Position Vietnamese exporter as the answer. Use SPECIFIC proof points: FDA-registered, exact certifications, years in export, notable clients (if available). Never generic claims.
+4. CTA: One clear, low-commitment next step — "15-minute call this week" or "reply with your specs for a custom quote".
+
+TONE: Confident but not arrogant. Consultative, not salesy. Use "you/your" 3x more than "we/our". No fluff words. Every sentence must EARN its place.
+Word count: 120-180 words. Subject line: Specific benefit + curiosity (e.g. "Cutting your [product] costs 15-20% — quick question").`,
+
+  follow_up: `FOLLOW-UP - Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.
+
+STRUCTURE:
+1. PATTERN INTERRUPT (1 sentence): Don't say "just following up." Instead, add NEW value — a relevant industry insight, a price change, a limited availability notice.
+2. RECONNECT (1 sentence): Brief reference to previous contact.
+3. NEW ANGLE (1-2 sentences): Present the opportunity from a different angle — emphasize a benefit not mentioned before, or address a likely objection.
+4. URGENCY + CTA: Real deadline or scarcity if applicable. Clear single action.
+
+TONE: Respectful persistence. Assume they're busy, not uninterested. Add value, don't just "check in."
+Word count: 80-140 words. Subject line: Re: original thread OR new hook with urgency.`,
+
+  quotation: `COMMERCIAL QUOTATION - Use Gary Halbert's specificity + Dan Kennedy's value stacking.
+
+STRUCTURE:
+1. OPENING (1-2 sentences): Thank them for interest. Restate THEIR need (shows you listened).
+2. QUOTATION TABLE: Product, quantity, Incoterm (FOB/CIF), unit price USD, lead time, MOQ, payment terms, validity period. Use clean bullets or table format.
+3. VALUE STACK (2-3 sentences): Beyond price — certifications, quality guarantees, packaging flexibility, dedicated account manager, sample availability.
+4. RISK REVERSAL (1 sentence): Quality guarantee, sample policy, or flexible first-order terms.
+5. CTA: Clear next step with soft deadline.
+
+TONE: Professional, precise, confident. Price is stated matter-of-factly. Lead with value, not apology.
+Word count: 140-220 words. Subject line: "Your [Product] Quote — Valid until [Date]".`,
+
+  custom: `FREEFORM EMAIL - Apply core principles:
+1. Every email must have ONE clear objective.
+2. Open with the reader's perspective, not yours.
+3. Use specifics over generalities (numbers, dates, names).
+4. End with ONE clear call-to-action.
+5. If the admin's intent is unclear, ask for clarification in the Vietnamese translation note.
+
+Follow the admin's intent precisely while applying these principles. Tone: professional, warm, US-business English.`,
 }
 
 const outputSchema = z.object({
@@ -155,13 +196,29 @@ export async function generateEmailDraft(
     : "You are writing on behalf of a Vietnamese exporter reaching out to US buyers. Adapt tone and terminology to the exporter's industry indicated in the context."
 
   const system = [
-    "You are a senior export-sales manager.",
+    `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
-    "Write warm, professional, US-business English. Never use emoji. Never invent facts not provided in context (especially do not invent product specs, certifications, or company history).",
-    "If the admin's intent is unclear, choose the most reasonable interpretation for an export-sales workflow.",
-    `Email type guidance: ${EMAIL_TYPE_GUIDANCE[input.emailType]}`,
-    "The Vietnamese translation must be a faithful, natural rendering — not a literal word-for-word copy.",
-  ].join("\n\n")
+    `
+CORE PRINCIPLES (Non-negotiable):
+1. SPECIFICITY SELLS: Use exact numbers, dates, percentages. "15% cost reduction" beats "significant savings."
+2. BENEFIT > FEATURE: Every feature must answer "So what? What does this DO for the buyer?"
+3. YOU-FOCUSED: Reader's name, their problems, their goals. Minimize "we/our/I."
+4. ONE CTA: Every email has exactly ONE clear next step. Never confuse with multiple asks.
+5. SUBJECT LINE: Must pass the "Would I open this?" test. Specific benefit + curiosity. Never generic.
+6. ANTI-SPAM: DO NOT use spam trigger words: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", excessive caps, or exclamation marks. Sound human, not promotional.
+`,
+    `
+EMAIL TYPE GUIDANCE:
+${EMAIL_TYPE_GUIDANCE[input.emailType]}
+`,
+    `
+STRICT RULES:
+- Never invent facts not in context (no fake certifications, specs, or client names).
+- Never use emoji or excessive punctuation (!!!, ???).
+- If context is thin, write a shorter, tighter email rather than padding with fluff.
+- The Vietnamese translation must be natural business Vietnamese — not literal translation.
+`,
+  ].join("\n")
 
   const userPrompt = [
     "Opportunity context (JSON):",

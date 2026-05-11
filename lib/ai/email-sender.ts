@@ -152,8 +152,8 @@ export async function sendEmailDraft(
     throw new Error(sendRes.error.message ?? "Email send failed")
   }
 
-  // 4. Flip draft status — also persist the SMTP Message-ID so a future
-  //    inbound poller can match buyer replies via the In-Reply-To header.
+  // 4. Flip draft status — also persist the Resend Message-ID so webhook
+  //    can match buyer replies via the In-Reply-To header.
   await supabase
     .from("email_drafts")
     .update({
@@ -162,7 +162,7 @@ export async function sendEmailDraft(
       sent_at: new Date().toISOString(),
       generated_subject: subject,
       generated_content_en: content,
-      smtp_message_id: sendRes.data?.id ?? null,
+      resend_message_id: sendRes.data?.id ?? null,
     })
     .eq("id", draftId)
 

@@ -7,6 +7,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Exclude static files, images, and webhook routes from middleware
+    // Webhooks must bypass auth middleware entirely — they use their own
+    // signature verification (RESEND_SIGNING_SECRET) and are called by
+    // external services that cannot authenticate as Supabase users.
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

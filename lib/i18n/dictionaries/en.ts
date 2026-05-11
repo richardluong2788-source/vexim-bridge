@@ -135,7 +135,12 @@ export const en = {
         editButton: "Details",
         sectionStatus: "Status & expectations",
         sectionDeal: "Commercial details",
-        sectionInternal: "Internal",
+        sectionReplies: "Buyer replies",
+        sectionCI: "Commercial intel",
+        sectionFinancials: "Financials",
+        sectionCompliance: "Compliance",
+        sectionLC: "L/C & Bank",
+        sectionInternal: "Internal notes",
         nextStep: "What we're doing next",
         nextStepPlaceholder:
           "e.g. Waiting for buyer to reply to the quotation email. Call scheduled for Apr 25.",

@@ -12,7 +12,24 @@ import "server-only"
  */
 
 const RESEND_API_URL = "https://api.resend.com/emails"
-const DEFAULT_FROM = "Vexim Trade <noreply@veximtrade.com>"
+
+/**
+ * Sender addresses — all must be on a verified domain in Resend.
+ * Domain: veximtrade.com (verified)
+ *
+ * To add a new sender, just add a new entry here and use it in your
+ * sendMail() call with: from: SENDERS.trade
+ */
+export const SENDERS = {
+  /** Default: system notifications, password resets, auto-replies */
+  noreply: "Vexim Trade <noreply@veximtrade.com>",
+  /** Commercial: buyer outreach emails, quotations, follow-ups */
+  trade: "Vexim Trade <trade@veximtrade.com>",
+  /** General contact & consultation enquiries */
+  hello: "Vexim Trade <hello@veximtrade.com>",
+} as const
+
+export type SenderKey = keyof typeof SENDERS
 
 function getApiKey(): string {
   const key = process.env.RESEND_API_KEY
@@ -24,8 +41,15 @@ function getApiKey(): string {
   return key
 }
 
-export function getFromAddress(): string {
-  return process.env.MAIL_FROM ?? DEFAULT_FROM
+/**
+ * Returns the default From address.
+ * Priority: MAIL_FROM env var → SENDERS.noreply
+ */
+export function getFromAddress(sender: SenderKey = "noreply"): string {
+  if (sender === "noreply" && process.env.MAIL_FROM) {
+    return process.env.MAIL_FROM
+  }
+  return SENDERS[sender]
 }
 
 export interface SendMailInput {

@@ -116,7 +116,8 @@ export async function sendEmailDraft(
 
   // 2c. Build ref code + Reply-To so buyer replies can be traced back to
   //     this exact opportunity even with hundreds of inbound emails.
-  const fromAddress = getFromAddress()
+  // Use the "trade" sender for all buyer-facing outreach emails.
+  const fromAddress = getFromAddress("trade")
   const refCode = draft.opportunity_id
     ? buildRefCode(draft.opportunity_id, clientName)
     : null
@@ -127,7 +128,7 @@ export async function sendEmailDraft(
     ? buildReplyToAddress(fromBare, draft.opportunity_id) ?? undefined
     : undefined
 
-  // 3. Send via Zoho SMTP
+  // 3. Send via Resend
   const htmlBody = content
     .split(/\n{2,}/)
     .map((para) => `<p>${para.replace(/\n/g, "<br/>")}</p>`)

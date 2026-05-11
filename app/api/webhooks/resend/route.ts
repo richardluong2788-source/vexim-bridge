@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 
+// Ensure this webhook route is never affected by middleware
+export const runtime = "nodejs"
+export const preferredRegion = "auto"
+
 /**
  * Resend Inbound Email Webhook Handler
  *
@@ -200,6 +204,9 @@ async function isDuplicate(messageId: string): Promise<boolean> {
 
 export async function POST(req: NextRequest) {
   console.log("[v0] Resend webhook POST received at", new Date().toISOString())
+  console.log("[v0] Request URL:", req.url)
+  console.log("[v0] Request method:", req.method)
+  console.log("[v0] Request headers:", Object.fromEntries(req.headers))
   
   try {
     const rawBody = await req.text()

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 
+// Ensure this webhook route is never affected by middleware
+export const runtime = "nodejs"
+export const preferredRegion = "auto"
+
 /**
  * Resend Inbound Email Webhook Handler
  *
@@ -200,6 +204,16 @@ async function isDuplicate(messageId: string): Promise<boolean> {
 
 export async function POST(req: NextRequest) {
   console.log("[v0] Resend webhook POST received at", new Date().toISOString())
+  console.log("[v0] Request URL:", req.url)
+  console.log("[v0] Request method:", req.method)
+  console.log("[v0] Request headers:", Object.fromEntries(req.headers))
+  
+  // Early return for health check
+  const url = new URL(req.url)
+  if (url.searchParams.get("test") === "1") {
+    console.log("[v0] Test endpoint called - returning success")
+    return NextResponse.json({ ok: true, test: true }, { status: 200 })
+  }
   
   try {
     const rawBody = await req.text()
@@ -252,8 +266,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract clean reply body (prefer text over HTML)
-    const rawBody = emailContent.text || ""
-    const cleanBody = extractReplyBody(rawBody)
+    const emailBody = emailContent.text || ""
+    const cleanBody = extractReplyBody(emailBody)
 
     if (!cleanBody) {
       console.log("[v0] Empty email body after cleanup")

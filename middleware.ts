@@ -13,9 +13,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - Image files (.svg, .png, .jpg, etc.)
-     * - api/webhooks/* (external webhooks like Resend, Stripe)
-     * - api/cron/* (internal cron jobs)
+     * - /api/* (all API routes - webhooks, cron, etc.)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

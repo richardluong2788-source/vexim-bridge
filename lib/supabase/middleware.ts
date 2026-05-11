@@ -3,6 +3,16 @@ import { NextResponse, type NextRequest } from "next/server"
 import type { Database } from "@/lib/supabase/types"
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // CRITICAL: Skip auth middleware entirely for webhook endpoints.
+  // Webhooks use their own signature verification (RESEND_SIGNING_SECRET)
+  // and cannot authenticate as Supabase users. Returning here prevents
+  // any middleware redirect (307) that breaks external service integrations.
+  if (pathname.startsWith("/api/webhooks/")) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient<Database>(
@@ -30,8 +40,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
 
   // If user is logged in and visits /auth/login → send to root (root page handles role redirect)
   if (pathname.startsWith("/auth/login") && user) {

@@ -50,7 +50,7 @@ export function LandingAudiences() {
             Chuyên sâu cho 3 ngành xuất khẩu chủ lực sang Mỹ
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Mỗi ngành có quy định và thị trường buyer riêng. Vexim Bridge có chuyên gia
+            Mỗi ngành có quy định và thị trường buyer riêng. Vexim Trade có chuyên gia
             am hiểu từng ngành — không áp dụng một công thức chung cho tất cả.
           </p>
         </div>

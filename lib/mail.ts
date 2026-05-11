@@ -1,54 +1,26 @@
 import "server-only"
-import nodemailer from "nodemailer"
 
 /**
- * Zoho SMTP configuration.
+ * Resend Email Configuration
  *
  * Required env vars:
- *  - ZOHO_EMAIL           : Zoho mailbox address (e.g. bridge@veximglobal.com)
- *  - ZOHO_APP_PASSWORD    : Zoho App Password (NOT your regular login password)
- *  - ZOHO_SMTP_HOST       : defaults to smtp.zoho.com (use smtp.zoho.eu for EU accounts)
- *  - ZOHO_SMTP_PORT       : defaults to 465 (SSL). 587 also works with STARTTLS.
- *  - MAIL_FROM            : (optional) display From address, defaults to ZOHO_EMAIL
+ *  - RESEND_API_KEY: Resend API key from https://resend.com/api-keys
  *
- * For Zoho Mail you MUST use an "App Password" — create one at
- * https://accounts.zoho.com/home#security/app_password
+ * Domain: veximtrade.com (verified on Resend)
  */
 
-const DEFAULT_HOST = "smtp.zoho.com"
-const DEFAULT_PORT = 465
+const RESEND_BASE_URL = "https://api.resend.com"
+const DEFAULT_FROM = "Vexim Trade <noreply@veximtrade.com>"
 
-function resolveConfig() {
-  const user = process.env.ZOHO_EMAIL
-  const pass = process.env.ZOHO_APP_PASSWORD
-  const host = process.env.ZOHO_SMTP_HOST ?? DEFAULT_HOST
-  const port = Number(process.env.ZOHO_SMTP_PORT ?? DEFAULT_PORT)
-  const secure = port === 465 // true for 465 (SSL), false for 587 (STARTTLS)
-  return { user, pass, host, port, secure }
-}
-
-let cachedTransporter: nodemailer.Transporter | null = null
-
-function getTransporter() {
-  if (cachedTransporter) return cachedTransporter
-
-  const { user, pass, host, port, secure } = resolveConfig()
-
-  if (!user || !pass) {
+function getApiKey(): string {
+  const key = process.env.RESEND_API_KEY
+  if (!key) {
     throw new Error(
-      "[mail] Missing ZOHO_EMAIL or ZOHO_APP_PASSWORD environment variables. " +
-        "Configure them in the Vercel project before sending mail.",
+      "[mail] Missing RESEND_API_KEY environment variable. " +
+        "Configure it in the Vercel project before sending mail.",
     )
   }
-
-  cachedTransporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  })
-
-  return cachedTransporter
+  return key
 }
 
 export type MailAttachment = {
@@ -68,7 +40,6 @@ export type SendMailOptions = {
   cc?: string | string[]
   bcc?: string | string[]
   attachments?: MailAttachment[]
-  /** Extra headers (e.g. List-Unsubscribe for one-click unsubscribe). */
   headers?: Record<string, string>
 }
 
@@ -82,13 +53,11 @@ export type SendMailResult = {
 export function getDefaultFrom(): string {
   const explicit = process.env.MAIL_FROM
   if (explicit) return explicit
-  const email = process.env.ZOHO_EMAIL
-  if (email) return `Vexim Bridge <${email}>`
-  return "Vexim Bridge <no-reply@veximbridge.local>"
+  return DEFAULT_FROM
 }
 
 /**
- * Send an email via Zoho SMTP.
+ * Send an email via Resend.
  *
  * Usage:
  *   await sendMail({
@@ -97,33 +66,71 @@ export function getDefaultFrom(): string {
  *     html: "<p>Hi</p>",
  *   })
  */
-export async function sendMail(options: SendMailOptions): Promise<SendMailResult> {
-  const transporter = getTransporter()
+export async function sendMail(
+  options: SendMailOptions,
+): Promise<SendMailResult> {
+  const apiKey = getApiKey()
   const from = options.from ?? getDefaultFrom()
 
-  const info = await transporter.sendMail({
+  // Normalize to and other fields to arrays or strings as needed
+  const to = Array.isArray(options.to) ? options.to.join(",") : options.to
+
+  const payload: Record<string, unknown> = {
     from,
-    to: options.to,
-    cc: options.cc,
-    bcc: options.bcc,
-    replyTo: options.replyTo,
+    to,
     subject: options.subject,
-    html: options.html,
-    text: options.text,
-    attachments: options.attachments,
-    headers: options.headers,
-  })
-
-  return {
-    id: info.messageId,
-    accepted: info.accepted as SendMailResult["accepted"],
-    rejected: info.rejected as SendMailResult["rejected"],
   }
-}
 
-/** Quick SMTP connection check (useful for debugging). */
-export async function verifyMailConnection(): Promise<boolean> {
-  const transporter = getTransporter()
-  await transporter.verify()
-  return true
+  if (options.html) payload.html = options.html
+  if (options.text) payload.text = options.text
+  if (options.replyTo) payload.reply_to = options.replyTo
+  if (options.cc) {
+    payload.cc = Array.isArray(options.cc) ? options.cc.join(",") : options.cc
+  }
+  if (options.bcc) {
+    payload.bcc = Array.isArray(options.bcc)
+      ? options.bcc.join(",")
+      : options.bcc
+  }
+  if (options.headers) {
+    payload.headers = options.headers
+  }
+
+  // Note: Resend does not support attachments in the same way as nodemailer.
+  // If you need attachments, consider storing them in Blob and sending a link.
+  if (options.attachments && options.attachments.length > 0) {
+    console.warn(
+      "[mail] Resend does not support attachments via this API. Skipping attachments.",
+    )
+  }
+
+  try {
+    const response = await fetch(`${RESEND_BASE_URL}/emails`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(
+        `[mail] Resend API error (${response.status}): ${error}`,
+      )
+    }
+
+    const data = (await response.json()) as { id: string }
+
+    // Return a result in the same format as nodemailer for compatibility
+    return {
+      id: data.id,
+      accepted: Array.isArray(options.to) ? options.to : [options.to],
+      rejected: [],
+    }
+  } catch (error) {
+    console.error("[mail] Failed to send email:", error)
+    throw error
+  }
 }

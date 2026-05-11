@@ -2,7 +2,7 @@
 --
 -- Purpose
 -- -------
--- Until now Vexim Bridge could only show "snapshots" — current stage counts,
+-- Until now Vexim Trade could only show "snapshots" — current stage counts,
 -- total deals — but not history. We could not answer:
 --   * How many deals did each client close last quarter?
 --   * Which stage is each client's pipeline currently stuck in?

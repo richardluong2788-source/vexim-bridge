@@ -30,7 +30,7 @@ export function LandingCta({ isAuthed, dashboardHref }: LandingCtaProps) {
               Sẵn sàng xuất khẩu sang Mỹ một cách an toàn?
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-primary-foreground/80">
-              Đặt lịch tư vấn 1:1 miễn phí với chuyên gia Vexim Bridge. Chúng tôi sẽ liên hệ
+              Đặt lịch tư vấn 1:1 miễn phí với chuyên gia Vexim Trade. Chúng tôi sẽ liên hệ
               trong 24 giờ làm việc để hướng dẫn bạn hoàn tất hồ sơ FDA và nhận đơn hàng đầu tiên.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

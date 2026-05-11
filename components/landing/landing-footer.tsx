@@ -41,7 +41,7 @@ export function LandingFooter() {
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <Link href="/" className="flex items-center gap-2" aria-label="Vexim Bridge — Trang chủ">
+            <Link href="/" className="flex items-center gap-2" aria-label="Vexim Trade — Trang chủ">
               <BrandMark className="h-8 w-8" />
               <span className="text-sm font-semibold tracking-tight text-foreground">
                 {siteConfig.name}

@@ -16,16 +16,16 @@ function resolveBaseUrl(): string {
 }
 
 export const siteConfig = {
-  name: "Vexim Bridge",
-  shortName: "VXB",
-  legalName: "Vexim Bridge JSC",
-  domain: "veximbridge.com",
+  name: "Vexim Trade",
+  shortName: "VXT",
+  legalName: "Vexim Trade JSC",
+  domain: "veximtrade.com",
   url: resolveBaseUrl(),
-  tagline: "Cầu nối xuất khẩu Việt – Mỹ",
+  tagline: "Dữ liệu thật - Giá trị thật",
   description:
-    "Vexim Bridge là phòng kinh doanh xuất khẩu thuê ngoài cho doanh nghiệp Việt sang Mỹ. Chuyên sâu 4 ngành FDA: thực phẩm, thực phẩm chức năng, mỹ phẩm (MoCRA) và thiết bị y tế — từ đăng ký tuân thủ FDA, tìm buyer, đàm phán đến xác thực chuyển tiền SWIFT và thu USD.",
+    "Vexim Trade là phòng kinh doanh xuất khẩu thuê ngoài cho doanh nghiệp Việt sang Mỹ. Chuyên sâu 4 ngành FDA: thực phẩm, thực phẩm chức năng, mỹ phẩm (MoCRA) và thiết bị y tế — từ đăng ký tuân thủ FDA, tìm buyer, đàm phán đến xác thực chuyển tiền SWIFT và thu USD.",
   descriptionEn:
-    "Vexim Bridge is an outsourced export sales team for Vietnamese manufacturers selling to the US market. We specialize in four FDA-regulated industries — food, dietary supplements, cosmetics (MoCRA) and medical devices — handling FDA compliance, buyer outreach, negotiation, two-step SWIFT payment verification and USD collection.",
+    "Vexim Trade is an outsourced export sales team for Vietnamese manufacturers selling to the US market. We specialize in four FDA-regulated industries — food, dietary supplements, cosmetics (MoCRA) and medical devices — handling FDA compliance, buyer outreach, negotiation, two-step SWIFT payment verification and USD collection.",
   keywords: [
     "phòng kinh doanh xuất khẩu thuê ngoài",
     "xuất khẩu Việt Nam sang Mỹ",
@@ -37,14 +37,14 @@ export const siteConfig = {
     "U.S. Agent FDA",
     "SWIFT wire transfer verification",
     "tìm buyer Mỹ cho nhà máy Việt Nam",
-    "Vexim Bridge",
+    "Vexim Trade",
     "outsourced export sales Vietnam USA",
     "tuân thủ FDA thực phẩm chức năng mỹ phẩm",
   ],
   ogImage: "/landing/hero-dashboard.jpg",
   contact: {
-    email: "hello@veximbridge.com",
-    support: "support@veximbridge.com",
+    email: "hello@veximtrade.com",
+    support: "support@veximtrade.com",
     // Vietnamese hotline as displayed (also surfaced as tel: link).
     hotline: "0373 685 634",
     // E.164 form for `tel:` href and JSON-LD telephone field.
@@ -62,8 +62,8 @@ export const siteConfig = {
     },
   },
   social: {
-    linkedin: "https://www.linkedin.com/company/vexim-bridge",
-    facebook: "https://www.facebook.com/veximbridge",
+    linkedin: "https://www.linkedin.com/company/vexim-trade",
+    facebook: "https://www.facebook.com/veximtrade",
   },
 } as const
 

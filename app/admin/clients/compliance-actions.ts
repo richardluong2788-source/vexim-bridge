@@ -255,7 +255,7 @@ export async function createShareLinkAction(args: {
     const clientCompany =
       (owner as { company_name?: string | null } | undefined)?.company_name ??
       (owner as { full_name?: string | null } | undefined)?.full_name ??
-      "A Vexim Bridge manufacturing partner"
+      "A Vexim Trade manufacturing partner"
 
     const shareUrl = `${siteConfig.url}/share/${token}`
     const docLabel =
@@ -269,7 +269,7 @@ export async function createShareLinkAction(args: {
 
     const result = await sendMail({
       to: buyerEmail,
-      subject: `[Vexim Bridge] ${docLabel} from ${clientCompany}`,
+      subject: `[Vexim Trade] ${docLabel} from ${clientCompany}`,
       html: renderBuyerShareEmail({
         buyerName: args.buyerName?.trim() || null,
         buyerCompany: args.buyerCompany?.trim() || null,
@@ -431,7 +431,7 @@ export async function createBundleShareLinkAction(args: {
     const clientCompany =
       (owner as { company_name?: string | null } | undefined)?.company_name ??
       (owner as { full_name?: string | null } | undefined)?.full_name ??
-      "A Vexim Bridge manufacturing partner"
+      "A Vexim Trade manufacturing partner"
 
     const shareUrl = `${siteConfig.url}/share/${token}`
     const expiresLabel = new Intl.DateTimeFormat("en-US", {
@@ -449,7 +449,7 @@ export async function createBundleShareLinkAction(args: {
 
     const result = await sendMail({
       to: buyerEmail,
-      subject: `[Vexim Bridge] Dossier from ${clientCompany} (${shareableDocs.length} documents)`,
+      subject: `[Vexim Trade] Dossier from ${clientCompany} (${shareableDocs.length} documents)`,
       html: renderBundleBuyerEmail({
         buyerName: args.buyerName?.trim() || null,
         buyerCompany: args.buyerCompany?.trim() || null,
@@ -528,7 +528,7 @@ export async function resendShareLinkEmailAction(args: {
   const clientCompany =
     (owner as { company_name?: string | null } | undefined)?.company_name ??
     (owner as { full_name?: string | null } | undefined)?.full_name ??
-    "A Vexim Bridge manufacturing partner"
+    "A Vexim Trade manufacturing partner"
 
   const kind = (doc as { kind?: string } | undefined)?.kind as
     | ComplianceDocKind
@@ -551,7 +551,7 @@ export async function resendShareLinkEmailAction(args: {
 
   const result = await sendMail({
     to: buyerEmail,
-    subject: `[Vexim Bridge] ${docLabel} from ${clientCompany}`,
+    subject: `[Vexim Trade] ${docLabel} from ${clientCompany}`,
     html: renderBuyerShareEmail({
       buyerName: args.buyerName?.trim() || null,
       buyerCompany: args.buyerCompany?.trim() || null,
@@ -630,7 +630,7 @@ function renderBuyerShareEmail(d: BuyerEmailData): string {
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:560px;width:100%;">
           <tr>
             <td style="background:#0f172a;padding:20px 28px;">
-              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge</div>
+              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Trade</div>
               <div style="margin-top:4px;font:700 18px/26px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">Vietnamese Manufacturer Dossier</div>
             </td>
           </tr>
@@ -640,7 +640,7 @@ function renderBuyerShareEmail(d: BuyerEmailData): string {
               ${greeting}
             </p>
             <p style="margin:0 0 14px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
-              Vexim Bridge is sharing the <strong>${escapeHtml(d.docLabel)}</strong> from our manufacturing partner <strong>${escapeHtml(d.clientCompany)}</strong> to support your supplier evaluation.
+              Vexim Trade is sharing the <strong>${escapeHtml(d.docLabel)}</strong> from our manufacturing partner <strong>${escapeHtml(d.clientCompany)}</strong> to support your supplier evaluation.
             </p>
             ${docTitleLine}
           </td></tr>
@@ -658,11 +658,11 @@ function renderBuyerShareEmail(d: BuyerEmailData): string {
             <a href="${escapeAttr(d.shareUrl)}" style="color:#0f172a;word-break:break-all;">${escapeHtml(d.shareUrl)}</a>
           </td></tr>
           <tr><td style="padding:22px 28px 0;font:13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475569;">
-            Vexim Bridge operates as the outsourced export sales arm for FDA-registered Vietnamese manufacturers. If you&rsquo;d like to discuss pricing, MOQ or the ordering process, simply reply to this email &mdash; our team responds within one business day.
+            Vexim Trade operates as the outsourced export sales arm for FDA-registered Vietnamese manufacturers. If you&rsquo;d like to discuss pricing, MOQ or the ordering process, simply reply to this email &mdash; our team responds within one business day.
           </td></tr>
           <tr><td style="padding:22px 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
             Best regards,<br/>
-            <strong>The Vexim Bridge Team</strong>
+            <strong>The Vexim Trade Team</strong>
           </td></tr>
           <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
             Automated message from ${escapeHtml(siteConfig.name)} &middot; ${escapeHtml(siteConfig.url)}<br/>
@@ -689,7 +689,7 @@ function renderBuyerShareEmailText(d: BuyerEmailTextData): string {
   const lines = [
     d.buyerName ? `Hi ${d.buyerName},` : "Hello,",
     "",
-    `Vexim Bridge is sharing the ${d.docLabel} from our manufacturing partner ${d.clientCompany} to support your supplier evaluation.`,
+    `Vexim Trade is sharing the ${d.docLabel} from our manufacturing partner ${d.clientCompany} to support your supplier evaluation.`,
   ]
   if (d.senderMessage) {
     lines.push("", "Note from your account team:", d.senderMessage)
@@ -703,7 +703,7 @@ function renderBuyerShareEmailText(d: BuyerEmailTextData): string {
     "",
     "If you'd like to discuss pricing, MOQ or the ordering process, simply reply to this email.",
     "",
-    "— The Vexim Bridge Team",
+    "— The Vexim Trade Team",
     siteConfig.url,
   )
   return lines.join("\n")
@@ -762,7 +762,7 @@ function renderBundleBuyerEmail(d: BundleBuyerEmailData): string {
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:560px;width:100%;">
           <tr>
             <td style="background:#0f172a;padding:20px 28px;">
-              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Bridge</div>
+              <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Vexim Trade</div>
               <div style="margin-top:4px;font:700 18px/26px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">Vietnamese Manufacturer Dossier</div>
             </td>
           </tr>
@@ -772,7 +772,7 @@ function renderBundleBuyerEmail(d: BundleBuyerEmailData): string {
               ${greeting}
             </p>
             <p style="margin:0 0 14px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
-              Vexim Bridge is sharing <strong>${docCountLabel}</strong> from our manufacturing partner <strong>${escapeHtml(d.clientCompany)}</strong> to support your supplier evaluation.
+              Vexim Trade is sharing <strong>${docCountLabel}</strong> from our manufacturing partner <strong>${escapeHtml(d.clientCompany)}</strong> to support your supplier evaluation.
             </p>
           </td></tr>
           ${senderMessageBlock}
@@ -794,11 +794,11 @@ function renderBundleBuyerEmail(d: BundleBuyerEmailData): string {
             <a href="${escapeAttr(d.shareUrl)}" style="color:#0f172a;word-break:break-all;">${escapeHtml(d.shareUrl)}</a>
           </td></tr>
           <tr><td style="padding:22px 28px 0;font:13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475569;">
-            Vexim Bridge operates as the outsourced export sales arm for FDA-registered Vietnamese manufacturers. If you&rsquo;d like to discuss pricing, MOQ or the ordering process, simply reply to this email &mdash; our team responds within one business day.
+            Vexim Trade operates as the outsourced export sales arm for FDA-registered Vietnamese manufacturers. If you&rsquo;d like to discuss pricing, MOQ or the ordering process, simply reply to this email &mdash; our team responds within one business day.
           </td></tr>
           <tr><td style="padding:22px 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
             Best regards,<br/>
-            <strong>The Vexim Bridge Team</strong>
+            <strong>The Vexim Trade Team</strong>
           </td></tr>
           <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
             Automated message from ${escapeHtml(siteConfig.name)} &middot; ${escapeHtml(siteConfig.url)}<br/>
@@ -827,7 +827,7 @@ function renderBundleBuyerEmailText(d: BundleBuyerEmailTextData): string {
   const lines = [
     d.buyerName ? `Hi ${d.buyerName},` : "Hello,",
     "",
-    `Vexim Bridge is sharing ${docCountLabel} from our manufacturing partner ${d.clientCompany} to support your supplier evaluation.`,
+    `Vexim Trade is sharing ${docCountLabel} from our manufacturing partner ${d.clientCompany} to support your supplier evaluation.`,
   ]
   if (d.senderMessage) {
     lines.push("", "Note from your account team:", d.senderMessage)
@@ -846,7 +846,7 @@ function renderBundleBuyerEmailText(d: BundleBuyerEmailTextData): string {
     "",
     "If you'd like to discuss pricing, MOQ or the ordering process, simply reply to this email.",
     "",
-    "— The Vexim Bridge Team",
+    "— The Vexim Trade Team",
     siteConfig.url,
   )
   return lines.join("\n")

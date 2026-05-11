@@ -21,10 +21,10 @@ export function LandingHeader({ isAuthed, dashboardHref }: LandingHeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" aria-label="Vexim Bridge — Trang chủ" className="flex items-center gap-2">
+        <Link href="/" aria-label="Vexim Trade — Trang chủ" className="flex items-center gap-2">
           <BrandMark className="h-8 w-8" />
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight text-foreground">Vexim Bridge</span>
+            <span className="text-sm font-semibold tracking-tight text-foreground">Vexim Trade</span>
             <span className="text-[11px] text-muted-foreground">Cầu nối xuất khẩu Việt – Mỹ</span>
           </div>
         </Link>

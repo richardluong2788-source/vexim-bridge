@@ -1,58 +1,31 @@
 import "server-only"
 
-import nodemailer, { type Transporter } from "nodemailer"
-
 /**
- * Unified SMTP mailer backed by Zoho.
+ * Unified email client backed by Resend.
  *
  * Required env vars:
- *   ZOHO_SMTP_HOST      e.g. smtp.zoho.com (or smtp.zoho.in / smtppro.zoho.com for Zoho Mail Premium)
- *   ZOHO_SMTP_USER      full Zoho mailbox, e.g. notifications@yourdomain.com
- *   ZOHO_SMTP_PASSWORD  Zoho app password (NOT the web login password)
- *   ZOHO_FROM_EMAIL     (optional) the "From" header, e.g. "Vexim Bridge <notifications@yourdomain.com>"
- *                       Defaults to ZOHO_SMTP_USER if not set.
- *   ZOHO_SMTP_PORT      (optional) defaults to 465 (SSL). Use 587 for STARTTLS.
+ *   RESEND_API_KEY      Resend API key from https://resend.com/api-keys
+ *   MAIL_FROM           (optional) the "From" header, e.g. "Vexim Trade <noreply@veximtrade.com>"
+ *                       Defaults to "noreply@veximtrade.com" if not set.
  *
- * The transporter is instantiated lazily and reused across invocations in the
- * same runtime (important for warm lambdas — avoids re-handshaking on every
- * email).
+ * Domain: veximtrade.com (verified on Resend)
  */
 
-let _transporter: Transporter | null = null
+const RESEND_API_URL = "https://api.resend.com/emails"
+const DEFAULT_FROM = "Vexim Trade <noreply@veximtrade.com>"
 
-function getTransporter(): Transporter {
-  if (_transporter) return _transporter
-
-  const host = process.env.ZOHO_SMTP_HOST
-  const user = process.env.ZOHO_SMTP_USER
-  const pass = process.env.ZOHO_SMTP_PASSWORD
-
-  if (!host || !user || !pass) {
+function getApiKey(): string {
+  const key = process.env.RESEND_API_KEY
+  if (!key) {
     throw new Error(
-      "Zoho SMTP is not configured — please set ZOHO_SMTP_HOST, ZOHO_SMTP_USER and ZOHO_SMTP_PASSWORD",
+      "Resend is not configured — please set RESEND_API_KEY in your environment variables.",
     )
   }
-
-  const port = Number(process.env.ZOHO_SMTP_PORT ?? 465)
-  // Zoho: 465 = implicit SSL, 587 = STARTTLS.
-  const secure = port === 465
-
-  _transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  })
-
-  return _transporter
+  return key
 }
 
 export function getFromAddress(): string {
-  return (
-    process.env.ZOHO_FROM_EMAIL ??
-    process.env.ZOHO_SMTP_USER ??
-    "no-reply@localhost"
-  )
+  return process.env.MAIL_FROM ?? DEFAULT_FROM
 }
 
 export interface SendMailInput {
@@ -61,7 +34,7 @@ export interface SendMailInput {
   /**
    * Reply-To header. When set, recipients' "Reply" button targets this
    * address instead of `from`. We use plus-addressing here (e.g.
-   * `notifications+opp-A3F9C2@vexim.com`) so inbound replies can be routed
+   * `notifications+opp-A3F9C2@veximtrade.com`) so inbound replies can be routed
    * back to the originating opportunity.
    */
   replyTo?: string
@@ -76,27 +49,48 @@ export type SendMailResult =
   | { data: null; error: { message: string } }
 
 /**
- * Send an email via Zoho SMTP. Mirrors Resend's `{ data, error }` return shape
- * so call sites that previously used `resend.emails.send` don't need to change
- * their error-handling style.
+ * Send an email via Resend. Returns a `{ data, error }` object shape
+ * so call sites can handle both success and error cases uniformly.
  */
 export async function sendMail(
   input: SendMailInput,
 ): Promise<SendMailResult> {
   try {
-    const transporter = getTransporter()
-    const info = await transporter.sendMail({
+    const apiKey = getApiKey()
+    const toAddress = Array.isArray(input.to) ? input.to.join(", ") : input.to
+
+    const payload: Record<string, unknown> = {
       from: input.from ?? getFromAddress(),
-      to: Array.isArray(input.to) ? input.to.join(", ") : input.to,
-      replyTo: input.replyTo,
+      to: toAddress,
       subject: input.subject,
-      html: input.html,
-      text: input.text,
-      headers: input.headers,
+    }
+
+    if (input.html) payload.html = input.html
+    if (input.text) payload.text = input.text
+    if (input.replyTo) payload.reply_to = input.replyTo
+    if (input.headers) payload.headers = input.headers
+
+    const response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     })
-    return { data: { id: info.messageId ?? null }, error: null }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        `Resend API error (${response.status}): ${errorText || response.statusText}`,
+      )
+    }
+
+    const data = (await response.json()) as { id?: string }
+    return { data: { id: data.id ?? null }, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    console.error("[sendMail] Error:", message)
     return { data: null, error: { message } }
   }
 }

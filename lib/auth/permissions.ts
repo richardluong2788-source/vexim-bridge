@@ -1,5 +1,5 @@
 /**
- * RBAC capability map for Vexim Bridge — single source of truth.
+ * RBAC capability map for Vexim Trade — single source of truth.
  *
  * Roles (see migration 020):
  *   - super_admin       : Founder / system owner

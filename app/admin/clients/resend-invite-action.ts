@@ -95,7 +95,7 @@ export async function resendClientInvite(
     target.company_name?.trim() ||
     target.email.split("@")[0]
 
-  const subject = "Vexim Bridge — Kích hoạt tài khoản của bạn"
+  const subject = "Vexim Trade — Kích hoạt tài khoản của bạn"
 
   const html = `<!DOCTYPE html>
 <html>
@@ -106,15 +106,15 @@ export async function resendClientInvite(
           <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="padding:32px 32px 24px 32px;">
-                <p style="margin:0 0 8px 0;font-size:14px;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Vexim Bridge</p>
+                <p style="margin:0 0 8px 0;font-size:14px;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Vexim Trade</p>
                 <h1 style="margin:0 0 16px 0;font-size:24px;font-weight:600;line-height:1.3;color:#0f172a;">
-                  Kích hoạt tài khoản Vexim Bridge
+                  Kích hoạt tài khoản Vexim Trade
                 </h1>
                 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">
                   Xin chào ${escapeHtml(displayName)},
                 </p>
                 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">
-                  Quản trị viên Vexim Bridge vừa gửi lại liên kết kích hoạt tài khoản của bạn.
+                  Quản trị viên Vexim Trade vừa gửi lại liên kết kích hoạt tài khoản của bạn.
                   Nhấn vào nút bên dưới để đặt mật khẩu và đăng nhập vào hệ thống:
                 </p>
                 <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
@@ -142,7 +142,7 @@ export async function resendClientInvite(
             <tr>
               <td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
                 <p style="margin:0;font-size:12px;color:#94a3b8;">
-                  Vexim Bridge · Cầu nối xuất khẩu Việt – Mỹ<br/>
+                  Vexim Trade · Cầu nối xuất khẩu Việt – Mỹ<br/>
                   bridge@veximglobal.com
                 </p>
               </td>
@@ -157,14 +157,14 @@ export async function resendClientInvite(
   const text = [
     `Xin chào ${displayName},`,
     "",
-    "Quản trị viên Vexim Bridge vừa gửi lại liên kết kích hoạt tài khoản của bạn.",
+    "Quản trị viên Vexim Trade vừa gửi lại liên kết kích hoạt tài khoản của bạn.",
     "Mở liên kết sau để đặt mật khẩu và đăng nhập:",
     "",
     actionLink,
     "",
     "Liên kết có hiệu lực trong 24 giờ. Nếu bạn không yêu cầu, vui lòng bỏ qua email này.",
     "",
-    "— Vexim Bridge",
+    "— Vexim Trade",
   ].join("\n")
 
   const { error: sendErr } = await sendMail({

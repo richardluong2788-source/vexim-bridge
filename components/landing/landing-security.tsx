@@ -19,7 +19,7 @@ const SECURITY_PROPS = [
   {
     icon: KeyRound,
     title: "Bảo mật thông tin nhạy cảm",
-    desc: "Chứng từ, hoá đơn, thông tin ngân hàng được mã hoá và lưu trữ theo tiêu chuẩn quốc tế. Vexim Bridge không chia sẻ dữ liệu nếu không có sự đồng ý của bạn.",
+    desc: "Chứng từ, hoá đơn, thông tin ngân hàng được mã hoá và lưu trữ theo tiêu chuẩn quốc tế. Vexim Trade không chia sẻ dữ liệu nếu không có sự đồng ý của bạn.",
   },
 ]
 
@@ -43,7 +43,7 @@ export function LandingSecurity() {
               Tiêu chuẩn bảo mật như ngân hàng, cho xuất khẩu B2B
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-primary-foreground/80">
-              Vexim Bridge áp dụng những nguyên tắc bảo mật cao nhất của ngành tài chính -
+              Vexim Trade áp dụng những nguyên tắc bảo mật cao nhất của ngành tài chính -
               phân quyền nhiều lớp, kiểm soát chéo và lưu vết đầy đủ. Mọi thao tác đều có
               dấu vết để bạn, đối tác và luật sư đều có thể đối chứng khi cần.
             </p>

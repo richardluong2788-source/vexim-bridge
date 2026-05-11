@@ -1,7 +1,7 @@
 export const en = {
   app: {
-    name: "Vexim Bridge",
-    tagline: "Bridging Compliance & Commerce — Connecting Vietnamese manufacturers with US buyers through a compliant, transparent, and secure platform.",
+    name: "Vexim Trade",
+    tagline: "Real Data - Real Value",
   },
   language: {
     label: "Language",
@@ -41,7 +41,7 @@ export const en = {
   },
   auth: {
     login: {
-      brandBadge: "Vexim Bridge",
+      brandBadge: "Vexim Trade",
       heroTitle: "Connecting Vietnamese exporters with US buyers.",
       heroSubtitle:
         "Manage your sales pipeline, track opportunities, and grow your export business with a single unified platform.",
@@ -318,7 +318,7 @@ export const en = {
           "Link created but email delivery failed. You can copy and send manually.",
         emailSectionTitle: "Email the buyer (optional)",
         emailSectionHint:
-          "Enter a buyer email so Vexim Bridge sends the link from bridge@veximglobal.com immediately.",
+          "Enter a buyer email so Vexim Trade sends the link from bridge@veximglobal.com immediately.",
         buyerEmail: "Buyer email",
         buyerEmailPlaceholder: "buyer@example.com",
         buyerName: "Recipient name (optional)",
@@ -648,7 +648,7 @@ export const en = {
       lastUpdated: "Last Updated",
       empty: "No leads yet",
       emptyDesc: "When our team assigns buyer leads to you, they will appear here.",
-      contactInfo: "Contact info managed by Vexim Bridge team",
+      contactInfo: "Contact info managed by Vexim Trade team",
       anonymousBuyer: "Anonymous buyer",
       anonymousHint:
         "Buyer identity is revealed once pricing is agreed to protect both parties during negotiation.",
@@ -888,7 +888,7 @@ export const en = {
   unsubscribe: {
     successTitle: "You're unsubscribed",
     successDesc:
-      "We won't send you any more notification emails from Vexim Bridge. You can re-enable them at any time in your settings.",
+      "We won't send you any more notification emails from Vexim Trade. You can re-enable them at any time in your settings.",
     reenable: "Re-enable emails",
     manage: "Manage preferences",
     invalidTitle: "This link is invalid",

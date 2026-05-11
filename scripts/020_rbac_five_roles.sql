@@ -1,5 +1,5 @@
 -- =====================================================================
--- Migration 020: RBAC — 5-role system for Vexim Bridge
+-- Migration 020: RBAC — 5-role system for Vexim Trade
 -- =====================================================================
 -- Expands the profiles.role CHECK constraint to allow all 5 production
 -- roles defined in the RBAC policy doc (21/04/2026):

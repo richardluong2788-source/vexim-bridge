@@ -1,4 +1,4 @@
-# Vexim Bridge — Tài liệu Mô tả Hệ thống (System Audit)
+# Vexim Trade — Tài liệu Mô tả Hệ thống (System Audit)
 
 > **Phiên bản:** 1.0
 > **Ngày kiểm toán:** 26/04/2026
@@ -10,7 +10,7 @@
 
 ### 1.1 Mục đích kinh doanh
 
-**Vexim Bridge** (`veximbridge.com`) là **phòng kinh doanh xuất khẩu thuê ngoài** (outsourced export sales team) cho các nhà sản xuất Việt Nam bán hàng vào thị trường Mỹ. Hệ thống chuyên sâu vào **4 ngành được FDA quản lý**:
+**Vexim Trade** (`veximbridge.com`) là **phòng kinh doanh xuất khẩu thuê ngoài** (outsourced export sales team) cho các nhà sản xuất Việt Nam bán hàng vào thị trường Mỹ. Hệ thống chuyên sâu vào **4 ngành được FDA quản lý**:
 
 1. **Thực phẩm** (Food Facility Registration)
 2. **Thực phẩm chức năng** (Dietary Supplement DSHEA)
@@ -30,7 +30,7 @@ Các nghiệp vụ cốt lõi mà hệ thống hỗ trợ:
 ### 1.2 Mô hình kinh doanh tài chính
 
 ```
-Doanh thu Vexim Bridge = Setup Fee (1 lần) + Monthly Retainer + Success Fee (% lợi nhuận)
+Doanh thu Vexim Trade = Setup Fee (1 lần) + Monthly Retainer + Success Fee (% lợi nhuận)
                                                                   └── Trừ 50% retainer credit
 ```
 

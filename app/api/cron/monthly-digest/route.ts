@@ -284,7 +284,7 @@ export async function GET(request: Request) {
       const { error: sendErr } = await sendMail({
         from,
         to: c.email,
-        subject: `Báo cáo tháng — ${lastMonth.label} · Vexim Bridge`,
+        subject: `Báo cáo tháng — ${lastMonth.label} · Vexim Trade`,
         html: renderMonthlyDigestHtml(payload),
       })
       if (sendErr) {

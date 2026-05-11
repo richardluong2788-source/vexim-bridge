@@ -126,7 +126,7 @@ export async function GET(request: Request) {
       const { error: sendErr } = await sendMail({
         from,
         to: client.email,
-        subject: "Your weekly pipeline report — Vexim Bridge",
+        subject: "Your weekly pipeline report — Vexim Trade",
         html: renderWeeklyReportHtml(payload),
       })
       if (sendErr) {

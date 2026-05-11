@@ -115,7 +115,7 @@ export async function sendInvoiceEmail(args: {
     lang,
     invoiceNumber: invoice.invoice_number,
     recipient,
-    issuerName: issuer.company_name ?? "Vexim Bridge",
+    issuerName: issuer.company_name ?? "Vexim Trade",
     kindLabel,
     amountUsd: formatUsd(Number(invoice.net_amount_usd)),
     amountVnd: vnd != null ? formatVnd(vnd) : null,

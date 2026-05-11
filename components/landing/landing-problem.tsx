@@ -37,7 +37,7 @@ export function LandingProblem() {
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
             Chỉ một sai sót nhỏ về giấy phép hay thanh toán có thể phá hỏng nhiều tháng chuẩn bị.
-            Vexim Bridge được thiết kế để chặn những rủi ro này ngay trong quy trình vận hành hàng ngày.
+            Vexim Trade được thiết kế để chặn những rủi ro này ngay trong quy trình vận hành hàng ngày.
           </p>
         </div>
 

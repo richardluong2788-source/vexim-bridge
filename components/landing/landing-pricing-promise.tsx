@@ -44,7 +44,7 @@ export function LandingPricingPromise() {
             Minh bạch như hợp đồng thuê phòng kinh doanh riêng
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Vexim Bridge không phải sàn tự phục vụ. Bạn đang thuê một phòng sales xuất khẩu
+            Vexim Trade không phải sàn tự phục vụ. Bạn đang thuê một phòng sales xuất khẩu
             vận hành bởi chuyên gia và công nghệ - chi phí gồm ba cấu phần rõ ràng, ghi trong
             hợp đồng từ đầu, không phí ẩn.
           </p>

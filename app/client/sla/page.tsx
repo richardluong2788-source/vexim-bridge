@@ -60,7 +60,7 @@ export default async function ClientSlaPage() {
             SLA &amp; Yêu cầu hỗ trợ
           </h1>
           <p className="text-sm text-muted-foreground mt-1 text-pretty max-w-2xl">
-            Theo dõi cam kết dịch vụ Vexim Bridge — gồm 7 chỉ tiêu Điều 7.3
+            Theo dõi cam kết dịch vụ Vexim Trade — gồm 7 chỉ tiêu Điều 7.3
             hợp đồng và lịch sử các yêu cầu bạn đã gửi.
           </p>
         </div>

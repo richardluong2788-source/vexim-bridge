@@ -328,7 +328,7 @@ Tìm kiếm 30 giây → Xem 3 options → Tạo deal
 
 ```
 ┌──────────────────┐
-│  Vexim Bridge    │
+│  Vexim Trade    │
 │  Login Page      │
 └────────┬─────────┘
          │

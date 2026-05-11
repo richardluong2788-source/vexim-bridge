@@ -2,8 +2,8 @@ import type { Dictionary } from "./en"
 
 export const vi: Dictionary = {
   app: {
-    name: "Vexim Bridge",
-    tagline: "Bắc cầu Tuân thủ & Thương mại — Nền tảng kết nối nhà sản xuất Việt Nam với người mua Mỹ, đảm bảo an toàn pháp lý từ bước đầu tiên.",
+    name: "Vexim Trade",
+    tagline: "Dữ liệu thật - Giá trị thật",
   },
   language: {
     label: "Ngôn ngữ",
@@ -43,7 +43,7 @@ export const vi: Dictionary = {
   },
   auth: {
     login: {
-      brandBadge: "Vexim Bridge",
+      brandBadge: "Vexim Trade",
       heroTitle: "Kết nối doanh nghiệp xuất khẩu Việt Nam với người mua Mỹ.",
       heroSubtitle:
         "Quản lý pipeline bán hàng, theo dõi cơ hội và phát triển hoạt động xuất khẩu của bạn trên một nền tảng thống nhất.",
@@ -164,7 +164,7 @@ export const vi: Dictionary = {
         quantityPlaceholder: "Ví dụ: 20 FCL (24 tấn)",
         unitPrice: "Đơn giá (USD)",
         incoterms: "Incoterms",
-        incotermsPlaceholder: "Chọn điều kiện giao hàng",
+        incotermsPlaceholder: "Chọn điều ki���n giao hàng",
         paymentTerms: "Điều khoản thanh toán",
         paymentTermsPlaceholder: "Ví dụ: L/C tại chỗ 30 ngày",
         destinationPort: "Cảng đích",
@@ -320,7 +320,7 @@ linkCreatedEmailFailed:
   "Liên kết đã được tạo nhưng gửi email thất bại. Bạn có thể sao chép và gửi thủ công.",
 emailSectionTitle: "Gửi email cho người mua (tùy chọn)",
 emailSectionHint:
-  "Nhập email người mua để Vexim Bridge gửi liên kết ngay lập tức từ bridge@veximglobal.com.",
+  "Nhập email người mua để Vexim Trade gửi liên kết ngay lập tức từ bridge@veximglobal.com.",
 buyerEmail: "Email người mua",
 buyerEmailPlaceholder: "buyer@example.com",
 buyerName: "Tên người nhận (tùy chọn)",
@@ -649,7 +649,7 @@ delete: "Xóa",
       lastUpdated: "Cập nhật gần nhất",
       empty: "Chưa có lead",
       emptyDesc: "Khi đội ngũ của chúng tôi giao lead cho bạn, chúng sẽ xuất hiện ở đây.",
-      contactInfo: "Thông tin liên hệ do đội ngũ Vexim Bridge quản lý",
+      contactInfo: "Thông tin liên hệ do đội ngũ Vexim Trade quản lý",
       anonymousBuyer: "Người mua ẩn danh",
       anonymousHint:
         "Danh tính người mua sẽ được công bố sau khi thống nhất giá, nhằm bảo vệ cả hai bên trong quá trình đàm phán.",
@@ -751,7 +751,7 @@ delete: "Xóa",
         avgTimeNoSample: "Chưa đủ dữ liệu",
         awaitingTitle: "Đang chờ phản hồi từ buyer",
         awaitingDesc:
-          "Các thương vụ đang chờ buyer phản hồi. Đội ngũ Vexim Bridge vẫn đang theo dõi sát sao.",
+          "Các thương vụ đang chờ buyer phản hồi. Đội ngũ Vexim Trade vẫn đang theo dõi sát sao.",
         awaitingEmptyTitle: "Tất cả thương vụ đang đi đúng tiến độ",
         awaitingEmptyDesc:
           "Không có thương vụ nào chờ buyer phản hồi quá lâu.",
@@ -890,7 +890,7 @@ delete: "Xóa",
   unsubscribe: {
     successTitle: "Bạn đã huỷ nhận email",
     successDesc:
-      "Chúng tôi sẽ không gửi thêm email thông báo từ Vexim Bridge. Bạn có thể bật lại bất cứ lúc nào trong phần Cài đặt.",
+      "Chúng tôi sẽ không gửi thêm email thông báo từ Vexim Trade. Bạn có thể bật lại bất cứ lúc nào trong phần Cài đặt.",
     reenable: "Bật lại email",
     manage: "Quản lý tuỳ chọn",
     invalidTitle: "Liên kết không hợp lệ",

@@ -12,7 +12,7 @@ import {
 const PATHNAME = "/legal/cookies"
 const TITLE = "Chính sách cookie"
 const SUMMARY =
-  "Cookie và tracker mà Vexim Bridge sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên và đo lường hiệu năng. Chúng tôi không dùng cookie quảng cáo của bên thứ ba."
+  "Cookie và tracker mà Vexim Trade sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên và đo lường hiệu năng. Chúng tôi không dùng cookie quảng cáo của bên thứ ba."
 const EFFECTIVE_DATE = "2026-04-26"
 
 const SECTIONS: LegalSection[] = [
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   title: `${TITLE} — ${siteConfig.name}`,
   description: SUMMARY,
   keywords: [
-    "chính sách cookie Vexim Bridge",
+    "chính sách cookie Vexim Trade",
     "cookie policy",
     "Supabase auth cookie",
     "Vercel Analytics",
@@ -190,7 +190,7 @@ export default function CookiePolicyPage() {
 
       <Section id="tracker-bên-thu-ba" title="4. Tracker bên thứ ba">
         <LegalParagraph>
-          Vexim Bridge nhúng các tài nguyên sau ở những phần được giới hạn:
+          Vexim Trade nhúng các tài nguyên sau ở những phần được giới hạn:
         </LegalParagraph>
         <LegalList
           items={[

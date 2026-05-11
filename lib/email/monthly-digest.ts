@@ -107,7 +107,7 @@ export function renderMonthlyDigestHtml(data: MonthlyDigestData): string {
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Báo cáo tháng — Vexim Bridge</title>
+    <title>Báo cáo tháng — Vexim Trade</title>
   </head>
   <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -117,7 +117,7 @@ export function renderMonthlyDigestHtml(data: MonthlyDigestData): string {
             <tr>
               <td style="background:${HEADER_BG};padding:24px 32px;color:#ffffff;">
                 <div style="font:600 12px/16px sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">
-                  Vexim Bridge · Báo cáo tháng
+                  Vexim Trade · Báo cáo tháng
                 </div>
                 <div style="font:700 22px/30px sans-serif;margin-top:4px;">
                   ${escapeHtml(monthLabel)}
@@ -199,7 +199,7 @@ export function renderMonthlyDigestHtml(data: MonthlyDigestData): string {
               <td style="padding:20px 32px;background:#f8fafc;border-top:1px solid ${BORDER};">
                 <p style="margin:0;font:12px/18px sans-serif;color:#94a3b8;">
                   Bạn nhận được email này vì đã đăng ký tài khoản nhà xuất khẩu
-                  trên Vexim Bridge. Bạn có thể quản lý các loại email nhận được
+                  trên Vexim Trade. Bạn có thể quản lý các loại email nhận được
                   trong phần Cài đặt → Thông báo.
                 </p>
               </td>

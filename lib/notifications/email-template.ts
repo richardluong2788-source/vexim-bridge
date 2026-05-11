@@ -35,19 +35,19 @@ const CATEGORY_ACCENT: Record<NotificationCategory, string> = {
 
 const BOILERPLATE = {
   vi: {
-    brand: "VEXORA",
+    brand: "Vexim Bridge",
     greeting: (name: string | null) => (name ? `Chào ${name},` : "Chào bạn,"),
     footer:
-      "Bạn nhận email này vì đang sử dụng VEXORA. Bạn có thể điều chỉnh loại email nhận được hoặc ngừng nhận tại liên kết bên dưới.",
+      "Bạn nhận email này vì đang sử dụng Vexim Bridge. Bạn có thể điều chỉnh loại email nhận được hoặc ngừng nhận tại liên kết bên dưới.",
     manage: "Quản lý tuỳ chọn email",
     unsubscribe: "Huỷ nhận email",
     subjectPrefix: "",
   },
   en: {
-    brand: "VEXORA",
+    brand: "Vexim Bridge",
     greeting: (name: string | null) => (name ? `Hi ${name},` : "Hi,"),
     footer:
-      "You are receiving this email because you use VEXORA. You can change which emails you get or unsubscribe using the link below.",
+      "You are receiving this email because you use Vexim Bridge. You can change which emails you get or unsubscribe using the link below.",
     manage: "Manage email preferences",
     unsubscribe: "Unsubscribe",
     subjectPrefix: "",

@@ -2,8 +2,8 @@ import type { Dictionary } from "./en"
 
 export const vi: Dictionary = {
   app: {
-    name: "VEXORA",
-    tagline: "Trust Built on Data — Nền tảng kết nối nhà sản xuất Việt Nam với người mua Mỹ, đảm bảo an toàn pháp lý từ bước đầu tiên.",
+    name: "Vexim Bridge",
+    tagline: "Bắc cầu Tuân thủ & Thương mại — Nền tảng kết nối nhà sản xuất Việt Nam với người mua Mỹ, đảm bảo an toàn pháp lý từ bước đầu tiên.",
   },
   language: {
     label: "Ngôn ngữ",
@@ -43,7 +43,7 @@ export const vi: Dictionary = {
   },
   auth: {
     login: {
-      brandBadge: "VEXORA",
+      brandBadge: "Vexim Bridge",
       heroTitle: "Kết nối doanh nghiệp xuất khẩu Việt Nam với người mua Mỹ.",
       heroSubtitle:
         "Quản lý pipeline bán hàng, theo dõi cơ hội và phát triển hoạt động xuất khẩu của bạn trên một nền tảng thống nhất.",

@@ -37,7 +37,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
             </span>
-            Đã có 180+ nhà sản xuất Việt Nam xuất khẩu cùng VEXORA
+            Đã có 180+ nhà sản xuất Việt Nam xuất khẩu cùng Vexim Bridge
           </div>
 
           <h1
@@ -67,7 +67,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
 
           <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
             Thay vì tuyển và đào tạo một đội kinh doanh riêng cho thị trường Mỹ, bạn thuê
-            VEXORA làm phòng sales xuất khẩu. Chuyên gia của chúng tôi chủ động tìm
+            Vexim Bridge làm phòng sales xuất khẩu. Chuyên gia của chúng tôi chủ động tìm
             buyer, đàm phán, xử lý FDA và thủ tục tuân thủ thị trường Hoa Kỳ theo từng ngành hàng - vận hành trên nền tảng quản lý
             minh bạch mà cả nhà máy và buyer cùng sử dụng.
           </p>
@@ -125,7 +125,7 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
           <div className="relative mx-auto aspect-[4/3] w-full max-w-sm overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl shadow-primary/10">
             <Image
               src="/landing/hero-dashboard.jpg"
-              alt="Dashboard VEXORA hiển thị đơn hàng xuất khẩu từ Việt Nam sang Mỹ"
+              alt="Dashboard Vexim Bridge hiển thị đơn hàng xuất khẩu từ Việt Nam sang Mỹ"
               fill
               priority
               sizes="(min-width: 1024px) 360px, 100vw"

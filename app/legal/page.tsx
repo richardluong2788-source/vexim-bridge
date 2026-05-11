@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site-config"
 const PATHNAME = "/legal"
 const TITLE = "Trung tâm pháp lý"
 const SUMMARY =
-  "Tổng hợp các tài liệu pháp lý của Vexim Bridge: điều khoản dịch vụ, chính sách bảo mật và chính sách cookie. Tất cả tài liệu được cập nhật định kỳ và áp dụng cho toàn bộ khách hàng sử dụng nền tảng tại veximbridge.com."
+  "Tổng hợp các tài liệu pháp lý của VEXORA: điều khoản dịch vụ, chính sách bảo mật và chính sách cookie. Tất cả tài liệu được cập nhật định kỳ và áp dụng cho toàn bộ khách hàng sử dụng nền tảng tại vexora.com."
 
 // See note in /app/legal/terms/page.tsx — never call this `URL`, it would
 // shadow the global URL constructor used by `metadataBase`.
@@ -35,7 +35,7 @@ const DOCS = [
     href: "/legal/terms",
     title: "Điều khoản dịch vụ",
     description:
-      "Thoả thuận giữa Vexim Bridge và khách hàng về phạm vi dịch vụ, phí, tuân thủ FDA, xác thực SWIFT, trách nhiệm và giải quyết tranh chấp.",
+      "Thoả thuận giữa VEXORA và khách hàng về phạm vi dịch vụ, phí, tuân thủ FDA, xác thực SWIFT, trách nhiệm và giải quyết tranh chấp.",
     icon: FileText,
   },
   {

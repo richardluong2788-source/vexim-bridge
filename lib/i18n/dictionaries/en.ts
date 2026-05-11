@@ -1,7 +1,7 @@
 export const en = {
   app: {
-    name: "Vexim Bridge",
-    tagline: "Bridging Compliance & Commerce — Connecting Vietnamese manufacturers with US buyers through a compliant, transparent, and secure platform.",
+    name: "VEXORA",
+    tagline: "Trust Built on Data — Connecting Vietnamese manufacturers with US buyers through a compliant, transparent, and secure platform.",
   },
   language: {
     label: "Language",
@@ -39,9 +39,9 @@ export const en = {
     adminPortal: "Admin Portal",
     clientPortal: "Client Portal",
   },
-  auth: {
+    auth: {
     login: {
-      brandBadge: "Vexim Bridge",
+      brandBadge: "VEXORA",
       heroTitle: "Connecting Vietnamese exporters with US buyers.",
       heroSubtitle:
         "Manage your sales pipeline, track opportunities, and grow your export business with a single unified platform.",
@@ -318,7 +318,7 @@ export const en = {
           "Link created but email delivery failed. You can copy and send manually.",
         emailSectionTitle: "Email the buyer (optional)",
         emailSectionHint:
-          "Enter a buyer email so Vexim Bridge sends the link from bridge@veximglobal.com immediately.",
+          "Enter a buyer email so VEXORA sends the link from bridge@vexora.com immediately.",
         buyerEmail: "Buyer email",
         buyerEmailPlaceholder: "buyer@example.com",
         buyerName: "Recipient name (optional)",

@@ -84,18 +84,7 @@ export async function sendMail(
   input: SendMailInput,
 ): Promise<SendMailResult> {
   try {
-    console.log("[v0] sendMail called with:", {
-      from: input.from ?? getFromAddress(),
-      to: input.to,
-      replyTo: input.replyTo,
-      subject: input.subject,
-      hasHtml: !!input.html,
-      hasText: !!input.text,
-    })
-
     const transporter = getTransporter()
-    console.log("[v0] Transporter created, sending email...")
-
     const info = await transporter.sendMail({
       from: input.from ?? getFromAddress(),
       to: Array.isArray(input.to) ? input.to.join(", ") : input.to,
@@ -105,21 +94,9 @@ export async function sendMail(
       text: input.text,
       headers: input.headers,
     })
-
-    console.log("[v0] Email sent successfully:", {
-      messageId: info.messageId,
-      response: info.response,
-      accepted: info.accepted,
-      rejected: info.rejected,
-    })
-
     return { data: { id: info.messageId ?? null }, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] sendMail error:", {
-      message,
-      stack: err instanceof Error ? err.stack : undefined,
-    })
     return { data: null, error: { message } }
   }
 }

@@ -16,15 +16,86 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
 
+/**
+ * Email guidance using proven copywriting frameworks from masters:
+ * - Gary Halbert: "Reason Why" technique, specificity, curiosity hooks
+ * - Dan Kennedy: No-BS direct response, benefit-stacking, urgency
+ * - Eugene Schwartz: 5 Levels of Market Awareness, breakthrough advertising
+ * - PAS Framework: Problem → Agitate → Solution
+ */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction:
-    "Cold introduction. Briefly introduce the Vietnamese exporter, state why they are relevant to the buyer (product fit, FDA-registered, competitive origin), and propose a short intro call. Keep tone warm, confident, concise (120-180 words).",
-  follow_up:
-    "Polite follow-up on a previous thread. Reference the earlier exchange, reiterate the value proposition in one line, and propose a clear next step (sample, call, quote). Keep it short (80-140 words).",
-  quotation:
-    "Commercial quotation. Clearly state product, quantity, Incoterm (e.g. FOB Ho Chi Minh), unit price in USD, lead time, MOQ, payment terms, and validity. Use a clean structure with short bullets. Tone: professional and precise (140-220 words).",
-  custom:
-    "Freeform business email. Follow the admin's intent precisely while keeping US-English tone professional and export-sales appropriate.",
+  introduction: `COLD INTRODUCTION - "Partnership Invitation" approach (NOT a sales pitch).
+
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: THE "3 PILLARS OF TRUST" STRATEGY FOR NEW-TO-US-MARKET SUPPLIERS
+═══════════════════════════════════════════════════════════════════════════════
+If the supplier has NO proven U.S. export history, NEVER fabricate case studies or client references. 
+U.S. buyers can easily verify via ImportYeti or customs data. One lie = total credibility destruction.
+
+Instead, use the "3 Pillars of Trust" to build credibility through REAL capabilities:
+
+PILLAR 1 - "Who are they?" (Production Capability)
+→ Offer to send factory video/photos showing production line, lab, packaging area
+→ "I'd be happy to send a short video walkthrough of our facility..."
+
+PILLAR 2 - "How do they make it?" (Quality Control)
+→ Offer real COA (Certificate of Analysis) from a recent batch - doesn't need to be US shipment
+→ "I can share a recent COA showing our quality specs: moisture, screen size, defect count..."
+
+PILLAR 3 - "Are they trustworthy?" (Compliance)
+→ Highlight REAL certifications: FDA-registered, HACCP, ISO 22000, Organic, etc.
+→ "Our facility is FDA-registered and [other certs], so we're fully ready for U.S. import..."
+
+KEY PHRASE TO USE: "We may be new to the U.S. market, but we are not new to quality."
+This transforms the "weakness" into a strength of honesty and professionalism.
+═══════════════════════════════════════════════════════════════════════════════
+
+CRITICAL RULES:
+- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
+- Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
+- ALWAYS offer TANGIBLE PROOF: factory video, COA, certification photos — NOT fake testimonials.
+
+STRUCTURE:
+1. SUBJECT LINE: Personalized + specific. Format: "[Name], re: [Company]'s [product] supply / [value hook]". Example: "Richard, re: Nodom's Arabica supply / FDA-registered alternative from Vietnam"
+2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
+3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution with HONESTY. "We may be new to the U.S. market, but we are not new to quality..."
+4. 3 PILLARS PROOF (2-3 sentences): Offer concrete evidence from the 3 pillars. "I can send over our facility video, a recent COA, and our FDA registration certificate..."
+5. SOFT CTA (1 sentence): Low-pressure, partnership language. "Would you be open to a 15-minute call this week to compare notes?"
+
+TONE: Peer-to-peer, consultative, HONEST. Admit newness to US market but showcase readiness.
+Word count: 100-150 words (shorter = better for cold emails).`,
+
+  follow_up: `FOLLOW-UP - Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.
+
+STRUCTURE:
+1. PATTERN INTERRUPT (1 sentence): Don't say "just following up." Instead, add NEW value — a relevant industry insight, a price change, a limited availability notice.
+2. RECONNECT (1 sentence): Brief reference to previous contact.
+3. NEW ANGLE (1-2 sentences): Present the opportunity from a different angle — emphasize a benefit not mentioned before, or address a likely objection.
+4. URGENCY + CTA: Real deadline or scarcity if applicable. Clear single action.
+
+TONE: Respectful persistence. Assume they're busy, not uninterested. Add value, don't just "check in."
+Word count: 80-140 words. Subject line: Re: original thread OR new hook with urgency.`,
+
+  quotation: `COMMERCIAL QUOTATION - Use Gary Halbert's specificity + Dan Kennedy's value stacking.
+
+STRUCTURE:
+1. OPENING (1-2 sentences): Thank them for interest. Restate THEIR need (shows you listened).
+2. QUOTATION TABLE: Product, quantity, Incoterm (FOB/CIF), unit price USD, lead time, MOQ, payment terms, validity period. Use clean bullets or table format.
+3. VALUE STACK (2-3 sentences): Beyond price — certifications, quality guarantees, packaging flexibility, dedicated account manager, sample availability.
+4. RISK REVERSAL (1 sentence): Quality guarantee, sample policy, or flexible first-order terms.
+5. CTA: Clear next step with soft deadline.
+
+TONE: Professional, precise, confident. Price is stated matter-of-factly. Lead with value, not apology.
+Word count: 140-220 words. Subject line: "Your [Product] Quote — Valid until [Date]".`,
+
+  custom: `FREEFORM EMAIL - Apply core principles:
+1. Every email must have ONE clear objective.
+2. Open with the reader's perspective, not yours.
+3. Use specifics over generalities (numbers, dates, names).
+4. End with ONE clear call-to-action.
+5. If the admin's intent is unclear, ask for clarification in the Vietnamese translation note.
+
+Follow the admin's intent precisely while applying these principles. Tone: professional, warm, US-business English.`,
 }
 
 const outputSchema = z.object({
@@ -155,13 +226,29 @@ export async function generateEmailDraft(
     : "You are writing on behalf of a Vietnamese exporter reaching out to US buyers. Adapt tone and terminology to the exporter's industry indicated in the context."
 
   const system = [
-    "You are a senior export-sales manager.",
+    `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
-    "Write warm, professional, US-business English. Never use emoji. Never invent facts not provided in context (especially do not invent product specs, certifications, or company history).",
-    "If the admin's intent is unclear, choose the most reasonable interpretation for an export-sales workflow.",
-    `Email type guidance: ${EMAIL_TYPE_GUIDANCE[input.emailType]}`,
-    "The Vietnamese translation must be a faithful, natural rendering — not a literal word-for-word copy.",
-  ].join("\n\n")
+    `
+CORE PRINCIPLES (Non-negotiable):
+1. NO EMPTY PROMISES: NEVER claim specific percentages or savings unless the admin explicitly provides verified data. "15-20% savings" without proof is a credibility killer. Instead use: "very competitive landed cost", "pricing worth comparing", "cost structure that typically outperforms [origin]".
+2. PROOF OVER CLAIMS: Always offer to SHOW evidence rather than just TELL. "I can send a case study showing how we helped [similar client]..." is 10x more powerful than "We can save you money."
+3. YOU-FOCUSED: Use "you/your" 3x more than "we/our/I". Start with THEIR problem, not your pitch.
+4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
+5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
+6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
+`,
+    `
+EMAIL TYPE GUIDANCE:
+${EMAIL_TYPE_GUIDANCE[input.emailType]}
+`,
+    `
+STRICT RULES:
+- Never invent facts not in context (no fake certifications, specs, or client names).
+- Never use emoji or excessive punctuation (!!!, ???).
+- If context is thin, write a shorter, tighter email rather than padding with fluff.
+- The Vietnamese translation must be natural business Vietnamese — not literal translation.
+`,
+  ].join("\n")
 
   const userPrompt = [
     "Opportunity context (JSON):",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { updateM2Target } from '@/app/admin/sla/actions'
+import { updateSlaTarget } from '@/app/admin/sla/actions'
 
 /**
  * Quick API endpoint to update M2 (monthly_qualified_leads) target to 2
@@ -7,7 +7,7 @@ import { updateM2Target } from '@/app/admin/sla/actions'
  */
 export async function POST(req: NextRequest) {
   try {
-    const result = await updateM2Target(2)
+    const result = await updateSlaTarget('monthly_qualified_leads', 2)
     if (!result.ok) {
       return NextResponse.json(result, { status: 400 })
     }

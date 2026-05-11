@@ -10,10 +10,21 @@ import type { CommercialIntelligence } from "@/lib/supabase/types"
 
 export async function getCIByOpportunityId(
   opportunityId: string
-): Promise<{ ok: true; ci: CommercialIntelligence | null } | { ok: false; error: string }> {
+): Promise<{ 
+  ok: true; 
+  ci: CommercialIntelligence | null;
+  leadData?: {
+    hs_code: string | null;
+    purchase_history: string | null;
+    competitors: string | null;
+    peak_months: string | null;
+  } | null;
+} | { ok: false; error: string }> {
   try {
     const supabase = await createClient()
-    const { data, error } = await supabase
+    
+    // 1. Check existing CI record
+    const { data: ci, error } = await supabase
       .from("commercial_intelligence")
       .select("*")
       .eq("opportunity_id", opportunityId)
@@ -21,7 +32,34 @@ export async function getCIByOpportunityId(
 
     if (error) throw error
 
-    return { ok: true, ci: data }
+    // 2. If no CI exists, fetch lead data to pre-fill
+    let leadData = null
+    if (!ci) {
+      const { data: opp } = await supabase
+        .from("opportunities")
+        .select("lead_id")
+        .eq("id", opportunityId)
+        .single()
+
+      if (opp?.lead_id) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("hs_code, purchase_history, competitors, peak_months")
+          .eq("id", opp.lead_id)
+          .single()
+
+        if (lead) {
+          leadData = {
+            hs_code: lead.hs_code,
+            purchase_history: lead.purchase_history,
+            competitors: lead.competitors,
+            peak_months: lead.peak_months,
+          }
+        }
+      }
+    }
+
+    return { ok: true, ci, leadData }
   } catch (err) {
     console.error("[CI] Error fetching CI:", err)
     return { ok: false, error: "fetch_failed" }

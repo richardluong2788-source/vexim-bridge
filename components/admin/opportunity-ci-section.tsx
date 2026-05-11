@@ -35,6 +35,12 @@ interface Props {
 export function OpportunityCISection({ opportunityId, open }: Props) {
   const { t } = useTranslation()
   const [ci, setCi] = useState<CommercialIntelligence | null>(null)
+  const [leadData, setLeadData] = useState<{
+    hs_code: string | null;
+    purchase_history: string | null;
+    competitors: string | null;
+    peak_months: string | null;
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -60,11 +66,25 @@ export function OpportunityCISection({ opportunityId, open }: Props) {
           return
         }
         setCi(res.ci)
+        setLeadData(res.leadData ?? null)
+        
         if (res.ci) {
+          // Use existing CI data
           setForm({
             main_hs_code: res.ci.main_hs_code || "",
             import_history_summary: res.ci.import_history_summary || "",
             main_competitors: res.ci.main_competitors || "",
+          })
+        } else if (res.leadData) {
+          // Pre-fill from lead data (LR input)
+          const historyParts = []
+          if (res.leadData.purchase_history) historyParts.push(res.leadData.purchase_history)
+          if (res.leadData.peak_months) historyParts.push(`Tháng cao điểm: ${res.leadData.peak_months}`)
+          
+          setForm({
+            main_hs_code: res.leadData.hs_code || "",
+            import_history_summary: historyParts.join("\n") || "",
+            main_competitors: res.leadData.competitors || "",
           })
         }
       })
@@ -276,13 +296,72 @@ export function OpportunityCISection({ opportunityId, open }: Props) {
               )}
           </CardContent>
         </Card>
+      ) : leadData && (leadData.hs_code || leadData.purchase_history || leadData.competitors) ? (
+        // Show lead data as pre-filled (from LR input) - needs verification
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="pt-6 flex flex-col gap-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-100 border border-blue-200">
+              <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-blue-900">Dữ liệu từ Lead Researcher</p>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  Thông tin này được LR nhập khi tạo buyer. Click &quot;Chỉnh sửa&quot; để xác minh và lưu.
+                </p>
+              </div>
+            </div>
+
+            {leadData.hs_code && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
+                  {s.mainHSCode}
+                </p>
+                <Badge variant="secondary" className="font-mono">
+                  {leadData.hs_code}
+                </Badge>
+              </div>
+            )}
+
+            {leadData.purchase_history && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
+                  {s.importHistory}
+                </p>
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {leadData.purchase_history}
+                </p>
+              </div>
+            )}
+
+            {leadData.peak_months && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
+                  Tháng cao điểm
+                </p>
+                <p className="text-sm text-foreground">
+                  {leadData.peak_months}
+                </p>
+              </div>
+            )}
+
+            {leadData.competitors && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
+                  {s.mainCompetitors}
+                </p>
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {leadData.competitors}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-amber-900">{s.noData}</p>
             <p className="text-xs text-amber-700 mt-1">
-              Click "Edit" to add commercial intelligence data for this opportunity.
+              Click &quot;Chỉnh sửa&quot; to add commercial intelligence data for this opportunity.
             </p>
           </div>
         </div>

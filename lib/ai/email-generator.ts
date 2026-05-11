@@ -24,16 +24,22 @@ import type { EmailType } from "@/lib/supabase/types"
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - Use Gary Halbert's "Reason Why" + Dan Kennedy's Direct Response approach.
+  introduction: `COLD INTRODUCTION - "Partnership Invitation" approach (NOT a sales pitch).
 
-STRUCTURE (PAS Framework):
-1. HOOK (1-2 sentences): Open with a SPECIFIC, RELEVANT problem the buyer faces — supply chain gaps, margin pressure, quality inconsistency from current suppliers. Reference their industry specifically.
-2. AGITATE (1-2 sentences): Amplify the cost of NOT solving this — lost sales, customer complaints, competitor advantage.
-3. SOLUTION (2-3 sentences): Position Vietnamese exporter as the answer. Use SPECIFIC proof points: FDA-registered, exact certifications, years in export, notable clients (if available). Never generic claims.
-4. CTA: One clear, low-commitment next step — "15-minute call this week" or "reply with your specs for a custom quote".
+CRITICAL RULES:
+- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data. Empty promises destroy credibility instantly.
+- Instead, use softer framing: "very competitive landed cost", "structured pricing that typically outperforms [origin]", "cost structure worth comparing".
+- ALWAYS offer PROOF: "I can send our spec sheet and a recent case study showing how we helped a [similar client]..." This transforms empty claims into credible offers.
 
-TONE: Confident but not arrogant. Consultative, not salesy. Use "you/your" 3x more than "we/our". No fluff words. Every sentence must EARN its place.
-Word count: 120-180 words. Subject line: Specific benefit + curiosity (e.g. "Cutting your [product] costs 15-20% — quick question").`,
+STRUCTURE:
+1. SUBJECT LINE: Personalized + specific. Format: "[Name], re: [Company]'s [product] supply / [value hook]". Example: "Richard, re: Nodom's Arabica supply / A lower-cost, USDA Organic alternative"
+2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
+3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution. "Many in the F&B space are feeling this pressure. As an alternative, [Company] offers..."
+4. CREDIBILITY (1-2 sentences): Certifications + social proof offer. "To give you a concrete reference, I can send over our spec sheet and a recent client case study showing..."
+5. SOFT CTA (1 sentence): Low-pressure, partnership language. "Would you be open to a 15-minute call this week to compare notes?" (NOT "schedule a demo" or "get started")
+
+TONE: Peer-to-peer, consultative. You're offering to "compare notes", not "pitch". Use "you/your" 3x more than "we/our".
+Word count: 100-150 words (shorter = better for cold emails).`,
 
   follow_up: `FOLLOW-UP - Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.
 
@@ -200,12 +206,12 @@ export async function generateEmailDraft(
     industryLine,
     `
 CORE PRINCIPLES (Non-negotiable):
-1. SPECIFICITY SELLS: Use exact numbers, dates, percentages. "15% cost reduction" beats "significant savings."
-2. BENEFIT > FEATURE: Every feature must answer "So what? What does this DO for the buyer?"
-3. YOU-FOCUSED: Reader's name, their problems, their goals. Minimize "we/our/I."
-4. ONE CTA: Every email has exactly ONE clear next step. Never confuse with multiple asks.
-5. SUBJECT LINE: Must pass the "Would I open this?" test. Specific benefit + curiosity. Never generic.
-6. ANTI-SPAM: DO NOT use spam trigger words: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", excessive caps, or exclamation marks. Sound human, not promotional.
+1. NO EMPTY PROMISES: NEVER claim specific percentages or savings unless the admin explicitly provides verified data. "15-20% savings" without proof is a credibility killer. Instead use: "very competitive landed cost", "pricing worth comparing", "cost structure that typically outperforms [origin]".
+2. PROOF OVER CLAIMS: Always offer to SHOW evidence rather than just TELL. "I can send a case study showing how we helped [similar client]..." is 10x more powerful than "We can save you money."
+3. YOU-FOCUSED: Use "you/your" 3x more than "we/our/I". Start with THEIR problem, not your pitch.
+4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
+5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
+6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 `,
     `
 EMAIL TYPE GUIDANCE:

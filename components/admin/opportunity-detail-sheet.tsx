@@ -2,14 +2,14 @@
 
 import { useState, useTransition, type FormEvent } from "react"
 import { toast } from "sonner"
-import { Save, X, Target, Package, CalendarDays, StickyNote, Sparkles } from "lucide-react"
+import {
+  Save, X, Target, Package, StickyNote, Sparkles,
+  Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
+  ChevronRight, CheckCircle2,
+} from "lucide-react"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,9 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
+import { Badge } from "@/components/ui/badge"
 import { updateOpportunityDetails, suggestClientAction } from "@/app/admin/opportunities/actions"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
+import type { Stage } from "@/lib/supabase/types"
 import { OpportunityComplianceSection } from "@/components/admin/opportunity-compliance-section"
 import { OpportunityFinancialSection } from "@/components/admin/opportunity-financial-section"
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
@@ -42,16 +44,66 @@ interface Props {
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"] as const
 
+// All pipeline stages in order
+const STAGES: Stage[] = [
+  "new", "contacted", "sample_requested", "sample_sent",
+  "negotiation", "price_agreed", "production", "shipped", "won", "lost",
+]
+
+// Nav sections
+type SectionId =
+  | "status"
+  | "commercial"
+  | "email"
+  | "replies"
+  | "intelligence"
+  | "financials"
+  | "compliance"
+  | "lc"
+  | "notes"
+
+interface NavItem {
+  id: SectionId
+  icon: React.ElementType
+  labelKey: string
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: "status",       icon: Target,        labelKey: "sectionStatus" },
+  { id: "commercial",   icon: Package,       labelKey: "sectionDeal" },
+  { id: "email",        icon: Mail,          labelKey: "sectionEmail" },
+  { id: "replies",      icon: MessageSquare, labelKey: "sectionReplies" },
+  { id: "intelligence", icon: BarChart2,     labelKey: "sectionCI" },
+  { id: "financials",   icon: DollarSign,    labelKey: "sectionFinancials" },
+  { id: "compliance",   icon: ShieldCheck,   labelKey: "sectionCompliance" },
+  { id: "lc",           icon: Landmark,      labelKey: "sectionLC" },
+  { id: "notes",        icon: StickyNote,    labelKey: "sectionInternal" },
+]
+
+function stageColor(stage: Stage): string {
+  if (stage === "won") return "bg-emerald-500 text-white"
+  if (stage === "lost") return "bg-destructive text-white"
+  return "bg-primary text-primary-foreground"
+}
+
+function stageIndex(stage: Stage): number {
+  const flow: Stage[] = [
+    "new", "contacted", "sample_requested", "sample_sent",
+    "negotiation", "price_agreed", "production", "shipped", "won",
+  ]
+  const idx = flow.indexOf(stage)
+  return idx === -1 ? -1 : idx
+}
+
 export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSaved }: Props) {
   const { t } = useTranslation()
   const [pending, startTransition] = useTransition()
   const [aiLoading, setAiLoading] = useState(false)
-  // Controlled form state keyed by opportunity id so re-opening a different
-  // card resets correctly without stale values from the previous one.
+  const [activeSection, setActiveSection] = useState<SectionId>("status")
+
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())
 
-  // Reset form whenever the open opportunity changes
   if (opportunity && formKey !== opportunity.id) {
     setFormKey(opportunity.id)
     setForm({
@@ -68,6 +120,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
       client_action_required: opportunity.client_action_required ?? "",
       notes: opportunity.notes ?? "",
     })
+    setActiveSection("status")
   }
 
   if (!opportunity) return null
@@ -76,6 +129,10 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
     opportunity.leads?.company_name ??
     opportunity.profiles?.company_name ??
     "—"
+
+  const currentStage: Stage = (opportunity.stage as Stage) ?? "new"
+  const stageLabel = t.kanban.stages[currentStage] ?? currentStage
+  const activeStageIdx = stageIndex(currentStage)
 
   async function handleAiSuggest() {
     if (!opportunity) return
@@ -130,7 +187,9 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
       if (!res.ok) {
         toast.error(
-          res.error === "forbidden" ? t.admin.clients.oppSheet.errorForbidden : t.admin.clients.oppSheet.errorGeneric,
+          res.error === "forbidden"
+            ? t.admin.clients.oppSheet.errorForbidden
+            : t.admin.clients.oppSheet.errorGeneric,
         )
         return
       }
@@ -158,281 +217,365 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   const s = t.admin.clients.oppSheet
 
+  // Nav label map using translation keys
+  const navLabel: Record<SectionId, string> = {
+    status:       s.sectionStatus,
+    commercial:   s.sectionDeal,
+        email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
+    replies:      s.sectionReplies ?? "Phản hồi Buyer",
+    intelligence: s.sectionCI ?? "Tình báo TM",
+    financials:   s.sectionFinancials ?? "Tài chính",
+    compliance:   s.sectionCompliance ?? "Tuân thủ",
+    lc:           s.sectionLC ?? "L/C & Ngân hàng",
+    notes:        s.sectionInternal,
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto flex flex-col gap-0 p-0">
-        <SheetHeader className="border-b border-border p-6">
-          <SheetTitle className="text-lg">{s.title}</SheetTitle>
-          <SheetDescription>{s.subtitle.replace("{company}", companyName)}</SheetDescription>
-        </SheetHeader>
+      {/* Wide dialog: 95vw, max 1100px */}
+      <SheetContent className="w-[95vw] max-w-[1100px] p-0 flex flex-col overflow-hidden">
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Section 1: Status & expectations (shown to client) */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">{s.sectionStatus}</h3>
-              </div>
-              <FieldGroup className="gap-4">
-                <Field>
-                  <FieldLabel htmlFor="next_step">{s.nextStep}</FieldLabel>
-                  <Textarea
-                    id="next_step"
-                    rows={3}
-                    value={form.next_step}
-                    onChange={(e) => setForm((p) => ({ ...p, next_step: e.target.value }))}
-                    placeholder={s.nextStepPlaceholder}
-                  />
-                  <FieldDescription>{s.nextStepHelp}</FieldDescription>
-                </Field>
-                <Field>
-                  <div className="flex items-center justify-between gap-2">
-                    <FieldLabel htmlFor="client_action_required" className="m-0">
-                      {s.actionRequired}
-                    </FieldLabel>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAiSuggest}
-                      disabled={aiLoading || pending || !form.next_step.trim()}
-                      className="h-7 gap-1.5 px-2 text-xs"
-                      title={s.aiHint}
-                    >
-                      {aiLoading ? (
-                        <>
-                          <Spinner className="h-3 w-3" />
-                          {s.aiSuggesting}
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3 w-3" />
-                          {s.aiSuggest}
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <Textarea
-                    id="client_action_required"
-                    rows={3}
-                    value={form.client_action_required}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, client_action_required: e.target.value }))
-                    }
-                    placeholder={s.actionRequiredPlaceholder}
-                  />
-                  <FieldDescription>{s.actionRequiredHelp}</FieldDescription>
-                </Field>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="potential_value">{s.potentialValue}</FieldLabel>
-                    <Input
-                      id="potential_value"
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="decimal"
-                      value={form.potential_value}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, potential_value: e.target.value }))
-                      }
-                      placeholder="50000"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="target_close_date">
-                      <CalendarDays className="inline h-3.5 w-3.5 mr-1" />
-                      {s.targetCloseDate}
-                    </FieldLabel>
-                    <Input
-                      id="target_close_date"
-                      type="date"
-                      value={form.target_close_date}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, target_close_date: e.target.value }))
-                      }
-                    />
-                  </Field>
-                </div>
-              </FieldGroup>
-            </section>
-
-            {/* Section 2: Commercial details */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">{s.sectionDeal}</h3>
-              </div>
-              <FieldGroup className="gap-4">
-                <Field>
-                  <FieldLabel htmlFor="products_interested">{s.productName}</FieldLabel>
-                  <Input
-                    id="products_interested"
-                    value={form.products_interested}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, products_interested: e.target.value }))
-                    }
-                    placeholder={s.productNamePlaceholder}
-                  />
-                </Field>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="quantity_required">{s.quantity}</FieldLabel>
-                    <Input
-                      id="quantity_required"
-                      value={form.quantity_required}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, quantity_required: e.target.value }))
-                      }
-                      placeholder={s.quantityPlaceholder}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="target_price_usd">{s.unitPrice}</FieldLabel>
-                    <Input
-                      id="target_price_usd"
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="decimal"
-                      value={form.target_price_usd}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, target_price_usd: e.target.value }))
-                      }
-                      placeholder="10.50"
-                    />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="incoterms">{s.incoterms}</FieldLabel>
-                    <Select
-                      value={form.incoterms || "__none"}
-                      onValueChange={(v) =>
-                        setForm((p) => ({ ...p, incoterms: v === "__none" ? "" : v }))
-                      }
-                    >
-                      <SelectTrigger id="incoterms">
-                        <SelectValue placeholder={s.incotermsPlaceholder} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">—</SelectItem>
-                        {INCOTERMS.map((inc) => (
-                          <SelectItem key={inc} value={inc}>
-                            {inc}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="payment_terms">{s.paymentTerms}</FieldLabel>
-                    <Input
-                      id="payment_terms"
-                      value={form.payment_terms}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, payment_terms: e.target.value }))
-                      }
-                      placeholder={s.paymentTermsPlaceholder}
-                    />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="destination_port">{s.destinationPort}</FieldLabel>
-                  <Input
-                    id="destination_port"
-                    value={form.destination_port}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, destination_port: e.target.value }))
-                    }
-                    placeholder={s.destinationPortPlaceholder}
-                  />
-                </Field>
-              </FieldGroup>
-            </section>
-
-            {/* Section 2.25: Email to Buyer */}
-            <OpportunityEmailSection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 2.3: Buyer replies (SOP Phase 2.2) */}
-            <OpportunityBuyerRepliesSection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 2.3.5: Commercial Intelligence (Ngăn Tình báo) */}
-            <OpportunityCISection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 2.4: Deal Financials (SOP §2.4) */}
-            <OpportunityFinancialSection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 2.5: Closing & Compliance (SOP Phase 3) */}
-            <OpportunityComplianceSection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 2.6: L/C & Bank Verification (Anti-fraud LC) */}
-            <OpportunityLCSection
-              opportunityId={opportunity.id}
-              open={open}
-            />
-
-            {/* Section 3: Internal notes */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <StickyNote className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">{s.sectionInternal}</h3>
-              </div>
-              <Field>
-                <FieldLabel htmlFor="notes">{s.notes}</FieldLabel>
-                <Textarea
-                  id="notes"
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder={s.notesPlaceholder}
-                />
-                <FieldDescription>{s.notesHelp}</FieldDescription>
-              </Field>
-            </section>
+        {/* ── Top header ──────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border shrink-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-base font-semibold text-foreground leading-snug">
+                {s.title}
+              </h2>
+              <Badge className={`text-xs font-medium ${stageColor(currentStage)}`}>
+                {stageLabel}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {s.subtitle.replace("{company}", companyName)}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus:outline-none mt-0.5"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Đóng</span>
+          </button>
+        </div>
 
-          <SheetFooter className="border-t border-border p-4 flex-row justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              <X className="h-4 w-4" />
-              {s.cancel}
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? (
-                <>
-                  <Spinner className="h-4 w-4" />
-                  {s.saving}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {s.save}
-                </>
+        {/* ── Pipeline stage tracker ───────────────────────────── */}
+        {currentStage !== "lost" && (
+          <div className="px-6 py-3 border-b border-border bg-muted/40 shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-0 min-w-max">
+              {(["new","contacted","sample_requested","sample_sent","negotiation","price_agreed","production","shipped","won"] as Stage[]).map((stage, idx) => {
+                const isDone    = activeStageIdx > idx
+                const isCurrent = activeStageIdx === idx
+                return (
+                  <div key={stage} className="flex items-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className={[
+                        "w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 transition-colors",
+                        isDone    ? "bg-primary text-primary-foreground"
+                          : isCurrent ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"
+                          : "bg-muted text-muted-foreground border border-border",
+                      ].join(" ")}>
+                        {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span>{idx + 1}</span>}
+                      </div>
+                      <span className={[
+                        "text-[10px] leading-tight text-center max-w-[56px] whitespace-nowrap",
+                        isCurrent ? "text-primary font-semibold" : isDone ? "text-primary/70" : "text-muted-foreground",
+                      ].join(" ")}>
+                        {t.kanban.stages[stage]}
+                      </span>
+                    </div>
+                    {idx < 8 && (
+                      <div className={[
+                        "w-8 h-px mx-1 mt-[-12px] shrink-0",
+                        idx < activeStageIdx ? "bg-primary" : "bg-border",
+                      ].join(" ")} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── 2-column body ────────────────────────────────────── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+          {/* Left sidebar nav */}
+          <nav className="w-48 shrink-0 border-r border-border bg-muted/20 flex flex-col py-3 gap-0.5 overflow-y-auto">
+            {NAV_ITEMS.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSection(id)}
+                className={[
+                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors w-full rounded-none",
+                  activeSection === id
+                    ? "bg-background text-primary font-medium border-r-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{navLabel[id]}</span>
+                {activeSection === id && (
+                  <ChevronRight className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
+                )}
+              </button>
+            ))}
+          </nav>
+
+          {/* Right content area */}
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6">
+
+              {/* STATUS */}
+              {activeSection === "status" && (
+                <section className="space-y-4 max-w-2xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    {s.sectionStatus}
+                  </h3>
+                  <FieldGroup className="gap-4">
+                    <Field>
+                      <FieldLabel htmlFor="next_step">{s.nextStep}</FieldLabel>
+                      <Textarea
+                        id="next_step"
+                        rows={3}
+                        value={form.next_step}
+                        onChange={(e) => setForm((p) => ({ ...p, next_step: e.target.value }))}
+                        placeholder={s.nextStepPlaceholder}
+                      />
+                      <FieldDescription>{s.nextStepHelp}</FieldDescription>
+                    </Field>
+                    <Field>
+                      <div className="flex items-center justify-between gap-2">
+                        <FieldLabel htmlFor="client_action_required" className="m-0">
+                          {s.actionRequired}
+                        </FieldLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAiSuggest}
+                          disabled={aiLoading || pending || !form.next_step.trim()}
+                          className="h-7 gap-1.5 px-2 text-xs"
+                          title={s.aiHint}
+                        >
+                          {aiLoading ? (
+                            <><Spinner className="h-3 w-3" />{s.aiSuggesting}</>
+                          ) : (
+                            <><Sparkles className="h-3 w-3" />{s.aiSuggest}</>
+                          )}
+                        </Button>
+                      </div>
+                      <Textarea
+                        id="client_action_required"
+                        rows={3}
+                        value={form.client_action_required}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, client_action_required: e.target.value }))
+                        }
+                        placeholder={s.actionRequiredPlaceholder}
+                      />
+                      <FieldDescription>{s.actionRequiredHelp}</FieldDescription>
+                    </Field>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="potential_value">{s.potentialValue}</FieldLabel>
+                        <Input
+                          id="potential_value"
+                          type="number"
+                          min={0}
+                          step="any"
+                          inputMode="decimal"
+                          value={form.potential_value}
+                          onChange={(e) => setForm((p) => ({ ...p, potential_value: e.target.value }))}
+                          placeholder="50000"
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="target_close_date">{s.targetCloseDate}</FieldLabel>
+                        <Input
+                          id="target_close_date"
+                          type="date"
+                          value={form.target_close_date}
+                          onChange={(e) => setForm((p) => ({ ...p, target_close_date: e.target.value }))}
+                        />
+                      </Field>
+                    </div>
+                  </FieldGroup>
+                </section>
               )}
-            </Button>
-          </SheetFooter>
-        </form>
+
+              {/* COMMERCIAL */}
+              {activeSection === "commercial" && (
+                <section className="space-y-4 max-w-2xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    {s.sectionDeal}
+                  </h3>
+                  <FieldGroup className="gap-4">
+                    <Field>
+                      <FieldLabel htmlFor="products_interested">{s.productName}</FieldLabel>
+                      <Input
+                        id="products_interested"
+                        value={form.products_interested}
+                        onChange={(e) => setForm((p) => ({ ...p, products_interested: e.target.value }))}
+                        placeholder={s.productNamePlaceholder}
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="quantity_required">{s.quantity}</FieldLabel>
+                        <Input
+                          id="quantity_required"
+                          value={form.quantity_required}
+                          onChange={(e) => setForm((p) => ({ ...p, quantity_required: e.target.value }))}
+                          placeholder={s.quantityPlaceholder}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="target_price_usd">{s.unitPrice}</FieldLabel>
+                        <Input
+                          id="target_price_usd"
+                          type="number"
+                          min={0}
+                          step="any"
+                          inputMode="decimal"
+                          value={form.target_price_usd}
+                          onChange={(e) => setForm((p) => ({ ...p, target_price_usd: e.target.value }))}
+                          placeholder="10.50"
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="incoterms">{s.incoterms}</FieldLabel>
+                        <Select
+                          value={form.incoterms || "__none"}
+                          onValueChange={(v) => setForm((p) => ({ ...p, incoterms: v === "__none" ? "" : v }))}
+                        >
+                          <SelectTrigger id="incoterms">
+                            <SelectValue placeholder={s.incotermsPlaceholder} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none">—</SelectItem>
+                            {INCOTERMS.map((inc) => (
+                              <SelectItem key={inc} value={inc}>{inc}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="payment_terms">{s.paymentTerms}</FieldLabel>
+                        <Input
+                          id="payment_terms"
+                          value={form.payment_terms}
+                          onChange={(e) => setForm((p) => ({ ...p, payment_terms: e.target.value }))}
+                          placeholder={s.paymentTermsPlaceholder}
+                        />
+                      </Field>
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor="destination_port">{s.destinationPort}</FieldLabel>
+                      <Input
+                        id="destination_port"
+                        value={form.destination_port}
+                        onChange={(e) => setForm((p) => ({ ...p, destination_port: e.target.value }))}
+                        placeholder={s.destinationPortPlaceholder}
+                      />
+                    </Field>
+                  </FieldGroup>
+                </section>
+              )}
+
+              {/* EMAIL */}
+              {activeSection === "email" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityEmailSection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* REPLIES */}
+              {activeSection === "replies" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityBuyerRepliesSection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* INTELLIGENCE */}
+              {activeSection === "intelligence" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityCISection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* FINANCIALS */}
+              {activeSection === "financials" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityFinancialSection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* COMPLIANCE */}
+              {activeSection === "compliance" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityComplianceSection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* LC */}
+              {activeSection === "lc" && (
+                <section className="space-y-4 max-w-3xl">
+                  <OpportunityLCSection opportunityId={opportunity.id} open={open} />
+                </section>
+              )}
+
+              {/* NOTES */}
+              {activeSection === "notes" && (
+                <section className="space-y-4 max-w-2xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <StickyNote className="h-4 w-4 text-muted-foreground" />
+                    {s.sectionInternal}
+                  </h3>
+                  <Field>
+                    <FieldLabel htmlFor="notes">{s.notes}</FieldLabel>
+                    <Textarea
+                      id="notes"
+                      rows={5}
+                      value={form.notes}
+                      onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                      placeholder={s.notesPlaceholder}
+                    />
+                    <FieldDescription>{s.notesHelp}</FieldDescription>
+                  </Field>
+                </section>
+              )}
+            </div>
+
+            {/* Footer: only show Save for sections that have editable form fields */}
+            {(activeSection === "status" || activeSection === "commercial" || activeSection === "notes") && (
+              <div className="border-t border-border p-4 flex justify-end gap-2 shrink-0 bg-background">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                  disabled={pending}
+                >
+                  <X className="h-4 w-4" />
+                  {s.cancel}
+                </Button>
+                <Button type="submit" disabled={pending}>
+                  {pending ? (
+                    <><Spinner className="h-4 w-4" />{s.saving}</>
+                  ) : (
+                    <><Save className="h-4 w-4" />{s.save}</>
+                  )}
+                </Button>
+              </div>
+            )}
+          </form>
+        </div>
       </SheetContent>
     </Sheet>
   )

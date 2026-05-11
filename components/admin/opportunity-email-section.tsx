@@ -207,7 +207,7 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {item.generated_subject_en}
+                          {item.generated_subject}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {s.sentTo}: {item.recipient_email ?? "—"}

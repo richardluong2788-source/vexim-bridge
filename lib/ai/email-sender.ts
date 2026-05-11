@@ -89,7 +89,7 @@ export async function sendEmailDraft(
 
   const baseSubject =
     opts?.overrideSubject?.trim() ||
-    draft.generated_subject_en ||
+    draft.generated_subject ||
     "Export opportunity"
   const content =
     opts?.overrideContent?.trim() || draft.generated_content_en || ""
@@ -159,7 +159,7 @@ export async function sendEmailDraft(
       status: "sent",
       approved_by: user.id,
       sent_at: new Date().toISOString(),
-      generated_subject_en: subject,
+      generated_subject: subject,
       generated_content_en: content,
       smtp_message_id: sendRes.data?.id ?? null,
     })

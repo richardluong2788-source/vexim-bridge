@@ -570,7 +570,7 @@ export type Database = {
           opportunity_id: string | null
           email_type: EmailType
           ai_prompt: string
-          generated_subject_en: string | null
+          generated_subject: string | null
           generated_content_en: string | null
           translated_content_vi: string | null
           status: EmailDraftStatus
@@ -585,7 +585,7 @@ export type Database = {
           opportunity_id?: string | null
           email_type?: EmailType
           ai_prompt: string
-          generated_subject_en?: string | null
+          generated_subject?: string | null
           generated_content_en?: string | null
           translated_content_vi?: string | null
           status?: EmailDraftStatus
@@ -600,7 +600,7 @@ export type Database = {
           opportunity_id?: string | null
           email_type?: EmailType
           ai_prompt?: string
-          generated_subject_en?: string | null
+          generated_subject?: string | null
           generated_content_en?: string | null
           translated_content_vi?: string | null
           status?: EmailDraftStatus

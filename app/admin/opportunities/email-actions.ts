@@ -115,7 +115,7 @@ export type EmailDraftRow = {
   id: string
   email_type: EmailType
   ai_prompt: string | null
-  generated_subject_en: string | null
+  generated_subject: string | null
   generated_content_en: string | null
   translated_content_vi: string | null
   recipient_email: string | null
@@ -138,7 +138,7 @@ export async function fetchEmailDraftsAction(
 
     const { data, error } = await supabase
       .from("email_drafts")
-      .select("id, email_type, ai_prompt, generated_subject_en, generated_content_en, translated_content_vi, recipient_email, status, sent_at, created_at")
+      .select("id, email_type, ai_prompt, generated_subject, generated_content_en, translated_content_vi, recipient_email, status, sent_at, created_at")
       .eq("opportunity_id", opportunityId)
       .order("created_at", { ascending: false })
       .limit(20)

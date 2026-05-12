@@ -22,7 +22,14 @@ export default async function AdminDashboardPage() {
 
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
-  const { admin, role, userId, profile } = current
+  const { admin, role, userId } = current
+  
+  // Fetch full profile including full_name
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single()
   const scope = ownershipScopeFor(role, userId)
 
   // Resolve period - default to this month

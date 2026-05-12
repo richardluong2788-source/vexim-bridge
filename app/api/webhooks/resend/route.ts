@@ -39,6 +39,9 @@ type ResendWebhookPayload = {
     message_id: string
     in_reply_to?: string
     created_at: string
+    // Inbound webhook may include body directly
+    text?: string
+    html?: string
   }
 }
 
@@ -62,17 +65,27 @@ async function fetchEmailContent(emailId: string): Promise<ResendEmailContent | 
     return null
   }
 
+  console.log("[v0] Fetching email content for ID:", emailId)
+  console.log("[v0] Using API key:", apiKey ? `${apiKey.slice(0, 10)}...` : "NOT SET")
+
   try {
+    // Note: Resend's /emails/:id endpoint is for SENT emails only
+    // For inbound/received emails, the body should be in the webhook payload itself
+    // If this fails, we need to handle inbound differently
     const res = await fetch(`https://api.resend.com/emails/${emailId}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     })
 
+    console.log("[v0] Resend API response status:", res.status)
+    const responseText = await res.text()
+    console.log("[v0] Resend API response body:", responseText.slice(0, 500))
+
     if (!res.ok) {
-      console.error("[v0] Failed to fetch email content:", res.status, await res.text())
+      console.error("[v0] Failed to fetch email content:", res.status, responseText)
       return null
     }
 
-    return await res.json()
+    return JSON.parse(responseText)
   } catch (err) {
     console.error("[v0] Error fetching email content:", err)
     return null
@@ -262,14 +275,38 @@ export async function POST(req: NextRequest) {
 
     console.log("[v0] Matched opportunity:", match.opportunityId, "via", match.matchSource)
 
-    // Fetch full email content
-    const emailContent = await fetchEmailContent(data.email_id)
-    if (!emailContent) {
-      return NextResponse.json({ ok: false, error: "fetch_failed" }, { status: 500 })
+    // Get email body - first check if it's in the webhook payload (Resend inbound)
+    // If not, try to fetch from API (only works for outbound emails)
+    let emailBody = data.text || ""
+    
+    // Log what we have in the payload
+    console.log("[v0] Payload has text:", !!data.text, "length:", data.text?.length || 0)
+    console.log("[v0] Payload has html:", !!data.html, "length:", data.html?.length || 0)
+    
+    // If no body in payload, try API (may not work for inbound)
+    if (!emailBody && !data.html) {
+      console.log("[v0] No body in payload, trying API fetch...")
+      const emailContent = await fetchEmailContent(data.email_id)
+      if (emailContent) {
+        emailBody = emailContent.text || ""
+      }
     }
-
-    // Extract clean reply body (prefer text over HTML)
-    const emailBody = emailContent.text || ""
+    
+    // If still no text, try extracting from HTML
+    if (!emailBody && data.html) {
+      console.log("[v0] Using HTML body, stripping tags...")
+      // Simple HTML to text conversion
+      emailBody = data.html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .trim()
+    }
     const cleanBody = extractReplyBody(emailBody)
 
     if (!cleanBody) {

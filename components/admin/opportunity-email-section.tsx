@@ -228,8 +228,8 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
               </div>
             ) : (
               <ul className="divide-y divide-border max-h-64 overflow-y-auto">
-                {history.map((item) => (
-                  <li key={item.id} className="px-4 py-3">
+            {history.map((item) => (
+              <li key={item.id} className="px-3 py-3">
                     <button
                       type="button"
                       onClick={() => setSelectedEmailDetail(item)}

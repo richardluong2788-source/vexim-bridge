@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useEffect, type FormEvent } from "react"
+import { useState, useTransition, useEffect, useRef, type FormEvent } from "react"
 import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
@@ -101,6 +101,8 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [pending, startTransition] = useTransition()
   const [aiLoading, setAiLoading] = useState(false)
   const [activeSection, setActiveSection] = useState<SectionId>("status")
+  const emailSectionRef = useRef<HTMLDivElement>(null)
+  const [quoteReply, setQuoteReply] = useState<string | undefined>()
 
   // When the sheet opens for an opportunity, silently mark all its unread
   // buyer replies as read so the kanban badge clears after the AE views it.
@@ -469,8 +471,31 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
               {/* EMAIL */}
               {activeSection === "email" && (
-                <section className="space-y-4 max-w-3xl">
-                  <OpportunityEmailSection opportunityId={opportunity.id} open={open} />
+                <section ref={emailSectionRef} className="space-y-4">
+                  <OpportunityEmailSection 
+                    opportunityId={opportunity.id} 
+                    open={open}
+                    quoteReply={quoteReply}
+                    onClearQuote={() => setQuoteReply(undefined)}
+                  />
+                </section>
+              )}
+
+              {/* BUYER REPLIES */}
+              {activeSection === "replies" && (
+                <section className="space-y-4">
+                  <OpportunityBuyerRepliesSection 
+                    opportunityId={opportunity.id} 
+                    open={open}
+                    onReplyClick={(replyText) => {
+                      setQuoteReply(replyText)
+                      setActiveSection("email")
+                      // Scroll to email section after state update
+                      setTimeout(() => {
+                        emailSectionRef.current?.scrollIntoView({ behavior: "smooth" })
+                      }, 0)
+                    }}
+                  />
                 </section>
               )}
 

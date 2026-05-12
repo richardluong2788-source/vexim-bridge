@@ -11,7 +11,7 @@
  * on sheet-open (not on every mount).
  */
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useState, useTransition, useRef } from "react"
 import {
   MessageSquareText,
   Plus,
@@ -22,6 +22,7 @@ import {
   HandCoins,
   HandshakeIcon,
   Loader2,
+  Reply,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,8 @@ import type { BuyerReply, BuyerReplyIntent } from "@/lib/supabase/types"
 interface Props {
   opportunityId: string
   open: boolean
+  /** Callback when user clicks Reply on a message */
+  onReplyClick?: (replyText: string) => void
 }
 
 const INTENT_META: Record<
@@ -64,7 +67,7 @@ const TONE_CLASS: Record<string, string> = {
   general: "bg-muted text-muted-foreground border-border",
 }
 
-export function OpportunityBuyerRepliesSection({ opportunityId, open }: Props) {
+export function OpportunityBuyerRepliesSection({ opportunityId, open, onReplyClick }: Props) {
   const { t } = useTranslation()
   const s = t.admin.buyerReplies
   const [replies, setReplies] = useState<BuyerReply[]>([])
@@ -214,7 +217,12 @@ export function OpportunityBuyerRepliesSection({ opportunityId, open }: Props) {
       ) : (
         <ul className="flex flex-col gap-3">
           {replies.map((reply) => (
-            <ReplyCard key={reply.id} reply={reply} labels={s} />
+            <ReplyCard 
+              key={reply.id} 
+              reply={reply} 
+              labels={s}
+              onReply={() => onReplyClick?.(reply.raw_content)}
+            />
           ))}
         </ul>
       )}
@@ -225,9 +233,11 @@ export function OpportunityBuyerRepliesSection({ opportunityId, open }: Props) {
 function ReplyCard({
   reply,
   labels,
+  onReply,
 }: {
   reply: BuyerReply
   labels: ReturnType<typeof useTranslation>["t"]["admin"]["buyerReplies"]
+  onReply?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const intent = reply.ai_intent ?? "general"
@@ -325,6 +335,19 @@ function ReplyCard({
                 {reply.raw_content}
               </p>
             </details>
+          )}
+
+          {onReply && (
+            <div className="flex gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={onReply}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline transition-colors"
+              >
+                <Reply className="h-3.5 w-3.5" />
+                Phản hồi
+              </button>
+            </div>
           )}
         </CardContent>
       </Card>

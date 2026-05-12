@@ -23,9 +23,13 @@ type FlowState = "compose" | "review" | "success"
 interface Props {
   opportunityId: string
   open: boolean
+  /** Quote text to respond to (from buyer reply) */
+  quoteReply?: string
+  /** Callback when user clears the quote */
+  onClearQuote?: () => void
 }
 
-export function OpportunityEmailSection({ opportunityId, open }: Props) {
+export function OpportunityEmailSection({ opportunityId, open, quoteReply, onClearQuote }: Props) {
   const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
@@ -141,7 +145,12 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
       {/* Main Flow */}
       <div className="border border-border rounded-lg p-4 bg-card">
         {flowState === "compose" && (
-          <EmailDraftComposer loading={generating} onGenerate={handleGenerate} />
+          <EmailDraftComposer 
+            loading={generating} 
+            onGenerate={handleGenerate}
+            quoteReply={quoteReply}
+            onClearQuote={onClearQuote}
+          />
         )}
 
         {flowState === "review" && draft && (

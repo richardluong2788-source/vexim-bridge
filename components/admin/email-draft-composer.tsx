@@ -26,13 +26,17 @@ const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
 interface Props {
   loading: boolean
   onGenerate: (emailType: EmailType, viPrompt: string) => void
+  /** Initial quoted text (e.g. buyer reply to respond to) */
+  quoteReply?: string
+  /** Callback when quote is cleared */
+  onClearQuote?: () => void
 }
 
-export function EmailDraftComposer({ loading, onGenerate }: Props) {
+export function EmailDraftComposer({ loading, onGenerate, quoteReply, onClearQuote }: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
-  const [emailType, setEmailType] = useState<EmailType>("introduction")
+  const [emailType, setEmailType] = useState<EmailType>("follow_up")
   const [viPrompt, setViPrompt] = useState("")
 
   function handleSubmit() {
@@ -46,6 +50,28 @@ export function EmailDraftComposer({ loading, onGenerate }: Props) {
         <Mail className="h-4 w-4 text-primary" />
         {s.composerTitle}
       </div>
+
+      {/* Quote context */}
+      {quoteReply && (
+        <div className="rounded-md bg-muted/50 border border-border p-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-medium">Đang phản hồi:</span>
+              <br />
+              {quoteReply.slice(0, 150)}
+              {quoteReply.length > 150 && "..."}
+            </p>
+            <button
+              type="button"
+              onClick={onClearQuote}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              aria-label="Xóa quote"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <FieldGroup className="gap-4">
         <Field>

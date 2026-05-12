@@ -13,8 +13,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - Image files (.svg, .png, .jpg, etc.)
-     * - /api/* (all API routes - webhooks, cron, etc.)
+     * - /api/* (all API routes - webhooks, cron, etc.) - MUST be first in negative lookahead
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { sendClientUpdateEmail } from "@/app/admin/opportunities/client-email-actions"
-import { maskBuyer } from "@/lib/protection/mask"
+import { maskBuyer, toLeadInput } from "@/lib/protection/mask"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
 import type { Stage } from "@/lib/supabase/types"
 
@@ -45,16 +45,7 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
       const stage = (opportunity.stage ?? "new") as Stage
       const maskedBuyer = lead
         ? maskBuyer(
-            {
-              company_name: lead.company_name ?? "Buyer",
-              industry: lead.industry ?? null,
-              region: lead.region ?? null,
-              website: lead.website ?? null,
-              linkedin_url: lead.linkedin_url ?? null,
-              contact_person: lead.contact_person ?? null,
-              contact_email: lead.contact_email ?? null,
-              contact_phone: lead.contact_phone ?? null,
-            },
+            toLeadInput({ ...lead, company_name: lead.company_name ?? "Buyer" }),
             stage,
             opportunity.buyer_code
           )
@@ -103,21 +94,12 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
   const clientEmail = opportunity.profiles?.email
 
   // Compute masked buyer name for display in dialog (outside useEffect for JSX use)
-  const lead = opportunity.leads
-  const stage = (opportunity.stage ?? "new") as Stage
-  const maskedBuyerForDisplay = lead
+  const leadForUI = opportunity.leads
+  const stageForUI = (opportunity.stage ?? "new") as Stage
+  const maskedBuyerForDisplay = leadForUI
     ? maskBuyer(
-        {
-          company_name: lead.company_name ?? "Buyer",
-          industry: lead.industry ?? null,
-          region: lead.region ?? null,
-          website: lead.website ?? null,
-          linkedin_url: lead.linkedin_url ?? null,
-          contact_person: lead.contact_person ?? null,
-          contact_email: lead.contact_email ?? null,
-          contact_phone: lead.contact_phone ?? null,
-        },
-        stage,
+        toLeadInput({ ...leadForUI, company_name: leadForUI.company_name ?? "Buyer" }),
+        stageForUI,
         opportunity.buyer_code
       )
     : null

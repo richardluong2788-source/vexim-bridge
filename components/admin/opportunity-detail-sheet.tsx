@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2,
+  ChevronLeft, CheckCircle2, Building2, Send,
 } from "lucide-react"
 import {
   Sheet,
@@ -35,6 +35,7 @@ import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-b
 import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
+import { ClientUpdateEmailDialog } from "@/components/admin/client-update-email-dialog"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -103,6 +104,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [activeSection, setActiveSection] = useState<SectionId>("status")
   const emailSectionRef = useRef<HTMLDivElement>(null)
   const [quoteReply, setQuoteReply] = useState<string | undefined>()
+  const [clientEmailDialogOpen, setClientEmailDialogOpen] = useState(false)
 
   // When the sheet opens for an opportunity, silently mark all its unread
   // buyer replies as read so the kanban badge clears after the AE views it.
@@ -594,6 +596,18 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                   {opportunity.profiles.full_name}
                 </p>
               )}
+              {/* Send update button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-2.5 h-7 text-xs gap-1.5"
+                onClick={() => setClientEmailDialogOpen(true)}
+                disabled={!opportunity.profiles?.email}
+                title={opportunity.profiles?.email ? "Gửi email cập nhật cho client" : "Client chưa có email"}
+              >
+                <Send className="h-3 w-3" />
+                Gửi cập nhật
+              </Button>
             </div>
 
             <div className="flex flex-col py-3 gap-0.5 flex-1">
@@ -620,6 +634,13 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
           </nav>
         </div>
       </SheetContent>
+
+      {/* Client Update Email Dialog */}
+      <ClientUpdateEmailDialog
+        open={clientEmailDialogOpen}
+        onOpenChange={setClientEmailDialogOpen}
+        opportunity={opportunity}
+      />
     </Sheet>
   )
 }

@@ -155,3 +155,28 @@ export async function listBuyerRepliesAction(opportunityId: string): Promise<{
 
   return { ok: true, replies: (data ?? []) as BuyerReply[] }
 }
+
+/**
+ * Mark all unread buyer replies for the given opportunity as read.
+ * Called when an AE opens the opportunity detail sheet so the kanban
+ * badge clears after they've seen the replies.
+ */
+export async function markBuyerRepliesReadAction(
+  opportunityId: string,
+): Promise<{ ok: boolean }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false }
+
+  const admin = createAdminClient()
+  await admin
+    .from("buyer_replies")
+    .update({ read_at: new Date().toISOString() })
+    .eq("opportunity_id", opportunityId)
+    .is("read_at", null)
+
+  revalidatePath("/admin/pipeline")
+  return { ok: true }
+}

@@ -14,6 +14,7 @@ import {
   Sparkles,
   Flame,
   Globe2,
+  Mail,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -25,9 +26,11 @@ interface KanbanCardProps {
   opportunity: OpportunityWithClient
   isDragging?: boolean
   onEdit?: (opportunity: OpportunityWithClient) => void
+  /** Number of unread buyer replies for this opportunity */
+  unreadReplyCount?: number
 }
 
-export function KanbanCard({ opportunity, isDragging, onEdit }: KanbanCardProps) {
+export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount = 0 }: KanbanCardProps) {
   const { t, locale } = useTranslation()
   const {
     attributes,
@@ -174,6 +177,30 @@ export function KanbanCard({ opportunity, isDragging, onEdit }: KanbanCardProps)
                   </p>
                   <p className="text-xs opacity-80 mt-1 leading-relaxed">
                     {risk.reasons[locale][0]}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {unreadReplyCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="relative flex h-6 w-6 items-center justify-center rounded-md bg-chart-2/15"
+                    aria-label={`${unreadReplyCount} phản hồi chưa đọc`}
+                  >
+                    <Mail className="h-3.5 w-3.5 text-chart-2" />
+                    <span
+                      className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-chart-2 px-0.5 text-[9px] font-bold leading-none text-white"
+                      aria-hidden
+                    >
+                      {unreadReplyCount > 9 ? "9+" : unreadReplyCount}
+                    </span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs font-medium">
+                    {unreadReplyCount} phản hồi mới từ buyer
                   </p>
                 </TooltipContent>
               </Tooltip>

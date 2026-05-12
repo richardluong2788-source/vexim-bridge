@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, type FormEvent } from "react"
+import { useState, useTransition, useEffect, type FormEvent } from "react"
 import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
@@ -25,6 +25,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
 import { updateOpportunityDetails, suggestClientAction } from "@/app/admin/opportunities/actions"
+import { markBuyerRepliesReadAction } from "@/app/admin/opportunities/reply-actions"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
 import type { Stage } from "@/lib/supabase/types"
@@ -100,6 +101,14 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [pending, startTransition] = useTransition()
   const [aiLoading, setAiLoading] = useState(false)
   const [activeSection, setActiveSection] = useState<SectionId>("status")
+
+  // When the sheet opens for an opportunity, silently mark all its unread
+  // buyer replies as read so the kanban badge clears after the AE views it.
+  useEffect(() => {
+    if (open && opportunity?.id) {
+      markBuyerRepliesReadAction(opportunity.id)
+    }
+  }, [open, opportunity?.id])
 
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())

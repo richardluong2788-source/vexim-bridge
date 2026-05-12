@@ -673,6 +673,8 @@ export type BuyerReply = {
   received_at: string
   created_by: string | null
   created_at: string
+  /** Null = unread. Set when an admin first reads this reply. */
+  read_at: string | null
 }
 
 // ============================================================

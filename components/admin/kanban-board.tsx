@@ -55,9 +55,11 @@ const STAGE_STYLE: Record<Stage, { color: string; dot: string }> = {
 
 interface KanbanBoardProps {
   opportunities: OpportunityWithClient[]
+  /** Map of opportunity_id → unread buyer reply count */
+  unreadReplyCountByOpp?: Record<string, number>
 }
 
-export function KanbanBoard({ opportunities: initialOpportunities }: KanbanBoardProps) {
+export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCountByOpp = {} }: KanbanBoardProps) {
   const { t } = useTranslation()
   const [opportunities, setOpportunities] = useState(initialOpportunities)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -175,6 +177,7 @@ export function KanbanBoard({ opportunities: initialOpportunities }: KanbanBoard
                   <KanbanCard
                     key={opp.id}
                     opportunity={opp}
+                    unreadReplyCount={unreadReplyCountByOpp[opp.id] ?? 0}
                     onEdit={(o) => setEditingId(o.id)}
                   />
                 ))}

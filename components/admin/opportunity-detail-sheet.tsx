@@ -483,7 +483,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
               {/* BUYER REPLIES */}
               {activeSection === "replies" && (
-                <section className="space-y-4">
+                <section className="space-y-4 max-w-3xl">
                   <OpportunityBuyerRepliesSection 
                     opportunityId={opportunity.id} 
                     open={open}
@@ -496,13 +496,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                       }, 0)
                     }}
                   />
-                </section>
-              )}
-
-              {/* REPLIES */}
-              {activeSection === "replies" && (
-                <section className="space-y-4 max-w-3xl">
-                  <OpportunityBuyerRepliesSection opportunityId={opportunity.id} open={open} />
                 </section>
               )}
 

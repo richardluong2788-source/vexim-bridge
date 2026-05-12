@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, CheckCheck, Settings } from "lucide-react"
@@ -19,6 +19,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/app/notifications/actions"
+import { createClient } from "@/lib/supabase/client"
 
 interface NotificationBellProps {
   initialUnreadCount: number
@@ -44,11 +45,58 @@ export function NotificationBell({
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [, startTransition] = useTransition()
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const snap = await getNotificationsSnapshot()
     setUnread(snap.unreadCount)
     setItems(snap.recent)
-  }
+  }, [])
+
+  // Subscribe to realtime notification inserts for instant bell updates
+  useEffect(() => {
+    const supabase = createClient()
+    
+    // Get current user ID for filtering
+    let userId: string | null = null
+    
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      userId = user.id
+      
+      // Subscribe to new notifications for this user
+      const channel = supabase
+        .channel("notifications-realtime")
+        .on<Notification>(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            // Add new notification to the top of the list
+            const newNotification = payload.new as Notification
+            setItems((prev) => [newNotification, ...prev.slice(0, 14)])
+            setUnread((c) => c + 1)
+          }
+        )
+        .subscribe()
+      
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    })
+    
+    return () => {
+      // Cleanup handled in the promise
+    }
+  }, [])
+
+  // Also refresh when initialUnreadCount changes (e.g. page navigation)
+  useEffect(() => {
+    setUnread(initialUnreadCount)
+    setItems(initialRecent)
+  }, [initialUnreadCount, initialRecent])
 
   function handleOpenChange(next: boolean) {
     setOpen(next)

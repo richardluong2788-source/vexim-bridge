@@ -310,18 +310,27 @@ export async function POST(req: NextRequest) {
     const cleanBody = extractReplyBody(emailBody)
 
     if (!cleanBody) {
-      console.log("[v0] Empty email body after cleanup")
-      return NextResponse.json({ ok: true, skipped: "empty_body" })
+      console.log("[v0] Empty email body after cleanup - using subject as fallback content")
+      // For test webhooks or empty emails, use subject as content
+      // This allows test webhooks from Resend Dashboard to work
     }
+
+    // Use subject as fallback if body is empty
+    const finalBody = cleanBody || `[No body - Subject: ${data.subject}]`
 
     // Run AI classification
     let classification: Awaited<ReturnType<typeof classifyBuyerReply>> | null = null
     try {
-      classification = await classifyBuyerReply(cleanBody, {
-        buyerCompany: match.leadCompany,
-        buyerIndustry: match.leadIndustry,
-        opportunityStage: match.oppStage,
-      })
+      // Only classify if we have actual body content (not just subject fallback)
+      if (cleanBody) {
+        classification = await classifyBuyerReply(cleanBody, {
+          buyerCompany: match.leadCompany,
+          buyerIndustry: match.leadIndustry,
+          opportunityStage: match.oppStage,
+        })
+      } else {
+        console.log("[v0] Skipping AI classification for empty/test body")
+      }
     } catch (err) {
       console.error("[v0] AI classification failed:", err)
       // Continue without AI - still save the raw reply
@@ -337,7 +346,7 @@ export async function POST(req: NextRequest) {
         subject: data.subject,
         message_id: data.message_id,
         in_reply_to: data.in_reply_to ?? null,
-        raw_content: cleanBody,
+        raw_content: finalBody,
         raw_language: "en",
         translated_vi: classification?.translatedVi ?? null,
         ai_intent: classification?.intent ?? null,
@@ -358,35 +367,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "db_insert_failed" }, { status: 500 })
     }
 
-    // Add activity log
-    await admin.from("activities").insert({
-      opportunity_id: match.opportunityId,
-      action_type: "buyer_reply_received",
-      description: classification
-        ? `[Auto] Email từ ${fromEmail} · Intent: ${classification.intent} · ${classification.summaryVi}`
-        : `[Auto] Email từ ${fromEmail} · Subject: ${data.subject}`,
-      performed_by: null,
-    })
-
-    // Mark opportunity as having unread reply
-    await admin
-      .from("opportunities")
-      .update({
-        has_unread_reply: true,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("id", match.opportunityId)
-
-    // If AI suggests next step and opp has none, seed it
-    if (classification?.suggestedNextStepVi) {
-      await admin
-        .from("opportunities")
-        .update({ next_step: classification.suggestedNextStepVi })
-        .eq("id", match.opportunityId)
-        .is("next_step", null)
-    }
-
-    console.log("[v0] Buyer reply saved:", reply?.id)
+    console.log("[v0] Buyer reply saved with ID:", reply?.id)
     return NextResponse.json({ ok: true, replyId: reply?.id })
   } catch (err) {
     console.error("[v0] Webhook error:", err)

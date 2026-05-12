@@ -56,8 +56,11 @@ type ResendEmailContent = {
 }
 
 /**
- * Fetch full email content from Resend API.
- * Webhook only contains metadata - body must be fetched separately.
+ * Fetch full email content from Resend Receiving API.
+ * Webhook only contains metadata - body must be fetched via the Receiving API.
+ * 
+ * IMPORTANT: Use /emails/receiving/:id (NOT /emails/:id which is for sent emails only)
+ * See: https://resend.com/docs/api-reference/emails/retrieve-received-email
  */
 async function fetchEmailContent(emailId: string): Promise<ResendEmailContent | null> {
   const apiKey = process.env.RESEND_API_KEY
@@ -66,29 +69,28 @@ async function fetchEmailContent(emailId: string): Promise<ResendEmailContent | 
     return null
   }
 
-  console.log("[v0] Fetching email content for ID:", emailId)
+  console.log("[v0] Fetching received email content for ID:", emailId)
   console.log("[v0] Using API key:", apiKey ? `${apiKey.slice(0, 10)}...` : "NOT SET")
 
   try {
-    // Note: Resend's /emails/:id endpoint is for SENT emails only
-    // For inbound/received emails, the body should be in the webhook payload itself
-    // If this fails, we need to handle inbound differently
-    const res = await fetch(`https://api.resend.com/emails/${emailId}`, {
+    // Use the Receiving API endpoint for inbound emails
+    // /emails/receiving/:id returns the full email body, headers, and attachment metadata
+    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     })
 
-    console.log("[v0] Resend API response status:", res.status)
+    console.log("[v0] Resend Receiving API response status:", res.status)
     const responseText = await res.text()
-    console.log("[v0] Resend API response body:", responseText.slice(0, 500))
+    console.log("[v0] Resend Receiving API response body:", responseText.slice(0, 500))
 
     if (!res.ok) {
-      console.error("[v0] Failed to fetch email content:", res.status, responseText)
+      console.error("[v0] Failed to fetch received email content:", res.status, responseText)
       return null
     }
 
     return JSON.parse(responseText)
   } catch (err) {
-    console.error("[v0] Error fetching email content:", err)
+    console.error("[v0] Error fetching received email content:", err)
     return null
   }
 }

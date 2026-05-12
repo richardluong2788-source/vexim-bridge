@@ -35,6 +35,24 @@ export default async function AdminPipelinePage() {
   }
   const { data: opportunities } = await oppQ
 
+  // Fetch unread buyer reply counts per opportunity so the Kanban card can
+  // surface a notification badge when the buyer has replied and the AE
+  // has not yet read the reply.
+  const oppIds = (opportunities ?? []).map((o) => o.id)
+  let unreadByOpp: Record<string, number> = {}
+  if (oppIds.length > 0) {
+    const { data: unreadReplies } = await admin
+      .from("buyer_replies")
+      .select("opportunity_id")
+      .in("opportunity_id", oppIds)
+      .is("read_at", null)
+    if (unreadReplies) {
+      for (const row of unreadReplies) {
+        unreadByOpp[row.opportunity_id] = (unreadByOpp[row.opportunity_id] ?? 0) + 1
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-8">
       <div className="flex flex-col gap-2">
@@ -50,7 +68,10 @@ export default async function AdminPipelinePage() {
         )}
       </div>
       <PipelineRefSearch />
-      <KanbanBoard opportunities={(opportunities as OpportunityWithClient[]) ?? []} />
+      <KanbanBoard
+        opportunities={(opportunities as OpportunityWithClient[]) ?? []}
+        unreadReplyCountByOpp={unreadByOpp}
+      />
     </div>
   )
 }

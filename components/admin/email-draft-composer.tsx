@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
+import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
 import type { EmailType } from "@/lib/supabase/types"
+import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
   { value: "introduction", labelKey: "typeIntro", descKey: "typeIntroDesc" },
@@ -26,13 +28,28 @@ const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
 interface Props {
   loading: boolean
   onGenerate: (emailType: EmailType, viPrompt: string) => void
+  /** Initial quoted text (e.g. buyer reply to respond to) */
+  quoteReply?: string
+  /** Callback when quote is cleared */
+  onClearQuote?: () => void
+  /** Current attachments */
+  attachments: UploadedAttachment[]
+  /** Callback when attachments change */
+  onAttachmentsChange: (attachments: UploadedAttachment[]) => void
 }
 
-export function EmailDraftComposer({ loading, onGenerate }: Props) {
+export function EmailDraftComposer({ 
+  loading, 
+  onGenerate, 
+  quoteReply, 
+  onClearQuote,
+  attachments,
+  onAttachmentsChange,
+}: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
-  const [emailType, setEmailType] = useState<EmailType>("introduction")
+  const [emailType, setEmailType] = useState<EmailType>("follow_up")
   const [viPrompt, setViPrompt] = useState("")
 
   function handleSubmit() {
@@ -46,6 +63,28 @@ export function EmailDraftComposer({ loading, onGenerate }: Props) {
         <Mail className="h-4 w-4 text-primary" />
         {s.composerTitle}
       </div>
+
+      {/* Quote context */}
+      {quoteReply && (
+        <div className="rounded-md bg-muted/50 border border-border p-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-medium">Đang phản hồi:</span>
+              <br />
+              {quoteReply.slice(0, 150)}
+              {quoteReply.length > 150 && "..."}
+            </p>
+            <button
+              type="button"
+              onClick={onClearQuote}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              aria-label="Xóa quote"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <FieldGroup className="gap-4">
         <Field>
@@ -82,6 +121,15 @@ export function EmailDraftComposer({ loading, onGenerate }: Props) {
             className="resize-none"
           />
           <FieldDescription>{s.viPromptHelp}</FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
+          <EmailAttachmentPicker
+            attachments={attachments}
+            onChange={onAttachmentsChange}
+            disabled={loading}
+          />
         </Field>
       </FieldGroup>
 

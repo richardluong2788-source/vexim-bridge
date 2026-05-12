@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, type FormEvent } from "react"
+import { useState, useTransition, useEffect, useRef, type FormEvent } from "react"
 import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
@@ -25,6 +25,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
 import { updateOpportunityDetails, suggestClientAction } from "@/app/admin/opportunities/actions"
+import { markBuyerRepliesReadAction } from "@/app/admin/opportunities/reply-actions"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
 import type { Stage } from "@/lib/supabase/types"
@@ -100,6 +101,16 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [pending, startTransition] = useTransition()
   const [aiLoading, setAiLoading] = useState(false)
   const [activeSection, setActiveSection] = useState<SectionId>("status")
+  const emailSectionRef = useRef<HTMLDivElement>(null)
+  const [quoteReply, setQuoteReply] = useState<string | undefined>()
+
+  // When the sheet opens for an opportunity, silently mark all its unread
+  // buyer replies as read so the kanban badge clears after the AE views it.
+  useEffect(() => {
+    if (open && opportunity?.id) {
+      markBuyerRepliesReadAction(opportunity.id)
+    }
+  }, [open, opportunity?.id])
 
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())
@@ -460,8 +471,31 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
               {/* EMAIL */}
               {activeSection === "email" && (
-                <section className="space-y-4 max-w-3xl">
-                  <OpportunityEmailSection opportunityId={opportunity.id} open={open} />
+                <section ref={emailSectionRef} className="space-y-4">
+                  <OpportunityEmailSection 
+                    opportunityId={opportunity.id} 
+                    open={open}
+                    quoteReply={quoteReply}
+                    onClearQuote={() => setQuoteReply(undefined)}
+                  />
+                </section>
+              )}
+
+              {/* BUYER REPLIES */}
+              {activeSection === "replies" && (
+                <section className="space-y-4">
+                  <OpportunityBuyerRepliesSection 
+                    opportunityId={opportunity.id} 
+                    open={open}
+                    onReplyClick={(replyText) => {
+                      setQuoteReply(replyText)
+                      setActiveSection("email")
+                      // Scroll to email section after state update
+                      setTimeout(() => {
+                        emailSectionRef.current?.scrollIntoView({ behavior: "smooth" })
+                      }, 0)
+                    }}
+                  />
                 </section>
               )}
 

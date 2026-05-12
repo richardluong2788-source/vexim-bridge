@@ -17,15 +17,20 @@ import {
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { EmailType } from "@/lib/supabase/types"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
+import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 type FlowState = "compose" | "review" | "success"
 
 interface Props {
   opportunityId: string
   open: boolean
+  /** Quote text to respond to (from buyer reply) */
+  quoteReply?: string
+  /** Callback when user clears the quote */
+  onClearQuote?: () => void
 }
 
-export function OpportunityEmailSection({ opportunityId, open }: Props) {
+export function OpportunityEmailSection({ opportunityId, open, quoteReply, onClearQuote }: Props) {
   const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
@@ -34,6 +39,7 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
   const [sending, setSending] = useState(false)
   const [draft, setDraft] = useState<GenerateEmailResult | null>(null)
   const [draftId, setDraftId] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<UploadedAttachment[]>([])
 
   // History
   const [history, setHistory] = useState<EmailDraftRow[]>([])
@@ -89,6 +95,7 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
         overrideSubject: overrides.subject,
         overrideContent: overrides.content,
         overrideRecipient: overrides.recipient,
+        attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!res.ok) {
         if (res.error === "noRecipient") {
@@ -129,6 +136,7 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
     setFlowState("compose")
     setDraft(null)
     setDraftId(null)
+    setAttachments([])
   }
 
   return (
@@ -141,7 +149,14 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
       {/* Main Flow */}
       <div className="border border-border rounded-lg p-4 bg-card">
         {flowState === "compose" && (
-          <EmailDraftComposer loading={generating} onGenerate={handleGenerate} />
+          <EmailDraftComposer 
+            loading={generating} 
+            onGenerate={handleGenerate}
+            quoteReply={quoteReply}
+            onClearQuote={onClearQuote}
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+          />
         )}
 
         {flowState === "review" && draft && (
@@ -151,6 +166,8 @@ export function OpportunityEmailSection({ opportunityId, open }: Props) {
             onSend={handleSend}
             onReject={handleReject}
             onBack={resetFlow}
+            attachments={attachments}
+            onRemoveAttachment={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
           />
         )}
 

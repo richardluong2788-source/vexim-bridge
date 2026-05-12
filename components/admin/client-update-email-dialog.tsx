@@ -16,7 +16,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { sendClientUpdateEmail } from "@/app/admin/opportunities/client-email-actions"
+import { maskBuyer } from "@/lib/protection/mask"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
+import type { Stage } from "@/lib/supabase/types"
 
 interface Props {
   open: boolean
@@ -38,17 +40,38 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
   // Auto-fill when dialog opens
   useEffect(() => {
     if (open && opportunity) {
-      const buyerName = opportunity.leads?.company_name ?? opportunity.buyer_code ?? "Buyer"
+      // Apply protection masking based on pipeline stage
+      const lead = opportunity.leads
+      const stage = (opportunity.stage ?? "new") as Stage
+      const maskedBuyer = lead
+        ? maskBuyer(
+            {
+              company_name: lead.company_name ?? "Buyer",
+              industry: lead.industry ?? null,
+              region: lead.region ?? null,
+              website: lead.website ?? null,
+              linkedin_url: lead.linkedin_url ?? null,
+              contact_person: lead.contact_person ?? null,
+              contact_email: lead.contact_email ?? null,
+              contact_phone: lead.contact_phone ?? null,
+            },
+            stage,
+            opportunity.buyer_code
+          )
+        : null
+
+      // Use masked display name (code at early stages, real name at later stages)
+      const buyerDisplayName = maskedBuyer?.displayName ?? opportunity.buyer_code ?? "Buyer"
       const clientName = opportunity.profiles?.company_name ?? "Client"
 
       // Build subject
-      setSubject(`Cập nhật tiến độ: ${buyerName}`)
+      setSubject(`Cập nhật tiến độ: ${buyerDisplayName}`)
 
       // Build body from status fields
       const parts: string[] = []
       parts.push(`Kính gửi ${clientName},`)
       parts.push("")
-      parts.push(`Đây là cập nhật mới nhất về cơ hội với ${buyerName}:`)
+      parts.push(`Đây là cập nhật mới nhất về cơ hội với ${buyerDisplayName}:`)
       parts.push("")
 
       if (opportunity.next_step) {
@@ -78,6 +101,27 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
   }, [open, opportunity])
 
   const clientEmail = opportunity.profiles?.email
+
+  // Compute masked buyer name for display in dialog (outside useEffect for JSX use)
+  const lead = opportunity.leads
+  const stage = (opportunity.stage ?? "new") as Stage
+  const maskedBuyerForDisplay = lead
+    ? maskBuyer(
+        {
+          company_name: lead.company_name ?? "Buyer",
+          industry: lead.industry ?? null,
+          region: lead.region ?? null,
+          website: lead.website ?? null,
+          linkedin_url: lead.linkedin_url ?? null,
+          contact_person: lead.contact_person ?? null,
+          contact_email: lead.contact_email ?? null,
+          contact_phone: lead.contact_phone ?? null,
+        },
+        stage,
+        opportunity.buyer_code
+      )
+    : null
+  const buyerDisplayNameForUI = maskedBuyerForDisplay?.displayName ?? opportunity.buyer_code ?? "buyer"
 
   async function handleSend() {
     if (!clientEmail) {
@@ -115,7 +159,7 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
           <DialogTitle>Gửi cập nhật cho Client</DialogTitle>
           <DialogDescription>
             Thông báo cho {opportunity.profiles?.company_name ?? "client"} về tiến độ cơ hội với{" "}
-            {opportunity.leads?.company_name ?? opportunity.buyer_code ?? "buyer"}.
+            {buyerDisplayNameForUI}.
           </DialogDescription>
         </DialogHeader>
 

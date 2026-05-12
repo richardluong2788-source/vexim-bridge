@@ -1,10 +1,18 @@
 "use client"
 
 import { useState, useEffect, useTransition } from "react"
-import { Mail, CheckCircle2, History, ChevronDown, ChevronUp, AlertCircle } from "lucide-react"
+import { Mail, CheckCircle2, History, ChevronDown, ChevronUp, AlertCircle, X } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from "@/components/ui/sheet"
 import { EmailDraftComposer } from "@/components/admin/email-draft-composer"
 import { EmailDraftReviewer } from "@/components/admin/email-draft-reviewer"
 import {
@@ -45,6 +53,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   const [history, setHistory] = useState<EmailDraftRow[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [historyLoading, startHistoryTransition] = useTransition()
+  const [selectedEmailDetail, setSelectedEmailDetail] = useState<EmailDraftRow | null>(null)
 
   // Load history when section opens
   useEffect(() => {
@@ -221,9 +230,13 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
               <ul className="divide-y divide-border max-h-64 overflow-y-auto">
                 {history.map((item) => (
                   <li key={item.id} className="px-4 py-3">
-                    <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmailDetail(item)}
+                      className="w-full flex items-start justify-between gap-2 text-left hover:opacity-75 transition-opacity"
+                    >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
+                        <p className="text-sm font-medium text-foreground truncate hover:underline">
                           {item.generated_subject}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -235,7 +248,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
                           ? new Date(item.sent_at).toLocaleDateString()
                           : "—"}
                       </div>
-                    </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -243,6 +256,84 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
           </div>
         )}
       </div>
+
+      {/* Email Detail Sheet */}
+      <Sheet open={!!selectedEmailDetail} onOpenChange={(open) => !open && setSelectedEmailDetail(null)}>
+        <SheetContent side="right" className="max-w-2xl overflow-y-auto">
+          {selectedEmailDetail && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="line-clamp-2 pr-8">
+                  {selectedEmailDetail.generated_subject}
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-4">
+                {/* Metadata */}
+                <div className="space-y-3 pb-4 border-b border-border">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Gửi đến</p>
+                    <p className="text-sm text-foreground">{selectedEmailDetail.recipient_email ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Ngày gửi</p>
+                    <p className="text-sm text-foreground">
+                      {selectedEmailDetail.sent_at
+                        ? new Date(selectedEmailDetail.sent_at).toLocaleString()
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Loại email</p>
+                    <p className="text-sm text-foreground capitalize">{selectedEmailDetail.email_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
+                    <Badge 
+                      variant={selectedEmailDetail.status === "sent" ? "default" : "secondary"}
+                      className="mt-1"
+                    >
+                      {selectedEmailDetail.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Nội dung tiếng Việt</p>
+                    <div className="rounded-md bg-muted/50 p-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                      {selectedEmailDetail.translated_content_vi || selectedEmailDetail.generated_content_en || "—"}
+                    </div>
+                  </div>
+
+                  {selectedEmailDetail.generated_content_en && selectedEmailDetail.translated_content_vi && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors py-2 select-none font-medium">
+                        Xem bản tiếng Anh
+                      </summary>
+                      <div className="rounded-md bg-muted/50 p-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto mt-2">
+                        {selectedEmailDetail.generated_content_en}
+                      </div>
+                    </details>
+                  )}
+                </div>
+
+                {selectedEmailDetail.ai_prompt && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors py-2 select-none font-medium">
+                      Xem prompt gốc
+                    </summary>
+                    <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto mt-2 font-mono text-xs">
+                      {selectedEmailDetail.ai_prompt}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </section>
   )
 }

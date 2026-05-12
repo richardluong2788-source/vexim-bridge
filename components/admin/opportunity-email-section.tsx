@@ -259,7 +259,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
 
       {/* Email Detail Sheet */}
       <Sheet open={!!selectedEmailDetail} onOpenChange={(open) => !open && setSelectedEmailDetail(null)}>
-        <SheetContent side="right" className="max-w-2xl overflow-y-auto">
+        <SheetContent side="right" className="max-w-4xl overflow-y-auto">
           {selectedEmailDetail && (
             <>
               <SheetHeader>

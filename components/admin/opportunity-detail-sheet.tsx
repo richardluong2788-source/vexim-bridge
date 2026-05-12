@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2,
+  ChevronLeft, CheckCircle2, Building2, Send,
 } from "lucide-react"
 import {
   Sheet,
@@ -25,6 +25,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Badge } from "@/components/ui/badge"
 import { updateOpportunityDetails, suggestClientAction } from "@/app/admin/opportunities/actions"
+import { sendClientStatusEmail } from "@/app/admin/opportunities/client-email-actions"
 import { markBuyerRepliesReadAction } from "@/app/admin/opportunities/reply-actions"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
@@ -144,6 +145,35 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const currentStage: Stage = (opportunity.stage as Stage) ?? "new"
   const stageLabel = t.kanban.stages[currentStage] ?? currentStage
   const activeStageIdx = stageIndex(currentStage)
+
+  const [sendingClientEmail, setSendingClientEmail] = useState(false)
+
+  async function handleSendClientEmail() {
+    if (!opportunity?.profiles?.email) {
+      toast.error("Không tìm thấy email client")
+      return
+    }
+    setSendingClientEmail(true)
+    try {
+      const result = await sendClientStatusEmail({
+        opportunityId: opportunity.id,
+        clientEmail: opportunity.profiles.email,
+        clientName: opportunity.profiles.full_name || opportunity.profiles.company_name || "Quý khách",
+        buyerCompany: opportunity.leads?.company_name || "Buyer",
+        currentStage,
+        stageLabel,
+      })
+      if (result.success) {
+        toast.success("Đã gửi email cập nhật cho client")
+      } else {
+        toast.error(result.error || "Gửi email thất bại")
+      }
+    } catch {
+      toast.error("Có lỗi xảy ra khi gửi email")
+    } finally {
+      setSendingClientEmail(false)
+    }
+  }
 
   async function handleAiSuggest() {
     if (!opportunity) return
@@ -594,6 +624,24 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                   {opportunity.profiles.full_name}
                 </p>
               )}
+              
+              {/* Send status email to client button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full mt-3 h-7 text-xs gap-1.5"
+                onClick={handleSendClientEmail}
+                disabled={sendingClientEmail || !opportunity.profiles?.email}
+                title={opportunity.profiles?.email ? `Gửi email đến ${opportunity.profiles.email}` : "Client chưa có email"}
+              >
+                {sendingClientEmail ? (
+                  <Spinner className="h-3 w-3" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                Gửi cập nhật
+              </Button>
             </div>
 
             <div className="flex flex-col py-3 gap-0.5 flex-1">

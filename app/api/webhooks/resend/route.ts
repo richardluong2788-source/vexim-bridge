@@ -5,6 +5,9 @@ import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
 export const preferredRegion = "auto"
+// Force dynamic rendering and prevent any caching/static optimization
+export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
 
 /**
  * Resend Inbound Email Webhook Handler

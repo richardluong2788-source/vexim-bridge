@@ -46,11 +46,11 @@ export const en = {
       heroSubtitle:
         "Vexim Bridge helps Vietnamese businesses reach American buyers professionally — with a dedicated AE by your side, no guesswork needed.",
       heroFeatures: [
-        "In-depth buyer analysis: Purchase history, frequency, competitors, seasonality – all crystal clear.",
-        "Exclusive opportunities: Each buyer is introduced to only one business, no overlap.",
-        "Your own expert: Someone who truly understands your industry, with you every step.",
-        "Cost of one local sales rep: Full system, tools, and expert for the price of one seat.",
-        "Real-time transparency: All activities updated 24/7 on our online platform.",
+        "Know your buyers inside-out: Purchase patterns, frequency, competitors, seasons – you have the data to win every deal.",
+        "Your exclusive territory: Each buyer connects with only one Vietnamese business – no fighting for the same customer.",
+        "Expert by your side: Your AE is a specialist in your product category, guiding you through every conversation and shipment.",
+        "Cost like a single sales rep: Full platform, all tools, and a dedicated expert – priced fairly for serious exporters.",
+        "See everything live: Every buyer interaction, deal status, and shipment update – live 24/7 on the platform.",
       ],
       title: "Welcome back",
       subtitle: "Sign in to your account to continue",

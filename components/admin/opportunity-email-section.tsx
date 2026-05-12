@@ -299,7 +299,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
                 </div>
 
                 {/* Content */}
-                <div className="space-y-2">
+                <div className="space-y-2 px-2">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-2">Nội dung tiếng Việt</p>
                     <div className="rounded-md bg-muted/50 p-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">

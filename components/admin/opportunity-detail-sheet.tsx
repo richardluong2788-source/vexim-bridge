@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2,
+  ChevronLeft, CheckCircle2, Building2,
 } from "lucide-react"
 import {
   Sheet,
@@ -573,7 +573,30 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
           </form>
 
           {/* Right sidebar nav */}
-          <nav className="w-48 shrink-0 border-l border-border bg-muted/20 flex flex-col py-3 gap-0.5 overflow-y-auto">
+          <nav className="w-48 shrink-0 border-l border-border bg-muted/20 flex flex-col overflow-y-auto">
+
+            {/* Client info card */}
+            <div className="px-3 py-3 border-b border-border bg-muted/40 shrink-0">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Client</span>
+              </div>
+              <p className="text-xs font-semibold text-foreground leading-snug truncate" title={opportunity.profiles?.company_name ?? undefined}>
+                {opportunity.profiles?.company_name ?? "—"}
+              </p>
+              {opportunity.profiles?.industry && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate" title={opportunity.profiles.industry}>
+                  {opportunity.profiles.industry}
+                </p>
+              )}
+              {opportunity.profiles?.full_name && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate" title={opportunity.profiles.full_name}>
+                  {opportunity.profiles.full_name}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col py-3 gap-0.5 flex-1">
             {NAV_ITEMS.map(({ id, icon: Icon }) => (
               <button
                 key={id}
@@ -592,7 +615,8 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                   <ChevronLeft className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
                 )}
               </button>
-            ))}
+              ))}
+            </div>
           </nav>
         </div>
       </SheetContent>

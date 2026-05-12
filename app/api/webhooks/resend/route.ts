@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -368,6 +369,42 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[v0] Buyer reply saved with ID:", reply?.id)
+
+    // Dispatch notification to opportunity owner
+    try {
+      const admin = createAdminClient()
+      const { data: opp, error: oppErr } = await admin
+        .from("opportunities")
+        .select("owner_id, lead_id")
+        .eq("id", match.opportunityId)
+        .single()
+
+      if (!oppErr && opp?.owner_id) {
+        await dispatchNotification({
+          userId: opp.owner_id,
+          category: "action_required",
+          opportunityId: match.opportunityId,
+          linkPath: `/admin/opportunities/${match.opportunityId}?tab=replies`,
+          dedupKey: `buyer_reply:${reply?.id}`,
+          title: {
+            vi: `Có phản hồi từ ${fromEmail}`,
+            en: `New reply from ${fromEmail}`,
+          },
+          body: {
+            vi: `${data.subject.slice(0, 60)}...`,
+            en: `${data.subject.slice(0, 60)}...`,
+          },
+          ctaLabel: {
+            vi: "Xem phản hồi",
+            en: "View reply",
+          },
+        })
+      }
+    } catch (err) {
+      console.error("[v0] Failed to dispatch notification:", err)
+      // Don't fail the webhook - notification is nice-to-have
+    }
+
     return NextResponse.json({ ok: true, replyId: reply?.id })
   } catch (err) {
     console.error("[v0] Webhook error:", err)

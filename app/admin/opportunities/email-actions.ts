@@ -4,6 +4,7 @@ import { generateEmailDraft, type GenerateEmailInput, type GenerateEmailResult, 
 import { sendEmailDraft, rejectEmailDraft, type SendDraftResult, EmailSenderAuthError } from "@/lib/ai/email-sender"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
+import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generate Email Draft Action
@@ -51,6 +52,7 @@ export type SendEmailActionInput = {
   overrideSubject?: string
   overrideContent?: string
   overrideRecipient?: string
+  attachments?: UploadedAttachment[]
 }
 
 export type SendEmailActionResult =
@@ -65,6 +67,7 @@ export async function sendEmailDraftAction(
       overrideSubject: input.overrideSubject,
       overrideContent: input.overrideContent,
       overrideRecipient: input.overrideRecipient,
+      attachments: input.attachments,
     })
     return { ok: true, data: result }
   } catch (err) {

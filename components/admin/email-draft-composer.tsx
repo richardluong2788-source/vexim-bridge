@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
+import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
 import type { EmailType } from "@/lib/supabase/types"
+import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
   { value: "introduction", labelKey: "typeIntro", descKey: "typeIntroDesc" },
@@ -30,9 +32,20 @@ interface Props {
   quoteReply?: string
   /** Callback when quote is cleared */
   onClearQuote?: () => void
+  /** Current attachments */
+  attachments: UploadedAttachment[]
+  /** Callback when attachments change */
+  onAttachmentsChange: (attachments: UploadedAttachment[]) => void
 }
 
-export function EmailDraftComposer({ loading, onGenerate, quoteReply, onClearQuote }: Props) {
+export function EmailDraftComposer({ 
+  loading, 
+  onGenerate, 
+  quoteReply, 
+  onClearQuote,
+  attachments,
+  onAttachmentsChange,
+}: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
@@ -108,6 +121,15 @@ export function EmailDraftComposer({ loading, onGenerate, quoteReply, onClearQuo
             className="resize-none"
           />
           <FieldDescription>{s.viPromptHelp}</FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
+          <EmailAttachmentPicker
+            attachments={attachments}
+            onChange={onAttachmentsChange}
+            disabled={loading}
+          />
         </Field>
       </FieldGroup>
 

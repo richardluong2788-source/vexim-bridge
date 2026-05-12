@@ -116,7 +116,7 @@ export default async function AdminDashboardPage() {
   } else if (isAE) {
     // AE sees personal dashboard
     const aeKPIs = await getAEKPIs(userId, period)
-    const userName = profile?.full_name?.split(" ")[0] ?? "AE"
+    const userName = profile?.full_name ?? "Account Executive"
 
     dashboardContent = (
       <AEPersonalDashboard
@@ -130,7 +130,7 @@ export default async function AdminDashboardPage() {
   } else if (isLR) {
     // LR sees import/buyer focused dashboard
     const lrKPIs = await getLRKPIs(userId, period)
-    const userName = profile?.full_name?.split(" ")[0] ?? "LR"
+    const userName = profile?.full_name ?? "Lead Researcher"
 
     dashboardContent = (
       <LRPersonalDashboard

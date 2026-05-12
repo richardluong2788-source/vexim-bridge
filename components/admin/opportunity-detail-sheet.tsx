@@ -577,8 +577,30 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
           {/* Right sidebar nav */}
           <nav className="w-48 shrink-0 border-l border-border bg-muted/20 flex flex-col overflow-y-auto">
 
-            {/* Client info card */}
-            <div className="px-3 py-3 border-b border-border bg-muted/40 shrink-0">
+            <div className="flex flex-col py-3 gap-0.5 flex-1">
+            {NAV_ITEMS.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveSection(id)}
+                className={[
+                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors w-full rounded-none",
+                  activeSection === id
+                    ? "bg-background text-primary font-medium border-l-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{navLabel[id]}</span>
+                {activeSection === id && (
+                  <ChevronLeft className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
+                )}
+              </button>
+              ))}
+            </div>
+
+            {/* Client info card - bottom */}
+            <div className="px-3 py-3 border-t border-border bg-muted/40 shrink-0 mt-auto">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Client</span>
@@ -608,28 +630,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                 <Send className="h-3 w-3" />
                 Gửi cập nhật
               </Button>
-            </div>
-
-            <div className="flex flex-col py-3 gap-0.5 flex-1">
-            {NAV_ITEMS.map(({ id, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveSection(id)}
-                className={[
-                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors w-full rounded-none",
-                  activeSection === id
-                    ? "bg-background text-primary font-medium border-l-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                ].join(" ")}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{navLabel[id]}</span>
-                {activeSection === id && (
-                  <ChevronLeft className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
-                )}
-              </button>
-              ))}
             </div>
           </nav>
         </div>

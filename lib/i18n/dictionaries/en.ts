@@ -44,7 +44,7 @@ export const en = {
       brandBadge: "Vexim Trade",
       heroTitle: "Exporting to the US just got easier.",
       heroSubtitle:
-        "Vexim Bridge helps Vietnamese businesses reach American buyers professionally — with a dedicated AE by your side, no guesswork needed.",
+        "Vexim Trade helps Vietnamese businesses connect with U.S. buyers professionally and effectively — from market research and buyer sourcing to supporting the entire deal-closing process."
       heroFeatures: [
           "We thoroughly research each buyer — including purchase history, buying frequency, competitors, and seasonal trends — so you gain a complete market perspective.",
   "Each buyer is exclusively matched with only one business. No overlap, no competition.",

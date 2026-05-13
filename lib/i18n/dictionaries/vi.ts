@@ -46,7 +46,7 @@ export const vi: Dictionary = {
       brandBadge: "Vexim Trade",
       heroTitle: "Xuất khẩu sang Mỹ không còn là bài toán khó.",
       heroSubtitle:
-        "Vexim Bridge giúp doanh nghiệp Việt Nam tiếp cận người mua Mỹ một cách chuyên nghiệp — có đội ngũ AE đồng hành, không cần tự mò mẫm.",
+          "Vexim Trade giúp doanh nghiệp Việt Nam tiếp cận buyer Mỹ bài bản và hiệu quả - từ nghiên cứu thị trường, kết nối buyer đến theo sát quá trình chốt đơn.",
       heroFeatures: [
         "Chúng tôi nghiên cứu kỹ từng buyer - lịch sử mua, tần suất, đối thủ, mùa vụ để bạn có góc nhìn tổng quan",
         "Mỗi buyer chỉ giới thiệu cho một doanh nghiệp duy nhất. Không chồng chéo, không cạnh tranh.",

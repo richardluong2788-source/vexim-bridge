@@ -42,9 +42,16 @@ export const en = {
   auth: {
     login: {
       brandBadge: "Vexim Trade",
-      heroTitle: "Connecting Vietnamese exporters with US buyers.",
+      heroTitle: "Exporting to the US just got easier.",
       heroSubtitle:
-        "Manage your sales pipeline, track opportunities, and grow your export business with a single unified platform.",
+        "Vexim Bridge helps Vietnamese businesses reach American buyers professionally — with a dedicated AE by your side, no guesswork needed.",
+      heroFeatures: [
+        "We dig deep into every buyer — purchase history, frequency, competitors, seasonality. No more guesswork.",
+        "Each buyer goes to just one business. No overlap, no competition.",
+        "You get your own expert who speaks your industry language, guiding you every step of the way.",
+        "Same cost as hiring one local sales rep — but you get the whole system, all the tools, and the expert too.",
+        "Everything updates in real-time. You always know exactly where you stand, 24/7.",
+      ],
       title: "Welcome back",
       subtitle: "Sign in to your account to continue",
       email: "Email",

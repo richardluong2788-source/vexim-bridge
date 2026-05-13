@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, TrendingUp } from "lucide-react"
+import { AlertCircle, Loader2, TrendingUp, Eye, EyeOff, CheckCircle2 } from "lucide-react"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -62,11 +63,21 @@ export default function LoginPage() {
           </div>
           <span className="text-lg font-semibold tracking-tight">{t.auth.login.brandBadge}</span>
         </div>
-        <div className="flex flex-col gap-4">
-          <h1 className="text-4xl font-bold leading-tight text-balance">{t.auth.login.heroTitle}</h1>
-          <p className="text-base leading-relaxed text-primary-foreground/70 text-pretty">
-            {t.auth.login.heroSubtitle}
-          </p>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
+            <h1 className="text-4xl font-bold leading-tight text-balance">{t.auth.login.heroTitle}</h1>
+            <p className="text-lg leading-relaxed text-primary-foreground/80 text-pretty">
+              {t.auth.login.heroSubtitle}
+            </p>
+          </div>
+          <ul className="flex flex-col gap-3">
+            {t.auth.login.heroFeatures.map((feature, index) => (
+              <li key={index} className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                <span className="text-sm text-primary-foreground/90">{feature}</span>
+              </li>
+            ))}
+          </ul>
         </div>
         <p className="text-xs text-primary-foreground/40">
           &copy; {new Date().getFullYear()} {t.app.name}.
@@ -118,15 +129,29 @@ export default function LoginPage() {
                       {t.auth.forgotPassword.link}
                     </Link>
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder={t.auth.login.passwordPlaceholder}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder={t.auth.login.passwordPlaceholder}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (

@@ -44,9 +44,16 @@ export const vi: Dictionary = {
   auth: {
     login: {
       brandBadge: "Vexim Trade",
-      heroTitle: "Kết nối doanh nghiệp xuất khẩu Việt Nam với người mua Mỹ.",
+      heroTitle: "Xuất khẩu sang Mỹ không còn là bài toán khó.",
       heroSubtitle:
-        "Quản lý pipeline bán hàng, theo dõi cơ hội và phát triển hoạt động xuất khẩu của bạn trên một nền tảng thống nhất.",
+        "Vexim Bridge giúp doanh nghiệp Việt Nam tiếp cận người mua Mỹ một cách chuyên nghiệp — có đội ngũ AE đồng hành, không cần tự mò mẫm.",
+      heroFeatures: [
+        "Chúng tôi nghiên cứu kỹ từng buyer — lịch sử mua, tần suất, đối thủ, mùa vụ — để bạn không phải đoán mò.",
+        "Mỗi buyer chỉ giới thiệu cho một doanh nghiệp duy nhất. Không chồng chéo, không cạnh tranh.",
+        "Bạn sẽ có chuyên gia riêng, am hiểu ngành hàng, đồng hành từ đầu đến khi chốt đơn.",
+        "Chi phí? Tương đương một sales nội địa — nhưng bạn có cả hệ thống, công cụ và người đi cùng.",
+        "Mọi hoạt động cập nhật real-time. Bạn biết chính xác mình đang ở đâu, 24/7.",
+      ],
       title: "Chào mừng trở lại",
       subtitle: "Đăng nhập để tiếp tục",
       email: "Email",

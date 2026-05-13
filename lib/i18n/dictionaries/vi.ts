@@ -48,11 +48,11 @@ export const vi: Dictionary = {
       heroSubtitle:
         "Vexim Bridge giúp doanh nghiệp Việt Nam tiếp cận người mua Mỹ một cách chuyên nghiệp — có đội ngũ AE đồng hành, không cần tự mò mẫm.",
       heroFeatures: [
-        "Chúng tôi nghiên cứu kỹ từng buyer — lịch sử mua, tần suất, đối thủ, mùa vụ — để bạn không phải đoán mò.",
+        "Chúng tôi nghiên cứu kỹ từng buyer - lịch sử mua, tần suất, đối thủ, mùa vụ để bạn có góc nhìn tổng quan",
         "Mỗi buyer chỉ giới thiệu cho một doanh nghiệp duy nhất. Không chồng chéo, không cạnh tranh.",
-        "Bạn sẽ có chuyên gia riêng, am hiểu ngành hàng, đồng hành từ đầu đến khi chốt đơn.",
-        "Chi phí? Tương đương một sales nội địa — nhưng bạn có cả hệ thống, công cụ và người đi cùng.",
-        "Mọi hoạt động cập nhật real-time. Bạn biết chính xác mình đang ở đâu, 24/7.",
+        "Mỗi đối tác sẽ có chuyên gia riêng biệt, am hiểu ngành hàng, đồng hành từ đầu đến khi chốt đơn.",
+        "Chi phí tương đương một sales nội địa - nhưng bạn có cả phòng kinh doanh quốc tế chuyên nghiệp đi cùng.",
+        "Mọi hoạt động cập nhật theo thời gian thực. Bạn biết chính xác mình đang ở đâu.",
       ],
       title: "Chào mừng trở lại",
       subtitle: "Đăng nhập để tiếp tục",

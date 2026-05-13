@@ -46,11 +46,11 @@ export const en = {
       heroSubtitle:
         "Vexim Bridge helps Vietnamese businesses reach American buyers professionally — with a dedicated AE by your side, no guesswork needed.",
       heroFeatures: [
-        "We dig deep into every buyer — purchase history, frequency, competitors, seasonality. No more guesswork.",
-        "Each buyer goes to just one business. No overlap, no competition.",
-        "You get your own expert who speaks your industry language, guiding you every step of the way.",
-        "Same cost as hiring one local sales rep — but you get the whole system, all the tools, and the expert too.",
-        "Everything updates in real-time. You always know exactly where you stand, 24/7.",
+          "We thoroughly research each buyer — including purchase history, buying frequency, competitors, and seasonal trends — so you gain a complete market perspective.",
+  "Each buyer is exclusively matched with only one business. No overlap, no competition.",
+  "Every partner is supported by a dedicated specialist who understands the industry and stays with you from the first step to closing the deal.",
+  "The cost is comparable to hiring a local salesperson — but you gain an entire professional international sales team working alongside you.",
+  "All activities are updated in real time, so you always know exactly where you stand.",
       ],
       title: "Welcome back",
       subtitle: "Sign in to your account to continue",

@@ -223,7 +223,7 @@ export function NotificationBell({
                             !n.read_at && "font-semibold",
                           )}
                         >
-                          {n.title}
+                          {n.title || "—"}
                         </p>
                         {!n.read_at && (
                           <span className="ml-auto shrink-0 inline-flex items-center rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">

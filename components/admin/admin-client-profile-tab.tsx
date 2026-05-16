@@ -3,7 +3,7 @@
 import Link from "next/link"
 import {
   Globe,
-  GlobeOff,
+  EyeOff,
   ExternalLink,
   Settings,
   Eye,
@@ -71,7 +71,7 @@ export function AdminClientProfileTab({
                     </>
                   ) : (
                     <>
-                      <GlobeOff className="w-3 h-3 mr-1" />
+                      <EyeOff className="w-3 h-3 mr-1" />
                       Draft
                     </>
                   )}

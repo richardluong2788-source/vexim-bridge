@@ -8,6 +8,7 @@ import {
   buildEvalContext,
   evaluateClientForMonth,
 } from "@/lib/sla/evaluator"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 /**
  * Server actions for the admin SLA pages.
@@ -200,6 +201,15 @@ export async function respondToClientRequest(
     return { ok: false, error: parsed.error.errors[0]?.message ?? "Invalid" }
   }
 
+  // First get the request details to find the client
+  const { data: request } = await guard.admin
+    .from("client_requests" as never)
+    .select("id, client_id, subject")
+    .eq("id", parsed.data.request_id)
+    .single<{ id: string; client_id: string; subject: string }>()
+
+  if (!request) return { ok: false, error: "Request not found" }
+
   const nowIso = new Date().toISOString()
   const { error } = await guard.admin
     .from("client_requests" as never)
@@ -212,6 +222,28 @@ export async function respondToClientRequest(
     .eq("id", parsed.data.request_id)
     .is("first_response_at", null)
   if (error) return { ok: false, error: error.message }
+
+  // Notify the client that their request has been responded to
+  dispatchNotification({
+    userId: request.client_id,
+    category: "status_update",
+    linkPath: `/client/sla`,
+    dedupKey: `client_request_responded:${request.id}`,
+    title: {
+      vi: `Yêu cầu của bạn đã được phản hồi`,
+      en: `Your request has been responded`,
+    },
+    body: {
+      vi: parsed.data.note || request.subject,
+      en: parsed.data.note || request.subject,
+    },
+    ctaLabel: {
+      vi: "Xem chi tiết",
+      en: "View details",
+    },
+  }).catch((err) => {
+    console.error("[sla] notification dispatch failed", err)
+  })
 
   revalidatePath("/admin/sla")
   return { ok: true }
@@ -230,6 +262,16 @@ export async function resolveClientRequest(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.errors[0]?.message ?? "Invalid" }
   }
+
+  // First get the request details to find the client
+  const { data: request } = await guard.admin
+    .from("client_requests" as never)
+    .select("id, client_id, subject")
+    .eq("id", parsed.data.request_id)
+    .single<{ id: string; client_id: string; subject: string }>()
+
+  if (!request) return { ok: false, error: "Request not found" }
+
   const { error } = await guard.admin
     .from("client_requests" as never)
     .update({
@@ -238,6 +280,29 @@ export async function resolveClientRequest(
     } as never)
     .eq("id", parsed.data.request_id)
   if (error) return { ok: false, error: error.message }
+
+  // Notify the client that their request has been resolved
+  dispatchNotification({
+    userId: request.client_id,
+    category: "deal_closed",
+    linkPath: `/client/sla`,
+    dedupKey: `client_request_resolved:${request.id}`,
+    title: {
+      vi: `Yêu cầu của bạn đã được giải quyết`,
+      en: `Your request has been resolved`,
+    },
+    body: {
+      vi: request.subject,
+      en: request.subject,
+    },
+    ctaLabel: {
+      vi: "Xem chi tiết",
+      en: "View details",
+    },
+  }).catch((err) => {
+    console.error("[sla] notification dispatch failed", err)
+  })
+
   revalidatePath("/admin/sla")
   return { ok: true }
 }

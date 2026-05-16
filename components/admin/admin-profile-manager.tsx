@@ -7,7 +7,7 @@ import {
   Save,
   Eye,
   Globe,
-  GlobeOff,
+  EyeOff,
   Plus,
   Trash2,
   ExternalLink,
@@ -35,9 +35,9 @@ import {
   updateClientProfile,
   publishProfile,
   unpublishProfile,
-  generateSlug,
   checkSlugAvailability,
 } from "@/lib/profile/actions"
+import { generateSlug } from "@/lib/profile/utils"
 import type {
   ClientProfileWithRelations,
   ComplianceDoc,
@@ -237,7 +237,7 @@ export function AdminProfileManager({
                     </>
                   ) : (
                     <>
-                      <GlobeOff className="w-3 h-3 mr-1" />
+                      <EyeOff className="w-3 h-3 mr-1" />
                       Draft
                     </>
                   )}
@@ -272,7 +272,7 @@ export function AdminProfileManager({
                 >
                   {isPublished ? (
                     <>
-                      <GlobeOff className="w-4 h-4 mr-1" />
+                      <EyeOff className="w-4 h-4 mr-1" />
                       Unpublish
                     </>
                   ) : (

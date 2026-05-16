@@ -560,17 +560,6 @@ export async function submitQuoteRequest(
 // ============================================================
 
 /**
- * Generate a URL-safe slug from company name.
- */
-export function generateSlug(companyName: string): string {
-  return companyName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50)
-}
-
-/**
  * Check if a slug is available.
  */
 export async function checkSlugAvailability(

@@ -20,17 +20,29 @@
 --   3. Test by inserting a notification and checking if the bell updates
 -- ============================================================================
 
--- Add notifications table to the supabase_realtime publication
--- This allows clients to subscribe to INSERT/UPDATE/DELETE events
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+-- Idempotent: Add tables to realtime publication only if not already added
+DO $$
+BEGIN
+  -- Add notifications table if not already in publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+  
+  -- Add client_request_replies table if not already in publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'client_request_replies'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.client_request_replies;
+  END IF;
+END $$;
 
 -- Set replica identity to FULL so Realtime can send the full row data
 -- (needed for proper filtering by user_id in subscriptions)
 ALTER TABLE public.notifications REPLICA IDENTITY FULL;
-
--- Add client_request_replies table to the supabase_realtime publication
--- This allows clients and admins to see live conversation threads
-ALTER PUBLICATION supabase_realtime ADD TABLE public.client_request_replies;
 ALTER TABLE public.client_request_replies REPLICA IDENTITY FULL;
 
 -- ============================================================================

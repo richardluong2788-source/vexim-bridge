@@ -45,8 +45,14 @@ export async function getNotificationsSnapshot(
       .is("read_at", null),
   ])
 
+  // Filter out any malformed notifications (missing required fields like title)
+  // to prevent rendering errors in the UI
+  const validNotifications = (recentRes.data ?? []).filter(
+    (n) => n.title && typeof n.title === "string"
+  )
+
   return {
-    recent: recentRes.data ?? [],
+    recent: validNotifications,
     unreadCount: countRes.count ?? 0,
   }
 }

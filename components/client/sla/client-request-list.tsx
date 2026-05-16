@@ -80,13 +80,13 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  const d = new Date(iso)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const year = d.getFullYear()
+  const hour = String(d.getHours()).padStart(2, "0")
+  const minute = String(d.getMinutes()).padStart(2, "0")
+  return `${hour}:${minute} ${day}/${month}/${year}`
 }
 
 function elapsedHours(iso: string): number {

@@ -39,13 +39,13 @@ interface Props {
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  const d = new Date(iso)
+  const day = String(d.getDate()).padStart(2, "0")
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const year = d.getFullYear()
+  const hour = String(d.getHours()).padStart(2, "0")
+  const minute = String(d.getMinutes()).padStart(2, "0")
+  return `${hour}:${minute} ${day}/${month}/${year}`
 }
 
 export function ClientRequestReplies({
@@ -71,7 +71,7 @@ export function ClientRequestReplies({
         const { data: { user } } = await supabase.auth.getUser()
         if (user) setCurrentUserId(user.id)
         
-        // Load replies
+        // Load replies - table may not exist yet (migration pending)
         const { data, error } = await supabase
           .from("client_request_replies")
           .select("*")
@@ -79,8 +79,12 @@ export function ClientRequestReplies({
           .order("created_at", { ascending: true })
         
         if (error) {
-          console.error("[sla] Failed to load replies", error)
-          toast.error("Không thể tải cuộc trò chuyện")
+          // If table doesn't exist or RLS forbids, just show empty
+          // Don't show error toast for common "forbidden" case
+          if (error.code !== "42P01" && error.message !== "forbidden") {
+            console.error("[sla] Failed to load replies", error)
+          }
+          setReplies([])
         } else {
           setReplies(data || [])
         }

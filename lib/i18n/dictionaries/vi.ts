@@ -1059,6 +1059,9 @@ delete: "Xóa",
         save: "Lưu hồ sơ",
         saving: "Đang lưu...",
       },
+      public: {
+        aboutUs: "Về chúng tôi",
+      },
     },
   },
 }

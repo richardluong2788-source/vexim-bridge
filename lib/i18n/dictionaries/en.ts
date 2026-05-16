@@ -1017,6 +1017,9 @@ emailSectionHint:
         save: "Save Profile",
         saving: "Saving...",
       },
+      public: {
+        aboutUs: "About Us",
+      },
     },
   },
 } as const

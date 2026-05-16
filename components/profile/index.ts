@@ -1,0 +1,8 @@
+export { ProfileHero } from "./profile-hero"
+export { ProfileVideo } from "./profile-video"
+export { ProfileUSP } from "./profile-usp"
+export { ProfileCertifications } from "./profile-certifications"
+export { ProfileProducts } from "./profile-products"
+export { ProfileStats } from "./profile-stats"
+export { ProfileCTA } from "./profile-cta"
+export { ProfileRequestQuoteDialog } from "./profile-request-quote-dialog"

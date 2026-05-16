@@ -327,7 +327,7 @@ linkCreatedEmailFailed:
   "Liên kết đã được tạo nhưng gửi email thất bại. Bạn có thể sao chép và gửi thủ công.",
 emailSectionTitle: "Gửi email cho người mua (tùy chọn)",
 emailSectionHint:
-  "Nhập email người mua để Vexim Trade gửi liên kết ngay lập tức từ bridge@veximglobal.com.",
+  "Nhập email người mua để Vexim Trade gửi liên kết ngay lập tức từ hello@veximtrade.com.",
 buyerEmail: "Email người mua",
 buyerEmailPlaceholder: "buyer@example.com",
 buyerName: "Tên người nhận (tùy chọn)",

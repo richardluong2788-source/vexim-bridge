@@ -324,8 +324,8 @@ export const en = {
         linkCreatedEmailFailed:
           "Link created but email delivery failed. You can copy and send manually.",
         emailSectionTitle: "Email the buyer (optional)",
-        emailSectionHint:
-          "Enter a buyer email so Vexim Trade sends the link from bridge@veximglobal.com immediately.",
+emailSectionHint:
+  "Enter a buyer email so Vexim Trade sends the link from hello@veximtrade.com immediately.",
         buyerEmail: "Buyer email",
         buyerEmailPlaceholder: "buyer@example.com",
         buyerName: "Recipient name (optional)",

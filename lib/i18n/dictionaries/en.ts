@@ -1010,6 +1010,11 @@ emailSectionHint:
         saveFailed: "Failed to save profile",
         updateFailed: "Failed to update publish status",
       },
+      actions: {
+        preview: "Preview",
+        save: "Save Profile",
+        saving: "Saving...",
+      },
     },
   },
 } as const

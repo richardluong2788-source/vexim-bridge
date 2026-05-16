@@ -79,13 +79,8 @@ export function AdminProfileManager({
   const [isPending, startTransition] = useTransition()
   const [copied, setCopied] = useState(false)
 
-  // Fallback translations for when t is not provided
-  const defaultT = {
-    basicInfo: { title: "Basic Information", subtitle: "Company name and URL settings", slug: "URL Slug" },
-    status: { published: "Published", draft: "Draft", publish: "Publish", unpublish: "Unpublish" },
-  }
-  
-  const trans = t || defaultT
+  // Use provided translations
+  const trans = t
 
   // Form state
   const [slug, setSlug] = useState(existingProfile?.slug || generateSlug(clientName))
@@ -162,7 +157,7 @@ export function AdminProfileManager({
       await navigator.clipboard.writeText(profileUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-      toast.success("URL copied to clipboard")
+      toast.success(trans?.status?.copyUrl || "URL copied to clipboard")
     }
   }
 
@@ -172,7 +167,7 @@ export function AdminProfileManager({
       // Validate slug
       const slugCheck = await checkSlugAvailability(slug, existingProfile?.id)
       if (!slugCheck.available) {
-        toast.error("Slug is already taken. Please choose a different one.")
+        toast.error(trans?.status?.slugTaken || "Slug is already taken. Please choose a different one.")
         return
       }
 
@@ -205,10 +200,10 @@ export function AdminProfileManager({
       }
 
       if (result.success) {
-        toast.success(existingProfile ? "Profile updated" : "Profile created")
+        toast.success(existingProfile ? (trans?.status?.updateSuccess || "Profile updated") : (trans?.status?.createSuccess || "Profile created"))
         router.refresh()
       } else {
-        toast.error(result.error || "Failed to save profile")
+        toast.error(result.error || trans?.status?.saveFailed || "Failed to save profile")
       }
     })
   }
@@ -223,10 +218,10 @@ export function AdminProfileManager({
         : await publishProfile(existingProfile.id)
 
       if (result.success) {
-        toast.success(isPublished ? "Profile unpublished" : "Profile published")
+        toast.success(isPublished ? (trans?.status?.unpublishSuccess || "Profile unpublished") : (trans?.status?.publishSuccess || "Profile published"))
         router.refresh()
       } else {
-        toast.error(result.error || "Failed to update publish status")
+        toast.error(result.error || trans?.status?.updateFailed || "Failed to update publish status")
       }
     })
   }
@@ -243,12 +238,12 @@ export function AdminProfileManager({
                   {isPublished ? (
                     <>
                       <Globe className="w-3 h-3 mr-1" />
-                      Published
+                      {trans?.status?.published || "Published"}
                     </>
                   ) : (
                     <>
                       <EyeOff className="w-3 h-3 mr-1" />
-                      Draft
+                      {trans?.status?.draft || "Draft"}
                     </>
                   )}
                 </Badge>
@@ -283,12 +278,12 @@ export function AdminProfileManager({
                   {isPublished ? (
                     <>
                       <EyeOff className="w-4 h-4 mr-1" />
-                      Unpublish
+                      {trans?.status?.unpublish || "Unpublish"}
                     </>
                   ) : (
                     <>
                       <Globe className="w-4 h-4 mr-1" />
-                      Publish
+                      {trans?.status?.publish || "Publish"}
                     </>
                   )}
                 </Button>
@@ -301,42 +296,42 @@ export function AdminProfileManager({
       {/* Basic Info */}
       <Card>
         <CardHeader>
-          <CardTitle>{trans.basicInfo?.title || "Basic Information"}</CardTitle>
-          <CardDescription>{trans.basicInfo?.subtitle || "Company name and URL settings"}</CardDescription>
+          <CardTitle>{trans?.basicInfo?.title || "Basic Information"}</CardTitle>
+          <CardDescription>{trans?.basicInfo?.subtitle || "Company name and URL settings"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="slug">{trans.basicInfo?.slug || "URL Slug"}</Label>
+              <Label htmlFor="slug">{trans?.basicInfo?.slug || "URL Slug"}</Label>
               <Input
                 id="slug"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                placeholder="company-name"
+                placeholder={trans?.basicInfo?.slugPlaceholder || "company-name"}
               />
               <p className="text-xs text-muted-foreground">
-                Profile URL: /profile/{slug || "..."}
+                {(trans?.basicInfo?.profileUrl || "Profile URL: /profile/{slug}").replace("{slug}", slug || "...")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">{trans.basicInfo?.displayName || "Display Name"}</Label>
+              <Label htmlFor="displayName">{trans?.basicInfo?.displayName || "Display Name"}</Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Company Name"
+                placeholder={trans?.basicInfo?.displayNamePlaceholder || "Company Name"}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tagline">{trans.basicInfo?.tagline || "Tagline"}</Label>
+            <Label htmlFor="tagline">{trans?.basicInfo?.tagline || "Tagline"}</Label>
             <Input
               id="tagline"
               value={tagline}
               onChange={(e) => setTagline(e.target.value)}
-              placeholder="Your company's value proposition..."
+              placeholder={trans?.basicInfo?.taglinePlaceholder || "Your company's value proposition..."}
               maxLength={500}
             />
           </div>
@@ -346,39 +341,39 @@ export function AdminProfileManager({
       {/* Branding */}
       <Card>
         <CardHeader>
-          <CardTitle>{trans.branding?.title || "Branding"}</CardTitle>
-          <CardDescription>{trans.branding?.subtitle || "Cover image, logo, and video"}</CardDescription>
+          <CardTitle>{trans?.branding?.title || "Branding"}</CardTitle>
+          <CardDescription>{trans?.branding?.subtitle || "Cover image, logo, and video"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="coverUrl">Cover Image URL</Label>
+              <Label htmlFor="coverUrl">{trans?.branding?.coverImage || "Cover Image URL"}</Label>
               <Input
                 id="coverUrl"
                 value={coverImageUrl}
                 onChange={(e) => setCoverImageUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder={trans?.branding?.urlPlaceholder || "https://..."}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="logoUrl">Logo URL</Label>
+              <Label htmlFor="logoUrl">{trans?.branding?.logo || "Logo URL"}</Label>
               <Input
                 id="logoUrl"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder={trans?.branding?.urlPlaceholder || "https://..."}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="videoUrl">Factory Video URL (YouTube or direct)</Label>
+            <Label htmlFor="videoUrl">{trans?.branding?.video || "Factory Video URL (YouTube or direct)"}</Label>
             <Input
               id="videoUrl"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder={trans?.branding?.videoPlaceholder || "https://youtube.com/watch?v=..."}
             />
           </div>
         </CardContent>
@@ -387,8 +382,8 @@ export function AdminProfileManager({
       {/* USP Points */}
       <Card>
         <CardHeader>
-          <CardTitle>Why Choose Us (USP)</CardTitle>
-          <CardDescription>3-4 key selling points (max 4)</CardDescription>
+          <CardTitle>{trans?.usp?.title || "Why Choose Us (USP)"}</CardTitle>
+          <CardDescription>{trans?.usp?.subtitle || "3-4 key selling points (max 4)"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {uspPoints.map((point, index) => (
@@ -412,7 +407,7 @@ export function AdminProfileManager({
               <Input
                 value={point.title}
                 onChange={(e) => updateUspPoint(index, "title", e.target.value)}
-                placeholder="e.g., 20 years export experience"
+                placeholder={trans?.usp?.placeholder || "e.g., 20 years export experience"}
                 className="flex-1"
               />
 
@@ -431,7 +426,7 @@ export function AdminProfileManager({
           {uspPoints.length < 4 && (
             <Button variant="outline" size="sm" onClick={addUspPoint}>
               <Plus className="w-4 h-4 mr-1" />
-              Add Point
+              {trans?.usp?.addPoint || "Add Point"}
             </Button>
           )}
         </CardContent>
@@ -440,38 +435,38 @@ export function AdminProfileManager({
       {/* Production Stats */}
       <Card>
         <CardHeader>
-          <CardTitle>Production Capability</CardTitle>
-          <CardDescription>Key statistics for buyers</CardDescription>
+          <CardTitle>{trans?.production?.title || "Production Capability"}</CardTitle>
+          <CardDescription>{trans?.production?.subtitle || "Key statistics for buyers"}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="capacity">Production Capacity</Label>
+              <Label htmlFor="capacity">{trans?.production?.capacity || "Production Capacity"}</Label>
               <Input
                 id="capacity"
                 value={productionCapacity}
                 onChange={(e) => setProductionCapacity(e.target.value)}
-                placeholder="Up to 10 containers/month"
+                placeholder={trans?.production?.capacityPlaceholder || "Up to 10 containers/month"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="moq">Minimum Order (MOQ)</Label>
+              <Label htmlFor="moq">{trans?.production?.moq || "Minimum Order (MOQ)"}</Label>
               <Input
                 id="moq"
                 value={moq}
                 onChange={(e) => setMoq(e.target.value)}
-                placeholder="Flexible from 1 pallet"
+                placeholder={trans?.production?.moqPlaceholder || "Flexible from 1 pallet"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="leadTime">Lead Time</Label>
+              <Label htmlFor="leadTime">{trans?.production?.leadTime || "Lead Time"}</Label>
               <Input
                 id="leadTime"
                 value={leadTime}
                 onChange={(e) => setLeadTime(e.target.value)}
-                placeholder="25-30 days"
+                placeholder={trans?.production?.leadTimePlaceholder || "25-30 days"}
               />
             </div>
           </div>
@@ -481,13 +476,13 @@ export function AdminProfileManager({
       {/* Featured Certifications */}
       <Card>
         <CardHeader>
-          <CardTitle>Featured Certifications</CardTitle>
-          <CardDescription>Select certificates to display on the profile</CardDescription>
+          <CardTitle>{trans?.certifications?.title || "Featured Certifications"}</CardTitle>
+          <CardDescription>{trans?.certifications?.subtitle || "Select certificates to display on the profile"}</CardDescription>
         </CardHeader>
         <CardContent>
           {availableDocs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No certifications uploaded yet. Upload documents in the Compliance tab.
+              {trans?.certifications?.noCerts || "No certifications uploaded yet. Upload documents in the Compliance tab."}
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -516,13 +511,13 @@ export function AdminProfileManager({
       {/* Featured Products */}
       <Card>
         <CardHeader>
-          <CardTitle>Featured Products</CardTitle>
-          <CardDescription>Select up to 6 products to showcase</CardDescription>
+          <CardTitle>{trans?.products?.title || "Featured Products"}</CardTitle>
+          <CardDescription>{trans?.products?.subtitle || "Select up to 6 products to showcase"}</CardDescription>
         </CardHeader>
         <CardContent>
           {availableProducts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No products added yet. Add products in the Products tab.
+              {trans?.products?.noProducts || "No products added yet. Add products in the Products tab."}
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -556,15 +551,15 @@ export function AdminProfileManager({
       {/* CTA Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>Call-to-Action</CardTitle>
-          <CardDescription>Configure buttons on the profile page</CardDescription>
+          <CardTitle>{trans?.cta?.title || "Call-to-Action"}</CardTitle>
+          <CardDescription>{trans?.cta?.subtitle || "Configure buttons on the profile page"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="enableQuote">Enable Request Quote</Label>
+              <Label htmlFor="enableQuote">{trans?.cta?.enableQuote || "Enable Request Quote"}</Label>
               <p className="text-xs text-muted-foreground">
-                Allow buyers to submit quote requests
+                {trans?.cta?.enableQuoteDesc || "Allow buyers to submit quote requests"}
               </p>
             </div>
             <Switch
@@ -576,9 +571,9 @@ export function AdminProfileManager({
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="enablePdf">Enable Download PDF</Label>
+              <Label htmlFor="enablePdf">{trans?.cta?.enablePdf || "Enable Download PDF"}</Label>
               <p className="text-xs text-muted-foreground">
-                Allow buyers to download capability PDF
+                {trans?.cta?.enablePdfDesc || "Allow buyers to download capability PDF"}
               </p>
             </div>
             <Switch
@@ -590,12 +585,12 @@ export function AdminProfileManager({
 
           {enableDownloadPdf && (
             <div className="space-y-2">
-              <Label htmlFor="pdfUrl">PDF URL</Label>
+              <Label htmlFor="pdfUrl">{trans?.cta?.pdfUrl || "PDF URL"}</Label>
               <Input
                 id="pdfUrl"
                 value={pdfUrl}
                 onChange={(e) => setPdfUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder={trans?.branding?.urlPlaceholder || "https://..."}
               />
             </div>
           )}
@@ -611,7 +606,7 @@ export function AdminProfileManager({
             rel="noopener noreferrer"
           >
             <Eye className="w-4 h-4 mr-2" />
-            Preview
+            {trans?.actions?.preview || "Preview"}
           </a>
         </Button>
 
@@ -619,12 +614,12 @@ export function AdminProfileManager({
           {isPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
+              {trans?.actions?.saving || "Saving..."}
             </>
           ) : (
             <>
               <Save className="w-4 h-4 mr-2" />
-              Save Profile
+              {trans?.actions?.save || "Save Profile"}
             </>
           )}
         </Button>

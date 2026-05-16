@@ -11,6 +11,7 @@ import {
   MessageCircle,
   Phone,
   X,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -24,7 +25,14 @@ import {
 import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cancelClientRequest } from "@/app/client/requests/actions"
+import { ClientRequestReplies } from "./client-request-replies"
 import { cn } from "@/lib/utils"
 
 export interface ClientRequestListRow {
@@ -94,6 +102,7 @@ function timerTone(hours: number, target: number): string {
 export function ClientRequestList({ requests, responseTargetHours }: Props) {
   const [isPending, startTransition] = useTransition()
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const router = useRouter()
 
   function cancel(id: string) {
@@ -110,121 +119,159 @@ export function ClientRequestList({ requests, responseTargetHours }: Props) {
     })
   }
 
-  return (
-    <Card className="border-border">
-      <CardHeader>
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Inbox className="h-4 w-4 text-muted-foreground" />
-          Yêu cầu gần đây ({requests.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {requests.length === 0 ? (
-          <Empty className="border-0 py-10">
-            <EmptyTitle>Chưa có yêu cầu</EmptyTitle>
-            <EmptyDescription>
-              Gửi yêu cầu đầu tiên ở form bên cạnh hoặc liên hệ trực tiếp với
-              account manager.
-            </EmptyDescription>
-          </Empty>
-        ) : (
-          <ul className="divide-y divide-border">
-            {requests.map((r) => {
-              const Icon = CHANNEL_ICON[r.channel] ?? Inbox
-              const isOpen = r.status === "open" || r.status === "in_progress"
-              const elapsed = elapsedHours(r.received_at)
-              const respondedHours = r.first_response_at
-                ? Math.round(
-                    (new Date(r.first_response_at).getTime() -
-                      new Date(r.received_at).getTime()) /
-                      3_600_000,
-                  )
-                : null
+  const selectedRequest = selectedRequestId
+    ? requests.find((r) => r.id === selectedRequestId)
+    : null
 
-              return (
-                <li
-                  key={r.id}
-                  className="px-5 py-4 flex items-start gap-3 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground mt-0.5">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium truncate">
-                        {r.subject}
-                      </p>
-                      {r.logged_via_channel && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] uppercase tracking-wide"
-                        >
-                          Staff log
-                        </Badge>
+  return (
+    <>
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-muted-foreground" />
+            Yêu cầu gần đây ({requests.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {requests.length === 0 ? (
+            <Empty className="border-0 py-10">
+              <EmptyTitle>Chưa có yêu cầu</EmptyTitle>
+              <EmptyDescription>
+                Gửi yêu cầu đầu tiên ở form bên cạnh hoặc liên hệ trực tiếp với
+                account manager.
+              </EmptyDescription>
+            </Empty>
+          ) : (
+            <ul className="divide-y divide-border">
+              {requests.map((r) => {
+                const Icon = CHANNEL_ICON[r.channel] ?? Inbox
+                const isOpen = r.status === "open" || r.status === "in_progress"
+                const elapsed = elapsedHours(r.received_at)
+                const respondedHours = r.first_response_at
+                  ? Math.round(
+                      (new Date(r.first_response_at).getTime() -
+                        new Date(r.received_at).getTime()) /
+                        3_600_000,
+                    )
+                  : null
+
+                return (
+                  <li
+                    key={r.id}
+                    className="px-5 py-4 flex items-start gap-3 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground mt-0.5">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">
+                          {r.subject}
+                        </p>
+                        {r.logged_via_channel && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase tracking-wide"
+                          >
+                            Staff log
+                          </Badge>
+                        )}
+                      </div>
+                      {r.body && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                          {r.body}
+                        </p>
                       )}
-                    </div>
-                    {r.body && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {r.body}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 flex-wrap mt-2 text-xs text-muted-foreground">
-                      <span>{CHANNEL_LABEL[r.channel] ?? r.channel}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{formatDateTime(r.received_at)}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="capitalize">
-                        {STATUS_LABEL[r.status] ?? r.status}
-                      </span>
-                    </div>
-                    {/* Response status row */}
-                    <div className="mt-2 text-xs flex items-center gap-2 flex-wrap">
-                      {respondedHours != null ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Phản hồi sau {respondedHours}h
+                      <div className="flex items-center gap-2 flex-wrap mt-2 text-xs text-muted-foreground">
+                        <span>{CHANNEL_LABEL[r.channel] ?? r.channel}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{formatDateTime(r.received_at)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="capitalize">
+                          {STATUS_LABEL[r.status] ?? r.status}
                         </span>
-                      ) : isOpen ? (
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 tabular-nums",
-                            timerTone(elapsed, responseTargetHours),
+                      </div>
+                      {/* Response status row */}
+                      <div className="mt-2 text-xs flex items-center gap-2 flex-wrap">
+                        {respondedHours != null ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Phản hồi sau {respondedHours}h
+                          </span>
+                        ) : isOpen ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 tabular-nums",
+                              timerTone(elapsed, responseTargetHours),
+                            )}
+                          >
+                            <Clock className="h-3 w-3" />
+                            {elapsed}h trôi qua / target {responseTargetHours}h
+                          </span>
+                        ) : null}
+                        {r.first_response_note && (
+                          <span className="text-muted-foreground italic line-clamp-1">
+                            &ldquo;{r.first_response_note}&rdquo;
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 shrink-0"
+                        onClick={() => setSelectedRequestId(r.id)}
+                        title="Xem chi tiết và phản hồi"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs">Chi tiết</span>
+                      </Button>
+                      {isOpen && !r.first_response_at && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-rose-600"
+                          onClick={() => cancel(r.id)}
+                          disabled={isPending && cancellingId === r.id}
+                          aria-label="Đóng yêu cầu"
+                          title="Đã giải quyết / không cần hỗ trợ"
+                        >
+                          {isPending && cancellingId === r.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <X className="h-3.5 w-3.5" />
                           )}
-                        >
-                          <Clock className="h-3 w-3" />
-                          {elapsed}h trôi qua / target {responseTargetHours}h
-                        </span>
-                      ) : null}
-                      {r.first_response_note && (
-                        <span className="text-muted-foreground italic line-clamp-1">
-                          &ldquo;{r.first_response_note}&rdquo;
-                        </span>
+                        </Button>
                       )}
                     </div>
-                  </div>
-                  {isOpen && !r.first_response_at && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-rose-600"
-                      onClick={() => cancel(r.id)}
-                      disabled={isPending && cancellingId === r.id}
-                      aria-label="Đóng yêu cầu"
-                      title="Đã giải quyết / không cần hỗ trợ"
-                    >
-                      {isPending && cancellingId === r.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <X className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Detail Dialog with Replies */}
+      <Dialog open={!!selectedRequestId} onOpenChange={(open) => {
+        if (!open) setSelectedRequestId(null)
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          {selectedRequest && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedRequest.subject}</DialogTitle>
+              </DialogHeader>
+              <ClientRequestReplies
+                requestId={selectedRequest.id}
+                initialRequest={selectedRequest}
+                onClose={() => setSelectedRequestId(null)}
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

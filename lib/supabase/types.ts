@@ -85,6 +85,13 @@ export type Database = {
           // Populated by Admin / Super-Admin via /admin/clients UI.
           // Drives ANALYTICS_VIEW_OWN scope for AE / Lead Researcher.
           account_manager_id: string | null
+          // Option A — Public Company Profile
+          logo_url: string | null
+          cover_url: string | null
+          company_description: string | null
+          production_stats: Record<string, unknown> | null
+          company_video_url: string | null
+          is_public_profile: boolean
           created_at: string
         }
         Insert: {
@@ -103,6 +110,12 @@ export type Database = {
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
+          logo_url?: string | null
+          cover_url?: string | null
+          company_description?: string | null
+          production_stats?: Record<string, unknown> | null
+          company_video_url?: string | null
+          is_public_profile?: boolean
           created_at?: string
         }
         Update: {
@@ -121,6 +134,12 @@ export type Database = {
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
+          logo_url?: string | null
+          cover_url?: string | null
+          company_description?: string | null
+          production_stats?: Record<string, unknown> | null
+          company_video_url?: string | null
+          is_public_profile?: boolean
           created_at?: string
         }
       }
@@ -466,6 +485,53 @@ export type Database = {
           doc_id?: string
           position?: number
           created_at?: string
+        }
+      }
+      company_public_profiles: {
+        Row: {
+          id: string
+          company_id: string
+          is_visible: boolean
+          show_email: boolean
+          show_phone: boolean
+          show_website: boolean
+          show_factory_address: boolean
+          share_token: string | null
+          share_token_expires_at: string | null
+          view_count: number
+          last_viewed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          is_visible?: boolean
+          show_email?: boolean
+          show_phone?: boolean
+          show_website?: boolean
+          show_factory_address?: boolean
+          share_token?: string | null
+          share_token_expires_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          is_visible?: boolean
+          show_email?: boolean
+          show_phone?: boolean
+          show_website?: boolean
+          show_factory_address?: boolean
+          share_token?: string | null
+          share_token_expires_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
       notifications: {

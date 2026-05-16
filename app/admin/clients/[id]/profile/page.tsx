@@ -8,7 +8,6 @@ import { AdminProfileManager } from "@/components/admin/admin-profile-manager"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { canAny, CAPS } from "@/lib/auth/permissions"
 import { ownershipScopeFor } from "@/lib/auth/scope"
-import { getDictionary } from "@/lib/i18n/server"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -17,7 +16,6 @@ interface PageProps {
 export default async function AdminClientProfilePage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createClient()
-  const { t } = await getDictionary()
 
   // Auth check
   const current = await getCurrentRole()
@@ -74,7 +72,7 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href={`/admin/clients/${id}`}>
             <ArrowLeft className="h-4 w-4 mr-1" />
-            {t.admin.profile.backToClient}
+            Back to Client
           </Link>
         </Button>
       </div>
@@ -82,10 +80,10 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">
-          {t.admin.profile.manageProfile}
+          Manage Profile
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {t.admin.profile.configureProfileDesc.replace('{companyName}', companyLabel)}
+          Configure the public profile page for {companyLabel}
         </p>
       </div>
 
@@ -96,7 +94,6 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
         existingProfile={existingProfile ?? undefined}
         availableDocs={docs ?? []}
         availableProducts={products ?? []}
-        t={t.admin.profile}
       />
     </div>
   )

@@ -8,6 +8,7 @@ import {
   buildEvalContext,
   evaluateClientForMonth,
 } from "@/lib/sla/evaluator"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 /**
  * Server actions for the admin SLA pages.
@@ -200,8 +201,19 @@ export async function respondToClientRequest(
     return { ok: false, error: parsed.error.errors[0]?.message ?? "Invalid" }
   }
 
+  // First get the request details to find the client
+  const { data: request } = await guard.admin
+    .from("client_requests" as never)
+    .select("id, client_id, subject")
+    .eq("id", parsed.data.request_id)
+    .single<{ id: string; client_id: string; subject: string }>()
+
+  if (!request) return { ok: false, error: "Request not found" }
+
   const nowIso = new Date().toISOString()
-  const { error } = await guard.admin
+  
+  // Update first_response_at only if this is the first response
+  const { error: updateError } = await guard.admin
     .from("client_requests" as never)
     .update({
       first_response_at: nowIso,
@@ -211,9 +223,49 @@ export async function respondToClientRequest(
     } as never)
     .eq("id", parsed.data.request_id)
     .is("first_response_at", null)
-  if (error) return { ok: false, error: error.message }
+  
+  // If the update didn't match any rows (first_response_at already set),
+  // it's a subsequent reply, which is fine
+  
+  // Add the reply to the conversation thread
+  if (parsed.data.note) {
+    const { error: replyError } = await guard.admin
+      .from("client_request_replies" as never)
+      .insert({
+        client_request_id: parsed.data.request_id,
+        sender_id: guard.userId,
+        sender_role: "admin",
+        body: parsed.data.note,
+      } as never)
+    if (replyError) {
+      return { ok: false, error: `Failed to save reply: ${replyError.message}` }
+    }
+  }
+
+  // Notify the client that their request has been responded to
+  dispatchNotification({
+    userId: request.client_id,
+    category: "status_update",
+    linkPath: `/client/sla`,
+    dedupKey: `client_request_replied:${request.id}:${Math.floor(Date.now() / 1000)}`,
+    title: {
+      vi: `Yêu cầu của bạn có phản hồi mới`,
+      en: `Your request has a new reply`,
+    },
+    body: {
+      vi: parsed.data.note || request.subject,
+      en: parsed.data.note || request.subject,
+    },
+    ctaLabel: {
+      vi: "Xem chi tiết",
+      en: "View details",
+    },
+  }).catch((err) => {
+    console.error("[sla] notification dispatch failed", err)
+  })
 
   revalidatePath("/admin/sla")
+  revalidatePath("/client/sla")
   return { ok: true }
 }
 
@@ -230,6 +282,16 @@ export async function resolveClientRequest(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.errors[0]?.message ?? "Invalid" }
   }
+
+  // First get the request details to find the client
+  const { data: request } = await guard.admin
+    .from("client_requests" as never)
+    .select("id, client_id, subject")
+    .eq("id", parsed.data.request_id)
+    .single<{ id: string; client_id: string; subject: string }>()
+
+  if (!request) return { ok: false, error: "Request not found" }
+
   const { error } = await guard.admin
     .from("client_requests" as never)
     .update({
@@ -238,6 +300,29 @@ export async function resolveClientRequest(
     } as never)
     .eq("id", parsed.data.request_id)
   if (error) return { ok: false, error: error.message }
+
+  // Notify the client that their request has been resolved
+  dispatchNotification({
+    userId: request.client_id,
+    category: "deal_closed",
+    linkPath: `/client/sla`,
+    dedupKey: `client_request_resolved:${request.id}`,
+    title: {
+      vi: `Yêu cầu của bạn đã được giải quyết`,
+      en: `Your request has been resolved`,
+    },
+    body: {
+      vi: request.subject,
+      en: request.subject,
+    },
+    ctaLabel: {
+      vi: "Xem chi tiết",
+      en: "View details",
+    },
+  }).catch((err) => {
+    console.error("[sla] notification dispatch failed", err)
+  })
+
   revalidatePath("/admin/sla")
   return { ok: true }
 }
@@ -290,4 +375,79 @@ export async function logManualClientRequest(
   if (error) return { ok: false, error: error.message }
   revalidatePath("/admin/sla")
   return { ok: true, data: data ?? { id: "" } }
+}
+
+// =====================================================================
+// Client reply to their own request (new function for threading)
+// =====================================================================
+const CLIENT_REPLY_SCHEMA = z.object({
+  request_id: z.string().uuid(),
+  body: z.string().min(1).max(2000),
+})
+
+export async function replyToClientRequest(
+  input: z.input<typeof CLIENT_REPLY_SCHEMA>,
+): Promise<ActionResult> {
+  const guard = await requireCap(CAPS.CLIENT_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const parsed = CLIENT_REPLY_SCHEMA.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? "Invalid" }
+  }
+
+  // Verify the request exists and belongs to the user (if they're a client)
+  const { data: request } = await guard.admin
+    .from("client_requests" as never)
+    .select("id, client_id, subject, status")
+    .eq("id", parsed.data.request_id)
+    .single<{ id: string; client_id: string; subject: string; status: string }>()
+
+  if (!request) return { ok: false, error: "Request not found" }
+
+  // Clients can only reply to their own requests
+  const userRole = guard.admin.auth.session?.user?.user_metadata?.role
+  if (userRole === "client" && request.client_id !== guard.userId) {
+    return { ok: false, error: "You cannot reply to other clients' requests" }
+  }
+
+  // Add the reply to the conversation thread
+  const { error: replyError } = await guard.admin
+    .from("client_request_replies" as never)
+    .insert({
+      client_request_id: parsed.data.request_id,
+      sender_id: guard.userId,
+      sender_role: userRole === "client" ? "client" : "admin",
+      body: parsed.data.body,
+    } as never)
+  if (replyError) {
+    return { ok: false, error: `Failed to save reply: ${replyError.message}` }
+  }
+
+  // If client is replying, notify the admin team
+  if (userRole === "client") {
+    dispatchNotification({
+      userId: request.client_id, // This will notify through other channels if set up
+      category: "action_required",
+      linkPath: `/admin/sla`,
+      dedupKey: `client_reply:${request.id}:${Math.floor(Date.now() / 1000)}`,
+      title: {
+        vi: `Client ${request.client_id} đã trả lời yêu cầu`,
+        en: `Client has replied to request`,
+      },
+      body: {
+        vi: request.subject,
+        en: request.subject,
+      },
+      ctaLabel: {
+        vi: "Xem chi tiết",
+        en: "View details",
+      },
+    }).catch((err) => {
+      console.error("[sla] notification dispatch failed", err)
+    })
+  }
+
+  revalidatePath("/client/sla")
+  revalidatePath("/admin/sla")
+  return { ok: true }
 }

@@ -22,9 +22,8 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
   if (!current) return notFound()
 
   const allowedRoles = canAny(current.role, [
-    CAPS.CLIENT_MANAGE,
-    CAPS.CLIENT_VIEW_ALL,
-    CAPS.CLIENT_VIEW_OWN,
+    CAPS.CLIENT_VIEW,
+    CAPS.CLIENT_WRITE,
   ])
 
   if (!allowedRoles) return notFound()

@@ -143,7 +143,7 @@ export async function resendClientInvite(
               <td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
                 <p style="margin:0;font-size:12px;color:#94a3b8;">
                   Vexim Trade · Cầu nối xuất khẩu Việt – Mỹ<br/>
-                  bridge@veximglobal.com
+                  hello@veximtrade.com
                 </p>
               </td>
             </tr>

@@ -999,3 +999,127 @@ export type InboxItemWithDetails = AEMatchInbox & {
   leads: Lead
   ae_match_scores: AEMatchScore | null
 }
+
+// ============================================================
+// Client Profiles (Public Profile for US Buyers)
+// ============================================================
+
+/** USP point displayed on client profile */
+export type USPPoint = {
+  title: string
+  icon: string // Lucide icon name: "clock", "award", "globe", "factory", "shield", "leaf"
+}
+
+/** Client product (from client_products table) */
+export type ClientProduct = {
+  id: string
+  client_id: string
+  product_name: string
+  product_code: string | null
+  category: string | null
+  subcategory: string | null
+  description: string | null
+  hs_code: string | null
+  unit_of_measure: string
+  min_unit_price: number | null
+  max_unit_price: number | null
+  currency: string
+  monthly_capacity_units: number | null
+  status: "active" | "inactive" | "suspended"
+  image_url?: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Client profile for public display to buyers */
+export type ClientProfile = {
+  id: string
+  client_id: string
+
+  // Branding
+  slug: string
+  cover_image_url: string | null
+  logo_url: string | null
+
+  // Display info
+  display_name: string | null
+  tagline: string | null
+
+  // Video
+  video_url: string | null
+  video_thumbnail_url: string | null
+
+  // USP Points
+  usp_points: USPPoint[]
+
+  // Production stats
+  production_capacity: string | null
+  moq: string | null
+  lead_time_days: string | null
+
+  // Featured items (IDs from other tables)
+  featured_certifications: string[]
+  featured_products: string[]
+
+  // CTA options
+  enable_request_quote: boolean
+  enable_download_pdf: boolean
+  pdf_capability_url: string | null
+
+  // Visibility
+  is_published: boolean
+  published_at: string | null
+
+  // View tracking
+  view_count: number
+
+  // Audit
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Client profile with joined relations for display */
+export type ClientProfileWithRelations = ClientProfile & {
+  profiles: Profile
+  certifications: ComplianceDoc[]
+  products: ClientProduct[]
+}
+
+/** Input for creating a new client profile */
+export type CreateClientProfileInput = {
+  client_id: string
+  slug: string
+  display_name?: string
+  tagline?: string
+  cover_image_url?: string
+  logo_url?: string
+  video_url?: string
+  video_thumbnail_url?: string
+  usp_points?: USPPoint[]
+  production_capacity?: string
+  moq?: string
+  lead_time_days?: string
+  featured_certifications?: string[]
+  featured_products?: string[]
+  enable_request_quote?: boolean
+  enable_download_pdf?: boolean
+  pdf_capability_url?: string
+}
+
+/** Input for updating a client profile */
+export type UpdateClientProfileInput = Partial<Omit<CreateClientProfileInput, "client_id">>
+
+/** Quote request from buyer via profile page */
+export type ProfileQuoteRequest = {
+  profile_id: string
+  company_name: string
+  contact_name: string
+  email: string
+  phone?: string
+  products_interested: string[]
+  quantity_volume?: string
+  notes?: string
+}

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck } from "lucide-react"
+import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck, UserCircle, Globe, ExternalLink } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,6 +15,8 @@ import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, canAny } from "@/lib/auth/permissions"
 import { ownershipScopeFor } from "@/lib/auth/scope"
+import { getProfileByClientId } from "@/lib/profile/actions"
+import { AdminClientProfileTab } from "@/components/admin/admin-client-profile-tab"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -34,8 +36,8 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
   const canSeeAnalytics =
     !!current && canAny(current.role, [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN])
 
-  // Fetch profile, docs, and tokenized links in parallel — they're independent.
-  const [{ data: client }, { data: docs }, { data: links }] = await Promise.all([
+  // Fetch profile, docs, tokenized links, and client profile in parallel — they're independent.
+  const [{ data: client }, { data: docs }, { data: links }, clientProfileResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).single(),
     supabase
       .from("compliance_docs")
@@ -47,7 +49,10 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
       .select("*")
       .eq("owner_id", id)
       .order("created_at", { ascending: false }),
+    getProfileByClientId(id),
   ])
+
+  const clientProfile = clientProfileResult.success ? clientProfileResult.data : null
 
   if (!client || client.role !== "client") return notFound()
 
@@ -207,6 +212,28 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                   fda_expires_at: client.fda_expires_at,
                 }}
               />
+
+              {/* Profile Link */}
+              <div className="flex items-center gap-2 mt-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/admin/clients/${client.id}/profile`}>
+                    <UserCircle className="h-4 w-4 mr-1" />
+                    Manage Profile
+                  </Link>
+                </Button>
+                {clientProfile?.is_published && (
+                  <Button asChild variant="ghost" size="sm">
+                    <a
+                      href={`/profile/${clientProfile.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View Live
+                    </a>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -226,11 +253,12 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
           performance: "Performance",
           products: "Products",
           compliance: "Compliance",
+          profile: "Profile",
         }
 
         return (
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
+            <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
               {showPerf && (
                 <TabsTrigger value="performance" className="gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
@@ -245,6 +273,10 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
               <TabsTrigger value="compliance" className="gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {tabsCopy.compliance}
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="gap-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                {tabsCopy.profile}
               </TabsTrigger>
             </TabsList>
 
@@ -271,6 +303,14 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                 clientName={companyLabel}
                 initialDocs={docs ?? []}
                 initialLinks={linksWithDocs}
+              />
+            </TabsContent>
+
+            <TabsContent value="profile" className="mt-4">
+              <AdminClientProfileTab
+                clientId={client.id}
+                clientName={companyLabel}
+                clientProfile={clientProfile}
               />
             </TabsContent>
           </Tabs>

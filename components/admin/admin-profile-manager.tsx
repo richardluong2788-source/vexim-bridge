@@ -51,6 +51,7 @@ interface AdminProfileManagerProps {
   existingProfile?: ClientProfileWithRelations
   availableDocs: ComplianceDoc[]
   availableProducts: ClientProduct[]
+  t?: any
 }
 
 const ICON_OPTIONS = [
@@ -72,10 +73,19 @@ export function AdminProfileManager({
   existingProfile,
   availableDocs,
   availableProducts,
+  t,
 }: AdminProfileManagerProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [copied, setCopied] = useState(false)
+
+  // Fallback translations for when t is not provided
+  const defaultT = {
+    basicInfo: { title: "Basic Information", subtitle: "Company name and URL settings", slug: "URL Slug" },
+    status: { published: "Published", draft: "Draft", publish: "Publish", unpublish: "Unpublish" },
+  }
+  
+  const trans = t || defaultT
 
   // Form state
   const [slug, setSlug] = useState(existingProfile?.slug || generateSlug(clientName))
@@ -291,13 +301,13 @@ export function AdminProfileManager({
       {/* Basic Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-          <CardDescription>Company name and URL settings</CardDescription>
+          <CardTitle>{trans.basicInfo?.title || "Basic Information"}</CardTitle>
+          <CardDescription>{trans.basicInfo?.subtitle || "Company name and URL settings"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="slug">URL Slug</Label>
+              <Label htmlFor="slug">{trans.basicInfo?.slug || "URL Slug"}</Label>
               <Input
                 id="slug"
                 value={slug}
@@ -310,7 +320,7 @@ export function AdminProfileManager({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
+              <Label htmlFor="displayName">{trans.basicInfo?.displayName || "Display Name"}</Label>
               <Input
                 id="displayName"
                 value={displayName}
@@ -321,7 +331,7 @@ export function AdminProfileManager({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tagline">Tagline</Label>
+            <Label htmlFor="tagline">{trans.basicInfo?.tagline || "Tagline"}</Label>
             <Input
               id="tagline"
               value={tagline}
@@ -336,8 +346,8 @@ export function AdminProfileManager({
       {/* Branding */}
       <Card>
         <CardHeader>
-          <CardTitle>Branding</CardTitle>
-          <CardDescription>Cover image, logo, and video</CardDescription>
+          <CardTitle>{trans.branding?.title || "Branding"}</CardTitle>
+          <CardDescription>{trans.branding?.subtitle || "Cover image, logo, and video"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

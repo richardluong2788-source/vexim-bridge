@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 /**
  * Server actions for the client portal — submit + close own SLA requests.
@@ -73,6 +74,53 @@ export async function submitClientRequest(
     .single<{ id: string }>()
 
   if (error) return { ok: false, error: error.message }
+
+  // Notify Account Manager and all staff with SLA_NOTIFY permission
+  // Get the client's account manager
+  const { data: clientData } = await admin
+    .from("profiles")
+    .select("account_manager_id")
+    .eq("id", user.id)
+    .single<{ account_manager_id: string | null }>()
+
+  // Get all staff with SLA_NOTIFY permission (admin, staff with perm)
+  const { data: staffList } = await admin
+    .from("profiles")
+    .select("id, email")
+    .in("role", ["admin", "super_admin", "staff"])
+
+  // Build recipient list: account manager + all staff
+  const recipientIds = new Set<string>()
+  if (clientData?.account_manager_id) {
+    recipientIds.add(clientData.account_manager_id)
+  }
+  if (staffList) {
+    staffList.forEach((s) => recipientIds.add(s.id))
+  }
+
+  // Send notification to each recipient
+  for (const recipientId of recipientIds) {
+    dispatchNotification({
+      userId: recipientId,
+      category: "action_required",
+      linkPath: `/admin/sla?request_id=${data.id}`,
+      dedupKey: `client_request_new:${data.id}`,
+      title: {
+        vi: `Yêu cầu mới từ ${user.email}`,
+        en: `New request from ${user.email}`,
+      },
+      body: {
+        vi: parsed.data.subject,
+        en: parsed.data.subject,
+      },
+      ctaLabel: {
+        vi: "Xem yêu cầu",
+        en: "View request",
+      },
+    }).catch((err) => {
+      console.error("[sla] notification dispatch failed", err)
+    })
+  }
 
   revalidatePath("/client/sla")
   return { ok: true, data }

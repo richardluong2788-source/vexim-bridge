@@ -86,6 +86,12 @@ function getAppBaseUrl(): string {
  * logged and swallowed so the caller's action is not blocked.
  */
 export async function dispatchNotification(input: DispatchInput): Promise<void> {
+  // Defensive: ensure required fields are present
+  if (!input.title || !input.ctaLabel) {
+    console.error("[notifications] missing required fields (title or ctaLabel)", input)
+    return
+  }
+
   const admin = createAdminClient()
 
   // Look up recipient + prefs in a single round-trip.

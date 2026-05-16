@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getProfileBySlug } from "@/lib/profile/actions"
 import { ProfileHero } from "@/components/profile/profile-hero"
+import { ProfileAbout } from "@/components/profile/profile-about"
 import { ProfileVideo } from "@/components/profile/profile-video"
 import { ProfileUSP } from "@/components/profile/profile-usp"
 import { ProfileCertifications } from "@/components/profile/profile-certifications"
@@ -71,7 +72,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       {/* Spacer for logo overlap */}
       <div className="h-16 sm:h-20" />
 
-      {/* Block 2: Video */}
+      {/* Block 2: About / Company Description */}
+      <ProfileAbout profile={profile} />
+
+      {/* Block 3: Video */}
       <ProfileVideo profile={profile} />
 
       {/* Block 3: USP Points */}

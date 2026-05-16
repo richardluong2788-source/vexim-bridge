@@ -76,6 +76,11 @@ export function NotificationBell({
           (payload) => {
             // Add new notification to the top of the list
             const newNotification = payload.new as Notification
+            // Skip if notification is malformed (missing title)
+            if (!newNotification || !newNotification.title) {
+              console.error("[v0] Received malformed notification", newNotification)
+              return
+            }
             setItems((prev) => [newNotification, ...prev.slice(0, 14)])
             setUnread((c) => c + 1)
           }
@@ -204,7 +209,7 @@ export function NotificationBell({
         ) : (
           <ScrollArea className="max-h-[420px]">
             <ul className="flex flex-col">
-              {items.map((n) => (
+              {items.filter((n) => n && n.title).map((n) => (
                 <li key={n.id} className="border-b border-border last:border-b-0">
                   <button
                     type="button"
@@ -224,7 +229,6 @@ export function NotificationBell({
                           )}
                         >
                           {n.title}
-                        </p>
                         {!n.read_at && (
                           <span className="ml-auto shrink-0 inline-flex items-center rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
                             {t.notifications.newBadge}

@@ -81,8 +81,23 @@ export function AdminProfileManager({
 
   // Fallback translations for when t is not provided
   const defaultT = {
-    basicInfo: { title: "Basic Information", subtitle: "Company name and URL settings", slug: "URL Slug" },
-    status: { published: "Published", draft: "Draft", publish: "Publish", unpublish: "Unpublish" },
+    basicInfo: { 
+      title: "Basic Information", 
+      subtitle: "Company name and URL settings", 
+      slug: "URL Slug",
+      displayName: "Display Name",
+      tagline: "Tagline"
+    },
+    branding: { 
+      title: "Branding", 
+      subtitle: "Cover image, logo, and video" 
+    },
+    status: { 
+      published: "Published", 
+      draft: "Draft", 
+      publish: "Publish", 
+      unpublish: "Unpublish" 
+    },
   }
   
   const trans = t || defaultT

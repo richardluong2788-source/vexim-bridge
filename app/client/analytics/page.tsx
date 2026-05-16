@@ -29,7 +29,12 @@ export default async function ClientAnalyticsPage({ searchParams }: PageProps) {
 
   const { t, locale } = await getDictionary()
   const period = resolvePeriod(periodValue, locale)
-  const a = t.client.analytics
+  const a = t?.client?.analytics || {
+    title: "Analytics & Reports",
+    subtitle: "Your pipeline history, win rate breakdown by buyer segment, and commission performance over time.",
+    privacyNoteTitle: "How these numbers are calculated",
+    privacyNote: "Buyer identities are anonymised in early stages. Win-rate breakdowns only count deals that reached price negotiation, so the sample stays statistically meaningful and protects buyer privacy during prospecting.",
+  }
 
   // Auth — defense in depth on top of /client layout's check.
   const supabase = await createClient()

@@ -22,38 +22,52 @@ export interface NotificationsSnapshot {
 export async function getNotificationsSnapshot(
   limit = 15,
 ): Promise<NotificationsSnapshot> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) return { unreadCount: 0, recent: [] }
+    if (!user) return { unreadCount: 0, recent: [] }
 
-  // Fire the two reads in parallel; the count head-query is cheap because it
-  // is served by the partial index `idx_notifications_user_unread`.
-  const [recentRes, countRes] = await Promise.all([
-    supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("read_at", null),
-  ])
+    // Fire the two reads in parallel; the count head-query is cheap because it
+    // is served by the partial index `idx_notifications_user_unread`.
+    const [recentRes, countRes] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(limit),
+      supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null),
+    ])
 
-  // Filter out any malformed notifications (missing required fields like title)
-  // to prevent rendering errors in the UI
-  const validNotifications = (recentRes.data ?? []).filter(
-    (n) => n.title && typeof n.title === "string"
-  )
+    if (recentRes.error) {
+      console.error("[notifications] failed to fetch recent", recentRes.error)
+      return { unreadCount: 0, recent: [] }
+    }
 
-  return {
-    recent: validNotifications,
-    unreadCount: countRes.count ?? 0,
+    if (countRes.error) {
+      console.error("[notifications] failed to count unread", countRes.error)
+    }
+
+    // Filter out any malformed notifications (missing required fields like title)
+    // to prevent rendering errors in the UI
+    const validNotifications = (recentRes.data ?? []).filter(
+      (n) => n && n.title && typeof n.title === "string"
+    )
+
+    return {
+      recent: validNotifications,
+      unreadCount: countRes.count ?? 0,
+    }
+  } catch (err) {
+    console.error("[notifications] getNotificationsSnapshot failed", err)
+    return { unreadCount: 0, recent: [] }
   }
 }
 

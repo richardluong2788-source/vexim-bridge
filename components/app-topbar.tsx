@@ -12,7 +12,12 @@ import { getNotificationsSnapshot } from "@/app/notifications/actions"
  * ships with the HTML (no client-side fetch on first paint).
  */
 export async function AppTopbar() {
-  const snapshot = await getNotificationsSnapshot()
+  let snapshot = { unreadCount: 0, recent: [] }
+  try {
+    snapshot = await getNotificationsSnapshot()
+  } catch (err) {
+    console.error("[topbar] failed to fetch notifications", err)
+  }
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-end gap-1 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">

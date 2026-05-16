@@ -54,11 +54,11 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
 
             {/* Company Info */}
             <div className="pb-2 sm:pb-4">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl text-balance">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground text-balance">
                 {displayName}
               </h1>
               {profile.tagline && (
-                <p className="mt-1 text-sm sm:text-base text-white drop-shadow-lg max-w-xl text-pretty">
+                <p className="mt-1 text-sm sm:text-base text-muted-foreground max-w-xl text-pretty">
                   {profile.tagline}
                 </p>
               )}

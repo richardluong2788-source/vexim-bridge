@@ -29,7 +29,7 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-accent/30" />
         )}
         {/* Overlay gradient for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
       </div>
 
       {/* Logo and Company Name */}
@@ -54,11 +54,11 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
 
             {/* Company Info */}
             <div className="pb-2 sm:pb-4">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white drop-shadow-lg text-balance">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl text-balance">
                 {displayName}
               </h1>
               {profile.tagline && (
-                <p className="mt-1 text-sm sm:text-base text-white/90 drop-shadow-md max-w-xl text-pretty">
+                <p className="mt-1 text-sm sm:text-base text-white drop-shadow-lg max-w-xl text-pretty">
                   {profile.tagline}
                 </p>
               )}

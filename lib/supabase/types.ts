@@ -1045,6 +1045,7 @@ export type ClientProfile = {
   // Display info
   display_name: string | null
   tagline: string | null
+  description: string | null
 
   // Video
   video_url: string | null
@@ -1094,6 +1095,7 @@ export type CreateClientProfileInput = {
   slug: string
   display_name?: string
   tagline?: string
+  description?: string
   cover_image_url?: string
   logo_url?: string
   video_url?: string

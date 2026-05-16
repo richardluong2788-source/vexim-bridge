@@ -951,6 +951,8 @@ emailSectionHint:
         displayNamePlaceholder: "Company Name",
         tagline: "Tagline",
         taglinePlaceholder: "Your company's value proposition...",
+        description: "Company Description",
+        descriptionPlaceholder: "Tell buyers about your company, history, mission, and values...",
       },
       branding: {
         title: "Branding",

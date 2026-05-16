@@ -86,6 +86,7 @@ export function AdminProfileManager({
   const [slug, setSlug] = useState(existingProfile?.slug || generateSlug(clientName))
   const [displayName, setDisplayName] = useState(existingProfile?.display_name || clientName)
   const [tagline, setTagline] = useState(existingProfile?.tagline || "")
+  const [description, setDescription] = useState(existingProfile?.description || "")
   const [coverImageUrl, setCoverImageUrl] = useState(existingProfile?.cover_image_url || "")
   const [logoUrl, setLogoUrl] = useState(existingProfile?.logo_url || "")
   const [videoUrl, setVideoUrl] = useState(existingProfile?.video_url || "")
@@ -178,6 +179,7 @@ export function AdminProfileManager({
         slug,
         display_name: displayName || undefined,
         tagline: tagline || undefined,
+        description: description || undefined,
         cover_image_url: coverImageUrl || undefined,
         logo_url: logoUrl || undefined,
         video_url: videoUrl || undefined,
@@ -334,6 +336,19 @@ export function AdminProfileManager({
               placeholder={trans?.basicInfo?.taglinePlaceholder || "Your company's value proposition..."}
               maxLength={500}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">{trans?.basicInfo?.description || "Company Description"}</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={trans?.basicInfo?.descriptionPlaceholder || "Tell buyers about your company, history, mission, and values..."}
+              maxLength={2000}
+              rows={5}
+            />
+            <p className="text-xs text-muted-foreground">{description.length}/2000</p>
           </div>
         </CardContent>
       </Card>

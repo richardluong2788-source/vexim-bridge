@@ -15,7 +15,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { submitProductQuoteRequest } from "@/lib/product/actions"
+
+const INCOTERM_OPTIONS = [
+  { value: "FOB", label: "FOB - Free on Board" },
+  { value: "CIF", label: "CIF - Cost, Insurance & Freight" },
+  { value: "CFR", label: "CFR - Cost & Freight" },
+  { value: "EXW", label: "EXW - Ex Works" },
+  { value: "DDP", label: "DDP - Delivered Duty Paid" },
+  { value: "DAP", label: "DAP - Delivered at Place" },
+]
 
 interface ProductRequestQuoteDialogProps {
   productId: string
@@ -44,6 +60,9 @@ export function ProductRequestQuoteDialog({
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [quantity, setQuantity] = useState("")
+  const [incoterm, setIncoterm] = useState("")
+  const [destinationPort, setDestinationPort] = useState("")
+  const [targetPrice, setTargetPrice] = useState("")
   const [notes, setNotes] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,6 +83,9 @@ export function ProductRequestQuoteDialog({
         email,
         phone: phone || undefined,
         quantity_volume: quantity || undefined,
+        incoterm: incoterm || undefined,
+        destination_port: destinationPort || undefined,
+        target_price_usd: targetPrice ? parseFloat(targetPrice) : undefined,
         notes: notes || undefined,
         opportunity_ref: opportunityRef || undefined,
       })
@@ -87,6 +109,9 @@ export function ProductRequestQuoteDialog({
       setEmail("")
       setPhone("")
       setQuantity("")
+      setIncoterm("")
+      setDestinationPort("")
+      setTargetPrice("")
       setNotes("")
     }
     setOpen(false)
@@ -196,6 +221,48 @@ export function ProductRequestQuoteDialog({
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   placeholder="e.g., 1 container, 5000 kg"
+                />
+              </div>
+
+              {/* Incoterm */}
+              <div className="space-y-2">
+                <Label htmlFor="incoterm">Preferred Incoterm</Label>
+                <Select value={incoterm} onValueChange={setIncoterm}>
+                  <SelectTrigger id="incoterm">
+                    <SelectValue placeholder="Select incoterm..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INCOTERM_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Destination Port */}
+              <div className="space-y-2">
+                <Label htmlFor="destinationPort">Destination Port</Label>
+                <Input
+                  id="destinationPort"
+                  value={destinationPort}
+                  onChange={(e) => setDestinationPort(e.target.value)}
+                  placeholder="e.g., Los Angeles, CA"
+                />
+              </div>
+
+              {/* Target Price */}
+              <div className="space-y-2">
+                <Label htmlFor="targetPrice">Target Price (USD)</Label>
+                <Input
+                  id="targetPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={targetPrice}
+                  onChange={(e) => setTargetPrice(e.target.value)}
+                  placeholder="e.g., 10.50"
                 />
               </div>
 

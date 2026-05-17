@@ -479,6 +479,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                     open={open}
                     quoteReply={quoteReply}
                     onClearQuote={() => setQuoteReply(undefined)}
+                    clientId={opportunity.client_id}
                   />
                 </section>
               )}

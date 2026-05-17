@@ -21,6 +21,8 @@ interface ProductRequestQuoteDialogProps {
   productId: string
   productName: string
   clientId: string
+  /** Opportunity ID from tracking link (to link buyer response with existing opportunity) */
+  opportunityRef?: string | null
   children: React.ReactNode
 }
 
@@ -28,6 +30,7 @@ export function ProductRequestQuoteDialog({
   productId,
   productName,
   clientId,
+  opportunityRef,
   children,
 }: ProductRequestQuoteDialogProps) {
   const [isPending, startTransition] = useTransition()
@@ -62,6 +65,7 @@ export function ProductRequestQuoteDialog({
         phone: phone || undefined,
         quantity_volume: quantity || undefined,
         notes: notes || undefined,
+        opportunity_ref: opportunityRef || undefined,
       })
 
       if (result.success) {

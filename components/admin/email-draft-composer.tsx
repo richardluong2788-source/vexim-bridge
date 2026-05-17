@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
+import { ProductLinkPicker } from "@/components/admin/product-link-picker"
 import type { EmailType } from "@/lib/supabase/types"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
@@ -36,6 +37,10 @@ interface Props {
   attachments: UploadedAttachment[]
   /** Callback when attachments change */
   onAttachmentsChange: (attachments: UploadedAttachment[]) => void
+  /** Opportunity ID for product link tracking */
+  opportunityId?: string
+  /** Client ID for fetching products */
+  clientId?: string | null
 }
 
 export function EmailDraftComposer({ 
@@ -45,6 +50,8 @@ export function EmailDraftComposer({
   onClearQuote,
   attachments,
   onAttachmentsChange,
+  opportunityId,
+  clientId,
 }: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
@@ -131,6 +138,21 @@ export function EmailDraftComposer({
             disabled={loading}
           />
         </Field>
+
+        {/* Product Link Picker */}
+        {opportunityId && clientId && (
+          <Field>
+            <FieldLabel>Link sản phẩm</FieldLabel>
+            <ProductLinkPicker
+              opportunityId={opportunityId}
+              clientId={clientId}
+              disabled={loading}
+            />
+            <FieldDescription>
+              Copy link sản phẩm để gửi cho buyer. Link có tracking để liên kết phản hồi với deal này.
+            </FieldDescription>
+          </Field>
+        )}
       </FieldGroup>
 
       <Button

@@ -13,6 +13,8 @@ export interface ProductQuoteRequest {
   phone?: string
   quantity_volume?: string
   notes?: string
+  /** Existing opportunity ID from tracking link (to link buyer response with existing opportunity) */
+  opportunity_ref?: string
 }
 
 /**
@@ -52,54 +54,98 @@ export async function submitProductQuoteRequest(
     return { success: false, error: "Failed to create lead" }
   }
 
-  // Create opportunity
-  const { data: opportunity, error: oppError } = await adminSupabase
-    .from("opportunities")
-    .insert({
-      client_id: request.client_id,
-      lead_id: lead.id,
-      stage: "new",
-      products_interested: request.product_name,
-      quantity_required: request.quantity_volume || null,
-      notes: `Inquiry via product page for: ${request.product_name}`,
-    })
-    .select()
-    .single()
+  // Check if we should link to an existing opportunity (from tracking link)
+  let opportunity: { id: string } | null = null
+  let isExistingOpportunity = false
 
-  if (oppError) {
-    console.error("[v0] submitProductQuoteRequest opportunity error:", oppError)
-    // Don't fail - lead was still created
+  if (request.opportunity_ref) {
+    // Verify the opportunity exists and belongs to the same client
+    const { data: existingOpp } = await adminSupabase
+      .from("opportunities")
+      .select("id, client_id, assigned_ae")
+      .eq("id", request.opportunity_ref)
+      .single()
+
+    if (existingOpp && existingOpp.client_id === request.client_id) {
+      // Link lead to existing opportunity
+      await adminSupabase
+        .from("opportunities")
+        .update({
+          lead_id: lead.id,
+          notes: `${existingOpp.id ? "Updated: " : ""}Buyer responded via product page.\n\nProduct: ${request.product_name}\nQuantity/Volume: ${request.quantity_volume || "Not specified"}\n\nNotes: ${request.notes || "None"}`,
+        })
+        .eq("id", existingOpp.id)
+
+      opportunity = { id: existingOpp.id }
+      isExistingOpportunity = true
+
+      // Notify the assigned AE specifically
+      if (existingOpp.assigned_ae) {
+        await adminSupabase.from("notifications").insert({
+          user_id: existingOpp.assigned_ae,
+          category: "new_assignment",
+          title: "Buyer Responded to Product Link",
+          body: `${request.company_name} submitted a quote request for ${request.product_name}`,
+          link_path: `/admin/opportunities/${existingOpp.id}`,
+          opportunity_id: existingOpp.id,
+        })
+      }
+    }
   }
 
-  // Create notification for account manager; if none assigned, notify all admins
-  const notifyUserId = client?.account_manager_id
-  if (notifyUserId) {
-    await adminSupabase.from("notifications").insert({
-      user_id: notifyUserId,
-      category: "new_assignment",
-      title: "New Quote Request",
-      body: `${request.company_name} requested a quote for ${request.product_name}`,
-      link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
-      opportunity_id: opportunity?.id || null,
-    })
-  } else {
-    // No account manager assigned — broadcast to all admins and super_admins
-    const { data: admins } = await adminSupabase
-      .from("profiles")
-      .select("id")
-      .in("role", ["admin", "super_admin"])
+  // Create new opportunity only if not linking to existing one
+  if (!isExistingOpportunity) {
+    const { data: newOpp, error: oppError } = await adminSupabase
+      .from("opportunities")
+      .insert({
+        client_id: request.client_id,
+        lead_id: lead.id,
+        stage: "new",
+        products_interested: request.product_name,
+        quantity_required: request.quantity_volume || null,
+        notes: `Inquiry via product page for: ${request.product_name}`,
+      })
+      .select()
+      .single()
 
-    if (admins && admins.length > 0) {
-      await adminSupabase.from("notifications").insert(
-        admins.map((admin) => ({
-          user_id: admin.id,
-          category: "new_assignment" as const,
-          title: "New Quote Request",
-          body: `${request.company_name} requested a quote for ${request.product_name}`,
-          link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
-          opportunity_id: opportunity?.id || null,
-        }))
-      )
+    if (oppError) {
+      console.error("[v0] submitProductQuoteRequest opportunity error:", oppError)
+      // Don't fail - lead was still created
+    }
+    opportunity = newOpp
+  }
+
+  // Create notification for account manager; if none assigned AND it's a new opportunity, notify all admins
+  if (!isExistingOpportunity) {
+    const notifyUserId = client?.account_manager_id
+    if (notifyUserId) {
+      await adminSupabase.from("notifications").insert({
+        user_id: notifyUserId,
+        category: "new_assignment",
+        title: "New Quote Request",
+        body: `${request.company_name} requested a quote for ${request.product_name}`,
+        link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+        opportunity_id: opportunity?.id || null,
+      })
+    } else {
+      // No account manager assigned — broadcast to all admins and super_admins
+      const { data: admins } = await adminSupabase
+        .from("profiles")
+        .select("id")
+        .in("role", ["admin", "super_admin"])
+
+      if (admins && admins.length > 0) {
+        await adminSupabase.from("notifications").insert(
+          admins.map((admin) => ({
+            user_id: admin.id,
+            category: "new_assignment" as const,
+            title: "New Quote Request",
+            body: `${request.company_name} requested a quote for ${request.product_name}`,
+            link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+            opportunity_id: opportunity?.id || null,
+          }))
+        )
+      }
     }
   }
 

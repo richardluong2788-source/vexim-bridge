@@ -19,6 +19,7 @@ import { ProductRequestQuoteDialog } from "@/components/product"
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ ref?: string }>
 }
 
 export const dynamic = "force-dynamic"
@@ -50,8 +51,19 @@ function formatPrice(min: number | null, max: number | null, currency: string): 
   return fmt(min || max || 0)
 }
 
-export default async function ProductPage({ params }: PageProps) {
+export default async function ProductPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  const { ref: trackingRef } = await searchParams
+
+  // Decode tracking ref to get opportunity ID (if present)
+  let opportunityId: string | null = null
+  if (trackingRef) {
+    try {
+      opportunityId = atob(trackingRef)
+    } catch {
+      // Invalid base64, ignore
+    }
+  }
 
   const supabase = await createClient()
 
@@ -251,6 +263,7 @@ export default async function ProductPage({ params }: PageProps) {
                 productId={typedProduct.id}
                 productName={typedProduct.product_name}
                 clientId={typedProduct.client_id}
+                opportunityRef={opportunityId}
               >
                 <Button size="lg" className="w-full">
                   <Mail className="w-4 h-4 mr-2" />

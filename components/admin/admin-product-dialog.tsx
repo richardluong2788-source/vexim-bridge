@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getProxiedBlobUrl } from '@/lib/blob-utils';
 import {
   Select,
   SelectContent,
@@ -520,7 +519,7 @@ export function AdminProductDialog({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={getProxiedBlobUrl(url)}
+                      src={url}
                       alt={`Product image ${idx + 1}`}
                       className="absolute inset-0 w-full h-full object-cover"
                     />

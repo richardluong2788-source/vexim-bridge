@@ -36,9 +36,11 @@ interface Props {
   quoteReply?: string
   /** Callback when user clears the quote */
   onClearQuote?: () => void
+  /** Client ID for product link picker */
+  clientId?: string | null
 }
 
-export function OpportunityEmailSection({ opportunityId, open, quoteReply, onClearQuote }: Props) {
+export function OpportunityEmailSection({ opportunityId, open, quoteReply, onClearQuote, clientId }: Props) {
   const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
@@ -165,6 +167,8 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             onClearQuote={onClearQuote}
             attachments={attachments}
             onAttachmentsChange={setAttachments}
+            opportunityId={opportunityId}
+            clientId={clientId}
           />
         )}
 

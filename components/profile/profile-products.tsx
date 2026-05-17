@@ -1,13 +1,24 @@
 "use client"
 
 import Image from "next/image"
-import { Package } from "lucide-react"
+import { Package, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import type { ClientProfileWithRelations, ClientProduct } from "@/lib/supabase/types"
 
 interface ProfileProductsProps {
   profile: ClientProfileWithRelations
+}
+
+const COMPLIANCE_BADGE_LABELS: Record<string, string> = {
+  fda: "FDA",
+  coa: "COA",
+  organic: "Organic",
+  fsvp: "FSVP",
+  halal: "Halal",
+  kosher: "Kosher",
+  brcgs: "BRCGS",
+  haccp: "HACCP",
 }
 
 function formatPrice(min: number | null, max: number | null, currency: string): string | null {
@@ -51,9 +62,9 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
             >
               {/* Product Image */}
               <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-                {product.image_url ? (
+                {product.image_urls && product.image_urls.length > 0 ? (
                   <Image
-                    src={product.image_url}
+                    src={product.image_urls[0]}
                     alt={product.product_name}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -72,6 +83,15 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
                     </Badge>
                   </div>
                 )}
+
+                {/* Image count indicator */}
+                {product.image_urls && product.image_urls.length > 1 && (
+                  <div className="absolute bottom-3 right-3">
+                    <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-xs">
+                      +{product.image_urls.length - 1} more
+                    </Badge>
+                  </div>
+                )}
               </div>
 
               <CardContent className="p-4">
@@ -83,6 +103,27 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                     {product.description}
                   </p>
+                )}
+
+                {/* Compliance Badges */}
+                {product.compliance_badges && product.compliance_badges.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {product.compliance_badges.slice(0, 4).map((badge) => (
+                      <Badge
+                        key={badge}
+                        variant="outline"
+                        className="text-xs bg-green-50 text-green-700 border-green-200"
+                      >
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        {COMPLIANCE_BADGE_LABELS[badge] || badge.toUpperCase()}
+                      </Badge>
+                    ))}
+                    {product.compliance_badges.length > 4 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{product.compliance_badges.length - 4}
+                      </Badge>
+                    )}
+                  </div>
                 )}
 
                 <div className="flex flex-wrap gap-2 text-xs">

@@ -56,7 +56,7 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {products.slice(0, 6).map((product: ClientProduct) => (
-            <Link href={`/product/${product.id}`} key={product.id}>
+            <Link href={`/products/${product.id}`} key={product.id}>
               <Card className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col !p-0 !gap-0">
                 {/* Product Image */}
                 <div className="relative aspect-[4/3] bg-muted overflow-hidden flex-shrink-0">

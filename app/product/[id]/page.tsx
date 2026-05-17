@@ -55,7 +55,8 @@ export default async function ProductPage({ params }: PageProps) {
       client:client_id(
         id,
         company_name,
-        trading_name
+        trading_name,
+        client_profiles(slug)
       )
     `
     )
@@ -67,8 +68,15 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const typedProduct = product as ClientProduct & {
-    client: { id: string; company_name: string; trading_name: string } | null
+    client: { 
+      id: string
+      company_name: string
+      trading_name: string
+      client_profiles: { slug: string }[] | null 
+    } | null
   }
+  
+  const profileSlug = typedProduct.client?.client_profiles?.[0]?.slug
 
   return (
     <main className="min-h-screen bg-background">
@@ -76,7 +84,7 @@ export default async function ProductPage({ params }: PageProps) {
       <div className="border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <Link
-            href={`/profile/${typedProduct.client?.trading_name || typedProduct.client?.company_name || "#"}`}
+            href={profileSlug ? `/profile/${profileSlug}` : "#"}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 sm:mb-6"
           >
             <ArrowLeft className="w-4 h-4" />

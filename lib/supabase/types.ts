@@ -1026,7 +1026,8 @@ export type ClientProduct = {
   currency: string
   monthly_capacity_units: number | null
   status: "active" | "inactive" | "suspended"
-  image_url?: string | null
+  image_urls: string[]
+  compliance_badges: string[]
   created_by: string | null
   created_at: string
   updated_at: string

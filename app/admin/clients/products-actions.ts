@@ -18,6 +18,8 @@ export interface ClientProduct {
   currency: string;
   monthly_capacity_units: number | null;
   status: 'active' | 'inactive' | 'suspended';
+  image_urls: string[];
+  compliance_badges: string[];
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -39,6 +41,8 @@ export async function addClientProductAction(
     currency?: string;
     monthly_capacity_units?: number;
     status?: 'active' | 'inactive' | 'suspended';
+    image_urls?: string[];
+    compliance_badges?: string[];
   }
 ) {
   const supabase = await createClient();
@@ -85,6 +89,8 @@ export async function addClientProductAction(
         currency: data.currency || 'USD',
         monthly_capacity_units: data.monthly_capacity_units || null,
         status: data.status || 'active',
+        image_urls: data.image_urls || [],
+        compliance_badges: data.compliance_badges || [],
         created_by: user.id,
       },
     ])
@@ -124,6 +130,8 @@ export async function updateClientProductAction(
     currency: string;
     monthly_capacity_units: number;
     status: 'active' | 'inactive' | 'suspended';
+    image_urls: string[];
+    compliance_badges: string[];
   }>
 ) {
   const supabase = await createClient();

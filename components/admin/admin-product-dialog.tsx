@@ -9,7 +9,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Upload, X } from 'lucide-react';
+import Image from 'next/image';
+import { Loader2, Plus, Upload, X, ImageIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { addClientProductAction, updateClientProductAction } from '@/app/admin/clients/products-actions';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import {
@@ -39,6 +41,17 @@ const UNITS = [
   { value: 'units', label: 'cái' },
 ];
 const CURRENCIES = ['USD', 'EUR', 'VND', 'CNY', 'SGD', 'MYR'];
+
+const COMPLIANCE_BADGES = [
+  { value: 'fda', label: 'FDA Registered', description: 'FDA đã đăng ký' },
+  { value: 'coa', label: 'COA Available', description: 'Có chứng nhận phân tích' },
+  { value: 'organic', label: 'Organic Certified', description: 'Chứng nhận hữu cơ' },
+  { value: 'fsvp', label: 'FSVP Compliant', description: 'Tuân thủ FSVP' },
+  { value: 'halal', label: 'Halal Certified', description: 'Chứng nhận Halal' },
+  { value: 'kosher', label: 'Kosher Certified', description: 'Chứng nhận Kosher' },
+  { value: 'brcgs', label: 'BRCGS', description: 'BRCGS Food Safety' },
+  { value: 'haccp', label: 'HACCP', description: 'Chứng nhận HACCP' },
+];
 
 interface AdminProductDialogProps {
   clientId: string;
@@ -58,7 +71,10 @@ export function AdminProductDialog({
   onSaved,
 }: AdminProductDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>(product?.image_urls || []);
+  const [complianceBadges, setComplianceBadges] = useState<string[]>(product?.compliance_badges || []);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [canAddCategory, setCanAddCategory] = useState(false);
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
@@ -99,6 +115,8 @@ export function AdminProductDialog({
       status: product?.status || 'active',
     });
     setFiles([]);
+    setImageUrls(product?.image_urls || []);
+    setComplianceBadges(product?.compliance_badges || []);
   }, [product, open]);
 
   // Load product categories from DB whenever the dialog opens.
@@ -151,11 +169,56 @@ export function AdminProductDialog({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const removeImageUrl = (index: number) => {
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleComplianceToggle = (badge: string, checked: boolean) => {
+    if (checked) {
+      setComplianceBadges((prev) => [...prev, badge]);
+    } else {
+      setComplianceBadges((prev) => prev.filter((b) => b !== badge));
+    }
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (files.length === 0) return [];
+
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('files', file);
+    }
+
+    const res = await fetch('/api/products/upload-images', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Upload failed');
+    }
+
+    const { urls } = await res.json();
+    return urls;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Upload images first if there are new files
+      let newImageUrls: string[] = [];
+      if (files.length > 0) {
+        setUploading(true);
+        newImageUrls = await uploadImages();
+        setUploading(false);
+      }
+
+      // Merge existing URLs with newly uploaded URLs
+      const finalImageUrls = [...imageUrls, ...newImageUrls];
+
       const payload = {
         ...formData,
         monthly_capacity_units: formData.monthly_capacity_units
@@ -163,6 +226,8 @@ export function AdminProductDialog({
           : null,
         min_unit_price: formData.min_unit_price ? Number.parseFloat(formData.min_unit_price) : null,
         max_unit_price: formData.max_unit_price ? Number.parseFloat(formData.max_unit_price) : null,
+        image_urls: finalImageUrls,
+        compliance_badges: complianceBadges,
       };
 
       let result;
@@ -188,6 +253,8 @@ export function AdminProductDialog({
           status: 'active',
         });
         setFiles([]);
+        setImageUrls([]);
+        setComplianceBadges([]);
         onOpenChange(false);
         onSaved();
       }
@@ -409,6 +476,118 @@ export function AdminProductDialog({
                 </Select>
               </div>
             </div>
+
+            {/* Compliance Badges */}
+            <div className="space-y-2">
+              <Label>Chứng nhận & Tuân thủ</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {COMPLIANCE_BADGES.map((badge) => (
+                  <div key={badge.value} className="flex items-start space-x-3">
+                    <Checkbox
+                      id={`badge-${badge.value}`}
+                      checked={complianceBadges.includes(badge.value)}
+                      onCheckedChange={(checked) =>
+                        handleComplianceToggle(badge.value, checked === true)
+                      }
+                    />
+                    <label
+                      htmlFor={`badge-${badge.value}`}
+                      className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {badge.label}
+                      <p className="text-xs text-muted-foreground mt-1">{badge.description}</p>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-4">
+            <h3 className="font-semibold">Ảnh sản phẩm</h3>
+            <p className="text-sm text-muted-foreground">
+              Tải lên hình ảnh sản phẩm (tối đa 10 ảnh, mỗi ảnh 10MB)
+            </p>
+
+            {/* Existing Images */}
+            {imageUrls.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {imageUrls.map((url, idx) => (
+                  <div
+                    key={`existing-${idx}`}
+                    className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
+                  >
+                    <Image
+                      src={url}
+                      alt={`Product image ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeImageUrl(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* New Files Preview */}
+            {files.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {files.map((file, idx) => (
+                  <div
+                    key={`new-${idx}`}
+                    className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-primary"
+                  >
+                    <Image
+                      src={URL.createObjectURL(file)}
+                      alt={`New image ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-foreground text-xs py-0.5 text-center">
+                      Chưa upload
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeFile(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Zone */}
+            {(imageUrls.length + files.length) < 10 && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
+                <input
+                  type="file"
+                  id="product-images"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleFileChange}
+                  disabled={(imageUrls.length + files.length) >= 10}
+                  className="hidden"
+                />
+                <Label htmlFor="product-images" className="cursor-pointer">
+                  <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
+                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF - Tối đa 10MB/ảnh</p>
+                </Label>
+              </div>
+            )}
           </div>
 
           {/* File Upload */}
@@ -461,9 +640,9 @@ export function AdminProductDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Hủy
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || uploading}>
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEditing ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm'}
+              {uploading ? 'Đang tải ảnh...' : isEditing ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm'}
             </Button>
           </div>
         </form>

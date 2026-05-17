@@ -19,8 +19,31 @@ export async function GET(request: NextRequest) {
     // Get a temporary signed download URL for the private blob
     const downloadUrl = await getDownloadUrl(url)
 
-    // Redirect to the signed URL (faster, less server load)
-    return NextResponse.redirect(downloadUrl)
+    // Fetch the image from the signed URL
+    const imageResponse = await fetch(downloadUrl)
+    
+    if (!imageResponse.ok) {
+      console.error("[v0] Failed to fetch blob:", imageResponse.status)
+      return NextResponse.json(
+        { error: "Failed to fetch image" },
+        { status: imageResponse.status }
+      )
+    }
+
+    // Get the image data as array buffer
+    const imageBuffer = await imageResponse.arrayBuffer()
+    
+    // Get content type from the response
+    const contentType = imageResponse.headers.get("content-type") || "image/jpeg"
+
+    // Return the image with proper headers
+    return new NextResponse(imageBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    })
   } catch (error) {
     console.error("[v0] Blob proxy error:", error)
     return NextResponse.json(

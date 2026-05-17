@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { Package, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -64,11 +63,11 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
               {/* Product Image */}
               <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                 {product.image_urls && product.image_urls.length > 0 ? (
-                  <Image
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
                     src={getProxiedBlobUrl(product.image_urls[0])}
                     alt={product.product_name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full bg-gradient-to-br from-muted to-muted/50">

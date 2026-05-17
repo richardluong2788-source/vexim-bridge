@@ -71,7 +71,7 @@ export async function submitProductQuoteRequest(
     // Don't fail - lead was still created
   }
 
-  // Create notification for account manager or admins
+  // Create notification for account manager; if none assigned, notify all admins
   const notifyUserId = client?.account_manager_id
   if (notifyUserId) {
     await adminSupabase.from("notifications").insert({
@@ -82,12 +82,30 @@ export async function submitProductQuoteRequest(
       link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
       opportunity_id: opportunity?.id || null,
     })
+  } else {
+    // No account manager assigned — broadcast to all admins and super_admins
+    const { data: admins } = await adminSupabase
+      .from("profiles")
+      .select("id")
+      .in("role", ["admin", "super_admin"])
+
+    if (admins && admins.length > 0) {
+      await adminSupabase.from("notifications").insert(
+        admins.map((admin) => ({
+          user_id: admin.id,
+          category: "new_assignment" as const,
+          title: "New Quote Request",
+          body: `${request.company_name} requested a quote for ${request.product_name}`,
+          link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+          opportunity_id: opportunity?.id || null,
+        }))
+      )
+    }
   }
 
   // Send confirmation email to the buyer
   try {
-    const emailResult = await sendBuyerInquiryReceivedEmail(lead.id)
-    console.log("[v0] Buyer confirmation email result:", emailResult)
+    await sendBuyerInquiryReceivedEmail(lead.id)
   } catch (emailError) {
     // Don't fail the request if email fails - it's not critical
     console.error("[v0] Failed to send buyer confirmation email:", emailError)

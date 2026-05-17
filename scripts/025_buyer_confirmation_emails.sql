@@ -12,6 +12,9 @@
 -- Safe to re-run (uses IF NOT EXISTS / CREATE OR REPLACE).
 -- ============================================================
 
+-- ---- 0. Enable pgcrypto extension (required for gen_random_bytes) ---
+create extension if not exists pgcrypto with schema extensions;
+
 -- ---- 1. Extend leads ------------------------------------------------
 alter table public.leads
   add column if not exists unsubscribe_token text,

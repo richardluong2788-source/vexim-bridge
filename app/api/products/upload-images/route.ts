@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       const pathname = `product-images/${user.id}/${timestamp}_${safeName}`
 
       const blob = await put(pathname, file, {
-        access: "private",
+        access: "public",
         contentType: file.type,
       })
 

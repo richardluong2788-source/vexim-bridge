@@ -1,7 +1,17 @@
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Badge } from "@/components/ui/badge"
-import { Package, ShieldCheck, ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { 
+  Package, 
+  ShieldCheck, 
+  ChevronRight, 
+  Truck, 
+  CheckCircle2,
+  Mail,
+  Building2
+} from "lucide-react"
 import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
 
@@ -11,15 +21,15 @@ interface PageProps {
 
 export const dynamic = "force-dynamic"
 
-const COMPLIANCE_BADGE_LABELS: Record<string, string> = {
-  fda: "FDA",
-  coa: "COA",
-  organic: "Organic",
-  fsvp: "FSVP",
-  halal: "Halal",
-  kosher: "Kosher",
-  brcgs: "BRCGS",
-  haccp: "HACCP",
+const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> = {
+  fda: { label: "FDA Registered", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  coa: { label: "COA Available", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  organic: { label: "Organic Certified", color: "bg-green-50 text-green-700 border-green-200" },
+  fsvp: { label: "FSVP Compliant", color: "bg-orange-50 text-orange-700 border-orange-200" },
+  halal: { label: "Halal Certified", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  kosher: { label: "Kosher Certified", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  brcgs: { label: "BRCGS", color: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+  haccp: { label: "HACCP", color: "bg-teal-50 text-teal-700 border-teal-200" },
 }
 
 function formatPrice(min: number | null, max: number | null, currency: string): string | null {
@@ -38,19 +48,15 @@ function formatPrice(min: number | null, max: number | null, currency: string): 
   return fmt(min || max || 0)
 }
 
-function formatCapacity(units: number | null, uom: string): string | null {
-  if (!units) return null
-  return `${units.toLocaleString()} ${uom}/month`
-}
-
 export default async function ProductPage({ params }: PageProps) {
   const { id } = await params
+
   const supabase = await createClient()
 
+  // Fetch product with client info
   const { data: product, error } = await supabase
     .from("client_products")
-    .select(
-      `
+    .select(`
       *,
       client:client_id(
         id,
@@ -58,8 +64,7 @@ export default async function ProductPage({ params }: PageProps) {
         trading_name,
         client_profiles(slug)
       )
-    `
-    )
+    `)
     .eq("id", id)
     .single()
 
@@ -68,165 +73,236 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const typedProduct = product as ClientProduct & {
-    client: { 
+    client: {
       id: string
       company_name: string
-      trading_name: string
-      client_profiles: { slug: string }[] | null 
+      trading_name: string | null
+      client_profiles: { slug: string }[] | null
     } | null
   }
-  
+
   const profileSlug = typedProduct.client?.client_profiles?.[0]?.slug
+  const companyName = typedProduct.client?.trading_name || typedProduct.client?.company_name
+  const priceDisplay = formatPrice(
+    typedProduct.min_unit_price,
+    typedProduct.max_unit_price,
+    typedProduct.currency
+  )
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <Link
-            href={profileSlug ? `/profile/${profileSlug}` : "#"}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 sm:mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Profile
-          </Link>
-
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            {typedProduct.product_name}
-          </h1>
-          {typedProduct.category && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Category: <span className="font-medium">{typedProduct.category}</span>
-            </p>
-          )}
+      {/* Breadcrumb */}
+      <div className="border-b bg-muted/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/" className="hover:text-foreground transition-colors">
+              Home
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            {typedProduct.category && (
+              <>
+                <span>{typedProduct.category}</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
+            <span className="text-foreground font-medium truncate max-w-[200px]">
+              {typedProduct.product_name}
+            </span>
+          </nav>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Images */}
-          <div className="lg:col-span-2">
-            <div className="space-y-4">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          
+          {/* Left: Images Gallery */}
+          <div className="space-y-4">
+            {/* Main Image */}
+            <div className="relative aspect-square bg-muted rounded-lg overflow-hidden border">
               {typedProduct.image_urls && typedProduct.image_urls.length > 0 ? (
-                <>
-                  {/* Main Image */}
-                  <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={typedProduct.image_urls[0]}
-                      alt={typedProduct.product_name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  {/* Thumbnails */}
-                  {typedProduct.image_urls.length > 1 && (
-                    <div className="grid grid-cols-4 gap-2">
-                      {typedProduct.image_urls.slice(0, 4).map((url, idx) => (
-                        <div
-                          key={idx}
-                          className="relative aspect-square bg-muted rounded-lg overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`${typedProduct.product_name} ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={typedProduct.image_urls[0]}
+                  alt={typedProduct.product_name}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <div className="relative aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-                  <Package className="w-16 h-16 text-muted-foreground" />
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="w-20 h-20 text-muted-foreground/50" />
                 </div>
               )}
             </div>
+
+            {/* Thumbnails */}
+            {typedProduct.image_urls && typedProduct.image_urls.length > 1 && (
+              <div className="grid grid-cols-5 gap-2">
+                {typedProduct.image_urls.slice(0, 5).map((url, idx) => (
+                  <button
+                    key={idx}
+                    className={`relative aspect-square bg-muted rounded-md overflow-hidden border-2 transition-colors ${
+                      idx === 0 ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`${typedProduct.product_name} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Details */}
+          {/* Right: Product Info */}
           <div className="space-y-6">
-            {/* Price & Capacity */}
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Price per Unit</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {formatPrice(typedProduct.min_unit_price, typedProduct.max_unit_price, typedProduct.currency) ||
-                    "N/A"}
+            {/* Category & Status */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {typedProduct.category && (
+                <Badge variant="secondary" className="text-xs">
+                  {typedProduct.category}
+                </Badge>
+              )}
+              {typedProduct.subcategory && (
+                <Badge variant="outline" className="text-xs">
+                  {typedProduct.subcategory}
+                </Badge>
+              )}
+              <Badge
+                variant={typedProduct.status === "active" ? "default" : "secondary"}
+                className={typedProduct.status === "active" ? "bg-green-600" : ""}
+              >
+                {typedProduct.status === "active" ? "Available" : "Unavailable"}
+              </Badge>
+            </div>
+
+            {/* Product Name */}
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+              {typedProduct.product_name}
+            </h1>
+
+            {/* Supplier */}
+            {companyName && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Building2 className="w-4 h-4" />
+                <span className="text-sm">Supplied by</span>
+                {profileSlug ? (
+                  <Link 
+                    href={`/profile/${profileSlug}`}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    {companyName}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium">{companyName}</span>
+                )}
+              </div>
+            )}
+
+            {/* Price */}
+            {priceDisplay && (
+              <div className="bg-muted/50 rounded-lg p-4 border">
+                <p className="text-sm text-muted-foreground mb-1">Unit Price</p>
+                <p className="text-3xl font-bold text-primary">
+                  {priceDisplay}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  per {typedProduct.unit_of_measure}
                 </p>
               </div>
+            )}
 
-              {formatCapacity(typedProduct.monthly_capacity_units, typedProduct.unit_of_measure) && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Monthly Capacity</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {formatCapacity(
-                      typedProduct.monthly_capacity_units,
-                      typedProduct.unit_of_measure
-                    )}
+            {/* Quick Info */}
+            <div className="grid grid-cols-2 gap-4">
+              {typedProduct.monthly_capacity_units && (
+                <div className="bg-background border rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Truck className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Monthly Capacity</span>
+                  </div>
+                  <p className="text-lg font-semibold">
+                    {typedProduct.monthly_capacity_units.toLocaleString()} {typedProduct.unit_of_measure}
+                  </p>
+                </div>
+              )}
+              {typedProduct.hs_code && (
+                <div className="bg-background border rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Package className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">HS Code</span>
+                  </div>
+                  <p className="text-lg font-semibold font-mono">
+                    {typedProduct.hs_code}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Description */}
-            {typedProduct.description && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Description</p>
-                <p className="text-foreground leading-relaxed">{typedProduct.description}</p>
-              </div>
-            )}
-
-            {/* Compliance Badges */}
+            {/* Certifications */}
             {typedProduct.compliance_badges && typedProduct.compliance_badges.length > 0 && (
               <div>
-                <p className="text-sm text-muted-foreground mb-3">Certifications</p>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  Certifications & Compliance
+                </h3>
                 <div className="flex flex-wrap gap-2">
-                  {typedProduct.compliance_badges.map((badge) => (
-                    <Badge
-                      key={badge}
-                      variant="outline"
-                      className="bg-green-50 text-green-700 border-green-200"
-                    >
-                      <ShieldCheck className="w-3 h-3 mr-1" />
-                      {COMPLIANCE_BADGE_LABELS[badge] || badge.toUpperCase()}
-                    </Badge>
-                  ))}
+                  {typedProduct.compliance_badges.map((badge) => {
+                    const badgeInfo = COMPLIANCE_BADGE_LABELS[badge] || { 
+                      label: badge.toUpperCase(), 
+                      color: "bg-gray-50 text-gray-700 border-gray-200" 
+                    }
+                    return (
+                      <span
+                        key={badge}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${badgeInfo.color}`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {badgeInfo.label}
+                      </span>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
-            {/* HS Code */}
-            {typedProduct.hs_code && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">HS Code</p>
-                <p className="font-mono text-sm text-foreground">{typedProduct.hs_code}</p>
-              </div>
-            )}
+            <Separator />
 
-            {/* Status */}
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Status</p>
-              <Badge
-                variant={typedProduct.status === "active" ? "default" : "secondary"}
-                className={
-                  typedProduct.status === "active"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-800"
-                }
-              >
-                {typedProduct.status === "active"
-                  ? "Active"
-                  : typedProduct.status === "inactive"
-                    ? "Inactive"
-                    : "Suspended"}
-              </Badge>
+            {/* CTA Buttons */}
+            <div className="space-y-3">
+              <Button size="lg" className="w-full">
+                <Mail className="w-4 h-4 mr-2" />
+                Request Quote
+              </Button>
+              {profileSlug && (
+                <Button variant="outline" size="lg" className="w-full" asChild>
+                  <Link href={`/profile/${profileSlug}`}>
+                    <Building2 className="w-4 h-4 mr-2" />
+                    View Supplier Profile
+                  </Link>
+                </Button>
+              )}
             </div>
+
+            {/* Product Code */}
+            {typedProduct.product_code && (
+              <p className="text-xs text-muted-foreground">
+                SKU: <span className="font-mono">{typedProduct.product_code}</span>
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Description Section */}
+        {typedProduct.description && (
+          <div className="mt-12 pt-8 border-t">
+            <h2 className="text-xl font-semibold mb-4">Product Description</h2>
+            <div className="prose prose-sm max-w-none text-muted-foreground">
+              <p className="whitespace-pre-wrap leading-relaxed">{typedProduct.description}</p>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

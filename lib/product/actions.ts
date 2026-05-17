@@ -30,10 +30,12 @@ export async function submitProductQuoteRequest(
     .eq("id", request.client_id)
     .single()
 
-  // Create lead
+  // Create lead - generate UUID in app to avoid database extension issues
+  const leadId = crypto.randomUUID()
   const { data: lead, error: leadError } = await adminSupabase
     .from("leads")
     .insert({
+      id: leadId,
       company_name: request.company_name,
       contact_person: request.contact_name,
       contact_email: request.email,

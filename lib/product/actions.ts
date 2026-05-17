@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
 
 export interface ProductQuoteRequest {
   product_id: string
@@ -81,6 +82,15 @@ export async function submitProductQuoteRequest(
       link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
       opportunity_id: opportunity?.id || null,
     })
+  }
+
+  // Send confirmation email to the buyer
+  try {
+    const emailResult = await sendBuyerInquiryReceivedEmail(lead.id)
+    console.log("[v0] Buyer confirmation email result:", emailResult)
+  } catch (emailError) {
+    // Don't fail the request if email fails - it's not critical
+    console.error("[v0] Failed to send buyer confirmation email:", emailError)
   }
 
   // Generate reference number

@@ -5,6 +5,7 @@ import { Package, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import type { ClientProfileWithRelations, ClientProduct } from "@/lib/supabase/types"
+import { getProxiedBlobUrl } from "@/lib/blob-utils"
 
 interface ProfileProductsProps {
   profile: ClientProfileWithRelations
@@ -64,7 +65,7 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
               <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                 {product.image_urls && product.image_urls.length > 0 ? (
                   <Image
-                    src={product.image_urls[0]}
+                    src={getProxiedBlobUrl(product.image_urls[0])}
                     alt={product.product_name}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"

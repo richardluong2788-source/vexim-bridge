@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { getProxiedBlobUrl } from '@/lib/blob-utils';
 import {
   Select,
   SelectContent,
@@ -357,7 +358,7 @@ export function AdminProductDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Mô tả</Label>
+              <Label htmlFor="description">Mô t��</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -519,7 +520,7 @@ export function AdminProductDialog({
                     className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                   >
                     <Image
-                      src={url}
+                      src={getProxiedBlobUrl(url)}
                       alt={`Product image ${idx + 1}`}
                       fill
                       className="object-cover"

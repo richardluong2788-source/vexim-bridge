@@ -4,16 +4,18 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { 
-  Package, 
   ShieldCheck, 
   ChevronRight, 
   Truck, 
   CheckCircle2,
   Mail,
-  Building2
+  Building2,
+  Package
 } from "lucide-react"
 import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
+import { ProductImageGallery } from "@/components/product"
+import { ProductRequestQuoteDialog } from "@/components/product"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -125,44 +127,10 @@ export default async function ProductPage({ params }: PageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           
           {/* Left: Images Gallery */}
-          <div className="space-y-4">
-            {/* Main Image */}
-            <div className="relative aspect-square bg-muted rounded-lg overflow-hidden border">
-              {typedProduct.image_urls && typedProduct.image_urls.length > 0 ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={typedProduct.image_urls[0]}
-                  alt={typedProduct.product_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Package className="w-20 h-20 text-muted-foreground/50" />
-                </div>
-              )}
-            </div>
-
-            {/* Thumbnails */}
-            {typedProduct.image_urls && typedProduct.image_urls.length > 1 && (
-              <div className="grid grid-cols-5 gap-2">
-                {typedProduct.image_urls.slice(0, 5).map((url, idx) => (
-                  <button
-                    key={idx}
-                    className={`relative aspect-square bg-muted rounded-md overflow-hidden border-2 transition-colors ${
-                      idx === 0 ? "border-primary" : "border-transparent hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={`${typedProduct.product_name} ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <ProductImageGallery 
+            images={typedProduct.image_urls || []} 
+            productName={typedProduct.product_name} 
+          />
 
           {/* Right: Product Info */}
           <div className="space-y-6">
@@ -279,10 +247,16 @@ export default async function ProductPage({ params }: PageProps) {
 
             {/* CTA Buttons */}
             <div className="space-y-3">
-              <Button size="lg" className="w-full">
-                <Mail className="w-4 h-4 mr-2" />
-                Request Quote
-              </Button>
+              <ProductRequestQuoteDialog
+                productId={typedProduct.id}
+                productName={typedProduct.product_name}
+                clientId={typedProduct.client_id}
+              >
+                <Button size="lg" className="w-full">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Request Quote
+                </Button>
+              </ProductRequestQuoteDialog>
               {profileSlug && (
                 <Button variant="outline" size="lg" className="w-full" asChild>
                   <Link href={`/profile/${profileSlug}`}>

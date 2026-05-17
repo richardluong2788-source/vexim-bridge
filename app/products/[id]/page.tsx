@@ -60,9 +60,7 @@ export default async function ProductPage({ params }: PageProps) {
       *,
       client:client_id(
         id,
-        company_name,
-        trading_name,
-        client_profiles(slug)
+        company_name
       )
     `)
     .eq("id", id)
@@ -72,17 +70,27 @@ export default async function ProductPage({ params }: PageProps) {
     notFound()
   }
 
+  // Fetch client profile slug separately
+  let profileSlug: string | null = null
+  if (product.client_id) {
+    const { data: clientProfile } = await supabase
+      .from("client_profiles")
+      .select("slug")
+      .eq("client_id", product.client_id)
+      .eq("is_published", true)
+      .single()
+    
+    profileSlug = clientProfile?.slug ?? null
+  }
+
   const typedProduct = product as ClientProduct & {
     client: {
       id: string
       company_name: string
-      trading_name: string | null
-      client_profiles: { slug: string }[] | null
     } | null
   }
 
-  const profileSlug = typedProduct.client?.client_profiles?.[0]?.slug
-  const companyName = typedProduct.client?.trading_name || typedProduct.client?.company_name
+  const companyName = typedProduct.client?.company_name
   const priceDisplay = formatPrice(
     typedProduct.min_unit_price,
     typedProduct.max_unit_price,

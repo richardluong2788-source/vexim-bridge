@@ -8,12 +8,8 @@
  * Storage layout:
  *   clients/{ownerId}/{kind}/{timestamp}-{safeName}
  *
- * The Blob store is configured as `private`, so the `url` returned by
- * `put()` is NOT publicly reachable. We store the **pathname** in
- * `compliance_docs.url` and serve files through the authenticated
- * proxy at `/api/files?path=...` (see `lib/blob/file-url.ts`).
- * Tokenized sharing (`/share/[token]`) validates the token in the
- * proxy and streams the file without requiring the viewer to log in.
+ * The Blob store is configured as `public`, so the `url` returned by
+ * `put()` is publicly reachable and can be used directly.
  */
 import { put, del } from "@vercel/blob"
 
@@ -73,7 +69,7 @@ export async function uploadComplianceDoc(args: {
   )}`
 
   const blob = await put(pathname, file, {
-    access: "private",
+    access: "public",
     addRandomSuffix: false,
     allowOverwrite: false,
     contentType: file.type,

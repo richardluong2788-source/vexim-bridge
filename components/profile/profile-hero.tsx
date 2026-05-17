@@ -32,9 +32,9 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
         <div className="absolute inset-0 bg-black/10" />
       </div>
 
-      {/* Logo and Company Name - Facebook Style */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 -mt-16 sm:-mt-20">
+      {/* Logo and Company Name - Below cover image */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
           {/* Logo */}
           <div className="relative shrink-0 w-24 h-24 sm:w-32 sm:h-32 rounded-lg border-4 border-background bg-background shadow-lg overflow-hidden">
             {logoUrl ? (

@@ -69,9 +69,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       {/* Block 1: Hero (Cover + Logo + Name) */}
       <ProfileHero profile={profile} />
 
-      {/* Spacer for logo overlap */}
-      <div className="h-16 sm:h-20" />
-
       {/* Block 2: Description */}
       <ProfileDescription profile={profile} />
 

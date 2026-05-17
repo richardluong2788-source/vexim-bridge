@@ -45,8 +45,13 @@ export async function getNotificationsSnapshot(
       .is("read_at", null),
   ])
 
+  // Filter out malformed rows (title may be null in rare DB edge cases)
+  const recent = (recentRes.data ?? []).filter(
+    (n): n is Notification => !!n && typeof n.title === "string"
+  )
+
   return {
-    recent: recentRes.data ?? [],
+    recent,
     unreadCount: countRes.count ?? 0,
   }
 }

@@ -76,6 +76,7 @@ export function NotificationBell({
           (payload) => {
             // Add new notification to the top of the list
             const newNotification = payload.new as Notification
+            if (!newNotification) return
             setItems((prev) => [newNotification, ...prev.slice(0, 14)])
             setUnread((c) => c + 1)
           }

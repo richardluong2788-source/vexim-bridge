@@ -369,7 +369,7 @@ export async function updateOpportunityStage(
   const { data: before } = await admin
     .from("opportunities")
     .select(
-      "id, client_id, stage, buyer_code, leads:lead_id ( company_name, country )",
+      "id, client_id, stage, buyer_code, assigned_ae, leads:lead_id ( company_name, country )",
     )
     .eq("id", opportunityId)
     .single()
@@ -450,6 +450,33 @@ export async function updateOpportunityStage(
         en: "View details",
       },
     })
+
+    // Also notify the assigned AE (if any) when deal is closed - for their records
+    if (isClosed && before.assigned_ae && before.assigned_ae !== user.id) {
+      await dispatchNotification({
+        userId: before.assigned_ae,
+        category: "deal_closed",
+        opportunityId,
+        linkPath: `/admin/opportunities/${opportunityId}`,
+        dedupKey: `opp_closed_ae:${opportunityId}:${newStage}`,
+        title: {
+          vi: newStage === "won" ? `Deal Won: ${label}` : `Deal Lost: ${label}`,
+          en: newStage === "won" ? `Deal Won: ${label}` : `Deal Lost: ${label}`,
+        },
+        body: {
+          vi: newStage === "won" 
+            ? `Chúc mừng! Thương vụ ${label} đã thành công.`
+            : `Thương vụ ${label} đã kết thúc không thành công.`,
+          en: newStage === "won"
+            ? `Congratulations! Deal ${label} has been won.`
+            : `Deal ${label} has been closed as lost.`,
+        },
+        ctaLabel: {
+          vi: "Xem chi tiết",
+          en: "View details",
+        },
+      })
+    }
   } catch (err) {
     console.error("[v0] notify stage-change failed", err)
   }

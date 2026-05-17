@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { Loader2, Plus, Upload, X, ImageIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -519,11 +518,11 @@ export function AdminProductDialog({
                     key={`existing-${idx}`}
                     className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={getProxiedBlobUrl(url)}
                       alt={`Product image ${idx + 1}`}
-                      fill
-                      className="object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                     <Button
                       type="button"
@@ -547,11 +546,11 @@ export function AdminProductDialog({
                     key={`new-${idx}`}
                     className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-primary"
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={URL.createObjectURL(file)}
                       alt={`New image ${idx + 1}`}
-                      fill
-                      className="object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                     <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-foreground text-xs py-0.5 text-center">
                       Chưa upload

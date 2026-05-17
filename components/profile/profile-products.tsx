@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Package, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -55,45 +56,43 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {products.slice(0, 6).map((product: ClientProduct) => (
-            <Card
-              key={product.id}
-              className="group overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Product Image */}
-              <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-                {product.image_urls && product.image_urls.length > 0 ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={product.image_urls[0]}
-                    alt={product.product_name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-gradient-to-br from-muted to-muted/50">
-                    <Package className="w-12 h-12 text-muted-foreground" />
-                  </div>
-                )}
+            <Link href={`/product/${product.id}`} key={product.id}>
+              <Card className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
+                {/* Product Image */}
+                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                  {product.image_urls && product.image_urls.length > 0 ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={product.image_urls[0]}
+                      alt={product.product_name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-muted to-muted/50">
+                      <Package className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  )}
 
-                {/* Category Badge */}
-                {product.category && (
-                  <div className="absolute top-3 left-3">
-                    <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
-                      {product.category}
-                    </Badge>
-                  </div>
-                )}
+                  {/* Category Badge */}
+                  {product.category && (
+                    <div className="absolute top-3 left-3">
+                      <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
+                        {product.category}
+                      </Badge>
+                    </div>
+                  )}
 
-                {/* Image count indicator */}
-                {product.image_urls && product.image_urls.length > 1 && (
-                  <div className="absolute bottom-3 right-3">
-                    <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-xs">
-                      +{product.image_urls.length - 1} more
-                    </Badge>
-                  </div>
-                )}
-              </div>
+                  {/* Image count indicator */}
+                  {product.image_urls && product.image_urls.length > 1 && (
+                    <div className="absolute bottom-3 right-3">
+                      <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-xs">
+                        +{product.image_urls.length - 1} more
+                      </Badge>
+                    </div>
+                  )}
+                </div>
 
-              <CardContent className="p-4">
+                <CardContent className="p-4">
                 <h3 className="font-semibold text-foreground mb-1 line-clamp-1">
                   {product.product_name}
                 </h3>
@@ -140,6 +139,7 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           ))}
         </div>
       </div>

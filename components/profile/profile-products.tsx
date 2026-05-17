@@ -57,9 +57,9 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {products.slice(0, 6).map((product: ClientProduct) => (
             <Link href={`/product/${product.id}`} key={product.id}>
-              <Card className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <Card className="group overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
                 {/* Product Image */}
-                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                <div className="relative aspect-[4/3] bg-muted overflow-hidden flex-shrink-0">
                   {product.image_urls && product.image_urls.length > 0 ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -92,7 +92,7 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
                   )}
                 </div>
 
-                <CardContent className="p-4">
+                <CardContent className="p-4 flex-1 flex flex-col">
                 <h3 className="font-semibold text-foreground mb-1 line-clamp-1">
                   {product.product_name}
                 </h3>

@@ -12,6 +12,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type { Lead, Profile } from "@/lib/supabase/types"
 import {
   calculateScoresForBuyer,
@@ -77,6 +78,7 @@ export async function runMatchingPipeline(
   const result = await processResults(
     supabase,
     leadId,
+    buyer,
     scores,
     config.thresholds,
     triggeredBy
@@ -219,6 +221,7 @@ async function storeScores(
 async function processResults(
   supabase: Awaited<ReturnType<typeof createClient>>,
   leadId: string,
+  buyer: BuyerContext,
   scores: ScoringResult[],
   thresholds: MatchingThresholds,
   triggeredBy: string
@@ -230,6 +233,9 @@ async function processResults(
 
   // Clear existing inbox items for this lead
   await supabase.from("ae_match_inbox").delete().eq("lead_id", leadId)
+
+  // Get buyer name for notifications
+  const buyerName = buyer.lead.company_name || buyer.lead.contact_person || "Unknown Buyer"
 
   if (topCandidate) {
     if (topCandidate.recommendation === "auto_assign") {
@@ -247,6 +253,28 @@ async function processResults(
       if (!assignError) {
         autoAssigned = true
         assignedTo = topCandidate.accountManagerId
+
+        // Notify the auto-assigned AE
+        dispatchNotification({
+          userId: topCandidate.accountManagerId,
+          category: "new_assignment",
+          linkPath: `/admin/buyers/${leadId}`,
+          dedupKey: `ai_auto_assigned:${leadId}:${topCandidate.accountManagerId}`,
+          title: {
+            vi: "Buyer mới được AI gán tự động",
+            en: "New Buyer Auto-Assigned by AI",
+          },
+          body: {
+            vi: `${buyerName} đã được AI matching gán cho bạn với điểm ${topCandidate.totalScore.toFixed(0)}`,
+            en: `${buyerName} has been auto-assigned to you with score ${topCandidate.totalScore.toFixed(0)}`,
+          },
+          ctaLabel: {
+            vi: "Xem chi tiết",
+            en: "View details",
+          },
+        }).catch((err) => {
+          console.error("[matching] notification dispatch failed", err)
+        })
 
         // Log activity
         await logMatchingActivity(
@@ -282,6 +310,28 @@ async function processResults(
           inboxItems.push({
             accountManagerId: candidate.accountManagerId,
             priority,
+          })
+
+          // Notify the AE about new inbox item
+          dispatchNotification({
+            userId: candidate.accountManagerId,
+            category: "action_required",
+            linkPath: `/admin/ae-inbox`,
+            dedupKey: `ai_inbox_item:${leadId}:${candidate.accountManagerId}`,
+            title: {
+              vi: `Buyer mới trong inbox (${priority === "high" ? "Ưu tiên cao" : priority === "medium" ? "Trung bình" : "Thấp"})`,
+              en: `New Buyer in Inbox (${priority.charAt(0).toUpperCase() + priority.slice(1)} Priority)`,
+            },
+            body: {
+              vi: `${buyerName} - Điểm matching: ${candidate.totalScore.toFixed(0)}. Xem và chọn client phù hợp.`,
+              en: `${buyerName} - Match score: ${candidate.totalScore.toFixed(0)}. Review and select a suitable client.`,
+            },
+            ctaLabel: {
+              vi: "Xem inbox",
+              en: "View inbox",
+            },
+          }).catch((err) => {
+            console.error("[matching] notification dispatch failed for inbox item", err)
           })
         }
       }

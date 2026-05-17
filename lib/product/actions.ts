@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 export interface ProductQuoteRequest {
   product_id: string
@@ -79,15 +80,28 @@ export async function submitProductQuoteRequest(
       opportunity = { id: existingOpp.id }
       isExistingOpportunity = true
 
-      // Notify the assigned AE specifically
+      // Notify the assigned AE specifically using dispatchNotification for email + in-app
       if (existingOpp.assigned_ae) {
-        await adminSupabase.from("notifications").insert({
-          user_id: existingOpp.assigned_ae,
+        dispatchNotification({
+          userId: existingOpp.assigned_ae,
           category: "new_assignment",
-          title: "Buyer Responded to Product Link",
-          body: `${request.company_name} submitted a quote request for ${request.product_name}`,
-          link_path: `/admin/opportunities/${existingOpp.id}`,
-          opportunity_id: existingOpp.id,
+          opportunityId: existingOpp.id,
+          linkPath: `/admin/opportunities/${existingOpp.id}`,
+          dedupKey: `buyer_responded:${existingOpp.id}:${Date.now()}`,
+          title: {
+            vi: "Buyer phản hồi qua link sản phẩm",
+            en: "Buyer Responded to Product Link",
+          },
+          body: {
+            vi: `${request.company_name} đã gửi yêu cầu báo giá cho ${request.product_name}`,
+            en: `${request.company_name} submitted a quote request for ${request.product_name}`,
+          },
+          ctaLabel: {
+            vi: "Xem chi tiết",
+            en: "View details",
+          },
+        }).catch((err) => {
+          console.error("[product] notification dispatch failed", err)
         })
       }
     }
@@ -119,13 +133,27 @@ export async function submitProductQuoteRequest(
   if (!isExistingOpportunity) {
     const notifyUserId = client?.account_manager_id
     if (notifyUserId) {
-      await adminSupabase.from("notifications").insert({
-        user_id: notifyUserId,
+      // Use dispatchNotification for proper email + in-app delivery
+      dispatchNotification({
+        userId: notifyUserId,
         category: "new_assignment",
-        title: "New Quote Request",
-        body: `${request.company_name} requested a quote for ${request.product_name}`,
-        link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
-        opportunity_id: opportunity?.id || null,
+        opportunityId: opportunity?.id || undefined,
+        linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+        dedupKey: `new_quote_request:${lead.id}`,
+        title: {
+          vi: "Yêu cầu báo giá mới",
+          en: "New Quote Request",
+        },
+        body: {
+          vi: `${request.company_name} yêu cầu báo giá cho ${request.product_name}`,
+          en: `${request.company_name} requested a quote for ${request.product_name}`,
+        },
+        ctaLabel: {
+          vi: "Xem chi tiết",
+          en: "View details",
+        },
+      }).catch((err) => {
+        console.error("[product] notification dispatch failed", err)
       })
     } else {
       // No account manager assigned — broadcast to all admins and super_admins
@@ -135,15 +163,31 @@ export async function submitProductQuoteRequest(
         .in("role", ["admin", "super_admin"])
 
       if (admins && admins.length > 0) {
-        await adminSupabase.from("notifications").insert(
-          admins.map((admin) => ({
-            user_id: admin.id,
-            category: "new_assignment" as const,
-            title: "New Quote Request",
-            body: `${request.company_name} requested a quote for ${request.product_name}`,
-            link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
-            opportunity_id: opportunity?.id || null,
-          }))
+        // Notify each admin using dispatchNotification for proper email delivery
+        await Promise.all(
+          admins.map((admin) =>
+            dispatchNotification({
+              userId: admin.id,
+              category: "new_assignment",
+              opportunityId: opportunity?.id || undefined,
+              linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+              dedupKey: `new_quote_request:${lead.id}:${admin.id}`,
+              title: {
+                vi: "Yêu cầu báo giá mới",
+                en: "New Quote Request",
+              },
+              body: {
+                vi: `${request.company_name} yêu cầu báo giá cho ${request.product_name}`,
+                en: `${request.company_name} requested a quote for ${request.product_name}`,
+              },
+              ctaLabel: {
+                vi: "Xem chi tiết",
+                en: "View details",
+              },
+            }).catch((err) => {
+              console.error("[product] notification dispatch failed for admin", admin.id, err)
+            })
+          )
         )
       }
     }

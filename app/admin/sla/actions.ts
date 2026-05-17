@@ -423,28 +423,50 @@ export async function replyToClientRequest(
     return { ok: false, error: `Failed to save reply: ${replyError.message}` }
   }
 
-  // If client is replying, notify the admin team
+  // If client is replying, notify the admin team (all admins and super_admins)
   if (userRole === "client") {
-    dispatchNotification({
-      userId: request.client_id, // This will notify through other channels if set up
-      category: "action_required",
-      linkPath: `/admin/sla`,
-      dedupKey: `client_reply:${request.id}:${Math.floor(Date.now() / 1000)}`,
-      title: {
-        vi: `Client ${request.client_id} đã trả lời yêu cầu`,
-        en: `Client has replied to request`,
-      },
-      body: {
-        vi: request.subject,
-        en: request.subject,
-      },
-      ctaLabel: {
-        vi: "Xem chi tiết",
-        en: "View details",
-      },
-    }).catch((err) => {
-      console.error("[sla] notification dispatch failed", err)
-    })
+    // Get the client's name for a better notification message
+    const { data: clientProfile } = await guard.admin
+      .from("profiles")
+      .select("full_name, company_name")
+      .eq("id", guard.userId)
+      .single<{ full_name: string | null; company_name: string | null }>()
+
+    const clientName = clientProfile?.company_name || clientProfile?.full_name || "Client"
+
+    // Get all admins and super_admins to notify
+    const { data: admins } = await guard.admin
+      .from("profiles")
+      .select("id")
+      .in("role", ["admin", "super_admin"])
+
+    if (admins && admins.length > 0) {
+      // Notify each admin
+      await Promise.all(
+        admins.map((admin) =>
+          dispatchNotification({
+            userId: admin.id,
+            category: "action_required",
+            linkPath: `/admin/sla`,
+            dedupKey: `client_reply:${request.id}:${admin.id}:${Math.floor(Date.now() / 1000)}`,
+            title: {
+              vi: `${clientName} đã trả lời yêu cầu SLA`,
+              en: `${clientName} replied to SLA request`,
+            },
+            body: {
+              vi: request.subject,
+              en: request.subject,
+            },
+            ctaLabel: {
+              vi: "Xem chi tiết",
+              en: "View details",
+            },
+          }).catch((err) => {
+            console.error("[sla] notification dispatch failed for admin", admin.id, err)
+          })
+        )
+      )
+    }
   }
 
   revalidatePath("/client/sla")

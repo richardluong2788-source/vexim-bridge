@@ -163,6 +163,32 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     linkedin_url: buyer.linkedin_url,
     notes: buyer.notes,
     created_at: buyer.created_at,
+    // Section 1: THONG TIN DINH DANH
+    import_address: buyer.import_address ?? null,
+    source_ref: buyer.source_ref ?? null,
+    contact_title: buyer.contact_title ?? null,
+    // Section 2: DU LIEU DINH LUONG
+    total_shipments: buyer.total_shipments ?? null,
+    last_shipment_date: buyer.last_shipment_date ?? null,
+    avg_teu_per_month: buyer.avg_teu_per_month ?? null,
+    top_peak_months: buyer.top_peak_months ?? null,
+    top_low_months: buyer.top_low_months ?? null,
+    // Section 3: MA HS & SAN PHAM
+    hs_code: buyer.hs_code ?? null,
+    main_product: buyer.main_product ?? null,
+    secondary_hs_codes: buyer.secondary_hs_codes ?? null,
+    // Section 4: CHUOI CUNG UNG
+    top_suppliers: buyer.top_suppliers ?? null,
+    main_import_countries: buyer.main_import_countries ?? null,
+    competitors: buyer.competitors ?? null,
+    // Section 5: LOGISTICS
+    origin_ports: buyer.origin_ports ?? null,
+    destination_ports: buyer.destination_ports ?? null,
+    container_types: buyer.container_types ?? null,
+    // Section 6: GHI CHU CHO AI
+    bol_description: buyer.bol_description ?? null,
+    purchase_history: buyer.purchase_history ?? null,
+    priority_rating: buyer.priority_rating ?? null,
   }
 
   return (

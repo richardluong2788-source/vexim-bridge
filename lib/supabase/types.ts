@@ -141,6 +141,32 @@ export type Database = {
           enriched_data: Record<string, unknown> | null
           created_by: string | null
           created_at: string
+          // Section 1: THONG TIN DINH DANH
+          import_address: string | null
+          source_ref: string | null
+          contact_title: string | null
+          // Section 2: DU LIEU DINH LUONG
+          total_shipments: number | null
+          last_shipment_date: string | null
+          avg_teu_per_month: number | null
+          top_peak_months: string | null
+          top_low_months: string | null
+          // Section 3: MA HS & SAN PHAM
+          hs_code: string | null
+          main_product: string | null
+          secondary_hs_codes: string | null
+          // Section 4: CHUOI CUNG UNG
+          top_suppliers: { name: string; country: string | null }[] | null
+          main_import_countries: string | null
+          competitors: string | null
+          // Section 5: LOGISTICS
+          origin_ports: string | null
+          destination_ports: string | null
+          container_types: string | null
+          // Section 6: GHI CHU CHO AI
+          bol_description: string | null
+          purchase_history: string | null
+          priority_rating: number | null
         }
         Insert: {
           id?: string
@@ -158,6 +184,32 @@ export type Database = {
           enriched_data?: Record<string, unknown> | null
           created_by?: string | null
           created_at?: string
+          // Section 1
+          import_address?: string | null
+          source_ref?: string | null
+          contact_title?: string | null
+          // Section 2
+          total_shipments?: number | null
+          last_shipment_date?: string | null
+          avg_teu_per_month?: number | null
+          top_peak_months?: string | null
+          top_low_months?: string | null
+          // Section 3
+          hs_code?: string | null
+          main_product?: string | null
+          secondary_hs_codes?: string | null
+          // Section 4
+          top_suppliers?: { name: string; country: string | null }[] | null
+          main_import_countries?: string | null
+          competitors?: string | null
+          // Section 5
+          origin_ports?: string | null
+          destination_ports?: string | null
+          container_types?: string | null
+          // Section 6
+          bol_description?: string | null
+          purchase_history?: string | null
+          priority_rating?: number | null
         }
         Update: {
           id?: string
@@ -175,6 +227,32 @@ export type Database = {
           enriched_data?: Record<string, unknown> | null
           created_by?: string | null
           created_at?: string
+          // Section 1
+          import_address?: string | null
+          source_ref?: string | null
+          contact_title?: string | null
+          // Section 2
+          total_shipments?: number | null
+          last_shipment_date?: string | null
+          avg_teu_per_month?: number | null
+          top_peak_months?: string | null
+          top_low_months?: string | null
+          // Section 3
+          hs_code?: string | null
+          main_product?: string | null
+          secondary_hs_codes?: string | null
+          // Section 4
+          top_suppliers?: { name: string; country: string | null }[] | null
+          main_import_countries?: string | null
+          competitors?: string | null
+          // Section 5
+          origin_ports?: string | null
+          destination_ports?: string | null
+          container_types?: string | null
+          // Section 6
+          bol_description?: string | null
+          purchase_history?: string | null
+          priority_rating?: number | null
         }
       }
       opportunities: {

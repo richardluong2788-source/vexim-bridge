@@ -13,6 +13,25 @@ import { createClient } from "@/lib/supabase/server"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 
+/**
+ * Parse top suppliers string into JSONB array format.
+ * Input: "Thao Tam (VN), Tai Nhung (VN), Comextra Majora (Indonesia)"
+ * Output: [{ name: "Thao Tam", country: "VN" }, ...]
+ */
+function parseTopSuppliers(suppliersStr: string): { name: string; country: string | null }[] {
+  if (!suppliersStr.trim()) return []
+  
+  return suppliersStr.split(",").map(s => {
+    const trimmed = s.trim()
+    // Match pattern: "Name (Country)" or just "Name"
+    const match = trimmed.match(/^(.+?)\s*\(([^)]+)\)$/)
+    if (match) {
+      return { name: match[1].trim(), country: match[2].trim() }
+    }
+    return { name: trimmed, country: null }
+  }).filter(s => s.name)
+}
+
 export interface CreateLeadWithAIMatchingInput {
   companyName: string
   contactPerson?: string | null
@@ -22,14 +41,43 @@ export interface CreateLeadWithAIMatchingInput {
   country?: string | null
   website?: string | null
   notes?: string | null
-  // Buyer need signals for AI matching
+  
+  // Section 1: THÔNG TIN ĐỊNH DANH
+  importAddress?: string | null
+  importYetiLink?: string | null
+  
+  // Section 2: DỮ LIỆU ĐỊNH LƯỢNG (ImportYeti data)
+  totalShipments?: number | null
+  lastShipmentDate?: string | null
+  avgTeuPerMonth?: number | null
+  topPeakMonths?: string | null
+  topLowMonths?: string | null
+  
+  // Section 3: MÃ HS & SẢN PHẨM
   industry?: string | null
+  mainProduct?: string | null
+  hsCode?: string | null
+  secondaryHsCodes?: string | null
+  
+  // Section 4: CHUỖI CUNG ỨNG
+  topSuppliers?: string | null
+  mainImportCountries?: string | null
+  
+  // Section 5: LOGISTICS
+  originPorts?: string | null
+  destinationPorts?: string | null
+  containerTypes?: string | null
+  
+  // Section 6: GHI CHÚ CHO AI
+  bolDescription?: string | null
+  purchaseHistory?: string | null
+  competitors?: string | null
+  priorityRating?: number | null
+  
+  // Legacy fields for AI matching
   productKeyword?: string | null
   capacityNeeded?: number | null
   potentialValue?: number | null
-  hsCode?: string | null
-  purchaseHistory?: string | null
-  competitors?: string | null
   peakMonths?: string | null
 }
 
@@ -67,10 +115,11 @@ export async function createLeadWithAIMatchingAction(
     return { success: false, error: "Insufficient permissions" }
   }
 
-  // 1. Create the lead
+  // 1. Create the lead with all 7 sections of data
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .insert({
+      // Basic info
       company_name: input.companyName.trim(),
       contact_person: input.contactPerson?.trim() ?? null,
       contact_title: input.contactTitle?.trim() ?? null,
@@ -78,12 +127,42 @@ export async function createLeadWithAIMatchingAction(
       contact_phone: input.contactPhone?.trim() ?? null,
       country: input.country?.trim() ?? null,
       website: input.website?.trim() ?? null,
-      industry: input.industry ?? null,
       notes: input.notes?.trim() ?? null,
+      
+      // Section 1: THÔNG TIN ĐỊNH DANH
+      import_address: input.importAddress?.trim() ?? null,
+      source_ref: input.importYetiLink?.trim() ?? null,
+      source: input.importYetiLink ? "importyeti" : null,
+      
+      // Section 2: DỮ LIỆU ĐỊNH LƯỢNG
+      total_shipments: input.totalShipments ?? null,
+      last_shipment_date: input.lastShipmentDate ?? null,
+      avg_teu_per_month: input.avgTeuPerMonth ?? null,
+      top_peak_months: input.topPeakMonths?.trim() ?? null,
+      top_low_months: input.topLowMonths?.trim() ?? null,
+      
+      // Section 3: MÃ HS & SẢN PHẨM
+      industry: input.industry ?? null,
+      main_product: input.mainProduct?.trim() ?? null,
       hs_code: input.hsCode?.trim() ?? null,
+      secondary_hs_codes: input.secondaryHsCodes?.trim() ?? null,
+      
+      // Section 4: CHUỖI CUNG ỨNG
+      top_suppliers: input.topSuppliers ? parseTopSuppliers(input.topSuppliers) : null,
+      main_import_countries: input.mainImportCountries?.trim() ?? null,
+      
+      // Section 5: LOGISTICS
+      origin_ports: input.originPorts?.trim() ?? null,
+      destination_ports: input.destinationPorts?.trim() ?? null,
+      container_types: input.containerTypes?.trim() ?? null,
+      
+      // Section 6: GHI CHÚ CHO AI
+      bol_description: input.bolDescription?.trim() ?? null,
       purchase_history: input.purchaseHistory?.trim() ?? null,
       competitors: input.competitors?.trim() ?? null,
       peak_months: input.peakMonths?.trim() ?? null,
+      priority_rating: input.priorityRating ?? null,
+      
       created_by: user.id,
     })
     .select()

@@ -129,10 +129,30 @@ async function loadBuyerContext(
 
   if (error || !lead) return null
 
-  // Access additional fields that may exist from migration 032
+  // Use dedicated columns from migration 043, fall back to enriched_data
   const enrichedData = lead.enriched_data as Record<string, unknown> | null
-  const hsCodes = (enrichedData?.hs_codes as string[]) || []
-  const productKeywords = (enrichedData?.product_keywords as string[]) || []
+  
+  // HS codes: prefer hs_code + secondary_hs_codes, then enriched_data.hs_codes
+  let hsCodes: string[] = []
+  if (lead.hs_code) {
+    hsCodes.push(lead.hs_code)
+  }
+  if (lead.secondary_hs_codes) {
+    // secondary_hs_codes is comma-separated
+    hsCodes.push(...lead.secondary_hs_codes.split(',').map(s => s.trim()).filter(Boolean))
+  }
+  if (hsCodes.length === 0 && enrichedData?.hs_codes) {
+    hsCodes = enrichedData.hs_codes as string[]
+  }
+  
+  // Product keywords: prefer main_product, then enriched_data.product_keywords
+  let productKeywords: string[] = []
+  if (lead.main_product) {
+    productKeywords.push(lead.main_product)
+  }
+  if (productKeywords.length === 0 && enrichedData?.product_keywords) {
+    productKeywords = enrichedData.product_keywords as string[]
+  }
 
   return {
     lead,

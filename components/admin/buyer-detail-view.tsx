@@ -22,6 +22,19 @@ import {
   Kanban,
   Info,
   ExternalLink,
+  Ship,
+  Package,
+  MapPin,
+  CalendarDays,
+  TrendingUp,
+  TrendingDown,
+  Container,
+  Anchor,
+  Star,
+  FileText,
+  Users,
+  Link2,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,6 +80,38 @@ export interface BuyerDetailData {
   linkedin_url: string | null
   notes: string | null
   created_at: string
+  
+  // Section 1: THONG TIN DINH DANH
+  import_address: string | null
+  source_ref: string | null // ImportYeti link
+  contact_title: string | null
+  
+  // Section 2: DU LIEU DINH LUONG
+  total_shipments: number | null
+  last_shipment_date: string | null
+  avg_teu_per_month: number | null
+  top_peak_months: string | null
+  top_low_months: string | null
+  
+  // Section 3: MA HS & SAN PHAM
+  hs_code: string | null
+  main_product: string | null
+  secondary_hs_codes: string | null
+  
+  // Section 4: CHUOI CUNG UNG
+  top_suppliers: { name: string; country: string | null }[] | null
+  main_import_countries: string | null
+  competitors: string | null
+  
+  // Section 5: LOGISTICS
+  origin_ports: string | null
+  destination_ports: string | null
+  container_types: string | null
+  
+  // Section 6: GHI CHU CHO AI
+  bol_description: string | null
+  purchase_history: string | null
+  priority_rating: number | null
 }
 
 export interface BuyerOpportunity {
@@ -290,23 +335,243 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        <Tabs defaultValue="opportunities" className="flex flex-col gap-4">
+        <Tabs defaultValue="importyeti" className="flex flex-col gap-4">
           <TabsList className="self-start">
+            <TabsTrigger value="importyeti" className="gap-2">
+              <Ship className="h-4 w-4" />
+              {locale === "vi" ? "Du lieu ImportYeti" : "ImportYeti Data"}
+            </TabsTrigger>
             <TabsTrigger value="opportunities" className="gap-2">
               <Kanban className="h-4 w-4" />
-              {locale === "vi" ? "Cơ hội" : "Deals"}
+              {locale === "vi" ? "Co hoi" : "Deals"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {opportunities.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="replies" className="gap-2">
               <MessageSquare className="h-4 w-4" />
-              {locale === "vi" ? "Phản hồi" : "Replies"}
+              {locale === "vi" ? "Phan hoi" : "Replies"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {replies.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
+
+          {/* ImportYeti Data Tab */}
+          <TabsContent value="importyeti" className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantitative Data */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-chart-1" />
+                    {locale === "vi" ? "Du lieu dinh luong" : "Quantitative Data"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Ship}
+                    label={locale === "vi" ? "Tong so lo hang" : "Total shipments"}
+                    value={buyer.total_shipments?.toLocaleString() ?? "—"}
+                  />
+                  <DataRow
+                    icon={CalendarDays}
+                    label={locale === "vi" ? "Lo hang gan nhat" : "Last shipment"}
+                    value={buyer.last_shipment_date 
+                      ? new Date(buyer.last_shipment_date).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US")
+                      : "—"
+                    }
+                  />
+                  <DataRow
+                    icon={Container}
+                    label={locale === "vi" ? "Trung binh TEU/thang" : "Avg TEU/month"}
+                    value={buyer.avg_teu_per_month?.toFixed(1) ?? "—"}
+                  />
+                  <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5 text-chart-4" />
+                      {locale === "vi" ? "Thang cao diem" : "Peak months"}
+                    </div>
+                    <p className="text-sm text-foreground">{buyer.top_peak_months ?? "—"}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <TrendingDown className="h-3.5 w-3.5 text-chart-5" />
+                      {locale === "vi" ? "Thang thap diem" : "Low months"}
+                    </div>
+                    <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* HS Code & Products */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-chart-2" />
+                    {locale === "vi" ? "Ma HS & San pham" : "HS Code & Products"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Package}
+                    label={locale === "vi" ? "Ma HS chinh" : "Primary HS Code"}
+                    value={buyer.hs_code ?? "—"}
+                    mono
+                  />
+                  <DataRow
+                    icon={Package}
+                    label={locale === "vi" ? "San pham chinh" : "Main product"}
+                    value={buyer.main_product ?? "—"}
+                  />
+                  {buyer.secondary_hs_codes && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Package className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Ma HS phu" : "Secondary HS codes"}
+                      </div>
+                      <p className="text-sm text-foreground font-mono">{buyer.secondary_hs_codes}</p>
+                    </div>
+                  )}
+                  {buyer.bol_description && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Mo ta BOL mau" : "Sample BOL description"}
+                      </div>
+                      <p className="text-sm text-muted-foreground italic">{buyer.bol_description}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Supply Chain */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-chart-3" />
+                    {locale === "vi" ? "Chuoi cung ung" : "Supply Chain"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {buyer.top_suppliers && buyer.top_suppliers.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Top suppliers" : "Top suppliers"}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {buyer.top_suppliers.map((s, i) => (
+                          <Badge key={i} variant="outline" className="font-normal text-xs">
+                            {s.name}{s.country ? ` (${s.country})` : ""}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <DataRow
+                      icon={Users}
+                      label={locale === "vi" ? "Top suppliers" : "Top suppliers"}
+                      value="—"
+                    />
+                  )}
+                  <DataRow
+                    icon={Globe2}
+                    label={locale === "vi" ? "Quoc gia nhap khau chinh" : "Main import countries"}
+                    value={buyer.main_import_countries ?? "—"}
+                  />
+                  {buyer.competitors && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Doi thu chinh" : "Main competitors"}
+                      </div>
+                      <p className="text-sm text-foreground">{buyer.competitors}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Logistics */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Anchor className="h-4 w-4 text-chart-5" />
+                    {locale === "vi" ? "Logistics" : "Logistics"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Anchor}
+                    label={locale === "vi" ? "Cang xuat chinh" : "Origin ports"}
+                    value={buyer.origin_ports ?? "—"}
+                  />
+                  <DataRow
+                    icon={MapPin}
+                    label={locale === "vi" ? "Cang dich chinh" : "Destination ports"}
+                    value={buyer.destination_ports ?? "—"}
+                  />
+                  <DataRow
+                    icon={Container}
+                    label={locale === "vi" ? "Loai container" : "Container types"}
+                    value={buyer.container_types ?? "—"}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Priority & Notes */}
+              <Card className="border-border md:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Star className="h-4 w-4 text-chart-5" />
+                    {locale === "vi" ? "Ghi chu & Muc uu tien" : "Notes & Priority"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {locale === "vi" ? "Muc do uu tien:" : "Priority:"}
+                      </span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              buyer.priority_rating && i <= buyer.priority_rating
+                                ? "text-chart-5 fill-chart-5"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {buyer.source_ref && (
+                      <a
+                        href={buyer.source_ref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        ImportYeti Link
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  {buyer.purchase_history && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Lich su mua hang" : "Purchase history"}
+                      </div>
+                      <p className="text-sm text-foreground">{buyer.purchase_history}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           <TabsContent value="opportunities" className="mt-0">
             {opportunities.length === 0 ? (
@@ -840,6 +1105,30 @@ function StatCard({
   )
 }
 
+function DataRow({
+  icon: Icon,
+  label,
+  value,
+  mono = false,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className={`text-sm text-foreground ${mono ? "font-mono" : ""}`}>
+          {value}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function formatRelative(iso: string, locale: "vi" | "en"): string {
   const then = new Date(iso).getTime()
   const now = Date.now()
@@ -855,6 +1144,316 @@ function formatRelative(iso: string, locale: "vi" | "en"): string {
   return new Date(iso).toLocaleDateString(
     locale === "vi" ? "vi-VN" : "en-US",
     { month: "short", day: "numeric", year: "numeric" },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AI Suggested Approach Card
+// ---------------------------------------------------------------------------
+
+export function SuggestedApproachCard({
+  buyer,
+  locale = "vi",
+}: {
+  buyer: BuyerDetailData
+  locale?: "vi" | "en"
+}) {
+  const [copied, setCopied] = useState(false)
+
+  // Generate approach based on buyer data
+  const approach = useMemo(() => {
+    const tips: string[] = []
+    const warnings: string[] = []
+    
+    // Check if buyer has VN suppliers (warm lead)
+    const hasVNSupplier = buyer.top_suppliers?.some(
+      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
+    )
+    if (hasVNSupplier) {
+      tips.push(locale === "vi" 
+        ? "Buyer đã có supplier VN - đây là warm lead, có thể đề cập đến việc mở rộng nguồn cung"
+        : "Buyer already has VN supplier - warm lead, mention expanding supply sources")
+    }
+    
+    // Check low season
+    const lowMonths = buyer.top_low_months?.toLowerCase() || ""
+    const currentMonth = new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()
+    const isLowSeason = lowMonths.includes(currentMonth)
+    if (isLowSeason) {
+      warnings.push(locale === "vi"
+        ? `Hiện đang trong tháng thấp điểm (${buyer.top_low_months}) - có thể buyer ít phản hồi`
+        : `Currently in low season (${buyer.top_low_months}) - buyer may be less responsive`)
+    }
+    
+    // Check peak months for best timing
+    const peakMonths = buyer.top_peak_months?.toLowerCase() || ""
+    if (peakMonths && !isLowSeason) {
+      tips.push(locale === "vi"
+        ? `Gợi ý: Tiếp cận trước tháng cao điểm (${buyer.top_peak_months}) để đàm phán tốt hơn`
+        : `Tip: Approach before peak months (${buyer.top_peak_months}) for better negotiations`)
+    }
+    
+    // Check shipment volume
+    if (buyer.total_shipments && buyer.total_shipments > 50) {
+      tips.push(locale === "vi"
+        ? `Buyer có volume lớn (${buyer.total_shipments} shipments) - có thể đàm phán giá tốt hơn`
+        : `High volume buyer (${buyer.total_shipments} shipments) - can negotiate better pricing`)
+    }
+    
+    // Check priority
+    if (buyer.priority_rating && buyer.priority_rating >= 4) {
+      tips.push(locale === "vi"
+        ? "LR đánh giá priority cao - ưu tiên follow up nhanh"
+        : "LR rated high priority - prioritize quick follow-up")
+    }
+    
+    // Check HS code for specific approach
+    if (buyer.hs_code) {
+      tips.push(locale === "vi"
+        ? `Tập trung vào sản phẩm HS ${buyer.hs_code} (${buyer.main_product || ""})`
+        : `Focus on HS ${buyer.hs_code} products (${buyer.main_product || ""})`)
+    }
+    
+    // Check competitors
+    if (buyer.competitors) {
+      tips.push(locale === "vi"
+        ? `Lưu ý đối thủ: ${buyer.competitors} - chuẩn bị điểm khác biệt`
+        : `Note competitors: ${buyer.competitors} - prepare differentiators`)
+    }
+    
+    return { tips, warnings }
+  }, [buyer, locale])
+
+  // Generate copy-able email script for AE
+  const script = useMemo(() => {
+    const hasVNSupplier = buyer.top_suppliers?.some(
+      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
+    )
+    
+    const lines: string[] = []
+    lines.push(`Subject: Partnership Opportunity - ${buyer.main_product || "Your Products"}`)
+    lines.push("")
+    lines.push(`Dear ${buyer.contact_person || "Procurement Team"},`)
+    lines.push("")
+    
+    if (hasVNSupplier) {
+      lines.push(`I noticed ${buyer.company_name} is already sourcing from Vietnam. We'd love to discuss how we can complement your existing supply chain with competitive pricing and reliable quality.`)
+    } else {
+      lines.push(`I'm reaching out regarding ${buyer.main_product || "your import needs"}. Our Vietnamese suppliers specialize in HS ${buyer.hs_code || "your product category"} with competitive MOQ and pricing.`)
+    }
+    
+    lines.push("")
+    lines.push("Key highlights:")
+    lines.push(`- ${buyer.total_shipments ? `Volume capability matching your ${buyer.total_shipments}+ shipments history` : "Flexible MOQ for trial orders"}`)
+    lines.push("- Direct factory relationships in Vietnam")
+    lines.push(`- ${buyer.container_types ? `Experience with ${buyer.container_types} shipments` : "Full container and LCL options"}`)
+    lines.push("")
+    lines.push("Would you have 15 minutes this week for a quick call?")
+    lines.push("")
+    lines.push("Best regards,")
+    lines.push("[Your Name]")
+    
+    return lines.join("\n")
+  }, [buyer])
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(script)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (approach.tips.length === 0 && approach.warnings.length === 0) {
+    return null
+  }
+
+  return (
+    <Card className="border-chart-1/30 bg-chart-1/5">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-chart-1" />
+            {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3" />
+                {locale === "vi" ? "Đã copy" : "Copied"}
+              </>
+            ) : (
+              <>
+                <FileText className="h-3 w-3" />
+                {locale === "vi" ? "Copy script" : "Copy script"}
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {approach.warnings.length > 0 && (
+          <div className="space-y-1.5">
+            {approach.warnings.map((w, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+                <span className="text-orange-700 dark:text-orange-400">{w}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {approach.tips.length > 0 && (
+          <ul className="space-y-1.5">
+            {approach.tips.map((tip, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-chart-1 mt-0.5 shrink-0" />
+                <span className="text-muted-foreground">{tip}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Related Buyers Card (buyers with similar HS codes/products)
+// ---------------------------------------------------------------------------
+
+export interface RelatedBuyer {
+  id: string
+  company_name: string
+  hs_code: string | null
+  main_product: string | null
+  country: string | null
+  matchReason: string
+  matchScore?: number // 0-100 similarity score
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-chart-4 bg-chart-4/10"
+  if (score >= 60) return "text-chart-1 bg-chart-1/10"
+  if (score >= 40) return "text-chart-5 bg-chart-5/10"
+  return "text-muted-foreground bg-muted/50"
+}
+
+export function RelatedBuyersCard({
+  relatedBuyers,
+  locale = "vi",
+}: {
+  relatedBuyers: RelatedBuyer[]
+  locale?: "vi" | "en"
+}) {
+  if (!relatedBuyers || relatedBuyers.length === 0) {
+    return null
+  }
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          {locale === "vi" ? "Buyers tuong tu" : "Related Buyers"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {relatedBuyers.slice(0, 5).map((b) => (
+            <Link
+              key={b.id}
+              href={`/admin/buyers/${b.id}`}
+              className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors group"
+            >
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                  {b.company_name}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {b.matchReason}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {b.matchScore !== undefined && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${getScoreColor(b.matchScore)}`}>
+                    {b.matchScore}%
+                  </span>
+                )}
+                {b.hs_code && (
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {b.hs_code}
+                  </Badge>
+                )}
+                {b.country && (
+                  <span className="text-xs text-muted-foreground">{b.country}</span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// No Match Warning Card
+// ---------------------------------------------------------------------------
+
+export function NoMatchWarningCard({
+  hsCode,
+  locale = "vi",
+}: {
+  hsCode: string | null
+  locale?: "vi" | "en"
+}) {
+  const suggestions = useMemo(() => {
+    if (!hsCode) return []
+    
+    // Suggest broadening HS code search
+    const prefix4 = hsCode.slice(0, 4)
+    const prefix2 = hsCode.slice(0, 2)
+    
+    return [
+      locale === "vi"
+        ? `Mở rộng tìm kiếm: HS ${prefix4}xx (4 chữ số đầu)`
+        : `Broaden search: HS ${prefix4}xx (first 4 digits)`,
+      locale === "vi"
+        ? `Hoặc thử chapter: HS ${prefix2}xxxx (chapter ${prefix2})`
+        : `Or try chapter: HS ${prefix2}xxxx (chapter ${prefix2})`,
+      locale === "vi"
+        ? "Kiểm tra lại từ khóa sản phẩm trong filter"
+        : "Review product keywords in filter",
+    ]
+  }, [hsCode, locale])
+
+  return (
+    <Card className="border-orange-500/30 bg-orange-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          {locale === "vi" ? "Không tìm thấy seller phù hợp" : "No Matching Sellers Found"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {locale === "vi"
+            ? "AI không tìm được seller match với buyer này. Thử các gợi ý sau:"
+            : "AI couldn't find matching sellers for this buyer. Try these suggestions:"}
+        </p>
+        <ul className="space-y-1.5">
+          {suggestions.map((s, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <span className="text-orange-500 font-medium">{i + 1}.</span>
+              <span className="text-muted-foreground">{s}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -22,6 +22,18 @@ import {
   Kanban,
   Info,
   ExternalLink,
+  Ship,
+  Package,
+  MapPin,
+  CalendarDays,
+  TrendingUp,
+  TrendingDown,
+  Container,
+  Anchor,
+  Star,
+  FileText,
+  Users,
+  Link2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,6 +79,38 @@ export interface BuyerDetailData {
   linkedin_url: string | null
   notes: string | null
   created_at: string
+  
+  // Section 1: THONG TIN DINH DANH
+  import_address: string | null
+  source_ref: string | null // ImportYeti link
+  contact_title: string | null
+  
+  // Section 2: DU LIEU DINH LUONG
+  total_shipments: number | null
+  last_shipment_date: string | null
+  avg_teu_per_month: number | null
+  top_peak_months: string | null
+  top_low_months: string | null
+  
+  // Section 3: MA HS & SAN PHAM
+  hs_code: string | null
+  main_product: string | null
+  secondary_hs_codes: string | null
+  
+  // Section 4: CHUOI CUNG UNG
+  top_suppliers: { name: string; country: string | null }[] | null
+  main_import_countries: string | null
+  competitors: string | null
+  
+  // Section 5: LOGISTICS
+  origin_ports: string | null
+  destination_ports: string | null
+  container_types: string | null
+  
+  // Section 6: GHI CHU CHO AI
+  bol_description: string | null
+  purchase_history: string | null
+  priority_rating: number | null
 }
 
 export interface BuyerOpportunity {
@@ -290,23 +334,243 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        <Tabs defaultValue="opportunities" className="flex flex-col gap-4">
+        <Tabs defaultValue="importyeti" className="flex flex-col gap-4">
           <TabsList className="self-start">
+            <TabsTrigger value="importyeti" className="gap-2">
+              <Ship className="h-4 w-4" />
+              {locale === "vi" ? "Du lieu ImportYeti" : "ImportYeti Data"}
+            </TabsTrigger>
             <TabsTrigger value="opportunities" className="gap-2">
               <Kanban className="h-4 w-4" />
-              {locale === "vi" ? "Cơ hội" : "Deals"}
+              {locale === "vi" ? "Co hoi" : "Deals"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {opportunities.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="replies" className="gap-2">
               <MessageSquare className="h-4 w-4" />
-              {locale === "vi" ? "Phản hồi" : "Replies"}
+              {locale === "vi" ? "Phan hoi" : "Replies"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {replies.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
+
+          {/* ImportYeti Data Tab */}
+          <TabsContent value="importyeti" className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantitative Data */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-chart-1" />
+                    {locale === "vi" ? "Du lieu dinh luong" : "Quantitative Data"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Ship}
+                    label={locale === "vi" ? "Tong so lo hang" : "Total shipments"}
+                    value={buyer.total_shipments?.toLocaleString() ?? "—"}
+                  />
+                  <DataRow
+                    icon={CalendarDays}
+                    label={locale === "vi" ? "Lo hang gan nhat" : "Last shipment"}
+                    value={buyer.last_shipment_date 
+                      ? new Date(buyer.last_shipment_date).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US")
+                      : "—"
+                    }
+                  />
+                  <DataRow
+                    icon={Container}
+                    label={locale === "vi" ? "Trung binh TEU/thang" : "Avg TEU/month"}
+                    value={buyer.avg_teu_per_month?.toFixed(1) ?? "—"}
+                  />
+                  <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5 text-chart-4" />
+                      {locale === "vi" ? "Thang cao diem" : "Peak months"}
+                    </div>
+                    <p className="text-sm text-foreground">{buyer.top_peak_months ?? "—"}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <TrendingDown className="h-3.5 w-3.5 text-chart-5" />
+                      {locale === "vi" ? "Thang thap diem" : "Low months"}
+                    </div>
+                    <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* HS Code & Products */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-chart-2" />
+                    {locale === "vi" ? "Ma HS & San pham" : "HS Code & Products"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Package}
+                    label={locale === "vi" ? "Ma HS chinh" : "Primary HS Code"}
+                    value={buyer.hs_code ?? "—"}
+                    mono
+                  />
+                  <DataRow
+                    icon={Package}
+                    label={locale === "vi" ? "San pham chinh" : "Main product"}
+                    value={buyer.main_product ?? "—"}
+                  />
+                  {buyer.secondary_hs_codes && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Package className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Ma HS phu" : "Secondary HS codes"}
+                      </div>
+                      <p className="text-sm text-foreground font-mono">{buyer.secondary_hs_codes}</p>
+                    </div>
+                  )}
+                  {buyer.bol_description && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Mo ta BOL mau" : "Sample BOL description"}
+                      </div>
+                      <p className="text-sm text-muted-foreground italic">{buyer.bol_description}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Supply Chain */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-chart-3" />
+                    {locale === "vi" ? "Chuoi cung ung" : "Supply Chain"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {buyer.top_suppliers && buyer.top_suppliers.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Top suppliers" : "Top suppliers"}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {buyer.top_suppliers.map((s, i) => (
+                          <Badge key={i} variant="outline" className="font-normal text-xs">
+                            {s.name}{s.country ? ` (${s.country})` : ""}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <DataRow
+                      icon={Users}
+                      label={locale === "vi" ? "Top suppliers" : "Top suppliers"}
+                      value="—"
+                    />
+                  )}
+                  <DataRow
+                    icon={Globe2}
+                    label={locale === "vi" ? "Quoc gia nhap khau chinh" : "Main import countries"}
+                    value={buyer.main_import_countries ?? "—"}
+                  />
+                  {buyer.competitors && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Doi thu chinh" : "Main competitors"}
+                      </div>
+                      <p className="text-sm text-foreground">{buyer.competitors}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Logistics */}
+              <Card className="border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Anchor className="h-4 w-4 text-chart-5" />
+                    {locale === "vi" ? "Logistics" : "Logistics"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <DataRow
+                    icon={Anchor}
+                    label={locale === "vi" ? "Cang xuat chinh" : "Origin ports"}
+                    value={buyer.origin_ports ?? "—"}
+                  />
+                  <DataRow
+                    icon={MapPin}
+                    label={locale === "vi" ? "Cang dich chinh" : "Destination ports"}
+                    value={buyer.destination_ports ?? "—"}
+                  />
+                  <DataRow
+                    icon={Container}
+                    label={locale === "vi" ? "Loai container" : "Container types"}
+                    value={buyer.container_types ?? "—"}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Priority & Notes */}
+              <Card className="border-border md:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Star className="h-4 w-4 text-chart-5" />
+                    {locale === "vi" ? "Ghi chu & Muc uu tien" : "Notes & Priority"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {locale === "vi" ? "Muc do uu tien:" : "Priority:"}
+                      </span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              buyer.priority_rating && i <= buyer.priority_rating
+                                ? "text-chart-5 fill-chart-5"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {buyer.source_ref && (
+                      <a
+                        href={buyer.source_ref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        ImportYeti Link
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  {buyer.purchase_history && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <FileText className="h-3.5 w-3.5" />
+                        {locale === "vi" ? "Lich su mua hang" : "Purchase history"}
+                      </div>
+                      <p className="text-sm text-foreground">{buyer.purchase_history}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           <TabsContent value="opportunities" className="mt-0">
             {opportunities.length === 0 ? (
@@ -837,6 +1101,30 @@ function StatCard({
         </span>
       </CardContent>
     </Card>
+  )
+}
+
+function DataRow({
+  icon: Icon,
+  label,
+  value,
+  mono = false,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className={`text-sm text-foreground ${mono ? "font-mono" : ""}`}>
+          {value}
+        </span>
+      </div>
+    </div>
   )
 }
 

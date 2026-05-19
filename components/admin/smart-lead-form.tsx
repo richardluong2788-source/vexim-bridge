@@ -233,11 +233,11 @@ export function SmartLeadForm() {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4 text-primary" />
-            {locale === "vi" ? "1. Thong tin dinh danh" : "1. Identification"}
+            {locale === "vi" ? "1. Thông tin định danh" : "1. Identification"}
           </CardTitle>
           <CardDescription>
             {locale === "vi"
-              ? "LR tu nhap - thong tin co ban tu ImportYeti"
+              ? "LR tự nhập - thông tin cơ bản từ ImportYeti"
               : "LR enters - basic info from ImportYeti"}
           </CardDescription>
         </CardHeader>
@@ -246,7 +246,7 @@ export function SmartLeadForm() {
             {/* Company name (required) */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="companyName" className="text-sm font-medium">
-                {locale === "vi" ? "Ten cong ty *" : "Company Name *"}
+                {locale === "vi" ? "Tên công ty *" : "Company Name *"}
               </Label>
               <Input
                 id="companyName"
@@ -260,7 +260,7 @@ export function SmartLeadForm() {
               />
               {isCompanyNameMissing && companyName !== "" && (
                 <p className="text-xs text-destructive">
-                  {locale === "vi" ? "Ten cong ty khong duoc de trong" : "Company name is required"}
+                  {locale === "vi" ? "Tên công ty không được để trống" : "Company name is required"}
                 </p>
               )}
             </div>
@@ -268,11 +268,11 @@ export function SmartLeadForm() {
             {/* Address */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="importAddress">
-                {locale === "vi" ? "Dia chi" : "Address"}
+                {locale === "vi" ? "Địa chỉ" : "Address"}
               </Label>
               <Input
                 id="importAddress"
-                placeholder={locale === "vi" ? "Quan trong de xac dinh bang (VD: 123 Main St, Norfolk, VA)" : "Important for state identification"}
+                placeholder={locale === "vi" ? "Quan trọng để xác định bang (VD: 123 Main St, Norfolk, VA)" : "Important for state identification"}
                 value={importAddress}
                 onChange={(e) => setImportAddress(e.target.value)}
                 className="border-border"
@@ -295,7 +295,7 @@ export function SmartLeadForm() {
             {/* ImportYeti Link (required) */}
             <div className="space-y-2">
               <Label htmlFor="importYetiLink" className="flex items-center gap-1.5">
-                {locale === "vi" ? "Duong link ImportYeti *" : "ImportYeti Link *"}
+                {locale === "vi" ? "Đường link ImportYeti *" : "ImportYeti Link *"}
                 <ExternalLink className="h-3 w-3 text-muted-foreground" />
               </Label>
               <Input
@@ -314,7 +314,7 @@ export function SmartLeadForm() {
             {/* Contact person */}
             <div className="space-y-2">
               <Label htmlFor="contactPerson">
-                {locale === "vi" ? "Nguoi lien he" : "Contact Person"}
+                {locale === "vi" ? "Người liên hệ" : "Contact Person"}
               </Label>
               <Input
                 id="contactPerson"
@@ -328,7 +328,7 @@ export function SmartLeadForm() {
             {/* Contact title */}
             <div className="space-y-2">
               <Label htmlFor="contactTitle">
-                {locale === "vi" ? "Chuc vu" : "Job Title"}
+                {locale === "vi" ? "Chức vụ" : "Job Title"}
               </Label>
               <Input
                 id="contactTitle"
@@ -355,7 +355,7 @@ export function SmartLeadForm() {
             {/* Phone */}
             <div className="space-y-2">
               <Label htmlFor="contactPhone">
-                {locale === "vi" ? "So dien thoai" : "Phone"}
+                {locale === "vi" ? "Số điện thoại" : "Phone"}
               </Label>
               <Input
                 id="contactPhone"
@@ -369,7 +369,7 @@ export function SmartLeadForm() {
             {/* Country */}
             <div className="space-y-2">
               <Label htmlFor="country">
-                {locale === "vi" ? "Quoc gia" : "Country"}
+                {locale === "vi" ? "Quốc gia" : "Country"}
               </Label>
               <Input
                 id="country"
@@ -409,7 +409,7 @@ export function SmartLeadForm() {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <BarChart3 className="h-4 w-4 text-primary" />
-            {locale === "vi" ? "2. Du lieu dinh luong" : "2. Quantitative Data"}
+            {locale === "vi" ? "2. Dữ liệu định lượng" : "2. Quantitative Data"}
           </CardTitle>
           <CardDescription>
             {locale === "vi"
@@ -422,7 +422,7 @@ export function SmartLeadForm() {
             {/* Total shipments */}
             <div className="space-y-2">
               <Label htmlFor="totalShipments">
-                {locale === "vi" ? "Tong so lo hang" : "Total Shipments"}
+                {locale === "vi" ? "Tổng số lô hàng" : "Total Shipments"}
               </Label>
               <Input
                 id="totalShipments"
@@ -437,7 +437,7 @@ export function SmartLeadForm() {
             {/* Last shipment date */}
             <div className="space-y-2">
               <Label htmlFor="lastShipmentDate">
-                {locale === "vi" ? "Ngay lo hang gan nhat" : "Last Shipment Date"}
+                {locale === "vi" ? "Ngày lô hàng gần nhất" : "Last Shipment Date"}
               </Label>
               <Input
                 id="lastShipmentDate"
@@ -451,7 +451,7 @@ export function SmartLeadForm() {
             {/* Avg TEU/month */}
             <div className="space-y-2">
               <Label htmlFor="avgTeuPerMonth">
-                {locale === "vi" ? "Avg TEU/thang" : "Avg TEU/month"}
+                {locale === "vi" ? "Avg TEU/tháng" : "Avg TEU/month"}
               </Label>
               <Input
                 id="avgTeuPerMonth"
@@ -467,11 +467,11 @@ export function SmartLeadForm() {
             {/* Top 3 peak months */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="topPeakMonths">
-                {locale === "vi" ? "Top 3 thang cao diem (so lo)" : "Top 3 Peak Months (shipments)"}
+                {locale === "vi" ? "Top 3 tháng cao điểm (số lô)" : "Top 3 Peak Months (shipments)"}
               </Label>
               <Input
                 id="topPeakMonths"
-                placeholder={locale === "vi" ? "VD: Thang 8:338, Thang 7:286, Thang 9:280" : "E.g. Aug:338, Jul:286, Sep:280"}
+                placeholder={locale === "vi" ? "VD: Tháng 8:338, Tháng 7:286, Tháng 9:280" : "E.g. Aug:338, Jul:286, Sep:280"}
                 value={topPeakMonths}
                 onChange={(e) => setTopPeakMonths(e.target.value)}
                 className="border-border"
@@ -481,11 +481,11 @@ export function SmartLeadForm() {
             {/* Top 3 low months */}
             <div className="space-y-2 md:col-span-1">
               <Label htmlFor="topLowMonths">
-                {locale === "vi" ? "Top 3 thang thap diem" : "Top 3 Low Months"}
+                {locale === "vi" ? "Top 3 tháng thấp điểm" : "Top 3 Low Months"}
               </Label>
               <Input
                 id="topLowMonths"
-                placeholder={locale === "vi" ? "VD: Thang 2:112, Thang 3:105" : "E.g. Feb:112, Mar:105"}
+                placeholder={locale === "vi" ? "VD: Tháng 2:112, Tháng 3:105" : "E.g. Feb:112, Mar:105"}
                 value={topLowMonths}
                 onChange={(e) => setTopLowMonths(e.target.value)}
                 className="border-border"
@@ -502,7 +502,7 @@ export function SmartLeadForm() {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <Package className="h-4 w-4 text-primary" />
-            {locale === "vi" ? "3. Ma HS & San pham" : "3. HS Code & Products"}
+            {locale === "vi" ? "3. Mã HS & Sản phẩm" : "3. HS Code & Products"}
           </CardTitle>
           <CardDescription>
             {locale === "vi"
@@ -515,7 +515,7 @@ export function SmartLeadForm() {
             {/* Main HS code (required) */}
             <div className="space-y-2">
               <Label htmlFor="hsCode">
-                {locale === "vi" ? "Ma HS chinh (1-3 cai) *" : "Main HS Code (1-3) *"}
+                {locale === "vi" ? "Mã HS chính (1-3 cái) *" : "Main HS Code (1-3) *"}
               </Label>
               <Input
                 id="hsCode"
@@ -525,14 +525,14 @@ export function SmartLeadForm() {
                 className="border-border"
               />
               <p className="text-xs text-muted-foreground">
-                {locale === "vi" ? "Lay tu Product Breakdown hoac shipment" : "From Product Breakdown or shipment"}
+                  {locale === "vi" ? "Lấy từ Product Breakdown hoặc shipment" : "From Product Breakdown or shipment"}
               </p>
             </div>
 
             {/* Main product */}
             <div className="space-y-2">
               <Label htmlFor="mainProduct">
-                {locale === "vi" ? "San pham chinh (ten thuong mai) *" : "Main Product (trade name) *"}
+                {locale === "vi" ? "Sản phẩm chính (tên thương mại) *" : "Main Product (trade name) *"}
               </Label>
               <Input
                 id="mainProduct"
@@ -546,7 +546,7 @@ export function SmartLeadForm() {
             {/* Secondary HS codes */}
             <div className="space-y-2">
               <Label htmlFor="secondaryHsCodes">
-                {locale === "vi" ? "Ma HS phu (neu co)" : "Secondary HS Codes (if any)"}
+                {locale === "vi" ? "Mã HS phụ (nếu có)" : "Secondary HS Codes (if any)"}
               </Label>
               <Input
                 id="secondaryHsCodes"
@@ -560,11 +560,11 @@ export function SmartLeadForm() {
             {/* Industry */}
             <div className="space-y-2">
               <Label htmlFor="industry">
-                {locale === "vi" ? "Nganh hang" : "Industry"}
+                {locale === "vi" ? "Ngành hàng" : "Industry"}
               </Label>
               <Select value={needsIndustry} onValueChange={setNeedsIndustry}>
                 <SelectTrigger id="industry" className="border-border">
-                  <SelectValue placeholder={locale === "vi" ? "Chon nganh..." : "Select industry..."} />
+                  <SelectValue placeholder={locale === "vi" ? "Chọn ngành..." : "Select industry..."} />
                 </SelectTrigger>
                 <SelectContent>
                   {INDUSTRIES.map((ind) => (
@@ -586,7 +586,7 @@ export function SmartLeadForm() {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <Network className="h-4 w-4 text-primary" />
-            {locale === "vi" ? "4. Chuoi cung ung hien tai" : "4. Current Supply Chain"}
+            {locale === "vi" ? "4. Chuỗi cung ứng hiện tại" : "4. Current Supply Chain"}
           </CardTitle>
           <CardDescription>
             {locale === "vi"
@@ -599,7 +599,7 @@ export function SmartLeadForm() {
             {/* Top 5 suppliers */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="topSuppliers">
-                {locale === "vi" ? "Top 5 supplier (ten + nuoc) *" : "Top 5 Suppliers (name + country) *"}
+                {locale === "vi" ? "Top 5 supplier (tên + nước) *" : "Top 5 Suppliers (name + country) *"}
               </Label>
               <Textarea
                 id="topSuppliers"
@@ -614,14 +614,14 @@ export function SmartLeadForm() {
                 className="resize-none border-border"
               />
               <p className="text-xs text-muted-foreground">
-                {locale === "vi" ? "Tu tab \"Suppliers\" tren ImportYeti" : "From \"Suppliers\" tab on ImportYeti"}
+                  {locale === "vi" ? "Từ tab \"Suppliers\" trên ImportYeti" : "From \"Suppliers\" tab on ImportYeti"}
               </p>
             </div>
 
             {/* Main import countries */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="mainImportCountries">
-                {locale === "vi" ? "Quoc gia nhap khau chinh" : "Main Import Countries"}
+                {locale === "vi" ? "Quốc gia nhập khẩu chính" : "Main Import Countries"}
               </Label>
               <Input
                 id="mainImportCountries"
@@ -655,7 +655,7 @@ export function SmartLeadForm() {
             {/* Origin ports */}
             <div className="space-y-2">
               <Label htmlFor="originPorts">
-                {locale === "vi" ? "Cang xuat chinh (top 2)" : "Top Origin Ports (top 2)"}
+                {locale === "vi" ? "Cảng xuất chính (top 2)" : "Top Origin Ports (top 2)"}
               </Label>
               <Input
                 id="originPorts"
@@ -669,7 +669,7 @@ export function SmartLeadForm() {
             {/* Destination ports */}
             <div className="space-y-2">
               <Label htmlFor="destinationPorts">
-                {locale === "vi" ? "Cang dich chinh (top 2)" : "Top Destination Ports (top 2)"}
+                {locale === "vi" ? "Cảng đích chính (top 2)" : "Top Destination Ports (top 2)"}
               </Label>
               <Input
                 id="destinationPorts"
@@ -683,7 +683,7 @@ export function SmartLeadForm() {
             {/* Container types */}
             <div className="space-y-2">
               <Label htmlFor="containerTypes">
-                {locale === "vi" ? "Loai container pho bien" : "Common Container Types"}
+                {locale === "vi" ? "Loại container phổ biến" : "Common Container Types"}
               </Label>
               <Input
                 id="containerTypes"
@@ -704,7 +704,7 @@ export function SmartLeadForm() {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageSquareText className="h-4 w-4 text-primary" />
-            {locale === "vi" ? "6. Ghi chu cho AI" : "6. Notes for AI"}
+            {locale === "vi" ? "6. Ghi chú cho AI" : "6. Notes for AI"}
           </CardTitle>
           <CardDescription>
             {locale === "vi"
@@ -717,7 +717,7 @@ export function SmartLeadForm() {
             {/* BOL description */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="bolDescription">
-                {locale === "vi" ? "Mo ta san pham mau (copy 1-2 dong tu BOL)" : "Sample Product Description (copy 1-2 lines from BOL)"}
+                {locale === "vi" ? "Mô tả sản phẩm mẫu (copy 1-2 dòng từ BOL)" : "Sample Product Description (copy 1-2 lines from BOL)"}
               </Label>
               <Textarea
                 id="bolDescription"
@@ -736,7 +736,7 @@ export function SmartLeadForm() {
             {/* Purchase history */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="purchaseHistory">
-                {locale === "vi" ? "Lich su mua hang" : "Purchase History"}
+                {locale === "vi" ? "Lịch sử mua hàng" : "Purchase History"}
               </Label>
               <Textarea
                 id="purchaseHistory"
@@ -755,7 +755,7 @@ export function SmartLeadForm() {
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">
-                {locale === "vi" ? "Nhan xet them cua LR" : "Additional LR Notes"}
+                {locale === "vi" ? "Nhận xét thêm của LR" : "Additional LR Notes"}
               </Label>
               <Textarea
                 id="notes"
@@ -774,19 +774,19 @@ export function SmartLeadForm() {
             {/* Priority rating */}
             <div className="space-y-2">
               <Label htmlFor="priorityRating" className="flex items-center gap-1.5">
-                {locale === "vi" ? "Muc do uu tien (1-5 sao)" : "Priority Rating (1-5 stars)"}
+                {locale === "vi" ? "Mức độ ưu tiên (1-5 sao)" : "Priority Rating (1-5 stars)"}
                 <Star className="h-3 w-3 text-chart-5" />
               </Label>
               <Select value={priorityRating} onValueChange={setPriorityRating}>
                 <SelectTrigger id="priorityRating" className="border-border">
-                  <SelectValue placeholder={locale === "vi" ? "Chon muc do..." : "Select rating..."} />
+                  <SelectValue placeholder={locale === "vi" ? "Chọn mức độ..." : "Select rating..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="5">5 - {locale === "vi" ? "Rat cao" : "Very High"}</SelectItem>
+                  <SelectItem value="5">5 - {locale === "vi" ? "Rất cao" : "Very High"}</SelectItem>
                   <SelectItem value="4">4 - {locale === "vi" ? "Cao" : "High"}</SelectItem>
-                  <SelectItem value="3">3 - {locale === "vi" ? "Trung binh" : "Medium"}</SelectItem>
-                  <SelectItem value="2">2 - {locale === "vi" ? "Thap" : "Low"}</SelectItem>
-                  <SelectItem value="1">1 - {locale === "vi" ? "Rat thap" : "Very Low"}</SelectItem>
+                  <SelectItem value="3">3 - {locale === "vi" ? "Trung bình" : "Medium"}</SelectItem>
+                  <SelectItem value="2">2 - {locale === "vi" ? "Thấp" : "Low"}</SelectItem>
+                  <SelectItem value="1">1 - {locale === "vi" ? "Rất thấp" : "Very Low"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -794,7 +794,7 @@ export function SmartLeadForm() {
             {/* Capacity needed */}
             <div className="space-y-2">
               <Label htmlFor="needsCapacity">
-                {locale === "vi" ? "Cong suat can (tan/thang)" : "Capacity Needed (MT/month)"}
+                {locale === "vi" ? "Công suất cần (tấn/tháng)" : "Capacity Needed (MT/month)"}
               </Label>
               <Input
                 id="needsCapacity"
@@ -809,7 +809,7 @@ export function SmartLeadForm() {
             {/* Potential value */}
             <div className="space-y-2">
               <Label htmlFor="potentialValue">
-                {locale === "vi" ? "Gia tri tiem nang (USD)" : "Potential Value (USD)"}
+                {locale === "vi" ? "Giá trị tiềm năng (USD)" : "Potential Value (USD)"}
               </Label>
               <Input
                 id="potentialValue"
@@ -834,7 +834,7 @@ export function SmartLeadForm() {
           onClick={() => router.back()}
           disabled={submitting}
         >
-          {locale === "vi" ? "Huy" : "Cancel"}
+            {locale === "vi" ? "Hủy" : "Cancel"}
         </Button>
         <Button
           type="submit"
@@ -842,7 +842,7 @@ export function SmartLeadForm() {
           className="gap-2"
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {locale === "vi" ? "Them Buyer" : "Add Buyer"}
+            {locale === "vi" ? "Thêm Buyer" : "Add Buyer"}
         </Button>
       </div>
 
@@ -853,15 +853,15 @@ export function SmartLeadForm() {
             <Sparkles className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="text-sm text-muted-foreground space-y-2">
               <p className="font-medium">
-                {locale === "vi" ? "AI se tu dong lam gi sau khi LR nhap?" : "What will AI do after LR enters data?"}
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>{locale === "vi" ? "Lay them thong tin bo sung neu thieu" : "Fetch additional info if missing"}</li>
-                <li>{locale === "vi" ? "Matching voi client VN phu hop" : "Match with suitable VN clients"}</li>
-                <li>{locale === "vi" ? "Phan tich doi thu, tim diem yeu" : "Analyze competitors, find weaknesses"}</li>
-                <li>{locale === "vi" ? "Tinh toan loi the logistics cua client VN" : "Calculate VN client logistics advantages"}</li>
-                <li>{locale === "vi" ? "De xuat thoi diem tiep can tot nhat" : "Suggest best approach timing"}</li>
-                <li>{locale === "vi" ? "Sinh kich ban chao hang ca nhan hoa" : "Generate personalized sales scripts"}</li>
+              {locale === "vi" ? "AI sẽ tự động làm gì sau khi LR nhập?" : "What will AI do after LR enters data?"}
+            </p>
+            <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+              <li>{locale === "vi" ? "Lấy thêm thông tin bổ sung nếu thiếu" : "Fetch additional info if missing"}</li>
+              <li>{locale === "vi" ? "Matching với client VN phù hợp" : "Match with suitable VN clients"}</li>
+              <li>{locale === "vi" ? "Phân tích đối thủ, tìm điểm yếu" : "Analyze competitors, find weaknesses"}</li>
+              <li>{locale === "vi" ? "Tính toán lợi thế logistics của client VN" : "Calculate VN client logistics advantages"}</li>
+              <li>{locale === "vi" ? "Đề xuất thời điểm tiếp cận tốt nhất" : "Suggest best approach timing"}</li>
+              <li>{locale === "vi" ? "Sinh kịch bản chào hàng cá nhân hóa" : "Generate personalized sales scripts"}</li>
               </ul>
             </div>
           </div>

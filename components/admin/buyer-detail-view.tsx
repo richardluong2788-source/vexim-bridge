@@ -339,18 +339,18 @@ export function BuyerDetailView({
           <TabsList className="self-start">
             <TabsTrigger value="importyeti" className="gap-2">
               <Ship className="h-4 w-4" />
-              {locale === "vi" ? "Du lieu ImportYeti" : "ImportYeti Data"}
+              {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
             </TabsTrigger>
             <TabsTrigger value="opportunities" className="gap-2">
               <Kanban className="h-4 w-4" />
-              {locale === "vi" ? "Co hoi" : "Deals"}
+              {locale === "vi" ? "Cơ hội" : "Deals"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {opportunities.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="replies" className="gap-2">
               <MessageSquare className="h-4 w-4" />
-              {locale === "vi" ? "Phan hoi" : "Replies"}
+              {locale === "vi" ? "Phản hồi" : "Replies"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {replies.length}
               </Badge>
@@ -365,18 +365,18 @@ export function BuyerDetailView({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-chart-1" />
-                    {locale === "vi" ? "Du lieu dinh luong" : "Quantitative Data"}
+                    {locale === "vi" ? "Dữ liệu định lượng" : "Quantitative Data"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                   <DataRow
                     icon={Ship}
-                    label={locale === "vi" ? "Tong so lo hang" : "Total shipments"}
+                    label={locale === "vi" ? "Tổng số lô hàng" : "Total shipments"}
                     value={buyer.total_shipments?.toLocaleString() ?? "—"}
                   />
                   <DataRow
                     icon={CalendarDays}
-                    label={locale === "vi" ? "Lo hang gan nhat" : "Last shipment"}
+                    label={locale === "vi" ? "Lô hàng gần nhất" : "Last shipment"}
                     value={buyer.last_shipment_date 
                       ? new Date(buyer.last_shipment_date).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US")
                       : "—"
@@ -384,20 +384,20 @@ export function BuyerDetailView({
                   />
                   <DataRow
                     icon={Container}
-                    label={locale === "vi" ? "Trung binh TEU/thang" : "Avg TEU/month"}
+                    label={locale === "vi" ? "Trung bình TEU/tháng" : "Avg TEU/month"}
                     value={buyer.avg_teu_per_month?.toFixed(1) ?? "—"}
                   />
                   <div className="flex flex-col gap-1 pt-2 border-t border-border">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <TrendingUp className="h-3.5 w-3.5 text-chart-4" />
-                      {locale === "vi" ? "Thang cao diem" : "Peak months"}
+                      {locale === "vi" ? "Tháng cao điểm" : "Peak months"}
                     </div>
                     <p className="text-sm text-foreground">{buyer.top_peak_months ?? "—"}</p>
                   </div>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <TrendingDown className="h-3.5 w-3.5 text-chart-5" />
-                      {locale === "vi" ? "Thang thap diem" : "Low months"}
+                      {locale === "vi" ? "Tháng thấp điểm" : "Low months"}
                     </div>
                     <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
                   </div>
@@ -409,26 +409,26 @@ export function BuyerDetailView({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Package className="h-4 w-4 text-chart-2" />
-                    {locale === "vi" ? "Ma HS & San pham" : "HS Code & Products"}
+                    {locale === "vi" ? "Mã HS & Sản phẩm" : "HS Code & Products"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                   <DataRow
                     icon={Package}
-                    label={locale === "vi" ? "Ma HS chinh" : "Primary HS Code"}
+                    label={locale === "vi" ? "Mã HS chính" : "Primary HS Code"}
                     value={buyer.hs_code ?? "—"}
                     mono
                   />
                   <DataRow
                     icon={Package}
-                    label={locale === "vi" ? "San pham chinh" : "Main product"}
+                    label={locale === "vi" ? "Sản phẩm chính" : "Main product"}
                     value={buyer.main_product ?? "—"}
                   />
                   {buyer.secondary_hs_codes && (
                     <div className="flex flex-col gap-1 pt-2 border-t border-border">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Package className="h-3.5 w-3.5" />
-                        {locale === "vi" ? "Ma HS phu" : "Secondary HS codes"}
+                        {locale === "vi" ? "Mã HS phụ" : "Secondary HS codes"}
                       </div>
                       <p className="text-sm text-foreground font-mono">{buyer.secondary_hs_codes}</p>
                     </div>
@@ -450,7 +450,7 @@ export function BuyerDetailView({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Users className="h-4 w-4 text-chart-3" />
-                    {locale === "vi" ? "Chuoi cung ung" : "Supply Chain"}
+                    {locale === "vi" ? "Chuỗi cung ứng" : "Supply Chain"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
@@ -524,7 +524,7 @@ export function BuyerDetailView({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Star className="h-4 w-4 text-chart-5" />
-                    {locale === "vi" ? "Ghi chu & Muc uu tien" : "Notes & Priority"}
+                    {locale === "vi" ? "Ghi chú & Mức ưu tiên" : "Notes & Priority"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
@@ -1357,7 +1357,7 @@ export function RelatedBuyersCard({
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          {locale === "vi" ? "Buyers tuong tu" : "Related Buyers"}
+          {locale === "vi" ? "Buyers tương tự" : "Related Buyers"}
         </CardTitle>
       </CardHeader>
       <CardContent>

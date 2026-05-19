@@ -159,22 +159,36 @@ export async function syncClientProductEmbeddings(
 
 /**
  * Build combined text from buyer/lead data for embedding.
- * Combines product interest, industry, keywords, and HS codes.
+ * Uses new fields from migration 043: main_product, hs_code, secondary_hs_codes.
  */
 function buildBuyerText(lead: {
-  product_interest: string | null
+  main_product: string | null
+  hs_code: string | null
+  secondary_hs_codes: string | null
   industry: string | null
+  bol_description: string | null
   enriched_data: Record<string, unknown> | null
 }): string {
   const parts: string[] = []
 
-  if (lead.product_interest) parts.push(lead.product_interest)
+  // Primary product info from new schema
+  if (lead.main_product) parts.push(lead.main_product)
   if (lead.industry) parts.push(lead.industry)
+  if (lead.bol_description) parts.push(lead.bol_description)
 
-  // Extract enriched data fields
+  // HS codes from new schema
+  const hsCodes: string[] = []
+  if (lead.hs_code) hsCodes.push(lead.hs_code)
+  if (lead.secondary_hs_codes) {
+    hsCodes.push(...lead.secondary_hs_codes.split(",").map(s => s.trim()).filter(Boolean))
+  }
+  if (hsCodes.length > 0) {
+    parts.push(`HS Codes: ${hsCodes.join(", ")}`)
+  }
+
+  // Fallback to enriched_data for legacy data
   const enriched = lead.enriched_data || {}
   const keywords = (enriched.product_keywords as string[]) || []
-  const hsCodes = (enriched.hs_codes as string[]) || []
   const topProducts = (enriched.top_products as string[]) || []
 
   if (keywords.length > 0) {
@@ -182,9 +196,6 @@ function buildBuyerText(lead: {
   }
   if (topProducts.length > 0) {
     parts.push(`Products: ${topProducts.join(", ")}`)
-  }
-  if (hsCodes.length > 0) {
-    parts.push(`HS Codes: ${hsCodes.join(", ")}`)
   }
 
   return parts.join(" | ")
@@ -200,10 +211,10 @@ export async function generateBuyerEmbedding(
   const supabase = createAdminClient()
 
   try {
-    // 1. Fetch lead data
+    // 1. Fetch lead data using new schema fields
     const { data: lead, error: fetchError } = await supabase
       .from("leads")
-      .select("id, product_interest, industry, enriched_data")
+      .select("id, main_product, hs_code, secondary_hs_codes, industry, bol_description, enriched_data")
       .eq("id", leadId)
       .single()
 

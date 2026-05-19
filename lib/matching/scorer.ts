@@ -634,23 +634,6 @@ function calculateWinRate(buyer: BuyerContext, ae: AEContext): number {
   return 50 // Not enough data
 }
 
-/**
- * Country/Region Match (0-100)
- * Whether AE has experience with the buyer's country/region.
- */
-function calculateCountryMatch(buyer: BuyerContext, ae: AEContext): number {
-  const buyerCountry = buyer.lead.country?.toLowerCase() || ""
-  const buyerRegion = buyer.lead.region?.toLowerCase() || ""
-
-  if (!buyerCountry && !buyerRegion) return 50 // Neutral if no location
-
-  // This would ideally check historical opportunities by country
-  // For now, we give a neutral score since we don't have that data in context
-  // The LLM augmentation can improve this factor
-
-  return 50
-}
-
 // ============================================================
 // Detail Generation Functions (for UI)
 // ============================================================
@@ -737,12 +720,6 @@ function getWinRateDetails(buyer: BuyerContext, ae: AEContext): string {
     0
   )
   return `No data for ${buyerIndustry || "this industry"}. ${totalDeals} total deals.`
-}
-
-function getCountryMatchDetails(buyer: BuyerContext, ae: AEContext): string {
-  const country = buyer.lead.country || "Unknown"
-  const region = buyer.lead.region || ""
-  return `Buyer location: ${country}${region ? ` (${region})` : ""}`
 }
 
 // ============================================================

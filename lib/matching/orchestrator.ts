@@ -16,8 +16,10 @@ import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type { Lead, Profile } from "@/lib/supabase/types"
 import {
   calculateScoresForBuyer,
+  calculateHybridScoresForBuyer,
   normalizeHSCodes,
   normalizeKeywords,
+  type HybridScoringResult,
 } from "./scorer"
 import type {
   MatchingRequest,
@@ -37,7 +39,7 @@ import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS } from "./types"
 export async function runMatchingPipeline(
   request: MatchingRequest
 ): Promise<MatchingResult> {
-  const { leadId, triggeredBy } = request
+  const { leadId, triggeredBy, useLLMAugmentation } = request
   const supabase = await createClient()
 
   // 1. Load configuration
@@ -63,15 +65,16 @@ export async function runMatchingPipeline(
     }
   }
 
-  // 4. Calculate scores for all AEs
-  const scores = calculateScoresForBuyer(
+  // 4. Calculate scores for all AEs using HYBRID scoring (semantic + rules)
+  // This is the key change - using semantic embeddings when available
+  const scores = await calculateHybridScoresForBuyer(
     buyer,
     aes,
     config.weights,
     config.thresholds
   )
 
-  // 5. Store scores in database
+  // 5. Store scores in database (enhanced to include semantic data)
   await storeScores(supabase, leadId, scores, triggeredBy)
 
   // 6. Process results based on thresholds
@@ -182,13 +185,13 @@ async function loadAllAEContexts(
 async function storeScores(
   supabase: Awaited<ReturnType<typeof createClient>>,
   leadId: string,
-  scores: ScoringResult[],
+  scores: HybridScoringResult[],
   triggeredBy: string
 ): Promise<void> {
   // Delete existing scores for this lead
   await supabase.from("ae_match_scores").delete().eq("lead_id", leadId)
 
-  // Insert new scores
+  // Insert new scores with semantic data
   const scoreRows = scores.map((score) => ({
     lead_id: leadId,
     account_manager_id: score.accountManagerId,
@@ -203,6 +206,11 @@ async function storeScores(
       breakdown: score.breakdown,
       recommendation: score.recommendation,
       triggered_by: triggeredBy,
+      // Include semantic scoring data when available
+      scoring_mode: score.scoringMode,
+      semantic_score: score.semanticScore?.score,
+      semantic_top_matches: score.semanticScore?.topMatches?.slice(0, 3),
+      hybrid_product_score: score.hybridProductScore,
     },
   }))
 
@@ -222,7 +230,7 @@ async function processResults(
   supabase: Awaited<ReturnType<typeof createClient>>,
   leadId: string,
   buyer: BuyerContext,
-  scores: ScoringResult[],
+  scores: HybridScoringResult[],
   thresholds: MatchingThresholds,
   triggeredBy: string
 ): Promise<MatchingResult> {

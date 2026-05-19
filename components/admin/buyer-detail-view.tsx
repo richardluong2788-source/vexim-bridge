@@ -1158,6 +1158,8 @@ export function SuggestedApproachCard({
   buyer: BuyerDetailData
   locale?: "vi" | "en"
 }) {
+  const [copied, setCopied] = useState(false)
+
   // Generate approach based on buyer data
   const approach = useMemo(() => {
     const tips: string[] = []
@@ -1222,6 +1224,44 @@ export function SuggestedApproachCard({
     return { tips, warnings }
   }, [buyer, locale])
 
+  // Generate copy-able email script for AE
+  const script = useMemo(() => {
+    const hasVNSupplier = buyer.top_suppliers?.some(
+      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
+    )
+    
+    const lines: string[] = []
+    lines.push(`Subject: Partnership Opportunity - ${buyer.main_product || "Your Products"}`)
+    lines.push("")
+    lines.push(`Dear ${buyer.contact_person || "Procurement Team"},`)
+    lines.push("")
+    
+    if (hasVNSupplier) {
+      lines.push(`I noticed ${buyer.company_name} is already sourcing from Vietnam. We'd love to discuss how we can complement your existing supply chain with competitive pricing and reliable quality.`)
+    } else {
+      lines.push(`I'm reaching out regarding ${buyer.main_product || "your import needs"}. Our Vietnamese suppliers specialize in HS ${buyer.hs_code || "your product category"} with competitive MOQ and pricing.`)
+    }
+    
+    lines.push("")
+    lines.push("Key highlights:")
+    lines.push(`- ${buyer.total_shipments ? `Volume capability matching your ${buyer.total_shipments}+ shipments history` : "Flexible MOQ for trial orders"}`)
+    lines.push("- Direct factory relationships in Vietnam")
+    lines.push(`- ${buyer.container_types ? `Experience with ${buyer.container_types} shipments` : "Full container and LCL options"}`)
+    lines.push("")
+    lines.push("Would you have 15 minutes this week for a quick call?")
+    lines.push("")
+    lines.push("Best regards,")
+    lines.push("[Your Name]")
+    
+    return lines.join("\n")
+  }, [buyer])
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(script)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (approach.tips.length === 0 && approach.warnings.length === 0) {
     return null
   }
@@ -1229,10 +1269,30 @@ export function SuggestedApproachCard({
   return (
     <Card className="border-chart-1/30 bg-chart-1/5">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-chart-1" />
-          {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-chart-1" />
+            {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3" />
+                {locale === "vi" ? "Đã copy" : "Copied"}
+              </>
+            ) : (
+              <>
+                <FileText className="h-3 w-3" />
+                {locale === "vi" ? "Copy script" : "Copy script"}
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {approach.warnings.length > 0 && (
@@ -1271,6 +1331,14 @@ export interface RelatedBuyer {
   main_product: string | null
   country: string | null
   matchReason: string
+  matchScore?: number // 0-100 similarity score
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-chart-4 bg-chart-4/10"
+  if (score >= 60) return "text-chart-1 bg-chart-1/10"
+  if (score >= 40) return "text-chart-5 bg-chart-5/10"
+  return "text-muted-foreground bg-muted/50"
 }
 
 export function RelatedBuyersCard({
@@ -1289,7 +1357,7 @@ export function RelatedBuyersCard({
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          {locale === "vi" ? "Buyers tương tự" : "Related Buyers"}
+          {locale === "vi" ? "Buyers tuong tu" : "Related Buyers"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -1309,6 +1377,11 @@ export function RelatedBuyersCard({
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {b.matchScore !== undefined && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${getScoreColor(b.matchScore)}`}>
+                    {b.matchScore}%
+                  </span>
+                )}
                 {b.hs_code && (
                   <Badge variant="outline" className="text-[10px] font-mono">
                     {b.hs_code}

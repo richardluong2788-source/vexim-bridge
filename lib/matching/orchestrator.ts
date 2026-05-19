@@ -208,24 +208,42 @@ async function storeScores(
   scores: HybridScoringResult[],
   triggeredBy: string
 ): Promise<void> {
+  // Filter out any scores that don't have valid totalScore
+  const validScores = scores.filter(
+    (score) => score.totalScore !== null && score.totalScore !== undefined && !isNaN(score.totalScore)
+  )
+
+  if (validScores.length === 0) {
+    console.log("[v0] No valid scores to store for lead:", leadId)
+    return
+  }
+
   // Delete existing scores for this lead
   await supabase.from("ae_match_scores").delete().eq("lead_id", leadId)
 
-  // Insert new scores with semantic data
-  const scoreRows = scores.map((score) => ({
+  // Insert new scores with semantic data (using new scoring formula fields)
+  const scoreRows = validScores.map((score) => ({
     lead_id: leadId,
     account_manager_id: score.accountManagerId,
     total_score: score.totalScore,
-    product_match_score: score.factors.productMatch,
-    industry_match_score: score.factors.industryMatch,
-    fda_compliance_score: score.factors.fdaCompliance,
-    workload_score: score.factors.workload,
-    win_rate_score: score.factors.winRate,
-    country_match_score: score.factors.countryMatch,
+    // New formula fields
+    product_match_score: score.factors.productMatch ?? 0,
+    country_match_score: score.factors.countryMatch ?? 0,
+    // Store new factors in JSON (hsCodeMatch, logisticsMatch, priorityBonus, vnSupplierBonus)
+    // Legacy fields - set to 0 for backward compat
+    industry_match_score: score.factors.industryMatch ?? 0,
+    fda_compliance_score: score.factors.fdaCompliance ?? 0,
+    workload_score: score.factors.workload ?? 0,
+    win_rate_score: score.factors.winRate ?? 0,
     factors: {
       breakdown: score.breakdown,
       recommendation: score.recommendation,
       triggered_by: triggeredBy,
+      // New formula factors
+      hs_code_match: score.factors.hsCodeMatch,
+      logistics_match: score.factors.logisticsMatch,
+      priority_bonus: score.factors.priorityBonus,
+      vn_supplier_bonus: score.factors.vnSupplierBonus,
       // Include semantic scoring data when available
       scoring_mode: score.scoringMode,
       semantic_score: score.semanticScore?.score,

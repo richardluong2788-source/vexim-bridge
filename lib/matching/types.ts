@@ -22,23 +22,32 @@ import type {
 // ============================================================
 
 export const ScoringFactorsSchema = z.object({
+  hsCodeMatch: z.number().min(0).max(100),
   productMatch: z.number().min(0).max(100),
-  industryMatch: z.number().min(0).max(100),
-  fdaCompliance: z.number().min(0).max(100),
-  workload: z.number().min(0).max(100),
-  winRate: z.number().min(0).max(100),
   countryMatch: z.number().min(0).max(100),
+  logisticsMatch: z.number().min(0).max(100),
+  priorityBonus: z.number().min(0).max(100),
+  vnSupplierBonus: z.number().min(0).max(100), // +10 if buyer already has VN supplier
+  // Legacy fields for backward compatibility
+  industryMatch: z.number().min(0).max(100).optional(),
+  fdaCompliance: z.number().min(0).max(100).optional(),
+  workload: z.number().min(0).max(100).optional(),
+  winRate: z.number().min(0).max(100).optional(),
 })
 
 export type ScoringFactors = z.infer<typeof ScoringFactorsSchema>
 
 export const ScoringWeightsSchema = z.object({
+  hs_code_match: z.number().min(0).max(100),
   product_match: z.number().min(0).max(100),
-  industry_match: z.number().min(0).max(100),
-  workload: z.number().min(0).max(100),
-  win_rate: z.number().min(0).max(100),
-  fda_compliance: z.number().min(0).max(100),
   country_match: z.number().min(0).max(100),
+  logistics_match: z.number().min(0).max(100),
+  priority_bonus: z.number().min(0).max(100),
+  // Legacy fields for backward compatibility
+  industry_match: z.number().min(0).max(100).optional(),
+  workload: z.number().min(0).max(100).optional(),
+  win_rate: z.number().min(0).max(100).optional(),
+  fda_compliance: z.number().min(0).max(100).optional(),
 })
 
 export type ScoringWeights = z.infer<typeof ScoringWeightsSchema>
@@ -55,13 +64,25 @@ export type MatchingThresholds = z.infer<typeof MatchingThresholdsSchema>
 // Default Configuration
 // ============================================================
 
+/**
+ * Scoring weights based on LR form spec:
+ * - HS Code: 40% (most important for product matching)
+ * - Product Keywords: 25%
+ * - Country/Origin: 20%
+ * - Logistics: 10%
+ * - Priority Rating: 5%
+ */
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
+  hs_code_match: 40,
   product_match: 25,
-  industry_match: 20,
-  workload: 20,
-  win_rate: 20,
-  fda_compliance: 10,
-  country_match: 5,
+  country_match: 20,
+  logistics_match: 10,
+  priority_bonus: 5,
+  // Legacy (kept for backward compat, not used in new formula)
+  industry_match: 0,
+  workload: 0,
+  win_rate: 0,
+  fda_compliance: 0,
 }
 
 export const DEFAULT_THRESHOLDS: MatchingThresholds = {

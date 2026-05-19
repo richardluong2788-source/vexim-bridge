@@ -4,13 +4,14 @@
  * Calculates match scores between buyers (leads) and Account Executives (AEs).
  * Each factor is scored 0-100 and weighted to produce a final score.
  *
- * Factors:
- * 1. Product Match (25%): HS codes and keywords overlap
- * 2. Industry Match (20%): Buyer industry vs AE's clients' industries
- * 3. Workload (20%): Inverse of current opportunity count
- * 4. Win Rate (20%): Historical win rate in the buyer's industry
- * 5. FDA Compliance (10%): Whether AE's clients have valid FDA
- * 6. Country/Region (5%): Geographic market experience
+ * NEW SCORING FORMULA (based on LR form spec):
+ * 1. HS Code Match (40%): Exact/prefix HS code matching
+ * 2. Product Match (25%): Keywords and product category overlap
+ * 3. Country Match (20%): Geographic market + import countries
+ * 4. Logistics Match (10%): Ports and container type alignment
+ * 5. Priority Bonus (5%): LR priority rating (1-5)
+ * 
+ * BONUS: +10 points if buyer already has VN supplier (warm lead)
  *
  * HYBRID MODE (v2):
  * When semantic embeddings are available, uses 70% semantic + 30% rule-based
@@ -43,18 +44,25 @@ export function calculateScore(
 ): ScoringResult {
   const { buyer, ae, weights } = context
 
-  // Calculate individual factors
+  // Calculate individual factors using new formula
   const factors: ScoringFactors = {
+    hsCodeMatch: calculateHSCodeMatch(buyer, ae),
     productMatch: calculateProductMatch(buyer, ae),
-    industryMatch: calculateIndustryMatch(buyer, ae),
-    fdaCompliance: calculateFDACompliance(ae),
-    workload: calculateWorkloadScore(ae),
-    winRate: calculateWinRate(buyer, ae),
     countryMatch: calculateCountryMatch(buyer, ae),
+    logisticsMatch: calculateLogisticsMatch(buyer, ae),
+    priorityBonus: calculatePriorityBonus(buyer),
+    vnSupplierBonus: calculateVNSupplierBonus(buyer),
   }
 
   // Build breakdown with weighted scores
   const breakdown: FactorBreakdown[] = [
+    {
+      factor: "HS Code Match",
+      rawScore: factors.hsCodeMatch,
+      weight: weights.hs_code_match,
+      weightedScore: (factors.hsCodeMatch * weights.hs_code_match) / 100,
+      details: getHSCodeMatchDetails(buyer, ae),
+    },
     {
       factor: "Product Match",
       rawScore: factors.productMatch,
@@ -63,44 +71,45 @@ export function calculateScore(
       details: getProductMatchDetails(buyer, ae),
     },
     {
-      factor: "Industry Match",
-      rawScore: factors.industryMatch,
-      weight: weights.industry_match,
-      weightedScore: (factors.industryMatch * weights.industry_match) / 100,
-      details: getIndustryMatchDetails(buyer, ae),
-    },
-    {
-      factor: "FDA Compliance",
-      rawScore: factors.fdaCompliance,
-      weight: weights.fda_compliance,
-      weightedScore: (factors.fdaCompliance * weights.fda_compliance) / 100,
-      details: getFDADetails(ae),
-    },
-    {
-      factor: "Workload",
-      rawScore: factors.workload,
-      weight: weights.workload,
-      weightedScore: (factors.workload * weights.workload) / 100,
-      details: getWorkloadDetails(ae),
-    },
-    {
-      factor: "Win Rate",
-      rawScore: factors.winRate,
-      weight: weights.win_rate,
-      weightedScore: (factors.winRate * weights.win_rate) / 100,
-      details: getWinRateDetails(buyer, ae),
-    },
-    {
       factor: "Country Match",
       rawScore: factors.countryMatch,
       weight: weights.country_match,
       weightedScore: (factors.countryMatch * weights.country_match) / 100,
       details: getCountryMatchDetails(buyer, ae),
     },
+    {
+      factor: "Logistics Match",
+      rawScore: factors.logisticsMatch,
+      weight: weights.logistics_match,
+      weightedScore: (factors.logisticsMatch * weights.logistics_match) / 100,
+      details: getLogisticsMatchDetails(buyer, ae),
+    },
+    {
+      factor: "Priority Bonus",
+      rawScore: factors.priorityBonus,
+      weight: weights.priority_bonus,
+      weightedScore: (factors.priorityBonus * weights.priority_bonus) / 100,
+      details: getPriorityDetails(buyer),
+    },
   ]
 
   // Calculate total weighted score
-  const totalScore = breakdown.reduce((sum, b) => sum + b.weightedScore, 0)
+  let totalScore = breakdown.reduce((sum, b) => sum + b.weightedScore, 0)
+
+  // Add VN supplier bonus (flat +10 points)
+  if (factors.vnSupplierBonus > 0) {
+    totalScore += 10
+    breakdown.push({
+      factor: "VN Supplier Bonus",
+      rawScore: factors.vnSupplierBonus,
+      weight: 10, // Flat bonus
+      weightedScore: 10,
+      details: "Buyer already has VN supplier - warm lead",
+    })
+  }
+
+  // Cap at 100
+  totalScore = Math.min(100, totalScore)
 
   // Determine recommendation based on thresholds
   let recommendation: "auto_assign" | "inbox" | "skip"
@@ -172,14 +181,14 @@ export async function calculateHybridScore(
     scoringMode = "rule-based"
   }
 
-  // Calculate other factors
+  // Calculate other factors using NEW formula
   const factors: ScoringFactors = {
-    productMatch: hybridProductScore, // Use hybrid score
-    industryMatch: calculateIndustryMatch(buyer, ae),
-    fdaCompliance: calculateFDACompliance(ae),
-    workload: calculateWorkloadScore(ae),
-    winRate: calculateWinRate(buyer, ae),
+    hsCodeMatch: calculateHSCodeMatch(buyer, ae),
+    productMatch: hybridProductScore, // Use hybrid score for product
     countryMatch: calculateCountryMatch(buyer, ae),
+    logisticsMatch: calculateLogisticsMatch(buyer, ae),
+    priorityBonus: calculatePriorityBonus(buyer),
+    vnSupplierBonus: calculateVNSupplierBonus(buyer),
   }
 
   // Build breakdown with semantic details in product match
@@ -190,39 +199,18 @@ export async function calculateHybridScore(
 
   const breakdown: FactorBreakdown[] = [
     {
+      factor: "HS Code Match",
+      rawScore: factors.hsCodeMatch,
+      weight: weights.hs_code_match,
+      weightedScore: (factors.hsCodeMatch * weights.hs_code_match) / 100,
+      details: getHSCodeMatchDetails(buyer, ae),
+    },
+    {
       factor: "Product Match",
       rawScore: factors.productMatch,
       weight: weights.product_match,
       weightedScore: (factors.productMatch * weights.product_match) / 100,
       details: productMatchDetails,
-    },
-    {
-      factor: "Industry Match",
-      rawScore: factors.industryMatch,
-      weight: weights.industry_match,
-      weightedScore: (factors.industryMatch * weights.industry_match) / 100,
-      details: getIndustryMatchDetails(buyer, ae),
-    },
-    {
-      factor: "FDA Compliance",
-      rawScore: factors.fdaCompliance,
-      weight: weights.fda_compliance,
-      weightedScore: (factors.fdaCompliance * weights.fda_compliance) / 100,
-      details: getFDADetails(ae),
-    },
-    {
-      factor: "Workload",
-      rawScore: factors.workload,
-      weight: weights.workload,
-      weightedScore: (factors.workload * weights.workload) / 100,
-      details: getWorkloadDetails(ae),
-    },
-    {
-      factor: "Win Rate",
-      rawScore: factors.winRate,
-      weight: weights.win_rate,
-      weightedScore: (factors.winRate * weights.win_rate) / 100,
-      details: getWinRateDetails(buyer, ae),
     },
     {
       factor: "Country Match",
@@ -231,10 +219,39 @@ export async function calculateHybridScore(
       weightedScore: (factors.countryMatch * weights.country_match) / 100,
       details: getCountryMatchDetails(buyer, ae),
     },
+    {
+      factor: "Logistics Match",
+      rawScore: factors.logisticsMatch,
+      weight: weights.logistics_match,
+      weightedScore: (factors.logisticsMatch * weights.logistics_match) / 100,
+      details: getLogisticsMatchDetails(buyer, ae),
+    },
+    {
+      factor: "Priority Bonus",
+      rawScore: factors.priorityBonus,
+      weight: weights.priority_bonus,
+      weightedScore: (factors.priorityBonus * weights.priority_bonus) / 100,
+      details: getPriorityDetails(buyer),
+    },
   ]
 
   // Calculate total weighted score
-  const totalScore = breakdown.reduce((sum, b) => sum + b.weightedScore, 0)
+  let totalScore = breakdown.reduce((sum, b) => sum + b.weightedScore, 0)
+
+  // Add VN supplier bonus (flat +10 points)
+  if (factors.vnSupplierBonus > 0) {
+    totalScore += 10
+    breakdown.push({
+      factor: "VN Supplier Bonus",
+      rawScore: factors.vnSupplierBonus,
+      weight: 10,
+      weightedScore: 10,
+      details: "Buyer already has VN supplier - warm lead",
+    })
+  }
+
+  // Cap at 100
+  totalScore = Math.min(100, totalScore)
 
   // Determine recommendation
   let recommendation: "auto_assign" | "inbox" | "skip"
@@ -306,27 +323,69 @@ export async function calculateHybridScoresForBuyer(
 }
 
 // ============================================================
-// Factor Calculation Functions
+// Factor Calculation Functions (NEW FORMULA)
 // ============================================================
 
 /**
- * Product Match (0-100)
- * Measures overlap between buyer's HS codes/keywords and AE's clients' products.
+ * HS Code Match (0-100) - Weight: 40%
+ * Exact or prefix matching of buyer's HS codes with AE's clients' products.
+ */
+function calculateHSCodeMatch(buyer: BuyerContext, ae: AEContext): number {
+  if (ae.clientProducts.length === 0) return 0
+
+  const buyerHSCodes = buyer.hsCodesNormalized
+  if (buyerHSCodes.length === 0) return 30 // Neutral if no HS codes
+
+  // Collect all HS codes from AE's clients
+  const aeHSCodes = new Set<string>()
+  for (const client of ae.clientProducts) {
+    for (const cat of client.product_categories) {
+      // Extract HS-like patterns from categories
+      const hsMatch = cat.match(/\d{4,6}/)
+      if (hsMatch) aeHSCodes.add(hsMatch[0])
+    }
+  }
+
+  if (aeHSCodes.size === 0) return 20 // Low score if no HS data
+
+  let exactMatches = 0
+  let prefixMatches = 0
+
+  for (const buyerHS of buyerHSCodes) {
+    const buyerPrefix = buyerHS.slice(0, 4)
+    
+    // Check exact match (6-digit)
+    if (aeHSCodes.has(buyerHS)) {
+      exactMatches++
+      continue
+    }
+    
+    // Check 4-digit prefix match
+    for (const aeHS of aeHSCodes) {
+      if (aeHS.startsWith(buyerPrefix) || buyerHS.startsWith(aeHS.slice(0, 4))) {
+        prefixMatches++
+        break
+      }
+    }
+  }
+
+  // Exact match = 100, prefix match = 70, partial = based on ratio
+  if (exactMatches > 0) return 100
+  if (prefixMatches > 0) return 70 + Math.min(30, (prefixMatches / buyerHSCodes.length) * 30)
+  return 20
+}
+
+/**
+ * Product Match (0-100) - Weight: 25%
+ * Measures overlap between buyer's product keywords and AE's clients' products.
  */
 function calculateProductMatch(buyer: BuyerContext, ae: AEContext): number {
   if (ae.clientProducts.length === 0) return 0
 
-  const buyerHSCodes = buyer.hsCodesNormalized
   const buyerKeywords = buyer.keywordsNormalized
+  if (buyerKeywords.length === 0) return 40 // Neutral if no keywords
 
-  if (buyerHSCodes.length === 0 && buyerKeywords.length === 0) {
-    return 50 // Neutral score if no buyer product data
-  }
-
-  let matchCount = 0
-  let totalPossible = buyerHSCodes.length + buyerKeywords.length
-
-  // Collect all AE client categories
+  // Collect all AE client categories and subcategories
   const aeCategories = new Set<string>()
   const aeSubcategories = new Set<string>()
 
@@ -339,18 +398,8 @@ function calculateProductMatch(buyer: BuyerContext, ae: AEContext): number {
     }
   }
 
-  // Check HS code prefix matches (first 4 digits = chapter + heading)
-  for (const hs of buyerHSCodes) {
-    const hsPrefix = hs.slice(0, 4)
-    for (const cat of aeCategories) {
-      if (cat.includes(hsPrefix) || hsPrefix.includes(cat.slice(0, 4))) {
-        matchCount++
-        break
-      }
-    }
-  }
+  let matchCount = 0
 
-  // Check keyword matches
   for (const keyword of buyerKeywords) {
     const kw = keyword.toLowerCase()
     const hasMatch =
@@ -360,13 +409,107 @@ function calculateProductMatch(buyer: BuyerContext, ae: AEContext): number {
   }
 
   // Normalize to 0-100
-  if (totalPossible === 0) return 50
-  return Math.min(100, Math.round((matchCount / totalPossible) * 100))
+  return Math.min(100, Math.round((matchCount / buyerKeywords.length) * 100))
 }
 
 /**
+ * Country Match (0-100) - Weight: 20%
+ * Checks buyer's import countries and origin against AE's export experience.
+ */
+function calculateCountryMatch(buyer: BuyerContext, ae: AEContext): number {
+  const buyerCountry = buyer.lead.country?.toLowerCase() || ""
+  const mainImportCountries = buyer.lead.main_import_countries?.toLowerCase() || ""
+  
+  if (!buyerCountry && !mainImportCountries) return 50 // Neutral
+
+  // Check if buyer imports from Vietnam (our target market)
+  const importsFromVN = mainImportCountries.includes("vietnam") || 
+                        mainImportCountries.includes("vn") ||
+                        mainImportCountries.includes("viet nam")
+  
+  if (importsFromVN) return 100 // Perfect match - already imports from VN
+
+  // Check if AE has clients in buyer's country/region
+  const aeCountries = new Set<string>()
+  for (const client of ae.clientProducts) {
+    if (client.client_country) {
+      aeCountries.add(client.client_country.toLowerCase())
+    }
+  }
+
+  // Buyer's country matches AE's client countries
+  if (buyerCountry && aeCountries.has(buyerCountry)) return 80
+
+  return 40 // No specific match
+}
+
+/**
+ * Logistics Match (0-100) - Weight: 10%
+ * Checks ports and container type alignment.
+ */
+function calculateLogisticsMatch(buyer: BuyerContext, ae: AEContext): number {
+  const originPorts = buyer.lead.origin_ports?.toLowerCase() || ""
+  const destPorts = buyer.lead.destination_ports?.toLowerCase() || ""
+  const containerTypes = buyer.lead.container_types?.toLowerCase() || ""
+
+  if (!originPorts && !destPorts && !containerTypes) return 50 // Neutral
+
+  let score = 50
+
+  // Bonus for Vietnamese ports in origin
+  const vnPorts = ["hcmc", "ho chi minh", "hai phong", "da nang", "cat lai", "cai mep"]
+  for (const port of vnPorts) {
+    if (originPorts.includes(port)) {
+      score += 30
+      break
+    }
+  }
+
+  // Bonus for common container types
+  if (containerTypes.includes("40") || containerTypes.includes("20")) {
+    score += 20
+  }
+
+  return Math.min(100, score)
+}
+
+/**
+ * Priority Bonus (0-100) - Weight: 5%
+ * Based on LR priority rating (1-5 scale).
+ */
+function calculatePriorityBonus(buyer: BuyerContext): number {
+  const priority = buyer.lead.priority_rating
+  if (!priority || priority <= 0) return 0
+
+  // Convert 1-5 scale to 0-100
+  return Math.min(100, priority * 20)
+}
+
+/**
+ * VN Supplier Bonus (0 or 100) - Flat +10 points
+ * Returns 100 if buyer already has a Vietnamese supplier (warm lead).
+ */
+function calculateVNSupplierBonus(buyer: BuyerContext): number {
+  const suppliers = buyer.lead.top_suppliers
+  if (!suppliers || !Array.isArray(suppliers)) return 0
+
+  for (const supplier of suppliers) {
+    const country = supplier.country?.toLowerCase() || ""
+    if (country.includes("vietnam") || country.includes("vn") || country === "viet nam") {
+      return 100
+    }
+  }
+
+  return 0
+}
+
+// ============================================================
+// Legacy Factor Functions (kept for backward compatibility)
+// ============================================================
+
+/**
+ * @deprecated Use calculateHSCodeMatch instead
  * Industry Match (0-100)
- * Measures if buyer's industry aligns with AE's clients' industries.
  */
 function calculateIndustryMatch(buyer: BuyerContext, ae: AEContext): number {
   const buyerIndustry = buyer.lead.industry?.toLowerCase() || ""
@@ -512,17 +655,48 @@ function calculateCountryMatch(buyer: BuyerContext, ae: AEContext): number {
 // Detail Generation Functions (for UI)
 // ============================================================
 
-function getProductMatchDetails(buyer: BuyerContext, ae: AEContext): string {
+function getHSCodeMatchDetails(buyer: BuyerContext, ae: AEContext): string {
   const hsCount = buyer.hsCodesNormalized.length
+  const clientCount = ae.clientProducts.length
+  const mainHS = buyer.lead.hs_code || "N/A"
+
+  if (clientCount === 0) return "No clients assigned to this AE"
+  if (hsCount === 0) return "No HS codes for buyer"
+
+  return `Buyer HS: ${mainHS} (${hsCount} total). AE manages ${clientCount} clients.`
+}
+
+function getProductMatchDetails(buyer: BuyerContext, ae: AEContext): string {
   const kwCount = buyer.keywordsNormalized.length
+  const mainProduct = buyer.lead.main_product || "Unknown"
   const clientCount = ae.clientProducts.length
 
   if (clientCount === 0) return "No clients assigned to this AE"
-  if (hsCount === 0 && kwCount === 0) return "No product data for buyer"
+  if (kwCount === 0) return "No product keywords for buyer"
 
-  return `Buyer has ${hsCount} HS codes, ${kwCount} keywords. AE manages ${clientCount} clients.`
+  return `Product: ${mainProduct}. AE manages ${clientCount} clients.`
 }
 
+function getCountryMatchDetails(buyer: BuyerContext, ae: AEContext): string {
+  const country = buyer.lead.country || "Unknown"
+  const importCountries = buyer.lead.main_import_countries || "N/A"
+  return `Buyer: ${country}. Import from: ${importCountries}`
+}
+
+function getLogisticsMatchDetails(buyer: BuyerContext, ae: AEContext): string {
+  const origin = buyer.lead.origin_ports || "N/A"
+  const dest = buyer.lead.destination_ports || "N/A"
+  const containers = buyer.lead.container_types || "N/A"
+  return `Origin: ${origin}. Dest: ${dest}. Containers: ${containers}`
+}
+
+function getPriorityDetails(buyer: BuyerContext): string {
+  const priority = buyer.lead.priority_rating
+  if (!priority) return "No priority set"
+  return `LR Priority: ${priority}/5`
+}
+
+// Legacy detail functions (kept for backward compat)
 function getIndustryMatchDetails(buyer: BuyerContext, ae: AEContext): string {
   const buyerIndustry = buyer.lead.industry || "Unknown"
   const aeIndustries = new Set<string>()

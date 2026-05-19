@@ -17,6 +17,7 @@ import {
   Mail,
   Package,
   Star,
+  TrendingDown,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -69,6 +70,17 @@ export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount =
   // ImportYeti data indicators
   const hasHsCode = Boolean(lead?.hs_code?.trim())
   const hasPriority = Boolean(lead?.priority_rating && lead.priority_rating > 0)
+  
+  // Low season indicator - check if current month is in buyer's low months
+  const isLowSeason = (() => {
+    const lowMonths = lead?.top_low_months?.toLowerCase() || ""
+    if (!lowMonths) return false
+    
+    const currentMonth = new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()
+    const currentMonthShort = new Date().toLocaleString("en-US", { month: "short" }).toLowerCase()
+    
+    return lowMonths.includes(currentMonth) || lowMonths.includes(currentMonthShort)
+  })()
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -245,6 +257,25 @@ export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount =
                 <TooltipContent side="top">
                   <p className="text-xs font-medium">
                     LR Priority: {lead?.priority_rating}/5
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {isLowSeason && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/10"
+                    aria-label="Low season"
+                  >
+                    <TrendingDown className="h-3.5 w-3.5 text-orange-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px]">
+                  <p className="text-xs font-medium">Tháng thấp điểm</p>
+                  <p className="text-xs opacity-80 mt-1">
+                    Buyer thường mua ít vào tháng này ({lead?.top_low_months})
                   </p>
                 </TooltipContent>
               </Tooltip>

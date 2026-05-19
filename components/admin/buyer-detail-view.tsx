@@ -34,6 +34,7 @@ import {
   FileText,
   Users,
   Link2,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1143,6 +1144,243 @@ function formatRelative(iso: string, locale: "vi" | "en"): string {
   return new Date(iso).toLocaleDateString(
     locale === "vi" ? "vi-VN" : "en-US",
     { month: "short", day: "numeric", year: "numeric" },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AI Suggested Approach Card
+// ---------------------------------------------------------------------------
+
+export function SuggestedApproachCard({
+  buyer,
+  locale = "vi",
+}: {
+  buyer: BuyerDetailData
+  locale?: "vi" | "en"
+}) {
+  // Generate approach based on buyer data
+  const approach = useMemo(() => {
+    const tips: string[] = []
+    const warnings: string[] = []
+    
+    // Check if buyer has VN suppliers (warm lead)
+    const hasVNSupplier = buyer.top_suppliers?.some(
+      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
+    )
+    if (hasVNSupplier) {
+      tips.push(locale === "vi" 
+        ? "Buyer đã có supplier VN - đây là warm lead, có thể đề cập đến việc mở rộng nguồn cung"
+        : "Buyer already has VN supplier - warm lead, mention expanding supply sources")
+    }
+    
+    // Check low season
+    const lowMonths = buyer.top_low_months?.toLowerCase() || ""
+    const currentMonth = new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()
+    const isLowSeason = lowMonths.includes(currentMonth)
+    if (isLowSeason) {
+      warnings.push(locale === "vi"
+        ? `Hiện đang trong tháng thấp điểm (${buyer.top_low_months}) - có thể buyer ít phản hồi`
+        : `Currently in low season (${buyer.top_low_months}) - buyer may be less responsive`)
+    }
+    
+    // Check peak months for best timing
+    const peakMonths = buyer.top_peak_months?.toLowerCase() || ""
+    if (peakMonths && !isLowSeason) {
+      tips.push(locale === "vi"
+        ? `Gợi ý: Tiếp cận trước tháng cao điểm (${buyer.top_peak_months}) để đàm phán tốt hơn`
+        : `Tip: Approach before peak months (${buyer.top_peak_months}) for better negotiations`)
+    }
+    
+    // Check shipment volume
+    if (buyer.total_shipments && buyer.total_shipments > 50) {
+      tips.push(locale === "vi"
+        ? `Buyer có volume lớn (${buyer.total_shipments} shipments) - có thể đàm phán giá tốt hơn`
+        : `High volume buyer (${buyer.total_shipments} shipments) - can negotiate better pricing`)
+    }
+    
+    // Check priority
+    if (buyer.priority_rating && buyer.priority_rating >= 4) {
+      tips.push(locale === "vi"
+        ? "LR đánh giá priority cao - ưu tiên follow up nhanh"
+        : "LR rated high priority - prioritize quick follow-up")
+    }
+    
+    // Check HS code for specific approach
+    if (buyer.hs_code) {
+      tips.push(locale === "vi"
+        ? `Tập trung vào sản phẩm HS ${buyer.hs_code} (${buyer.main_product || ""})`
+        : `Focus on HS ${buyer.hs_code} products (${buyer.main_product || ""})`)
+    }
+    
+    // Check competitors
+    if (buyer.competitors) {
+      tips.push(locale === "vi"
+        ? `Lưu ý đối thủ: ${buyer.competitors} - chuẩn bị điểm khác biệt`
+        : `Note competitors: ${buyer.competitors} - prepare differentiators`)
+    }
+    
+    return { tips, warnings }
+  }, [buyer, locale])
+
+  if (approach.tips.length === 0 && approach.warnings.length === 0) {
+    return null
+  }
+
+  return (
+    <Card className="border-chart-1/30 bg-chart-1/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-chart-1" />
+          {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {approach.warnings.length > 0 && (
+          <div className="space-y-1.5">
+            {approach.warnings.map((w, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+                <span className="text-orange-700 dark:text-orange-400">{w}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {approach.tips.length > 0 && (
+          <ul className="space-y-1.5">
+            {approach.tips.map((tip, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-chart-1 mt-0.5 shrink-0" />
+                <span className="text-muted-foreground">{tip}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Related Buyers Card (buyers with similar HS codes/products)
+// ---------------------------------------------------------------------------
+
+export interface RelatedBuyer {
+  id: string
+  company_name: string
+  hs_code: string | null
+  main_product: string | null
+  country: string | null
+  matchReason: string
+}
+
+export function RelatedBuyersCard({
+  relatedBuyers,
+  locale = "vi",
+}: {
+  relatedBuyers: RelatedBuyer[]
+  locale?: "vi" | "en"
+}) {
+  if (!relatedBuyers || relatedBuyers.length === 0) {
+    return null
+  }
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          {locale === "vi" ? "Buyers tương tự" : "Related Buyers"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {relatedBuyers.slice(0, 5).map((b) => (
+            <Link
+              key={b.id}
+              href={`/admin/buyers/${b.id}`}
+              className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors group"
+            >
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                  {b.company_name}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {b.matchReason}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {b.hs_code && (
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {b.hs_code}
+                  </Badge>
+                )}
+                {b.country && (
+                  <span className="text-xs text-muted-foreground">{b.country}</span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// No Match Warning Card
+// ---------------------------------------------------------------------------
+
+export function NoMatchWarningCard({
+  hsCode,
+  locale = "vi",
+}: {
+  hsCode: string | null
+  locale?: "vi" | "en"
+}) {
+  const suggestions = useMemo(() => {
+    if (!hsCode) return []
+    
+    // Suggest broadening HS code search
+    const prefix4 = hsCode.slice(0, 4)
+    const prefix2 = hsCode.slice(0, 2)
+    
+    return [
+      locale === "vi"
+        ? `Mở rộng tìm kiếm: HS ${prefix4}xx (4 chữ số đầu)`
+        : `Broaden search: HS ${prefix4}xx (first 4 digits)`,
+      locale === "vi"
+        ? `Hoặc thử chapter: HS ${prefix2}xxxx (chapter ${prefix2})`
+        : `Or try chapter: HS ${prefix2}xxxx (chapter ${prefix2})`,
+      locale === "vi"
+        ? "Kiểm tra lại từ khóa sản phẩm trong filter"
+        : "Review product keywords in filter",
+    ]
+  }, [hsCode, locale])
+
+  return (
+    <Card className="border-orange-500/30 bg-orange-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          {locale === "vi" ? "Không tìm thấy seller phù hợp" : "No Matching Sellers Found"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {locale === "vi"
+            ? "AI không tìm được seller match với buyer này. Thử các gợi ý sau:"
+            : "AI couldn't find matching sellers for this buyer. Try these suggestions:"}
+        </p>
+        <ul className="space-y-1.5">
+          {suggestions.map((s, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <span className="text-orange-500 font-medium">{i + 1}.</span>
+              <span className="text-muted-foreground">{s}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 

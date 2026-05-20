@@ -63,7 +63,7 @@ export async function submitProductQuoteRequest(
     // Verify the opportunity exists and belongs to the same client
     const { data: existingOpp } = await adminSupabase
       .from("opportunities")
-      .select("id, client_id, assigned_ae")
+      .select("id, client_id, account_manager_id")
       .eq("id", request.opportunity_ref)
       .single()
 
@@ -81,9 +81,9 @@ export async function submitProductQuoteRequest(
       isExistingOpportunity = true
 
       // Notify the assigned AE specifically using dispatchNotification for email + in-app
-      if (existingOpp.assigned_ae) {
+      if (existingOpp.account_manager_id) {
         dispatchNotification({
-          userId: existingOpp.assigned_ae,
+          userId: existingOpp.account_manager_id,
           category: "new_assignment",
           opportunityId: existingOpp.id,
           linkPath: `/admin/opportunities/${existingOpp.id}`,

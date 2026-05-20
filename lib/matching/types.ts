@@ -209,6 +209,7 @@ export interface FactorBreakdown {
 
 export interface ScoringResult {
   accountManagerId: string
+  accountManagerName?: string // AE name for display in UI
   totalScore: number
   factors: ScoringFactors
   breakdown: FactorBreakdown[]

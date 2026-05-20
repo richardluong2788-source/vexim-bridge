@@ -158,7 +158,7 @@ export function RunAIMatchButton({
                             #{idx + 1}
                           </span>
                           <span className="text-sm font-medium">
-                            {score.accountManagerId.slice(0, 8)}...
+                            {score.accountManagerName || score.accountManagerId.slice(0, 8) + "..."}
                           </span>
                           <Badge
                             variant="outline"

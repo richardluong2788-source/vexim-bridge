@@ -125,6 +125,7 @@ export function calculateScore(
 
   return {
     accountManagerId: ae.profile.id,
+    accountManagerName: ae.profile.full_name || ae.profile.email || undefined,
     totalScore: Math.round(totalScore * 100) / 100,
     factors,
     breakdown,
@@ -269,6 +270,7 @@ export async function calculateHybridScore(
 
   return {
     accountManagerId: ae.profile.id,
+    accountManagerName: ae.profile.full_name || ae.profile.email || undefined,
     totalScore: Math.round(totalScore * 100) / 100,
     factors,
     breakdown,

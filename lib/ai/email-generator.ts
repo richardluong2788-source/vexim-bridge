@@ -222,13 +222,6 @@ export async function generateEmailDraft(
     .eq("id", user.id)
     .single()
 
-  console.log("[v0] aeProfile loaded:", { 
-    id: aeProfile?.id, 
-    full_name: aeProfile?.full_name, 
-    email: aeProfile?.email,
-    phone: aeProfile?.phone 
-  })
-
   // ------------------------------------------------------------
   // 2) Load opportunity context so the AI can personalize the email
   // ------------------------------------------------------------
@@ -354,6 +347,12 @@ export async function generateEmailDraft(
       
       // === SENDER (AE) INFO - Use for email signature ===
       sender_name: aeProfile?.full_name ?? null,
+      sender_title: 
+        aeProfile?.role === "super_admin" ? "Founder & CEO" :
+        aeProfile?.role === "account_executive" ? "Account Executive" :
+        aeProfile?.role === "staff" ? "Business Development Manager" :
+        "Business Development",
+      sender_company: "Vexim Trade",
       sender_email: aeProfile?.email ?? user.email ?? null,
       sender_phone: aeProfile?.phone ?? null,
       
@@ -380,7 +379,15 @@ export async function generateEmailDraft(
     `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
     `
-CORE PRINCIPLES (Non-negotiable):
+CONTEXT DATA - Do NOT get confused:
+- "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
+- "sender_name", "sender_title", "sender_company", "sender_email", "sender_phone" = The AE's info from VEXIM TRADE. These go in the signature.
+
+Example to avoid confusion:
+- Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
+- Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (This is the AE sending the email)
+- The email is FROM Luong Van Hoc (Vexim Trade) TO the buyer at Công Ty Long An.`,
+    `
 1. NO EMPTY PROMISES: NEVER claim specific percentages or savings unless the admin explicitly provides verified data. "15-20% savings" without proof is a credibility killer. Instead use: "very competitive landed cost", "pricing worth comparing", "cost structure that typically outperforms [origin]".
 2. PROOF OVER CLAIMS: Always offer to SHOW evidence rather than just TELL. "I can send a case study showing how we helped [similar client]..." is 10x more powerful than "We can save you money."
 3. YOU-FOCUSED: Use "you/your" 3x more than "we/our/I". Start with THEIR problem, not your pitch.
@@ -388,11 +395,23 @@ CORE PRINCIPLES (Non-negotiable):
 5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain:
-   - sender_name (the AE's real name - e.g., "Hoc Luong", NOT "[Your Name]")
-   - exporter_company (company name - e.g., "Công Ty Long An")
-   - sender_email (e.g., hocluongvan88@gmail.com)
-   - sender_phone (e.g., 0987868765)
-   Format should be clean and professional. NEVER use any placeholder text.
+   - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")
+   - sender_title (the AE's title/role at Vexim Trade - e.g., "Account Executive" or "Business Development Manager")
+   - sender_company ("Vexim Trade")
+   - sender_email (the AE's Vexim email - e.g., luongvanhoc@veximtrade.com)
+   - sender_phone (the AE's phone)
+   
+   SIGNATURE FORMAT (MUST FOLLOW EXACTLY):
+   Best regards,
+   
+   [sender_name]
+   [sender_title]
+   Vexim Trade
+   [sender_email]
+   [sender_phone]
+   
+   NEVER use placeholder text. NEVER use the buyer/exporter name in the signature. The signature represents the AE sending the email on behalf of Vexim Trade, not on behalf of the buyer.
+   Format should be clean and professional.
 `,
 `
 ═══════════════════════════════════════════════════════════════════════════════

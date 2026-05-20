@@ -57,6 +57,7 @@ const STAGES: Stage[] = [
 type SectionId =
   | "status"
   | "commercial"
+  | "documents"
   | "email"
   | "replies"
   | "intelligence"
@@ -569,6 +570,17 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                       />
                     </Field>
                   </FieldGroup>
+                </section>
+              )}
+
+              {/* DOCUMENTS */}
+              {activeSection === "documents" && (
+                <section className="space-y-4 max-w-3xl">
+                  <DocumentAdvisorSection 
+                    opportunityId={opportunity.id} 
+                    clientId={opportunity.client_id}
+                    open={open}
+                  />
                 </section>
               )}
 

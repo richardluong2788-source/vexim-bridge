@@ -121,8 +121,8 @@ export async function sendEmailDraft(
       .single()
     // Supabase returns the embedded relation as either an object or array
     // depending on the FK shape — handle both safely.
-    const profile = Array.isArray(opp?.profiles) ? opp?.profiles[0] : opp?.profiles
-    clientName = profile?.company_name ?? null
+    const clientProfile = Array.isArray(opp?.profiles) ? opp?.profiles[0] : opp?.profiles
+    clientName = clientProfile?.company_name ?? null
   }
 
   // 2c. Build personalized sender with AE's real name for better deliverability.

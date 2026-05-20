@@ -231,6 +231,24 @@ export async function generateEmailDraft(
   // Format suppliers for context
   const formattedSuppliers = topSuppliers?.map(s => `${s.name} (${s.country || "Unknown"})`).join(", ") ?? null
 
+  // ⚠️ DATA QUALITY CHECK: Log when critical fields are missing
+  const purchaseHistoryStr = lead["purchase_history"] as string | null
+  const hasPurchaseHistory = purchaseHistoryStr?.trim() && purchaseHistoryStr.trim().length > 10
+  if (!hasPurchaseHistory) {
+    console.warn(
+      "[v0] Email Generator WARNING: purchase_history is empty or minimal for lead",
+      lead["company_name"],
+      "→ Email will lack personalization 'ammunition'"
+    )
+  }
+  if (!topSuppliers || topSuppliers.length === 0) {
+    console.warn(
+      "[v0] Email Generator WARNING: top_suppliers is empty for lead",
+      lead["company_name"],
+      "→ Cannot detect Vietnam supplier leverage"
+    )
+  }
+
   const contextBlock = JSON.stringify(
     {
       // === BUYER BASIC INFO ===
@@ -320,12 +338,19 @@ CORE PRINCIPLES (Non-negotiable):
    Format should be clean and professional. NEVER use any placeholder text.
 `,
 `
-═══════════════════════════════════════════════���═══════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
 PERSONALIZATION INTELLIGENCE - USE THIS DATA TO WRITE HIGHLY TARGETED EMAILS
-════════════════════════════════════════════════════════════════════════════���══
+════════════════════════════════════════════════════════════════════════════════
+
+⚠️⚠️⚠️ CRITICAL - HIGHEST PRIORITY FIELD ⚠️⚠️⚠️
+"purchase_history" is THE MOST POWERFUL data source for email personalization.
+This is your FIRST & PRIMARY source of truth for understanding buyer motivation.
+If purchase_history is populated → USE IT AGGRESSIVELY in the email opening.
+If purchase_history is NULL/EMPTY → Email will be GENERIC and WEAK.
+The difference between A+ emails and mediocre ones IS purchase_history data.
 
 ⚠️ CRITICAL DATA SOURCE PRIORITY:
-- "purchase_history" = OBJECTIVE trade data from customs/shipping records. TRUST THIS.
+- "purchase_history" = OBJECTIVE trade data from customs/shipping records. TRUST THIS ABOVE ALL ELSE.
 - "buyer_notes" = Internal admin notes (may contain opinions, outdated info, or errors). USE WITH CAUTION.
 - When there's conflict between purchase_history and buyer_notes, ALWAYS trust purchase_history.
 

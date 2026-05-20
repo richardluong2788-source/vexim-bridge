@@ -99,12 +99,16 @@ export function SmartLeadForm() {
   const [containerTypes, setContainerTypes] = useState("")
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Section 6: GHI CHÚ CHO AI (LR nhập - tùy chọn nhưng rất giá trị)
+  // Section 6: GHI CHÚ CHO AI (LR nhập - CRITICAL FOR PERSONALIZATION)
   // ══════════════════════════════════════════════════════════════════════════
   const [bolDescription, setBolDescription] = useState("")
   const [purchaseHistory, setPurchaseHistory] = useState("")
   const [notes, setNotes] = useState("")
   const [priorityRating, setPriorityRating] = useState<string>("")
+  
+  // Data quality checks
+  const isPurchaseHistoryEmpty = !purchaseHistory.trim()
+  const isTopSuppliersEmpty = !topSuppliers.trim()
 
   // ══════════════════════════════════════════════════════════════════════════
   // Legacy fields for AI matching (backward compatibility)
@@ -750,7 +754,7 @@ export function SmartLeadForm() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* Section 6: GHI CHU CHO AI */}
       {/* ════════════════════════════════════════════════════════════════════ */}
-      <Card className="border-border">
+      <Card className={cn("border-border", (isPurchaseHistoryEmpty || isTopSuppliersEmpty) && "border-chart-5/50 bg-chart-5/5")}>
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageSquareText className="h-4 w-4 text-primary" />
@@ -758,9 +762,22 @@ export function SmartLeadForm() {
           </CardTitle>
           <CardDescription>
             {locale === "vi"
-              ? "LR nhap - tuy chon nhung rat gia tri"
-              : "LR enters - optional but very valuable"}
+              ? "LR nhap - QUAN TRONG cho email AI co 'vu khi'"
+              : "LR enters - CRITICAL for AI to write personalized emails"}
           </CardDescription>
+          {(isPurchaseHistoryEmpty || isTopSuppliersEmpty) && (
+            <div className="flex gap-2 rounded-sm bg-chart-5/10 p-2 text-xs text-chart-5 mt-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <div>
+                {isPurchaseHistoryEmpty && (
+                  <p>{locale === "vi" ? "⚠️ Lịch sử mua hàng rỗng = AI không thể cá nhân hóa email" : "⚠️ Empty purchase history = AI cannot personalize the email"}</p>
+                )}
+                {isTopSuppliersEmpty && (
+                  <p>{locale === "vi" ? "⚠️ Nhà cung cấp hàng đầu rỗng = AI sẽ mất cơ hội tận dụng Vietnam supplier leverage" : "⚠️ Empty suppliers = AI loses Vietnam supplier angle"}</p>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">

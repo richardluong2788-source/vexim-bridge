@@ -117,11 +117,22 @@ export async function assertOpportunityOwned(
   opportunityId: string,
 ): Promise<OwnershipCheckResult> {
   if (scope.kind === "all") return { ok: true }
-  const { data } = await admin
+  const { data, error } = await admin
     .from("opportunities")
     .select("id, account_manager_id")
     .eq("id", opportunityId)
     .maybeSingle<{ id: string; account_manager_id: string | null }>()
+  
+  // Debug logging - remove after issue is resolved
+  console.log("[v0] assertOpportunityOwned:", {
+    opportunityId,
+    scopeKind: scope.kind,
+    scopeUserId: scope.userId,
+    dataFound: !!data,
+    accountManagerId: data?.account_manager_id,
+    error: error?.message,
+  })
+  
   if (!data) return { ok: false, error: "notFound" }
   // If account_manager_id is not set yet (legacy data or missing migration),
   // allow the operation — the trigger or next update will populate it.

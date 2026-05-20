@@ -127,6 +127,14 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
         prev.map((o) => (o.id === draggedId ? { ...o, stage: targetStage } : o)),
       )
 
+      // Debug logging - remove after issue is resolved
+      console.log("[v0] Kanban drag:", {
+        draggedId,
+        targetStage,
+        opportunityExists: !!dragged,
+        fromStage,
+      })
+
       // Server action: enforces role check, logs activity, and dispatches a
       // notification to the assigned client (status_update or deal_closed).
       const res = await updateOpportunityStage(draggedId, targetStage)

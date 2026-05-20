@@ -1,20 +1,28 @@
 /**
- * Approves + sends an AI-generated email draft via Zoho SMTP.
+ * Approves + sends an AI-generated email draft via Resend.
+ *
+ * DELIVERABILITY OPTIMIZATIONS:
+ *   - Uses AE's real name as sender (e.g., "Hoc Luong <trade@...>") instead of "Vexim Trade"
+ *   - Clean Reply-To address (no plus-addressing visible to buyer)
+ *   - Ref code stored in X-Ref-Code header for internal tracking
+ *   - Subject line kept clean (no [REF-XXX] prefix)
  *
  * Flow:
  *  1. Verify caller is authenticated + allowed role.
  *  2. Load the draft; ensure it is still `pending_approval`.
- *  3. Send via Zoho SMTP (rejects if draft lacks recipient).
+ *  3. Send via Resend (rejects if draft lacks recipient).
  *  4. Flip draft -> 'sent', stamp `sent_at` + `approved_by`.
  *  5. Log an `email_sent` activity on the opportunity.
  */
 
 import { createClient } from "@/lib/supabase/server"
-import { sendMail, getFromAddress } from "@/lib/email/mailer"
+import { 
+  sendMail, 
+  buildPersonalizedSender, 
+  getSenderEmail 
+} from "@/lib/email/mailer"
 import {
   buildRefCode,
-  buildReplyToAddress,
-  prependRefToSubject,
 } from "@/lib/email/ref-code"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
@@ -117,21 +125,26 @@ export async function sendEmailDraft(
     clientName = profile?.company_name ?? null
   }
 
-  // 2c. Build ref code + Reply-To so buyer replies can be traced back to
-  //     this exact opportunity even with hundreds of inbound emails.
-  // Use the "trade" sender for all buyer-facing outreach emails.
-  const fromAddress = getFromAddress("trade")
+  // 2c. Build personalized sender with AE's real name for better deliverability.
+  // IMPORTANT: Using a human name instead of "Vexim Trade" significantly reduces
+  // spam filtering. Gmail/Outlook trust emails from "Hoc Luong" more than
+  // generic company names.
+  const senderName = profile.full_name // The logged-in AE's name
+  const fromAddress = buildPersonalizedSender(senderName, "trade")
+  
+  // Build ref code for internal tracking (stored in X-Ref-Code header, not visible to buyer)
   const refCode = draft.opportunity_id
     ? buildRefCode(draft.opportunity_id, clientName)
     : null
+  
   // Keep subject line clean — no ref code visible to buyer.
-  // Ref code goes into custom X-Ref-Code header for internal tracking.
   const subject = baseSubject
-  // Strip a leading display name like "Vexim Trade <addr@x>" -> "addr@x"
-  const fromBare = fromAddress.match(/<([^>]+)>/)?.[1] ?? fromAddress
-  const replyTo = draft.opportunity_id
-    ? buildReplyToAddress(fromBare, draft.opportunity_id) ?? undefined
-    : undefined
+  
+  // Reply-To: Use the sender's OWN email for replies.
+  // This looks more personal and trustworthy than plus-addressed tracking emails.
+  // The X-Ref-Code header handles tracking internally.
+  // NOTE: If the AE has a personal veximtrade.com email, use that. Otherwise, use trade@
+  const replyToEmail = getSenderEmail("trade")
 
   // 3. Send via Resend
   // Add headers to prevent Gmail from filtering into Promotions folder.
@@ -161,7 +174,7 @@ export async function sendEmailDraft(
   const sendRes = await sendMail({
     from: fromAddress,
     to: recipient,
-    replyTo,
+    replyTo: replyToEmail,
     subject,
     html: htmlBody,
     text: content,
@@ -222,7 +235,7 @@ export async function rejectEmailDraft(draftId: string): Promise<void> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Attachment HTML Rendering
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────��───────────────────────────────────────
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

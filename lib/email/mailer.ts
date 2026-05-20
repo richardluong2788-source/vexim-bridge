@@ -14,22 +14,55 @@ import "server-only"
 const RESEND_API_URL = "https://api.resend.com/emails"
 
 /**
- * Sender addresses — all must be on a verified domain in Resend.
+ * Base email addresses — all must be on a verified domain in Resend.
  * Domain: veximtrade.com (verified)
  *
- * To add a new sender, just add a new entry here and use it in your
- * sendMail() call with: from: SENDERS.trade
+ * NOTE: For buyer-facing emails, use buildPersonalizedSender() to create
+ * a human-like sender name (e.g., "Hoc Luong <trade@veximtrade.com>")
+ * instead of generic "Vexim Trade" to improve deliverability.
  */
-export const SENDERS = {
+export const SENDER_EMAILS = {
   /** Default: system notifications, password resets, auto-replies */
-  noreply: "Vexim Trade <noreply@veximtrade.com>",
+  noreply: "noreply@veximtrade.com",
   /** Commercial: buyer outreach emails, quotations, follow-ups */
-  trade: "Vexim Trade <trade@veximtrade.com>",
+  trade: "trade@veximtrade.com",
   /** General contact & consultation enquiries */
-  hello: "Vexim Trade <hello@veximtrade.com>",
+  hello: "hello@veximtrade.com",
 } as const
 
-export type SenderKey = keyof typeof SENDERS
+export type SenderKey = keyof typeof SENDER_EMAILS
+
+/**
+ * Build a personalized sender address with human name.
+ * 
+ * Why this matters for deliverability:
+ * - "Hoc Luong <trade@veximtrade.com>" looks like a real person
+ * - "Vexim Trade <trade@veximtrade.com>" looks like automated marketing
+ * - Gmail/Outlook spam filters strongly prefer human-looking senders
+ * 
+ * @param senderName - Full name of the person sending (e.g., "Hoc Luong")
+ * @param senderKey - Which email address to use (trade, hello, noreply)
+ * @returns Formatted sender string like "Hoc Luong <trade@veximtrade.com>"
+ */
+export function buildPersonalizedSender(
+  senderName: string | null | undefined,
+  senderKey: SenderKey = "trade"
+): string {
+  const email = SENDER_EMAILS[senderKey]
+  // If no sender name, fall back to company name (less ideal but acceptable)
+  const displayName = senderName?.trim() || "Vexim Trade"
+  return `${displayName} <${email}>`
+}
+
+/**
+ * @deprecated Use buildPersonalizedSender() for buyer-facing emails.
+ * Kept for backward compatibility with system emails.
+ */
+export const SENDERS = {
+  noreply: `Vexim Trade <${SENDER_EMAILS.noreply}>`,
+  trade: `Vexim Trade <${SENDER_EMAILS.trade}>`,
+  hello: `Vexim Trade <${SENDER_EMAILS.hello}>`,
+} as const
 
 function getApiKey(): string {
   const key = process.env.RESEND_API_KEY
@@ -42,14 +75,24 @@ function getApiKey(): string {
 }
 
 /**
- * Returns the default From address.
+ * Returns the default From address (deprecated sender style).
  * Priority: MAIL_FROM env var → SENDERS.noreply
+ * 
+ * @deprecated For buyer-facing emails, use buildPersonalizedSender() instead.
  */
 export function getFromAddress(sender: SenderKey = "noreply"): string {
   if (sender === "noreply" && process.env.MAIL_FROM) {
     return process.env.MAIL_FROM
   }
   return SENDERS[sender]
+}
+
+/**
+ * Get the bare email address (without display name) for a sender key.
+ * Useful for Reply-To and other technical headers.
+ */
+export function getSenderEmail(sender: SenderKey = "trade"): string {
+  return SENDER_EMAILS[sender]
 }
 
 export interface SendMailInput {

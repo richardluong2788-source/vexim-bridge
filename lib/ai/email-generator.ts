@@ -198,15 +198,64 @@ export async function generateEmailDraft(
   // ------------------------------------------------------------
   // 3) Build the system prompt with rich context
   // ------------------------------------------------------------
+  
+  // Extract top suppliers and check if any are from Vietnam
+  const topSuppliers = lead["top_suppliers"] as { name: string; country: string | null }[] | null
+  const hasVietnamSupplier = topSuppliers?.some(
+    s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase().includes("viet nam")
+  ) ?? false
+  const vietnamSupplierNames = topSuppliers
+    ?.filter(s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase().includes("viet nam"))
+    .map(s => s.name) ?? []
+
+  // Format suppliers for context
+  const formattedSuppliers = topSuppliers?.map(s => `${s.name} (${s.country || "Unknown"})`).join(", ") ?? null
+
   const contextBlock = JSON.stringify(
     {
+      // === BUYER BASIC INFO ===
       buyer_company: lead["company_name"],
       buyer_contact: lead["contact_person"],
       buyer_email: lead["contact_email"],
       buyer_industry: lead["industry"],
+      buyer_country: lead["country"],
       buyer_notes: lead["notes"],
+      
+      // === PRODUCT & HS CODE (Critical for personalization) ===
+      main_product: lead["main_product"], // e.g., "Cashewnut Kernels", "Arabica Green Coffee"
+      hs_code: lead["hs_code"], // Primary HS code
+      secondary_hs_codes: lead["secondary_hs_codes"], // Other HS codes they import
+      bol_description: lead["bol_description"], // Detailed product description from BOL
+      
+      // === SUPPLY CHAIN INTELLIGENCE (Key for competitive positioning) ===
+      top_suppliers: formattedSuppliers, // Current suppliers with countries
+      has_vietnam_supplier: hasVietnamSupplier, // Already buying from VN?
+      vietnam_supplier_names: vietnamSupplierNames.length > 0 ? vietnamSupplierNames : null,
+      main_import_countries: lead["main_import_countries"], // Origin countries they buy from
+      
+      // === PURCHASE HISTORY & VOLUME (For sizing the opportunity) ===
+      purchase_history: lead["purchase_history"], // Summary of past purchases
+      total_shipments: lead["total_shipments"], // Total shipment count
+      avg_teu_per_month: lead["avg_teu_per_month"], // Average volume
+      last_shipment_date: lead["last_shipment_date"], // Recency of activity
+      
+      // === TIMING (For outreach timing) ===
+      peak_months: lead["peak_months"], // High-demand months
+      top_low_months: lead["top_low_months"], // Low-demand months
+      
+      // === LOGISTICS (For operational fit) ===
+      origin_ports: lead["origin_ports"], // Ports they ship from
+      destination_ports: lead["destination_ports"], // Ports they receive at
+      container_types: lead["container_types"], // Container preferences
+      
+      // === PRIORITY & QUALIFICATION ===
+      priority_rating: lead["priority_rating"], // 1-5 priority score
+      
+      // === EXPORTER (Our client) INFO ===
       exporter_company: exporter?.["company_name"] ?? null,
       exporter_industry: exporter?.["industry"] ?? null,
+      
+      // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
       potential_value_usd: (opportunity as { potential_value: number | null })
         .potential_value,
@@ -236,6 +285,42 @@ CORE PRINCIPLES (Non-negotiable):
 4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
 5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
+`,
+    `
+═══════════════════════════════════════════════════════════════════════════════
+PERSONALIZATION INTELLIGENCE - USE THIS DATA TO WRITE HIGHLY TARGETED EMAILS
+═══════════════════════════════════════════════════════════════════════════════
+
+You have access to rich buyer intelligence. USE IT to personalize every email:
+
+1. PRODUCT SPECIFICITY (main_product, hs_code, bol_description):
+   - NEVER write generic "your products" - use EXACT product names: "your Cashewnut Kernels supply", "your Arabica Grade 1 needs"
+   - Reference HS codes when relevant to show expertise: "HS 0801.32 cashews"
+   - Use BOL descriptions to understand exact specs they buy
+
+2. SUPPLY CHAIN LEVERAGE (top_suppliers, has_vietnam_supplier, main_import_countries):
+   - If has_vietnam_supplier=true: "I noticed you've worked with [vietnam_supplier_names] before — we'd love to offer a complementary source..."
+   - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
+   - Reference their current origins to position competitively
+
+3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
+   - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
+   - Lower volume: Emphasize flexibility, MOQ accommodation, sample programs
+
+4. TIMING INTELLIGENCE (peak_months, top_low_months, last_shipment_date):
+   - If approaching peak_months: "With your Q[X] season approaching..."
+   - If in low months: Good time for sampling/relationship building
+   - Recent last_shipment_date: Active buyer, act fast
+
+5. LOGISTICS FIT (origin_ports, destination_ports, container_types):
+   - Reference their destination ports to show you can serve them
+   - Container type knowledge shows operational understanding
+
+6. PRIORITY (priority_rating):
+   - High priority (4-5): More aggressive follow-up, premium positioning
+   - Lower priority: Softer approach, relationship-building focus
+
+CRITICAL: Only use data that exists in the context. If a field is null, don't mention it.
 `,
     `
 EMAIL TYPE GUIDANCE:

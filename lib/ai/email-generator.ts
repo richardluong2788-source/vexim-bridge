@@ -371,10 +371,20 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
    - Use BOL descriptions to understand exact specs they buy
 
 2. SUPPLY CHAIN LEVERAGE (top_suppliers, has_vietnam_supplier, main_import_countries, purchase_history):
-   - READ purchase_history carefully to understand their sourcing timeline
-   - If they previously bought from Vietnam but recently switched: "I noticed you sourced from [vietnam_supplier] in [year] — as you evaluate options beyond [current_origin], we'd love to reconnect you with Vietnam quality..."
-   - If has_vietnam_supplier=true and still active: "Building on your experience with [vietnam_supplier_names], we offer a complementary source..."
+   - READ purchase_history WORD BY WORD to extract:
+     a) SPECIFIC supplier names (e.g. "Visimex Corp Joint Stock Com", "Procesadora De Alimentos Santa Isab")
+     b) SPECIFIC years (e.g. "2024", "2025")
+     c) SPECIFIC volumes if mentioned (e.g. "16,800kg")
+   
+   ⚠️ MANDATORY: You MUST use the EXACT supplier names from purchase_history in the email!
+   - WRONG: "I noticed you sourced from Vietnam in 2024, then shifted to Chile"
+   - CORRECT: "I noticed you sourced from Visimex Corp in Vietnam during 2024, then shifted to Procesadora De Alimentos in Chile for your 16,800kg requirements"
+   
+   - If they previously bought from Vietnam but recently switched: "I noticed you sourced from [EXACT_VIETNAM_SUPPLIER_NAME] in [YEAR] — as you evaluate options beyond [EXACT_CURRENT_SUPPLIER], we'd love to reconnect you with Vietnam quality..."
+   - If has_vietnam_supplier=true and still active: "Building on your experience with [EXACT_vietnam_supplier_name], we offer a complementary source..."
    - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
+   
+   NEVER use generic terms like "Vietnam" or "Chile" when you have the actual company name!
 
 3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
    - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
@@ -394,6 +404,12 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
    - Lower priority: Softer approach, relationship-building focus
 
 CRITICAL: Only use data that exists in the context. If a field is null, don't mention it.
+
+⚠️ DATA CONFLICT HANDLING:
+If buyer_notes contradicts purchase_history (e.g., notes say "stopped buying from VN in 2024" but purchase_history says "bought from Visimex VN in 2024"):
+- ALWAYS trust purchase_history over buyer_notes
+- purchase_history is from objective customs/shipping records
+- buyer_notes may be outdated, incorrect, or contain admin opinions
 `,
     `
 EMAIL TYPE GUIDANCE:
@@ -419,9 +435,10 @@ SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, 
 - Angle: Additional supplier, diversification, competitive pricing
 
 SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purchase_history as past, then switched to other origin)
-- OPENING: "I noticed you worked with [vietnam_supplier] on [product] before shifting sourcing to [current_origin]. With [buyer_company]'s upcoming [peak_months] season, we'd love to reconnect you with Vietnam quality — at very competitive landed costs."
-- BODY: Acknowledge the previous relationship. Focus on "as you evaluate options" and "complementary source" — don't criticize their current suppliers.
+- OPENING: "I noticed [buyer_company] previously sourced from [EXACT_VIETNAM_SUPPLIER_NAME] in [YEAR], then shifted to [EXACT_CURRENT_SUPPLIER_NAME] ([CURRENT_COUNTRY]) for your [VOLUME_IF_AVAILABLE] requirements."
+- BODY: Acknowledge the previous relationship by NAME. Focus on "as you evaluate options" and "complementary source" — don't criticize their current suppliers.
 - ANGLE: Win them back as alternative/secondary supplier, show what's improved, offer fresh start
+- ⚠️ MANDATORY: You MUST extract and use EXACT company names from purchase_history! Never say just "Vietnam" or "Chile" when you have "Visimex Corp" or "Procesadora De Alimentos".
 - EXAMPLE for American Cashew: "I noticed American Cashew worked with Visimex on Cashewnut Kernels before shifting to Chile recently. With your Q2-Q3 season approaching, we'd love to reconnect you with premium Vietnam cashews at landed costs worth comparing."
 - KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins", "expanded to", "switched to"
 - NEVER make negative assumptions about why they switched. Assume it was a business decision, not a problem with Vietnam suppliers.

@@ -14,6 +14,7 @@ import {
   ExternalLink,
   RefreshCw,
   Globe,
+  Archive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +39,7 @@ export function DocumentAdvisorSection({ opportunityId, clientId, open }: Props)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [vaultExpanded, setVaultExpanded] = useState(false)
 
   async function loadAnalysis() {
     setLoading(true)
@@ -207,11 +209,13 @@ export function DocumentAdvisorSection({ opportunityId, clientId, open }: Props)
             </div>
           </div>
 
-          {/* Document Status List */}
+          {/* Primary Document Status List */}
           <Collapsible open={expanded} onOpenChange={setExpanded}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-between">
-                <span>Chi tiết hồ sơ ({analysis.documentStatus.length})</span>
+                <span className="font-medium">
+                  Hồ sơ năng lực chào hàng ({analysis.documentStatus.length})
+                </span>
                 {expanded ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
@@ -228,6 +232,45 @@ export function DocumentAdvisorSection({ opportunityId, clientId, open }: Props)
               </div>
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Secondary Document Vault */}
+          {analysis.secondaryDocuments.length > 0 && (
+            <Collapsible open={vaultExpanded} onOpenChange={setVaultExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Archive className="h-3.5 w-3.5" />
+                    Kho tài liệu thứ cấp ({analysis.secondaryDocuments.length})
+                  </span>
+                  {vaultExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <p className="text-xs text-muted-foreground px-1 pb-2">
+                  Các tài liệu này cấp theo từng lô hàng hoặc khi buyer yêu cầu. Không cần chuẩn bị trước khi chào hàng.
+                </p>
+                <div className="space-y-1.5">
+                  {analysis.secondaryDocuments.map((doc) => (
+                    <div
+                      key={doc.code}
+                      className="flex items-start gap-2 px-3 py-2 rounded-md bg-muted/40 border border-border/50"
+                    >
+                      <Archive className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground">{doc.nameVi}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       )}
     </section>

@@ -47,16 +47,19 @@ export interface DocumentGapAnalysis {
   buyerProduct: string
   buyerIndustry: string | null
   destinationCountry: string
-  destinationMarket: MarketCode // NEW: Market code for display
+  destinationMarket: MarketCode
   hsCode: string | null
 
-  // Required documents based on product/market
-  requiredDocuments: RequiredDocument[]
+  // PRIMARY: 5 hồ sơ năng lực cốt lõi mà buyer quan tâm khi chào hàng
+  primaryDocuments: RequiredDocument[]
 
-  // Client's current documents
+  // SECONDARY: Kho tài liệu thứ cấp - không hiện mặc định, cung cấp khi buyer hỏi
+  secondaryDocuments: RequiredDocument[]
+
+  // Client's current documents (tất cả)
   clientDocuments: ClientDocument[]
 
-  // Gap analysis
+  // Gap analysis chỉ trên primary documents
   documentStatus: {
     code: string
     name: string
@@ -64,10 +67,10 @@ export interface DocumentGapAnalysis {
     status: "has_valid" | "has_expiring" | "has_expired" | "missing"
     clientDoc?: ClientDocument
     priority: "critical" | "high" | "medium" | "low"
-    action: string // Suggested action in Vietnamese
+    action: string
   }[]
 
-  // Summary
+  // Summary (chỉ tính primary)
   summary: {
     total: number
     valid: number
@@ -82,175 +85,427 @@ export interface DocumentGapAnalysis {
 }
 
 // ============================================================
-// Market-specific Document Requirements
+// PRIMARY DOCUMENTS — "Bộ Hồ sơ Tối thiểu" cho giai đoạn chào hàng
+// Đây là thứ buyer thực sự hỏi: sản phẩm có an toàn không? chất lượng tốt không?
+// Tối đa 5 mục, thay đổi theo ngành sản phẩm + thị trường.
 // ============================================================
 
-type MarketCode = "US" | "EU" | "CN" | "JP" | "KR" | "ASEAN" | "OTHER"
+type ProductCategory = "food_beverage" | "seafood" | "agriculture" | "textiles" | "furniture" | "general"
 
-const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
-  // US Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm FDA Prior Notice (giai đoạn xuất khẩu)
-  US: [
+// 5 hồ sơ cốt lõi mà buyer quan tâm khi chào hàng, theo ngành
+const PRIMARY_DOCUMENTS: Record<ProductCategory, RequiredDocument[]> = {
+  // Food & Beverage / Seafood / Agriculture — buyer US hỏi: "Nhà máy có đăng ký FDA chưa? COA đâu? HACCP đâu?"
+  food_beverage: [
+    {
+      code: "coa",
+      name: "Certificate of Analysis (COA)",
+      nameVi: "Giấy phân tích chất lượng (COA)",
+      description: "Kết quả kiểm nghiệm chất lượng sản phẩm — bằng chứng thép cho buyer",
+      priority: "critical",
+    },
+    {
+      code: "haccp",
+      name: "HACCP / ISO 22000 Certification",
+      nameVi: "Chứng nhận HACCP hoặc ISO 22000",
+      description: "Chứng minh nhà máy sản xuất chuyên nghiệp và an toàn thực phẩm",
+      priority: "critical",
+    },
     {
       code: "fda_certificate",
       name: "FDA Registration Certificate",
       nameVi: "Giấy đăng ký FDA",
-      description: "Chứng minh nhà máy đã đăng ký với FDA (năng lực xuất khẩu)",
+      description: "Tấm vé vào cửa thị trường Mỹ — không có coi như chưa chào được",
       priority: "critical",
       regulatoryBody: "FDA",
-      markets: ["US"],
     },
     {
-      code: "lacey_act",
-      name: "Lacey Act Declaration",
-      nameVi: "Tờ khai Lacey Act",
-      description: "Chứng minh nguồn gốc gỗ hợp pháp (năng lực)",
+      code: "organic_cert",
+      name: "Organic Certification",
+      nameVi: "Chứng nhận Hữu cơ (Organic)",
+      description: "Vũ khí tạo sự khác biệt và bán được giá cao hơn đối thủ",
+      priority: "medium",
+    },
+    {
+      code: "product_photos",
+      name: "Professional Product Photos",
+      nameVi: "Ảnh sản phẩm chuyên nghiệp",
+      description: "Thứ đầu tiên buyer nhìn thấy — thể hiện sự chuyên nghiệp",
+      priority: "high",
+    },
+  ],
+
+  seafood: [
+    {
+      code: "coa",
+      name: "Certificate of Analysis (COA)",
+      nameVi: "Giấy phân tích chất lượng (COA)",
+      description: "Kiểm nghiệm kim loại nặng, kháng sinh, vi khuẩn — buyer bắt buộc yêu cầu",
       priority: "critical",
-      regulatoryBody: "USDA",
-      markets: ["US"],
+    },
+    {
+      code: "haccp",
+      name: "HACCP Certification",
+      nameVi: "Chứng nhận HACCP",
+      description: "Bắt buộc cho cơ sở chế biến thủy sản xuất khẩu",
+      priority: "critical",
+    },
+    {
+      code: "health_certificate",
+      name: "Health Certificate (NAFIQAD)",
+      nameVi: "Giấy chứng nhận y tế (NAFIQAD/DIA)",
+      description: "Chứng nhận đủ điều kiện ATTP do cơ quan thẩm quyền VN cấp",
+      priority: "critical",
+      regulatoryBody: "NAFIQAD",
+    },
+    {
+      code: "fda_certificate",
+      name: "FDA Registration Certificate",
+      nameVi: "Giấy đăng ký FDA",
+      description: "Bắt buộc nếu buyer là Mỹ",
+      priority: "high",
+      regulatoryBody: "FDA",
+    },
+    {
+      code: "product_photos",
+      name: "Professional Product Photos",
+      nameVi: "Ảnh sản phẩm chuyên nghiệp",
+      description: "Ảnh thực tế sản phẩm, bao bì, kho xưởng",
+      priority: "high",
+    },
+  ],
+
+  agriculture: [
+    {
+      code: "coa",
+      name: "Certificate of Analysis (COA)",
+      nameVi: "Giấy phân tích chất lượng (COA)",
+      description: "Kiểm nghiệm dư lượng thuốc trừ sâu, aflatoxin — buyer bắt buộc xem",
+      priority: "critical",
+    },
+    {
+      code: "haccp",
+      name: "HACCP / GlobalGAP Certification",
+      nameVi: "Chứng nhận HACCP hoặc GlobalGAP",
+      description: "Chứng minh quy trình canh tác/chế biến đạt chuẩn quốc tế",
+      priority: "high",
+    },
+    {
+      code: "fda_certificate",
+      name: "FDA Registration Certificate",
+      nameVi: "Giấy đăng ký FDA",
+      description: "Bắt buộc với hàng nông sản xuất Mỹ",
+      priority: "critical",
+      regulatoryBody: "FDA",
+    },
+    {
+      code: "organic_cert",
+      name: "Organic Certification",
+      nameVi: "Chứng nhận Hữu cơ (Organic)",
+      description: "Lợi thế cạnh tranh lớn nếu sản phẩm đạt chuẩn hữu cơ",
+      priority: "medium",
+    },
+    {
+      code: "product_photos",
+      name: "Professional Product Photos",
+      nameVi: "Ảnh sản phẩm chuyên nghiệp",
+      description: "Ảnh thực tế sản phẩm, vườn, kho bãi",
+      priority: "high",
+    },
+  ],
+
+  textiles: [
+    {
+      code: "oeko_tex",
+      name: "OEKO-TEX Standard 100",
+      nameVi: "Chứng nhận OEKO-TEX",
+      description: "Buyer dệt may quốc tế luôn yêu cầu — chứng minh vải an toàn sức khỏe",
+      priority: "critical",
+    },
+    {
+      code: "test_report",
+      name: "Product Test Report",
+      nameVi: "Báo cáo kiểm nghiệm sản phẩm",
+      description: "Kiểm tra chì, phthalate, độ bền màu — theo tiêu chuẩn buyer yêu cầu",
+      priority: "critical",
+    },
+    {
+      code: "gots",
+      name: "GOTS / Organic Textile Certification",
+      nameVi: "Chứng nhận GOTS / Dệt may hữu cơ",
+      description: "Lợi thế bán hàng cao cấp cho thị trường EU, US",
+      priority: "medium",
+    },
+    {
+      code: "factory_audit",
+      name: "Factory Audit Report (BSCI/SMETA)",
+      nameVi: "Báo cáo kiểm toán nhà máy (BSCI/SMETA)",
+      description: "Buyer lớn thường yêu cầu trước khi đặt hàng lần đầu",
+      priority: "high",
+    },
+    {
+      code: "product_photos",
+      name: "Professional Product Photos / Tech Pack",
+      nameVi: "Ảnh sản phẩm và Tech Pack",
+      description: "Ảnh mẫu hàng thực tế và tài liệu kỹ thuật",
+      priority: "high",
+    },
+  ],
+
+  furniture: [
+    {
+      code: "fsc",
+      name: "FSC Certification",
+      nameVi: "Chứng nhận FSC",
+      description: "Buyer đồ gỗ Mỹ/EU luôn hỏi đầu tiên — chứng minh gỗ hợp pháp bền vững",
+      priority: "critical",
+      regulatoryBody: "FSC",
     },
     {
       code: "carb_cert",
-      name: "CARB/EPA Formaldehyde Certificate",
-      nameVi: "Chứng nhận CARB/EPA",
-      description: "Chứng nhận tiêu chuẩn formaldehyde cho gỗ/composite",
+      name: "CARB P2 / EPA TSCA Title VI",
+      nameVi: "Chứng nhận CARB P2 (Formaldehyde)",
+      description: "Bắt buộc cho đồ gỗ, ván ép, MDF vào thị trường Mỹ",
+      priority: "critical",
+      regulatoryBody: "EPA/CARB",
+    },
+    {
+      code: "coa",
+      name: "Test Report / Certificate of Analysis",
+      nameVi: "Báo cáo kiểm nghiệm sản phẩm",
+      description: "Kiểm tra formaldehyde, chì, độ bền — theo yêu cầu thị trường",
       priority: "high",
-      regulatoryBody: "EPA",
-      markets: ["US"],
+    },
+    {
+      code: "factory_audit",
+      name: "Factory Audit / Compliance Report",
+      nameVi: "Báo cáo kiểm toán nhà máy",
+      description: "Chứng minh năng lực sản xuất, quy mô, chất lượng",
+      priority: "high",
+    },
+    {
+      code: "product_photos",
+      name: "Professional Product Photos / Catalogue",
+      nameVi: "Ảnh sản phẩm và Catalogue",
+      description: "Catalogue chuyên nghiệp, ảnh thực tế nhà máy và sản phẩm",
+      priority: "high",
     },
   ],
 
-  // EU Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm EUR.1 (giai đoạn xuất khẩu)
-  EU: [
+  general: [
     {
-      code: "ce_mark",
-      name: "CE Marking",
-      nameVi: "Chứng nhận CE",
-      description: "Chứng nhận tuân thủ tiêu chuẩn EU (năng lực)",
+      code: "coa",
+      name: "Certificate of Analysis / Test Report",
+      nameVi: "Giấy phân tích/kiểm nghiệm chất lượng",
+      description: "Bằng chứng chất lượng sản phẩm cơ bản nhất",
       priority: "critical",
-      regulatoryBody: "EU Commission",
-      markets: ["EU"],
     },
     {
-      code: "eu_health_certificate",
-      name: "EU Health Certificate",
-      nameVi: "Giấy chứng nhận y tế EU",
-      description: "Chứng nhận đủ điều kiện xuất thực phẩm vào EU",
-      priority: "critical",
-      regulatoryBody: "EU Commission",
-      markets: ["EU"],
-    },
-    {
-      code: "reach_compliance",
-      name: "REACH Compliance",
-      nameVi: "Tuân thủ REACH",
-      description: "Chứng nhận an toàn hóa chất theo quy định EU",
+      code: "haccp",
+      name: "Quality Management Certification",
+      nameVi: "Chứng nhận hệ thống quản lý chất lượng",
+      description: "ISO 9001, HACCP hoặc tương đương",
       priority: "high",
-      regulatoryBody: "ECHA",
-      markets: ["EU"],
     },
     {
-      code: "eudr",
-      name: "EU Deforestation Regulation",
-      nameVi: "Tuân thủ EUDR",
-      description: "Chứng minh nguồn gốc không phá rừng (gỗ, cà phê, cocoa...)",
-      priority: "critical",
-      regulatoryBody: "EU Commission",
-      markets: ["EU"],
-    },
-    {
-      code: "flegt",
-      name: "FLEGT License",
-      nameVi: "Giấy phép FLEGT",
-      description: "Chứng nhận gỗ hợp pháp xuất EU",
+      code: "fda_certificate",
+      name: "Market Compliance Certificate",
+      nameVi: "Chứng nhận tuân thủ thị trường",
+      description: "Chứng nhận phù hợp với quy định thị trường đích",
       priority: "high",
-      regulatoryBody: "EU Commission",
-      markets: ["EU"],
     },
     {
-      code: "iuu_catch_certificate",
-      name: "IUU Compliance",
-      nameVi: "Tuân thủ IUU",
-      description: "Chứng minh đánh bắt hợp pháp (thủy sản)",
-      priority: "critical",
-      regulatoryBody: "EU Commission",
-      markets: ["EU"],
-    },
-  ],
-
-  // China Market - Chỉ hồ sơ năng lực
-  CN: [
-    {
-      code: "ccc_cert",
-      name: "CCC Certification",
-      nameVi: "Chứng nhận CCC (3C)",
-      description: "Chứng nhận bắt buộc cho sản phẩm điện/điện tử vào TQ",
-      priority: "critical",
-      regulatoryBody: "CNCA",
-      markets: ["CN"],
-    },
-    {
-      code: "aqsiq_registration",
-      name: "GACC/AQSIQ Registration",
-      nameVi: "Đăng ký GACC/AQSIQ",
-      description: "Đăng ký nhà máy thực phẩm với Hải quan TQ (năng lực)",
-      priority: "critical",
-      regulatoryBody: "GACC",
-      markets: ["CN"],
-    },
-  ],
-
-  // Japan Market - Chỉ hồ sơ năng lực
-  JP: [
-    {
-      code: "jis_cert",
-      name: "JIS Certification",
-      nameVi: "Chứng nhận JIS",
-      description: "Tiêu chuẩn công nghiệp Nhật Bản",
+      code: "organic_cert",
+      name: "Organic / Premium Certification",
+      nameVi: "Chứng nhận Hữu cơ / Cao cấp",
+      description: "Chứng nhận tạo sự khác biệt với đối thủ",
       priority: "medium",
-      regulatoryBody: "JISC",
-      markets: ["JP"],
     },
     {
-      code: "japan_food_sanitation",
-      name: "Japan Food Sanitation Compliance",
-      nameVi: "Tuân thủ Luật vệ sinh thực phẩm Nhật",
-      description: "Chứng nhận đáp ứng tiêu chuẩn VSATTP Nhật",
-      priority: "critical",
-      regulatoryBody: "MHLW",
-      markets: ["JP"],
-    },
-  ],
-
-  // Korea Market - Chỉ hồ sơ năng lực
-  KR: [
-    {
-      code: "kc_mark",
-      name: "KC Mark Certification",
-      nameVi: "Chứng nhận KC",
-      description: "Chứng nhận an toàn sản phẩm Hàn Quốc",
-      priority: "critical",
-      regulatoryBody: "KATS",
-      markets: ["KR"],
-    },
-  ],
-
-  // ASEAN Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm Form D (giai đoạn xuất khẩu)
-  ASEAN: [
-    {
-      code: "halal_cert",
-      name: "Halal Certification",
-      nameVi: "Chứng nhận Halal",
-      description: "Bắt buộc cho thực phẩm xuất sang nước Hồi giáo ASEAN",
+      code: "product_photos",
+      name: "Professional Product Photos",
+      nameVi: "Ảnh sản phẩm chuyên nghiệp",
+      description: "Ảnh thực tế sản phẩm chất lượng cao",
       priority: "high",
-      markets: ["ASEAN"],
     },
   ],
-
-  OTHER: [],
 }
 
-// Country to market mapping
-const COUNTRY_TO_MARKET: Record<string, MarketCode> = {
+// Market-specific PRIMARY override: chỉ thêm khi thực sự khác biệt so với general
+// Ví dụ: EU cần CE mark cho đồ gỗ/điện tử, ASEAN cần Halal cho thực phẩm
+const MARKET_PRIMARY_OVERRIDE: Partial<Record<MarketCode, Partial<Record<ProductCategory, RequiredDocument[]>>>> = {
+  EU: {
+    furniture: [
+      {
+        code: "fsc",
+        name: "FSC Certification",
+        nameVi: "Chứng nhận FSC",
+        description: "Bắt buộc với đồ gỗ vào EU theo quy định EUDR",
+        priority: "critical",
+        regulatoryBody: "FSC",
+        markets: ["EU"],
+      },
+      {
+        code: "eudr",
+        name: "EU Deforestation Regulation (EUDR)",
+        nameVi: "Tuân thủ EUDR",
+        description: "Quy định mới của EU 2024 — chứng minh gỗ không phá rừng",
+        priority: "critical",
+        regulatoryBody: "EU Commission",
+        markets: ["EU"],
+      },
+      {
+        code: "carb_cert",
+        name: "Formaldehyde Test Report",
+        nameVi: "Kiểm nghiệm Formaldehyde (EN 717)",
+        description: "Tiêu chuẩn phát thải formaldehyde theo quy định EU",
+        priority: "critical",
+        markets: ["EU"],
+      },
+      {
+        code: "factory_audit",
+        name: "Factory Audit Report",
+        nameVi: "Báo cáo kiểm toán nhà máy",
+        description: "Buyer EU thường yêu cầu trước đơn hàng đầu tiên",
+        priority: "high",
+        markets: ["EU"],
+      },
+      {
+        code: "product_photos",
+        name: "Professional Product Photos / Catalogue",
+        nameVi: "Ảnh sản phẩm và Catalogue",
+        description: "Catalogue chuyên nghiệp theo chuẩn EU",
+        priority: "high",
+        markets: ["EU"],
+      },
+    ],
+  },
+  ASEAN: {
+    food_beverage: [
+      {
+        code: "halal_cert",
+        name: "Halal Certification",
+        nameVi: "Chứng nhận Halal",
+        description: "Bắt buộc tại Malaysia, Indonesia, Brunei — lợi thế lớn tại ASEAN",
+        priority: "critical",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "coa",
+        name: "Certificate of Analysis (COA)",
+        nameVi: "Giấy phân tích chất lượng (COA)",
+        description: "Kết quả kiểm nghiệm sản phẩm",
+        priority: "critical",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "haccp",
+        name: "HACCP / ISO 22000",
+        nameVi: "Chứng nhận HACCP hoặc ISO 22000",
+        description: "Hầu hết buyer ASEAN đều yêu cầu",
+        priority: "high",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "organic_cert",
+        name: "Organic Certification",
+        nameVi: "Chứng nhận Hữu cơ",
+        description: "Lợi thế cạnh tranh tại thị trường ASEAN cao cấp",
+        priority: "medium",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "product_photos",
+        name: "Professional Product Photos",
+        nameVi: "Ảnh sản phẩm chuyên nghiệp",
+        description: "Ảnh thực tế sản phẩm, bao bì",
+        priority: "high",
+        markets: ["ASEAN"],
+      },
+    ],
+    seafood: [
+      {
+        code: "halal_cert",
+        name: "Halal Certification",
+        nameVi: "Chứng nhận Halal",
+        description: "Bắt buộc xuất thủy sản sang Malaysia, Indonesia",
+        priority: "critical",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "coa",
+        name: "Certificate of Analysis (COA)",
+        nameVi: "Giấy phân tích chất lượng (COA)",
+        description: "Kiểm nghiệm ATTP bắt buộc",
+        priority: "critical",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "haccp",
+        name: "HACCP Certification",
+        nameVi: "Chứng nhận HACCP",
+        description: "Tiêu chuẩn chế biến thủy sản",
+        priority: "critical",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "health_certificate",
+        name: "Health Certificate",
+        nameVi: "Giấy chứng nhận y tế",
+        description: "Do NAFIQAD/DIA cấp",
+        priority: "high",
+        markets: ["ASEAN"],
+      },
+      {
+        code: "product_photos",
+        name: "Professional Product Photos",
+        nameVi: "Ảnh sản phẩm chuyên nghiệp",
+        description: "Ảnh thực tế sản phẩm và bao bì",
+        priority: "high",
+        markets: ["ASEAN"],
+      },
+    ],
+  },
+}
+
+// ============================================================
+// SECONDARY DOCUMENTS — "Kho Tài liệu Thứ cấp"
+// Không hiện mặc định. AE lấy ra khi buyer yêu cầu cụ thể.
+// ============================================================
+
+const SECONDARY_DOCUMENTS: Record<ProductCategory, RequiredDocument[]> = {
+  food_beverage: [
+    { code: "phytosanitary", name: "Phytosanitary Certificate", nameVi: "Giấy kiểm dịch thực vật", description: "Cơ quan kiểm dịch VN cấp khi có lô hàng", priority: "medium" },
+    { code: "health_certificate", name: "Health Certificate", nameVi: "Giấy chứng nhận y tế", description: "Cơ quan thẩm quyền VN cấp theo yêu cầu buyer", priority: "medium" },
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Cấp khi có đơn hàng để hưởng ưu đãi thuế quan", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Cung cấp khi buyer yêu cầu xác minh pháp nhân", priority: "low" },
+  ],
+  seafood: [
+    { code: "catch_certificate", name: "Catch Certificate (IUU)", nameVi: "Giấy chứng nhận đánh bắt (IUU)", description: "EU yêu cầu khi thông quan — cấp theo từng lô hàng", priority: "medium" },
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Hưởng ưu đãi thuế EVFTA, CPTPP", priority: "medium" },
+    { code: "brc_ifs", name: "BRC/IFS Certification", nameVi: "Chứng nhận BRC/IFS", description: "Buyer siêu thị EU thường yêu cầu thêm", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
+  ],
+  agriculture: [
+    { code: "phytosanitary", name: "Phytosanitary Certificate", nameVi: "Giấy kiểm dịch thực vật", description: "Bắt buộc khi thông quan — cấp theo lô hàng", priority: "medium" },
+    { code: "fumigation_cert", name: "Fumigation Certificate", nameVi: "Giấy chứng nhận xông khử trùng", description: "Bắt buộc với bao bì gỗ theo ISPM-15", priority: "medium" },
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Hưởng ưu đãi thuế quan theo FTA", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
+  ],
+  textiles: [
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Quan trọng cho tariff rate với dệt may — cấp theo lô hàng", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
+  ],
+  furniture: [
+    { code: "lacey_act", name: "Lacey Act Declaration", nameVi: "Tờ khai Lacey Act", description: "Khai báo khi nhập khẩu vào Mỹ — buyer Mỹ cần xem mẫu", priority: "medium", regulatoryBody: "USDA" },
+    { code: "fumigation_cert", name: "Fumigation Certificate (ISPM-15)", nameVi: "Giấy chứng nhận xông khử trùng (ISPM-15)", description: "Bắt buộc với bao bì gỗ — cấp theo lô hàng", priority: "medium" },
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Hưởng ưu đãi thuế — cấp theo lô hàng", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
+  ],
+  general: [
+    { code: "origin_certificate", name: "Certificate of Origin (C/O)", nameVi: "Giấy chứng nhận xuất xứ (C/O)", description: "Hưởng ưu đãi thuế — cấp theo lô hàng", priority: "medium" },
+    { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
+  ],
+}
   // US
   "united states": "US",
   usa: "US",
@@ -324,314 +579,39 @@ function getMarketCode(country: string | null): MarketCode {
 }
 
 // ============================================================
-// Document Requirements by Product Category
-// ============================================================
-
-const DOCUMENT_REQUIREMENTS: Record<string, RequiredDocument[]> = {
-  // Food & Beverage (Coffee, Tea, Spices, etc.)
-  food_beverage: [
-    {
-      code: "fda_certificate",
-      name: "FDA Registration Certificate",
-      nameVi: "Giấy đăng ký FDA",
-      description: "Required for all food products exported to USA",
-      priority: "critical",
-      regulatoryBody: "FDA",
-    },
-    {
-      code: "coa",
-      name: "Certificate of Analysis (COA)",
-      nameVi: "Giấy phân tích chất lượng",
-      description: "Lab test results for product quality and safety",
-      priority: "critical",
-    },
-    {
-      code: "phytosanitary",
-      name: "Phytosanitary Certificate",
-      nameVi: "Giấy kiểm dịch thực vật",
-      description: "Required for plant-based products",
-      priority: "high",
-      regulatoryBody: "APHIS/USDA",
-    },
-    {
-      code: "health_certificate",
-      name: "Health Certificate",
-      nameVi: "Giấy chứng nhận y tế",
-      description: "Confirms product meets health standards",
-      priority: "high",
-    },
-    {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "Required for customs clearance and tariff benefits",
-      priority: "medium",
-    },
-    {
-      code: "haccp",
-      name: "HACCP Certification",
-      nameVi: "Chứng nhận HACCP",
-      description: "Food safety management system certification",
-      priority: "high",
-    },
-    {
-      code: "organic_cert",
-      name: "Organic Certification (if applicable)",
-      nameVi: "Chứng nhận hữu cơ",
-      description: "Required if product is marketed as organic",
-      priority: "medium",
-    },
-  ],
-
-  // Seafood
-  seafood: [
-    {
-      code: "fda_certificate",
-      name: "FDA Registration Certificate",
-      nameVi: "Giấy đăng ký FDA",
-      description: "Required for all seafood exported to USA",
-      priority: "critical",
-      regulatoryBody: "FDA",
-    },
-    {
-      code: "coa",
-      name: "Certificate of Analysis (COA)",
-      nameVi: "Giấy phân tích chất lượng",
-      description: "Lab test for heavy metals, antibiotics, bacteria",
-      priority: "critical",
-    },
-    {
-      code: "health_certificate",
-      name: "Health Certificate",
-      nameVi: "Giấy chứng nhận y tế",
-      description: "Issued by Vietnam's NAFIQAD",
-      priority: "critical",
-      regulatoryBody: "NAFIQAD",
-    },
-    {
-      code: "haccp",
-      name: "HACCP Certification",
-      nameVi: "Chứng nhận HACCP",
-      description: "Mandatory for seafood processing facilities",
-      priority: "critical",
-    },
-    {
-      code: "catch_certificate",
-      name: "Catch Certificate (IUU)",
-      nameVi: "Giấy chứng nhận đánh bắt (IUU)",
-      description: "Proves legal fishing, required by EU & US",
-      priority: "high",
-    },
-    {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "Required for customs and tariff benefits",
-      priority: "medium",
-    },
-    {
-      code: "brc_ifs",
-      name: "BRC/IFS Certification",
-      nameVi: "Chứng nhận BRC/IFS",
-      description: "Global food safety standard, preferred by EU retailers",
-      priority: "medium",
-    },
-  ],
-
-  // Agricultural Products
-  agriculture: [
-    {
-      code: "phytosanitary",
-      name: "Phytosanitary Certificate",
-      nameVi: "Giấy kiểm dịch thực vật",
-      description: "Mandatory for all plant products",
-      priority: "critical",
-      regulatoryBody: "APHIS/USDA",
-    },
-    {
-      code: "coa",
-      name: "Certificate of Analysis (COA)",
-      nameVi: "Giấy phân tích chất lượng",
-      description: "Pesticide residue, aflatoxin tests",
-      priority: "critical",
-    },
-    {
-      code: "fumigation_cert",
-      name: "Fumigation Certificate",
-      nameVi: "Giấy chứng nhận xông khử trùng",
-      description: "Required for wood packaging and some crops",
-      priority: "high",
-    },
-    {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "For customs and preferential tariffs",
-      priority: "medium",
-    },
-    {
-      code: "organic_cert",
-      name: "Organic Certification",
-      nameVi: "Chứng nhận hữu cơ",
-      description: "USDA Organic or equivalent if sold as organic",
-      priority: "medium",
-    },
-    {
-      code: "global_gap",
-      name: "GlobalGAP Certification",
-      nameVi: "Chứng nhận GlobalGAP",
-      description: "Good Agricultural Practices certification",
-      priority: "medium",
-    },
-  ],
-
-  // Textiles & Apparel
-  textiles: [
-    {
-      code: "oeko_tex",
-      name: "OEKO-TEX Standard 100",
-      nameVi: "Chứng nhận OEKO-TEX",
-      description: "Textile safety certification",
-      priority: "high",
-    },
-    {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "Critical for textile tariffs",
-      priority: "critical",
-    },
-    {
-      code: "gots",
-      name: "GOTS Certification",
-      nameVi: "Chứng nhận GOTS",
-      description: "Global Organic Textile Standard",
-      priority: "medium",
-    },
-    {
-      code: "test_report",
-      name: "Product Test Report",
-      nameVi: "Báo cáo kiểm nghiệm sản phẩm",
-      description: "Flammability, lead content, phthalates tests",
-      priority: "high",
-    },
-  ],
-
-  // Furniture & Wood Products
-  furniture: [
-    {
-      code: "fumigation_cert",
-      name: "Fumigation Certificate",
-      nameVi: "Giấy chứng nhận xông khử trùng",
-      description: "ISPM-15 compliance for wood packaging",
-      priority: "critical",
-    },
-    {
-      code: "lacey_act",
-      name: "Lacey Act Declaration",
-      nameVi: "Tờ khai Lacey Act",
-      description: "Legal wood sourcing declaration for US",
-      priority: "critical",
-      regulatoryBody: "USDA",
-    },
-    {
-      code: "fsc",
-      name: "FSC Certification",
-      nameVi: "Chứng nhận FSC",
-      description: "Forest Stewardship Council certification",
-      priority: "high",
-    },
-    {
-      code: "carb_cert",
-      name: "CARB/EPA Certification",
-      nameVi: "Chứng nhận CARB/EPA",
-      description: "Formaldehyde emission standards",
-      priority: "high",
-      regulatoryBody: "EPA",
-    },
-    {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "Required for customs clearance",
-      priority: "medium",
-    },
-  ],
-
-  // Default/General - Chỉ các hồ sơ năng lực (giai đoạn chào hàng)
-  // KHÔNG bao gồm: Commercial Invoice, Packing List, Bill of Lading (giai đoạn xuất khẩu)
-  general: [
-    {
-      code: "business_license",
-      name: "Business Registration Certificate",
-      nameVi: "Giấy đăng ký kinh doanh",
-      description: "Chứng minh tư cách pháp nhân của công ty",
-      priority: "high",
-    },
-    {
-      code: "export_license",
-      name: "Export License",
-      nameVi: "Giấy phép xuất khẩu",
-      description: "Giấy phép xuất khẩu (nếu yêu cầu)",
-      priority: "medium",
-    },
-  ],
-}
-
-// ============================================================
-// Helper: Determine product category from HS code or industry
+// Helper: Determine product category from HS code / industry / product name
 // ============================================================
 
 function determineProductCategory(
   hsCode: string | null,
   industry: string | null,
   productName: string | null
-): string {
+): ProductCategory {
   const searchText = `${hsCode || ""} ${industry || ""} ${productName || ""}`.toLowerCase()
 
-  // HS Code patterns
   if (hsCode) {
     const hs2 = hsCode.substring(0, 2)
     const hs4 = hsCode.substring(0, 4)
-
-    // Seafood: 03xx, 1604, 1605
-    if (hs2 === "03" || hs4 === "1604" || hs4 === "1605") return "seafood"
-
-    // Coffee, Tea, Spices: 09xx
-    if (hs2 === "09") return "food_beverage"
-
-    // Vegetables, Fruits: 07xx, 08xx
-    if (hs2 === "07" || hs2 === "08") return "agriculture"
-
-    // Cereals, Grains: 10xx, 11xx
-    if (hs2 === "10" || hs2 === "11") return "agriculture"
-
-    // Textiles: 50-63
     const hs2Num = parseInt(hs2)
+
+    if (hs2 === "03" || hs4 === "1604" || hs4 === "1605") return "seafood"
+    if (hs2 === "09") return "food_beverage"
+    if (hs2 === "07" || hs2 === "08") return "agriculture"
+    if (hs2 === "10" || hs2 === "11") return "agriculture"
     if (hs2Num >= 50 && hs2Num <= 63) return "textiles"
-
-    // Furniture, Wood: 44xx, 94xx
     if (hs2 === "44" || hs2 === "94") return "furniture"
-
-    // Food preparations: 16xx-21xx
     if (hs2Num >= 16 && hs2Num <= 21) return "food_beverage"
   }
 
-  // Keyword matching
-  if (/seafood|shrimp|fish|crab|lobster|squid|tuna|pangasius/i.test(searchText)) {
-    return "seafood"
-  }
-  if (/coffee|tea|pepper|spice|cinnamon|cashew|cocoa/i.test(searchText)) {
-    return "food_beverage"
-  }
-  if (/rice|fruit|vegetable|cassava|rubber|coconut|mango|dragon/i.test(searchText)) {
-    return "agriculture"
-  }
-  if (/textile|garment|apparel|clothing|fabric|yarn/i.test(searchText)) {
-    return "textiles"
-  }
-  if (/furniture|wood|timber|plywood|rattan/i.test(searchText)) {
-    return "furniture"
+  if (/seafood|shrimp|fish|crab|lobster|squid|tuna|pangasius/i.test(searchText)) return "seafood"
+  if (/coffee|tea|pepper|spice|cinnamon|cashew|cocoa/i.test(searchText)) return "food_beverage"
+  if (/rice|fruit|vegetable|cassava|rubber|coconut|mango|dragon/i.test(searchText)) return "agriculture"
+  if (/textile|garment|apparel|clothing|fabric|yarn/i.test(searchText)) return "textiles"
+  if (/furniture|wood|timber|plywood|rattan/i.test(searchText)) return "furniture"
+  if (/food|beverage|snack|sauce|noodle/i.test(searchText)) return "food_beverage"
+
+  return "general"
+}
   }
   if (/food|beverage|snack|sauce|noodle/i.test(searchText)) {
     return "food_beverage"
@@ -709,65 +689,17 @@ export async function analyzeDocumentsForOpportunity(
   const category = determineProductCategory(hsCode, industry, productName)
   const marketCode = getMarketCode(destinationCountry)
 
-  // 4. Get required documents: category-specific + market-specific + general
-  const categoryDocs = DOCUMENT_REQUIREMENTS[category] || []
-  const marketDocs = MARKET_SPECIFIC_REQUIREMENTS[marketCode] || []
+  // 4. Build PRIMARY documents (5 hồ sơ cốt lõi)
+  // Market override takes priority if defined (e.g. EU furniture needs EUDR instead of standard list)
+  const marketOverride = MARKET_PRIMARY_OVERRIDE[marketCode]?.[category]
+  const primaryDocs: RequiredDocument[] = marketOverride ?? PRIMARY_DOCUMENTS[category]
 
-  // Filter market docs by product category relevance
-  const relevantMarketDocs = marketDocs.filter((doc) => {
-    // FDA, food sanitation docs only for food categories
-    if (
-      ["fda_certificate", "japan_food_sanitation", "aqsiq_registration"].includes(doc.code) &&
-      !["food_beverage", "seafood", "agriculture"].includes(category)
-    ) {
-      return false
-    }
-    // Wood-specific docs only for furniture or wood products
-    if (
-      ["lacey_act", "carb_cert", "flegt", "eudr"].includes(doc.code) &&
-      !["furniture"].includes(category) &&
-      !productName.toLowerCase().includes("wood") &&
-      !productName.toLowerCase().includes("timber")
-    ) {
-      // EUDR also applies to coffee, cocoa, palm oil, soy, rubber
-      if (doc.code === "eudr") {
-        const eudrProducts = ["coffee", "cocoa", "palm", "soy", "rubber", "cattle", "wood", "timber"]
-        if (!eudrProducts.some((p) => productName.toLowerCase().includes(p))) {
-          return false
-        }
-      } else {
-        return false
-      }
-    }
-    // IUU only for seafood
-    if (doc.code === "iuu_catch_certificate" && category !== "seafood") {
-      return false
-    }
-    // CE mark for applicable products
-    if (doc.code === "ce_mark" && ["food_beverage", "seafood", "agriculture"].includes(category)) {
-      return false // CE không cần cho thực phẩm
-    }
-    // CCC for electronics/appliances only
-    if (doc.code === "ccc_cert" && ["food_beverage", "seafood", "agriculture", "textiles"].includes(category)) {
-      return false
-    }
-    return true
-  })
+  // 5. Build SECONDARY documents (kho tài liệu thứ cấp)
+  const secondaryDocs: RequiredDocument[] = SECONDARY_DOCUMENTS[category].filter(
+    (d) => !primaryDocs.some((p) => p.code === d.code)
+  )
 
-  const requiredDocs = [
-    ...categoryDocs,
-    // Add market-specific docs that aren't already included
-    ...relevantMarketDocs.filter(
-      (md) => !categoryDocs.some((cd) => cd.code === md.code)
-    ),
-    // Always include general documents
-    ...DOCUMENT_REQUIREMENTS.general.filter(
-      (d) => !categoryDocs.some((r) => r.code === d.code) &&
-             !relevantMarketDocs.some((r) => r.code === d.code)
-    ),
-  ]
-
-  // 4. Fetch client's compliance documents
+  // 6. Fetch client's compliance documents
   const { data: clientDocs, error: docsError } = await adminClient
     .from("compliance_docs")
     .select("id, kind, title, url, expires_at, issued_at")
@@ -811,8 +743,8 @@ export async function analyzeDocumentsForOpportunity(
     }
   })
 
-  // 6. Build document status analysis
-  const documentStatus = requiredDocs.map((reqDoc) => {
+  // 7. Build document status — chỉ trên PRIMARY documents
+  const documentStatus = primaryDocs.map((reqDoc) => {
     // Find matching client document
     const matchingDocs = processedClientDocs.filter((cd) => {
       const mappedCodes = mapComplianceKindToCode(cd.kind)
@@ -845,8 +777,8 @@ export async function analyzeDocumentsForOpportunity(
     } else {
       status = "missing"
       action = reqDoc.priority === "critical"
-        ? "THIẾU - Cần bổ sung ngay trước khi xuất hàng"
-        : "Thiếu - Nên bổ sung để hoàn thiện hồ sơ"
+        ? "THIẾU - Cần bổ sung trước khi chào hàng"
+        : "Thiếu - Nên bổ sung để tăng sức thuyết phục với buyer"
     }
 
     return {
@@ -896,7 +828,8 @@ export async function analyzeDocumentsForOpportunity(
     destinationCountry,
     destinationMarket: marketCode,
     hsCode,
-    requiredDocuments: requiredDocs,
+    primaryDocuments: primaryDocs,
+    secondaryDocuments: secondaryDocs,
     clientDocuments: processedClientDocs,
     documentStatus,
     summary,
@@ -999,9 +932,9 @@ export async function quickDocumentCheck(
 }> {
   const adminClient = createAdminClient()
 
-  // Determine category
+  // Determine category and use PRIMARY documents only
   const category = determineProductCategory(hsCode, industry, productName)
-  const requiredDocs = DOCUMENT_REQUIREMENTS[category] || DOCUMENT_REQUIREMENTS.general
+  const primaryDocs = PRIMARY_DOCUMENTS[category]
 
   // Fetch client docs
   const { data: clientDocs } = await adminClient
@@ -1019,13 +952,13 @@ export async function quickDocumentCheck(
     return exp > now && exp < thirtyDaysLater
   })
 
-  const missing = requiredDocs
+  const missing = primaryDocs
     .filter((r) => !clientDocKinds.has(r.code))
     .map((r) => r.nameVi)
 
   return {
     category,
-    requiredCount: requiredDocs.length,
+    requiredCount: primaryDocs.length,
     clientHas: clientDocKinds.size,
     missing,
     expiringSoon: expiringSoonDocs.map((d) => d.title || d.kind),

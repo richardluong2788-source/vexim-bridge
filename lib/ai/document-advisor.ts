@@ -577,7 +577,7 @@ const COUNTRY_CODE_MAP = {
 function getMarketCode(country: string | null): MarketCode {
   if (!country) return "US" // Default to US
   const normalized = country.toLowerCase().trim()
-  return COUNTRY_TO_MARKET[normalized] || "OTHER"
+  return COUNTRY_CODE_MAP[normalized] || "OTHER"
 }
 
 // ============================================================

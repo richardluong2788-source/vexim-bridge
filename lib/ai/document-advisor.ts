@@ -506,6 +506,8 @@ const SECONDARY_DOCUMENTS: Record<ProductCategory, RequiredDocument[]> = {
     { code: "business_license", name: "Business Registration", nameVi: "Giấy đăng ký kinh doanh", description: "Khi buyer cần xác minh pháp nhân", priority: "low" },
   ],
 }
+
+const COUNTRY_CODE_MAP = {
   // US
   "united states": "US",
   usa: "US",

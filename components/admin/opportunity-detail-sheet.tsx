@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2, Send,
+  ChevronLeft, CheckCircle2, Building2, Send, Lock, FileCheck2,
 } from "lucide-react"
 import {
   Sheet,
@@ -36,6 +36,7 @@ import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
 import { ClientUpdateEmailDialog } from "@/components/admin/client-update-email-dialog"
+import { DocumentAdvisorSection } from "@/components/admin/document-advisor-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -56,6 +57,7 @@ const STAGES: Stage[] = [
 type SectionId =
   | "status"
   | "commercial"
+  | "documents"
   | "email"
   | "replies"
   | "intelligence"
@@ -73,6 +75,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: "status",       icon: Target,        labelKey: "sectionStatus" },
   { id: "commercial",   icon: Package,       labelKey: "sectionDeal" },
+  { id: "documents",    icon: FileCheck2,    labelKey: "sectionDocs" },
   { id: "email",        icon: Mail,          labelKey: "sectionEmail" },
   { id: "replies",      icon: MessageSquare, labelKey: "sectionReplies" },
   { id: "intelligence", icon: BarChart2,     labelKey: "sectionCI" },
@@ -116,6 +119,20 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())
+  const [pricingSuggestion, setPricingSuggestion] = useState<any>(null)
+  const [pricingStatus, setPricingStatus] = useState<{
+    isUnlocked: boolean
+    totalSuggestions: number
+    remaining: number
+  } | null>(null)
+
+  // Fetch pricing status on mount
+  useEffect(() => {
+    fetch("/api/pricing/status")
+      .then((res) => res.json())
+      .then((data) => setPricingStatus(data))
+      .catch(() => setPricingStatus({ isUnlocked: false, totalSuggestions: 0, remaining: 100 }))
+  }, [])
 
   if (opportunity && formKey !== opportunity.id) {
     setFormKey(opportunity.id)
@@ -146,6 +163,45 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const currentStage: Stage = (opportunity.stage as Stage) ?? "new"
   const stageLabel = t.kanban.stages[currentStage] ?? currentStage
   const activeStageIdx = stageIndex(currentStage)
+
+  async function handleSuggestPricing() {
+    setAiLoading(true)
+    try {
+      const response = await fetch("/api/pricing/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opportunityId: opportunity.id,
+          productName: form.products_interested,
+          quantity: form.quantity_required,
+          destinationPort: form.destination_port,
+          incoterm: form.incoterms,
+          industry: opportunity.leads?.industry,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to get pricing suggestion")
+
+      const suggestion = await response.json()
+      setPricingSuggestion(suggestion)
+      
+      // Auto-fill the form with suggested values
+      setForm((p) => ({
+        ...p,
+        target_price_usd: suggestion.suggestedPriceUsd.toString(),
+        price_unit: suggestion.priceUnit,
+        incoterms: suggestion.incoterm,
+        payment_terms: suggestion.paymentTerms,
+      }))
+
+      toast.success("Pricing suggestion generated!")
+    } catch (error) {
+      console.error("[v0] Pricing suggestion error:", error)
+      toast.error("Failed to generate pricing suggestion")
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   async function handleAiSuggest() {
     if (!opportunity) return
@@ -234,7 +290,8 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const navLabel: Record<SectionId, string> = {
     status:       s.sectionStatus,
     commercial:   s.sectionDeal,
-        email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
+    documents:    "Hồ sơ & Tài liệu",
+    email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
     replies:      s.sectionReplies ?? "Phản hồi Buyer",
     intelligence: s.sectionCI ?? "Tình báo TM",
     financials:   s.sectionFinancials ?? "Tài chính",
@@ -392,10 +449,55 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               {/* COMMERCIAL */}
               {activeSection === "commercial" && (
                 <section className="space-y-4 max-w-2xl">
-                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    {s.sectionDeal}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      {s.sectionDeal}
+                    </h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSuggestPricing}
+                      disabled={aiLoading || !form.products_interested || !pricingStatus?.isUnlocked}
+                      className="gap-2"
+                      title={!pricingStatus?.isUnlocked ? `AI training: ${pricingStatus?.totalSuggestions || 0}/100 deals` : undefined}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {aiLoading ? "Suggesting..." : "Suggest Pricing"}
+                    </Button>
+                  </div>
+
+                  {/* Pricing locked message */}
+                  {pricingStatus && !pricingStatus.isUnlocked && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="text-xs font-semibold text-amber-900 flex items-center gap-2">
+                        <Lock className="h-3.5 w-3.5" />
+                        AI Pricing is Learning
+                      </div>
+                      <div className="text-xs text-amber-700 mt-1">
+                        System needs {pricingStatus.remaining} more deals to unlock AI pricing suggestions.
+                        Current progress: {pricingStatus.totalSuggestions}/100 deals.
+                      </div>
+                    </div>
+                  )}
+
+                  {pricingSuggestion && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                      <div className="text-xs font-semibold text-blue-900">AI Pricing Suggestion</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                        <div>
+                          <span className="opacity-70">Suggested Price:</span>
+                          <div className="font-semibold">${pricingSuggestion.suggestedPriceUsd}/{pricingSuggestion.priceUnit}</div>
+                        </div>
+                        <div>
+                          <span className="opacity-70">Confidence:</span>
+                          <div className="font-semibold capitalize">{pricingSuggestion.confidenceLevel}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-blue-700 italic">{pricingSuggestion.rationale}</div>
+                    </div>
+                  )}
+
                   <FieldGroup className="gap-4">
                     <Field>
                       <FieldLabel htmlFor="products_interested">{s.productName}</FieldLabel>
@@ -468,6 +570,17 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                       />
                     </Field>
                   </FieldGroup>
+                </section>
+              )}
+
+              {/* DOCUMENTS */}
+              {activeSection === "documents" && (
+                <section className="space-y-4 max-w-3xl">
+                  <DocumentAdvisorSection 
+                    opportunityId={opportunity.id} 
+                    clientId={opportunity.client_id}
+                    open={open}
+                  />
                 </section>
               )}
 

@@ -12,6 +12,7 @@ import {
   Settings,
   BarChart3,
   ShieldCheck,
+  FileCheck2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
   const navItems = [
     { href: "/client", label: t.nav.dashboard, icon: LayoutDashboard, exact: true },
     { href: "/client/leads", label: t.nav.leads, icon: List },
+    { href: "/client/documents", label: t.client.documents?.navLabel ?? "Hồ sơ", icon: FileCheck2 },
     { href: "/client/analytics", label: t.client.analytics.navLabel, icon: BarChart3 },
     { href: "/client/sla", label: "SLA & Yêu cầu", icon: ShieldCheck },
     { href: "/settings/notifications", label: t.nav_extra.settings, icon: Settings },

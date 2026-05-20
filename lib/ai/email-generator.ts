@@ -189,10 +189,8 @@ export async function generateEmailDraft(
           id,
           company_name, 
           industry,
-          contact_email,
-          contact_phone,
-          website,
-          address
+          email,
+          phone
         )
       `,
     )
@@ -269,9 +267,8 @@ export async function generateEmailDraft(
       // === EXPORTER (Our client) INFO ===
       exporter_company: exporter?.["company_name"] ?? null,
       exporter_industry: exporter?.["industry"] ?? null,
-      exporter_contact_email: exporter?.["contact_email"] ?? null,
-      exporter_contact_phone: exporter?.["contact_phone"] ?? null,
-      exporter_website: exporter?.["website"] ?? null,
+      exporter_email: exporter?.["email"] ?? null,
+      exporter_phone: exporter?.["phone"] ?? null,
       
       // === SENDER (AE) INFO - Use for email signature ===
       sender_name: aeProfile?.full_name ?? null,
@@ -312,7 +309,7 @@ CORE PRINCIPLES (Non-negotiable):
     `
 ═══════════════════════════════════════════════════════════════════════════════
 PERSONALIZATION INTELLIGENCE - USE THIS DATA TO WRITE HIGHLY TARGETED EMAILS
-═══════════════════════════════════════════════════════════════════════════════
+══════════════════════════���════════════════════════════════════════════════════
 
 You have access to rich buyer intelligence. USE IT to personalize every email:
 

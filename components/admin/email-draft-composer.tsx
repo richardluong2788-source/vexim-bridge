@@ -90,7 +90,7 @@ export function EmailDraftComposer({
         <div className="rounded-md bg-muted/50 border border-border p-3">
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              <span className="font-medium">Dang phan hoi:</span>
+              <span className="font-medium">Đang phản hồi:</span>
               <br />
               {quoteReply.slice(0, 150)}
               {quoteReply.length > 150 && "..."}
@@ -99,9 +99,9 @@ export function EmailDraftComposer({
               type="button"
               onClick={onClearQuote}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              aria-label="Xoa quote"
+              aria-label="Xóa quote"
             >
-              X
+              ✕
             </button>
           </div>
         </div>
@@ -111,11 +111,11 @@ export function EmailDraftComposer({
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="ai" className="flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5" />
-            AI tu dong
+            AI tự động
           </TabsTrigger>
           <TabsTrigger value="manual" className="flex items-center gap-2">
             <PenLine className="h-3.5 w-3.5" />
-            Thu cong
+            Thủ công
           </TabsTrigger>
         </TabsList>
 
@@ -146,7 +146,7 @@ export function EmailDraftComposer({
             </Field>
 
             <Field>
-              <FieldLabel>{s.attachmentsLabel ?? "Dinh kem"}</FieldLabel>
+              <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
               <EmailAttachmentPicker
                 attachments={attachments}
                 onChange={onAttachmentsChange}
@@ -157,14 +157,14 @@ export function EmailDraftComposer({
             {/* Product Link Picker */}
             {opportunityId && clientId && (
               <Field>
-                <FieldLabel>Link san pham</FieldLabel>
+                <FieldLabel>Link sản phẩm</FieldLabel>
                 <ProductLinkPicker
                   opportunityId={opportunityId}
                   clientId={clientId}
                   disabled={loading}
                 />
                 <FieldDescription>
-                  Copy link san pham de gui cho buyer. Link co tracking de lien ket phan hoi voi deal nay.
+                  Copy link sản phẩm để gửi cho buyer. Link có tracking để liên kết phản hồi với deal này.
                 </FieldDescription>
               </Field>
             )}
@@ -172,8 +172,8 @@ export function EmailDraftComposer({
 
           <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
             <p className="text-xs text-blue-700 dark:text-blue-300">
-              AI se tu dong tao email dua tren thong tin buyer (lich su mua hang, nha cung cap, volume...). 
-              {quoteReply && " Neu buyer da phan hoi, AI se tu dong tao email tra loi phu hop."}
+              AI sẽ tự động tạo email dựa trên thông tin buyer (lịch sử mua hàng, nhà cung cấp, volume...). 
+              {quoteReply && " Nếu buyer đã phản hồi, AI sẽ tự động tạo email trả lời phù hợp."}
             </p>
           </div>
 
@@ -201,7 +201,7 @@ export function EmailDraftComposer({
         <TabsContent value="manual" className="mt-4 space-y-4">
           <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel>Tieu de email</FieldLabel>
+              <FieldLabel>Tiêu đề email</FieldLabel>
               <Input
                 value={manualSubject}
                 onChange={(e) => setManualSubject(e.target.value)}
@@ -211,22 +211,22 @@ export function EmailDraftComposer({
             </Field>
 
             <Field>
-              <FieldLabel>Noi dung email</FieldLabel>
+              <FieldLabel>Nội dung email</FieldLabel>
               <Textarea
                 rows={8}
                 value={manualContent}
                 onChange={(e) => setManualContent(e.target.value)}
-                placeholder="Nhap noi dung email ban muon gui cho buyer..."
+                placeholder="Nhập nội dung email bạn muốn gửi cho buyer..."
                 disabled={loading}
                 className="resize-none font-mono text-sm"
               />
               <FieldDescription>
-                Nhap truc tiep noi dung email (tieng Anh). Email se duoc gui dung nhu ban nhap.
+                Nhập trực tiếp nội dung email (tiếng Anh). Email sẽ được gửi đúng như bạn nhập.
               </FieldDescription>
             </Field>
 
             <Field>
-              <FieldLabel>{s.attachmentsLabel ?? "Dinh kem"}</FieldLabel>
+              <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
               <EmailAttachmentPicker
                 attachments={attachments}
                 onChange={onAttachmentsChange}
@@ -237,14 +237,14 @@ export function EmailDraftComposer({
             {/* Product Link Picker */}
             {opportunityId && clientId && (
               <Field>
-                <FieldLabel>Link san pham</FieldLabel>
+                <FieldLabel>Link sản phẩm</FieldLabel>
                 <ProductLinkPicker
                   opportunityId={opportunityId}
                   clientId={clientId}
                   disabled={loading}
                 />
                 <FieldDescription>
-                  Copy link san pham de gui cho buyer.
+                  Copy link sản phẩm để gửi cho buyer.
                 </FieldDescription>
               </Field>
             )}
@@ -259,12 +259,12 @@ export function EmailDraftComposer({
             {loading ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Dang gui...
+                Đang gửi...
               </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Gui Email
+                Gửi Email
               </>
             )}
           </Button>
@@ -276,17 +276,17 @@ export function EmailDraftComposer({
 
 // Fallback strings in case translation file is not updated
 const fallbackStrings = {
-  composerTitle: "Soan Email",
-  emailType: "Loai email",
-  typeIntro: "Gioi thieu",
-  typeIntroDesc: "Email gioi thieu cong ty den buyer moi",
-  typeFollowUp: "Theo doi",
-  typeFollowUpDesc: "Email theo doi sau cuoc trao doi truoc",
-  typeQuote: "Bao gia",
-  typeQuoteDesc: "Email gui bao gia san pham chi tiet",
-  typeCustom: "Tuy chinh",
-  typeCustomDesc: "Email tu do theo noi dung ban nhap",
-  attachmentsLabel: "Dinh kem",
-  generateBtn: "Tao Email",
-  generating: "Dang tao...",
+  composerTitle: "Soạn Email",
+  emailType: "Loại email",
+  typeIntro: "Giới thiệu",
+  typeIntroDesc: "Email giới thiệu công ty đến buyer mới",
+  typeFollowUp: "Theo dõi",
+  typeFollowUpDesc: "Email theo dõi sau cuộc trao đổi trước",
+  typeQuote: "Báo giá",
+  typeQuoteDesc: "Email gửi báo giá sản phẩm chi tiết",
+  typeCustom: "Tùy chỉnh",
+  typeCustomDesc: "Email tự do theo nội dung bạn nhập",
+  attachmentsLabel: "Đính kèm",
+  generateBtn: "Tạo Email",
+  generating: "Đang tạo...",
 }

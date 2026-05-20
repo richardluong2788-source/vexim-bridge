@@ -450,6 +450,7 @@ export type Database = {
           size_bytes: number | null
           issued_at: string | null
           expires_at: string | null
+          expiry_notified_at: string | null
           notes: string | null
           uploaded_by: string | null
           created_at: string
@@ -465,6 +466,7 @@ export type Database = {
           size_bytes?: number | null
           issued_at?: string | null
           expires_at?: string | null
+          expiry_notified_at?: string | null
           notes?: string | null
           uploaded_by?: string | null
           created_at?: string
@@ -480,10 +482,49 @@ export type Database = {
           size_bytes?: number | null
           issued_at?: string | null
           expires_at?: string | null
+          expiry_notified_at?: string | null
           notes?: string | null
           uploaded_by?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      compliance_doc_history: {
+        Row: {
+          id: string
+          doc_id: string
+          owner_id: string
+          action: "created" | "updated" | "deleted" | "expired" | "renewed"
+          changed_by: string | null
+          changes: Record<string, boolean> | null
+          old_values: Record<string, unknown> | null
+          new_values: Record<string, unknown> | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          doc_id: string
+          owner_id: string
+          action: "created" | "updated" | "deleted" | "expired" | "renewed"
+          changed_by?: string | null
+          changes?: Record<string, boolean> | null
+          old_values?: Record<string, unknown> | null
+          new_values?: Record<string, unknown> | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          doc_id?: string
+          owner_id?: string
+          action?: "created" | "updated" | "deleted" | "expired" | "renewed"
+          changed_by?: string | null
+          changes?: Record<string, boolean> | null
+          old_values?: Record<string, unknown> | null
+          new_values?: Record<string, unknown> | null
+          notes?: string | null
+          created_at?: string
         }
       }
       tokenized_share_links: {

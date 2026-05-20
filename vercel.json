@@ -9,6 +9,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/document-expiry-check",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/reengage-won",
       "schedule": "0 3 * * *"
     },

@@ -28,6 +28,7 @@ export interface RequiredDocument {
   description: string // Why it's required
   priority: "critical" | "high" | "medium" | "low"
   regulatoryBody?: string // e.g. "FDA", "USDA", "EU Commission"
+  markets?: string[] // Which markets require this (empty = all markets)
 }
 
 export interface ClientDocument {
@@ -46,6 +47,7 @@ export interface DocumentGapAnalysis {
   buyerProduct: string
   buyerIndustry: string | null
   destinationCountry: string
+  destinationMarket: MarketCode // NEW: Market code for display
   hsCode: string | null
 
   // Required documents based on product/market
@@ -77,6 +79,296 @@ export interface DocumentGapAnalysis {
 
   // AI recommendation
   aiRecommendation: string
+}
+
+// ============================================================
+// Market-specific Document Requirements
+// ============================================================
+
+type MarketCode = "US" | "EU" | "CN" | "JP" | "KR" | "ASEAN" | "OTHER"
+
+const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
+  US: [
+    {
+      code: "fda_certificate",
+      name: "FDA Registration Certificate",
+      nameVi: "Giấy đăng ký FDA",
+      description: "Required for all food/drug products to USA",
+      priority: "critical",
+      regulatoryBody: "FDA",
+      markets: ["US"],
+    },
+    {
+      code: "fda_prior_notice",
+      name: "FDA Prior Notice",
+      nameVi: "Thông báo trước FDA",
+      description: "Must be filed before food shipment arrives in USA",
+      priority: "critical",
+      regulatoryBody: "FDA",
+      markets: ["US"],
+    },
+    {
+      code: "lacey_act",
+      name: "Lacey Act Declaration",
+      nameVi: "Tờ khai Lacey Act",
+      description: "Legal wood sourcing declaration for US",
+      priority: "critical",
+      regulatoryBody: "USDA",
+      markets: ["US"],
+    },
+    {
+      code: "carb_cert",
+      name: "CARB/EPA Formaldehyde Certificate",
+      nameVi: "Chứng nhận CARB/EPA",
+      description: "Required for wood/composite products to California",
+      priority: "high",
+      regulatoryBody: "EPA",
+      markets: ["US"],
+    },
+  ],
+
+  EU: [
+    {
+      code: "ce_mark",
+      name: "CE Marking",
+      nameVi: "Chứng nhận CE",
+      description: "Mandatory conformity marking for EU market",
+      priority: "critical",
+      regulatoryBody: "EU Commission",
+      markets: ["EU"],
+    },
+    {
+      code: "eu_health_certificate",
+      name: "EU Health Certificate",
+      nameVi: "Giấy chứng nhận y tế EU",
+      description: "Required for animal products entering EU",
+      priority: "critical",
+      regulatoryBody: "EU Commission",
+      markets: ["EU"],
+    },
+    {
+      code: "eur1",
+      name: "EUR.1 Movement Certificate",
+      nameVi: "Giấy chứng nhận EUR.1",
+      description: "For preferential tariff under EU-VN FTA (EVFTA)",
+      priority: "high",
+      regulatoryBody: "Customs",
+      markets: ["EU"],
+    },
+    {
+      code: "reach_compliance",
+      name: "REACH Compliance",
+      nameVi: "Tuân thủ REACH",
+      description: "Chemical safety regulation for EU",
+      priority: "high",
+      regulatoryBody: "ECHA",
+      markets: ["EU"],
+    },
+    {
+      code: "eudr",
+      name: "EU Deforestation Regulation",
+      nameVi: "Quy định chống phá rừng EU (EUDR)",
+      description: "Required for wood, coffee, cocoa, palm oil, soy, rubber, cattle",
+      priority: "critical",
+      regulatoryBody: "EU Commission",
+      markets: ["EU"],
+    },
+    {
+      code: "flegt",
+      name: "FLEGT License",
+      nameVi: "Giấy phép FLEGT",
+      description: "Forest Law Enforcement for timber to EU",
+      priority: "high",
+      regulatoryBody: "EU Commission",
+      markets: ["EU"],
+    },
+    {
+      code: "iuu_catch_certificate",
+      name: "IUU Catch Certificate",
+      nameVi: "Giấy chứng nhận IUU",
+      description: "Mandatory for all seafood imports to EU",
+      priority: "critical",
+      regulatoryBody: "EU Commission",
+      markets: ["EU"],
+    },
+  ],
+
+  CN: [
+    {
+      code: "ccc_cert",
+      name: "CCC Certification",
+      nameVi: "Chứng nhận CCC (3C)",
+      description: "China Compulsory Certification for certain products",
+      priority: "critical",
+      regulatoryBody: "CNCA",
+      markets: ["CN"],
+    },
+    {
+      code: "china_label",
+      name: "Chinese Label Compliance",
+      nameVi: "Nhãn mác tiếng Trung",
+      description: "All products must have Chinese language labels",
+      priority: "high",
+      regulatoryBody: "SAMR",
+      markets: ["CN"],
+    },
+    {
+      code: "aqsiq_registration",
+      name: "GACC/AQSIQ Registration",
+      nameVi: "Đăng ký GACC/AQSIQ",
+      description: "Food facility registration with China customs",
+      priority: "critical",
+      regulatoryBody: "GACC",
+      markets: ["CN"],
+    },
+  ],
+
+  JP: [
+    {
+      code: "jis_cert",
+      name: "JIS Certification",
+      nameVi: "Chứng nhận JIS",
+      description: "Japanese Industrial Standards mark",
+      priority: "medium",
+      regulatoryBody: "JISC",
+      markets: ["JP"],
+    },
+    {
+      code: "japan_food_sanitation",
+      name: "Japan Food Sanitation Law Compliance",
+      nameVi: "Tuân thủ Luật vệ sinh thực phẩm Nhật",
+      description: "Required for all food imports to Japan",
+      priority: "critical",
+      regulatoryBody: "MHLW",
+      markets: ["JP"],
+    },
+    {
+      code: "jfoodo_cert",
+      name: "JFOODO Registration",
+      nameVi: "Đăng ký JFOODO",
+      description: "Optional but recommended for food marketing in Japan",
+      priority: "low",
+      regulatoryBody: "JETRO",
+      markets: ["JP"],
+    },
+  ],
+
+  KR: [
+    {
+      code: "kc_mark",
+      name: "KC Mark Certification",
+      nameVi: "Chứng nhận KC",
+      description: "Korea Certification mark for safety",
+      priority: "critical",
+      regulatoryBody: "KATS",
+      markets: ["KR"],
+    },
+    {
+      code: "korea_food_import",
+      name: "Korea Food Import Declaration",
+      nameVi: "Khai báo nhập khẩu thực phẩm Hàn Quốc",
+      description: "Required for all food products to Korea",
+      priority: "critical",
+      regulatoryBody: "MFDS",
+      markets: ["KR"],
+    },
+  ],
+
+  ASEAN: [
+    {
+      code: "form_d",
+      name: "ASEAN Form D",
+      nameVi: "Form D ASEAN",
+      description: "Certificate of Origin for ASEAN preferential tariff (ATIGA)",
+      priority: "high",
+      regulatoryBody: "Customs",
+      markets: ["ASEAN"],
+    },
+    {
+      code: "halal_cert",
+      name: "Halal Certification",
+      nameVi: "Chứng nhận Halal",
+      description: "Required for food exports to Muslim-majority ASEAN countries",
+      priority: "high",
+      markets: ["ASEAN"],
+    },
+  ],
+
+  OTHER: [],
+}
+
+// Country to market mapping
+const COUNTRY_TO_MARKET: Record<string, MarketCode> = {
+  // US
+  "united states": "US",
+  usa: "US",
+  us: "US",
+  "united states of america": "US",
+  america: "US",
+
+  // EU countries
+  germany: "EU",
+  france: "EU",
+  italy: "EU",
+  spain: "EU",
+  netherlands: "EU",
+  belgium: "EU",
+  poland: "EU",
+  sweden: "EU",
+  austria: "EU",
+  denmark: "EU",
+  finland: "EU",
+  ireland: "EU",
+  portugal: "EU",
+  greece: "EU",
+  "czech republic": "EU",
+  romania: "EU",
+  hungary: "EU",
+  slovakia: "EU",
+  bulgaria: "EU",
+  croatia: "EU",
+  slovenia: "EU",
+  lithuania: "EU",
+  latvia: "EU",
+  estonia: "EU",
+  cyprus: "EU",
+  luxembourg: "EU",
+  malta: "EU",
+  eu: "EU",
+
+  // China
+  china: "CN",
+  cn: "CN",
+  prc: "CN",
+  "hong kong": "CN",
+  hk: "CN",
+
+  // Japan
+  japan: "JP",
+  jp: "JP",
+
+  // Korea
+  korea: "KR",
+  "south korea": "KR",
+  kr: "KR",
+  "republic of korea": "KR",
+
+  // ASEAN
+  singapore: "ASEAN",
+  malaysia: "ASEAN",
+  thailand: "ASEAN",
+  indonesia: "ASEAN",
+  philippines: "ASEAN",
+  myanmar: "ASEAN",
+  cambodia: "ASEAN",
+  laos: "ASEAN",
+  brunei: "ASEAN",
+}
+
+function getMarketCode(country: string | null): MarketCode {
+  if (!country) return "US" // Default to US
+  const normalized = country.toLowerCase().trim()
+  return COUNTRY_TO_MARKET[normalized] || "OTHER"
 }
 
 // ============================================================
@@ -474,13 +766,57 @@ export async function analyzeDocumentsForOpportunity(
   const industry = lead?.industry || null
   const destinationCountry = lead?.country || "USA" // Default to USA
 
-  // 3. Determine product category and get required documents
+  // 3. Determine product category and market code
   const category = determineProductCategory(hsCode, industry, productName)
+  const marketCode = getMarketCode(destinationCountry)
+
+  // 4. Get required documents: category-specific + market-specific + general
+  const categoryDocs = DOCUMENT_REQUIREMENTS[category] || []
+  const marketDocs = MARKET_SPECIFIC_REQUIREMENTS[marketCode] || []
+
+  // Filter market docs by product category relevance
+  const relevantMarketDocs = marketDocs.filter((doc) => {
+    // FDA, food sanitation docs only for food categories
+    if (
+      ["fda_certificate", "fda_prior_notice", "japan_food_sanitation", "korea_food_import", "aqsiq_registration"].includes(doc.code) &&
+      !["food_beverage", "seafood", "agriculture"].includes(category)
+    ) {
+      return false
+    }
+    // Wood-specific docs only for furniture
+    if (
+      ["lacey_act", "carb_cert", "flegt", "eudr"].includes(doc.code) &&
+      !["furniture"].includes(category) &&
+      !productName.toLowerCase().includes("wood") &&
+      !productName.toLowerCase().includes("timber")
+    ) {
+      // EUDR also applies to coffee, cocoa, palm oil, soy, rubber
+      if (doc.code === "eudr") {
+        const eudrProducts = ["coffee", "cocoa", "palm", "soy", "rubber", "cattle", "wood", "timber"]
+        if (!eudrProducts.some((p) => productName.toLowerCase().includes(p))) {
+          return false
+        }
+      } else {
+        return false
+      }
+    }
+    // IUU only for seafood
+    if (doc.code === "iuu_catch_certificate" && category !== "seafood") {
+      return false
+    }
+    return true
+  })
+
   const requiredDocs = [
-    ...(DOCUMENT_REQUIREMENTS[category] || []),
+    ...categoryDocs,
+    // Add market-specific docs that aren't already included
+    ...relevantMarketDocs.filter(
+      (md) => !categoryDocs.some((cd) => cd.code === md.code)
+    ),
     // Always include general documents
     ...DOCUMENT_REQUIREMENTS.general.filter(
-      (d) => !DOCUMENT_REQUIREMENTS[category]?.some((r) => r.code === d.code)
+      (d) => !categoryDocs.some((r) => r.code === d.code) &&
+             !relevantMarketDocs.some((r) => r.code === d.code)
     ),
   ]
 
@@ -601,6 +937,8 @@ export async function analyzeDocumentsForOpportunity(
   const aiRecommendation = await generateAIRecommendation({
     productName,
     category,
+    marketCode,
+    destinationCountry,
     documentStatus,
     summary,
   })
@@ -609,6 +947,7 @@ export async function analyzeDocumentsForOpportunity(
     buyerProduct: productName,
     buyerIndustry: industry,
     destinationCountry,
+    destinationMarket: marketCode,
     hsCode,
     requiredDocuments: requiredDocs,
     clientDocuments: processedClientDocs,
@@ -625,10 +964,12 @@ export async function analyzeDocumentsForOpportunity(
 async function generateAIRecommendation(context: {
   productName: string
   category: string
+  marketCode: MarketCode
+  destinationCountry: string
   documentStatus: DocumentGapAnalysis["documentStatus"]
   summary: DocumentGapAnalysis["summary"]
 }): Promise<string> {
-  const { productName, category, documentStatus, summary } = context
+  const { productName, category, marketCode, destinationCountry, documentStatus, summary } = context
 
   const missingCritical = documentStatus.filter(
     (d) => d.status === "missing" && d.priority === "critical"
@@ -636,10 +977,21 @@ async function generateAIRecommendation(context: {
   const expiringSoon = documentStatus.filter((d) => d.status === "has_expiring")
   const expired = documentStatus.filter((d) => d.status === "has_expired")
 
+  const marketName: Record<MarketCode, string> = {
+    US: "Mỹ (FDA, USDA)",
+    EU: "EU (CE, REACH, EUDR)",
+    CN: "Trung Quốc (CCC, GACC)",
+    JP: "Nhật Bản (JIS, MHLW)",
+    KR: "Hàn Quốc (KC, MFDS)",
+    ASEAN: "ASEAN (Form D, Halal)",
+    OTHER: "Khác",
+  }
+
   const prompt = `Bạn là chuyên gia xuất nhập khẩu Việt Nam. Hãy viết lời khuyên ngắn gọn (3-5 câu) cho AE về tình trạng hồ sơ của client khi xuất khẩu sản phẩm này.
 
 Sản phẩm: ${productName}
 Ngành: ${category}
+Thị trường đích: ${destinationCountry} (${marketName[marketCode]})
 Điểm sẵn sàng: ${summary.readinessScore}/100
 
 Tình trạng:
@@ -652,6 +1004,7 @@ ${missingCritical.length > 0 ? `Hồ sơ QUAN TRỌNG còn thiếu: ${missingCri
 ${expiringSoon.length > 0 ? `Sắp hết hạn: ${expiringSoon.map((d) => d.nameVi).join(", ")}` : ""}
 ${expired.length > 0 ? `Đã hết hạn: ${expired.map((d) => d.nameVi).join(", ")}` : ""}
 
+Lưu ý các quy định đặc thù của thị trường ${marketName[marketCode]} khi đưa ra lời khuyên.
 Viết lời khuyên bằng tiếng Việt, tập trung vào hành động cụ thể AE cần làm ngay.`
 
   try {

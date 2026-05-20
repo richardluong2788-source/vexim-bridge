@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ExternalLink,
   RefreshCw,
+  Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -131,6 +132,19 @@ export function DocumentAdvisorSection({ opportunityId, clientId, open }: Props)
                     HS Code: {analysis.hsCode}
                   </p>
                 )}
+                {/* Market Badge */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Badge variant="outline" className="text-[10px] px-2">
+                    {analysis.destinationCountry}
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] px-2 bg-blue-100 text-blue-800"
+                  >
+                    {getMarketLabel(analysis.destinationMarket)}
+                  </Badge>
+                </div>
               </div>
 
               <div className="text-right">
@@ -218,6 +232,20 @@ export function DocumentAdvisorSection({ opportunityId, clientId, open }: Props)
       )}
     </section>
   )
+}
+
+// Helper to get market display label
+function getMarketLabel(market: string): string {
+  const labels: Record<string, string> = {
+    US: "FDA/USDA",
+    EU: "CE/REACH",
+    CN: "CCC/GACC",
+    JP: "JIS/MHLW",
+    KR: "KC/MFDS",
+    ASEAN: "ATIGA",
+    OTHER: "Standard",
+  }
+  return labels[market] || market
 }
 
 function StatBadge({

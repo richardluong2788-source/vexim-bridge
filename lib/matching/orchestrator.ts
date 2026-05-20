@@ -433,6 +433,62 @@ async function logMatchingActivity(
 }
 
 // ============================================================
+// Helper: Build opportunity notes from lead data
+// ============================================================
+
+function buildOpportunityNotes(
+  lead: Lead | null | undefined,
+  matchScoreId: string | null
+): string {
+  const parts: string[] = []
+
+  // AI Matching source
+  parts.push(`Created via AI Matching (score: ${matchScoreId ? "see score" : "N/A"})`)
+
+  if (lead) {
+    // Industry info
+    if (lead.industry) {
+      parts.push(`Industry: ${lead.industry}`)
+    }
+
+    // HS Code info
+    if (lead.hs_code) {
+      parts.push(`HS Code: ${lead.hs_code}`)
+    }
+
+    // Import volume info
+    if (lead.total_shipments) {
+      parts.push(`Total Shipments: ${lead.total_shipments}`)
+    }
+
+    if (lead.avg_teu_per_month) {
+      parts.push(`Avg TEU/month: ${lead.avg_teu_per_month}`)
+    }
+
+    // Supplier info
+    if (lead.top_suppliers && Array.isArray(lead.top_suppliers) && lead.top_suppliers.length > 0) {
+      const supplierNames = lead.top_suppliers
+        .slice(0, 3)
+        .map((s: { name?: string }) => s.name || "Unknown")
+        .join(", ")
+      parts.push(`Top Suppliers: ${supplierNames}`)
+    }
+
+    // Import countries
+    if (lead.main_import_countries) {
+      parts.push(`Main Import Countries: ${lead.main_import_countries}`)
+    }
+
+    // Origin ports
+    if (lead.origin_ports) {
+      parts.push(`Origin Ports: ${lead.origin_ports}`)
+    }
+  }
+
+  return parts.join("\n")
+}
+
+// ============================================================
 // Inbox Actions
 // ============================================================
 
@@ -458,14 +514,20 @@ export async function acceptInboxItem(
     return { opportunityId: null, error: "Inbox item already processed" }
   }
 
-  // Create opportunity
+  // Extract lead data for mapping to opportunity
+  const lead = inbox.leads
+
+  // Create opportunity with mapped data from lead
   const { data: opportunity, error: oppError } = await supabase
     .from("opportunities")
     .insert({
       client_id: clientId,
       lead_id: inbox.lead_id,
       stage: "new",
-      notes: `Created via AI Matching (score: ${inbox.match_score_id ? "see score" : "N/A"})`,
+      // Map commercial data from lead
+      products_interested: lead?.main_product || null,
+      destination_port: lead?.destination_ports || null,
+      notes: buildOpportunityNotes(lead, inbox.match_score_id),
     })
     .select("id")
     .single()

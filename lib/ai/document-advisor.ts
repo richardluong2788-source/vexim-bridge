@@ -88,21 +88,13 @@ export interface DocumentGapAnalysis {
 type MarketCode = "US" | "EU" | "CN" | "JP" | "KR" | "ASEAN" | "OTHER"
 
 const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
+  // US Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm FDA Prior Notice (giai đoạn xuất khẩu)
   US: [
     {
       code: "fda_certificate",
       name: "FDA Registration Certificate",
       nameVi: "Giấy đăng ký FDA",
-      description: "Required for all food/drug products to USA",
-      priority: "critical",
-      regulatoryBody: "FDA",
-      markets: ["US"],
-    },
-    {
-      code: "fda_prior_notice",
-      name: "FDA Prior Notice",
-      nameVi: "Thông báo trước FDA",
-      description: "Must be filed before food shipment arrives in USA",
+      description: "Chứng minh nhà máy đã đăng ký với FDA (năng lực xuất khẩu)",
       priority: "critical",
       regulatoryBody: "FDA",
       markets: ["US"],
@@ -111,7 +103,7 @@ const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
       code: "lacey_act",
       name: "Lacey Act Declaration",
       nameVi: "Tờ khai Lacey Act",
-      description: "Legal wood sourcing declaration for US",
+      description: "Chứng minh nguồn gốc gỗ hợp pháp (năng lực)",
       priority: "critical",
       regulatoryBody: "USDA",
       markets: ["US"],
@@ -120,19 +112,20 @@ const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
       code: "carb_cert",
       name: "CARB/EPA Formaldehyde Certificate",
       nameVi: "Chứng nhận CARB/EPA",
-      description: "Required for wood/composite products to California",
+      description: "Chứng nhận tiêu chuẩn formaldehyde cho gỗ/composite",
       priority: "high",
       regulatoryBody: "EPA",
       markets: ["US"],
     },
   ],
 
+  // EU Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm EUR.1 (giai đoạn xuất khẩu)
   EU: [
     {
       code: "ce_mark",
       name: "CE Marking",
       nameVi: "Chứng nhận CE",
-      description: "Mandatory conformity marking for EU market",
+      description: "Chứng nhận tuân thủ tiêu chuẩn EU (năng lực)",
       priority: "critical",
       regulatoryBody: "EU Commission",
       markets: ["EU"],
@@ -141,25 +134,16 @@ const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
       code: "eu_health_certificate",
       name: "EU Health Certificate",
       nameVi: "Giấy chứng nhận y tế EU",
-      description: "Required for animal products entering EU",
+      description: "Chứng nhận đủ điều kiện xuất thực phẩm vào EU",
       priority: "critical",
       regulatoryBody: "EU Commission",
-      markets: ["EU"],
-    },
-    {
-      code: "eur1",
-      name: "EUR.1 Movement Certificate",
-      nameVi: "Giấy chứng nhận EUR.1",
-      description: "For preferential tariff under EU-VN FTA (EVFTA)",
-      priority: "high",
-      regulatoryBody: "Customs",
       markets: ["EU"],
     },
     {
       code: "reach_compliance",
       name: "REACH Compliance",
       nameVi: "Tuân thủ REACH",
-      description: "Chemical safety regulation for EU",
+      description: "Chứng nhận an toàn hóa chất theo quy định EU",
       priority: "high",
       regulatoryBody: "ECHA",
       markets: ["EU"],
@@ -167,8 +151,8 @@ const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
     {
       code: "eudr",
       name: "EU Deforestation Regulation",
-      nameVi: "Quy định chống phá rừng EU (EUDR)",
-      description: "Required for wood, coffee, cocoa, palm oil, soy, rubber, cattle",
+      nameVi: "Tuân thủ EUDR",
+      description: "Chứng minh nguồn gốc không phá rừng (gỗ, cà phê, cocoa...)",
       priority: "critical",
       regulatoryBody: "EU Commission",
       markets: ["EU"],
@@ -177,118 +161,86 @@ const MARKET_SPECIFIC_REQUIREMENTS: Record<MarketCode, RequiredDocument[]> = {
       code: "flegt",
       name: "FLEGT License",
       nameVi: "Giấy phép FLEGT",
-      description: "Forest Law Enforcement for timber to EU",
+      description: "Chứng nhận gỗ hợp pháp xuất EU",
       priority: "high",
       regulatoryBody: "EU Commission",
       markets: ["EU"],
     },
     {
       code: "iuu_catch_certificate",
-      name: "IUU Catch Certificate",
-      nameVi: "Giấy chứng nhận IUU",
-      description: "Mandatory for all seafood imports to EU",
+      name: "IUU Compliance",
+      nameVi: "Tuân thủ IUU",
+      description: "Chứng minh đánh bắt hợp pháp (thủy sản)",
       priority: "critical",
       regulatoryBody: "EU Commission",
       markets: ["EU"],
     },
   ],
 
+  // China Market - Chỉ hồ sơ năng lực
   CN: [
     {
       code: "ccc_cert",
       name: "CCC Certification",
       nameVi: "Chứng nhận CCC (3C)",
-      description: "China Compulsory Certification for certain products",
+      description: "Chứng nhận bắt buộc cho sản phẩm điện/điện tử vào TQ",
       priority: "critical",
       regulatoryBody: "CNCA",
-      markets: ["CN"],
-    },
-    {
-      code: "china_label",
-      name: "Chinese Label Compliance",
-      nameVi: "Nhãn mác tiếng Trung",
-      description: "All products must have Chinese language labels",
-      priority: "high",
-      regulatoryBody: "SAMR",
       markets: ["CN"],
     },
     {
       code: "aqsiq_registration",
       name: "GACC/AQSIQ Registration",
       nameVi: "Đăng ký GACC/AQSIQ",
-      description: "Food facility registration with China customs",
+      description: "Đăng ký nhà máy thực phẩm với Hải quan TQ (năng lực)",
       priority: "critical",
       regulatoryBody: "GACC",
       markets: ["CN"],
     },
   ],
 
+  // Japan Market - Chỉ hồ sơ năng lực
   JP: [
     {
       code: "jis_cert",
       name: "JIS Certification",
       nameVi: "Chứng nhận JIS",
-      description: "Japanese Industrial Standards mark",
+      description: "Tiêu chuẩn công nghiệp Nhật Bản",
       priority: "medium",
       regulatoryBody: "JISC",
       markets: ["JP"],
     },
     {
       code: "japan_food_sanitation",
-      name: "Japan Food Sanitation Law Compliance",
+      name: "Japan Food Sanitation Compliance",
       nameVi: "Tuân thủ Luật vệ sinh thực phẩm Nhật",
-      description: "Required for all food imports to Japan",
+      description: "Chứng nhận đáp ứng tiêu chuẩn VSATTP Nhật",
       priority: "critical",
       regulatoryBody: "MHLW",
       markets: ["JP"],
     },
-    {
-      code: "jfoodo_cert",
-      name: "JFOODO Registration",
-      nameVi: "Đăng ký JFOODO",
-      description: "Optional but recommended for food marketing in Japan",
-      priority: "low",
-      regulatoryBody: "JETRO",
-      markets: ["JP"],
-    },
   ],
 
+  // Korea Market - Chỉ hồ sơ năng lực
   KR: [
     {
       code: "kc_mark",
       name: "KC Mark Certification",
       nameVi: "Chứng nhận KC",
-      description: "Korea Certification mark for safety",
+      description: "Chứng nhận an toàn sản phẩm Hàn Quốc",
       priority: "critical",
       regulatoryBody: "KATS",
       markets: ["KR"],
     },
-    {
-      code: "korea_food_import",
-      name: "Korea Food Import Declaration",
-      nameVi: "Khai báo nhập khẩu thực phẩm Hàn Quốc",
-      description: "Required for all food products to Korea",
-      priority: "critical",
-      regulatoryBody: "MFDS",
-      markets: ["KR"],
-    },
   ],
 
+  // ASEAN Market - Chỉ hồ sơ năng lực, KHÔNG bao gồm Form D (giai đoạn xuất khẩu)
   ASEAN: [
-    {
-      code: "form_d",
-      name: "ASEAN Form D",
-      nameVi: "Form D ASEAN",
-      description: "Certificate of Origin for ASEAN preferential tariff (ATIGA)",
-      priority: "high",
-      regulatoryBody: "Customs",
-      markets: ["ASEAN"],
-    },
     {
       code: "halal_cert",
       name: "Halal Certification",
       nameVi: "Chứng nhận Halal",
-      description: "Required for food exports to Muslim-majority ASEAN countries",
+      description: "Bắt buộc cho thực phẩm xuất sang nước Hồi giáo ASEAN",
       priority: "high",
       markets: ["ASEAN"],
     },
@@ -606,35 +558,22 @@ const DOCUMENT_REQUIREMENTS: Record<string, RequiredDocument[]> = {
     },
   ],
 
-  // Default/General
+  // Default/General - Chỉ các hồ sơ năng lực (giai đoạn chào hàng)
+  // KHÔNG bao gồm: Commercial Invoice, Packing List, Bill of Lading (giai đoạn xuất khẩu)
   general: [
     {
-      code: "origin_certificate",
-      name: "Certificate of Origin",
-      nameVi: "Giấy chứng nhận xuất xứ (C/O)",
-      description: "Required for customs clearance",
+      code: "business_license",
+      name: "Business Registration Certificate",
+      nameVi: "Giấy đăng ký kinh doanh",
+      description: "Chứng minh tư cách pháp nhân của công ty",
       priority: "high",
     },
     {
-      code: "commercial_invoice",
-      name: "Commercial Invoice",
-      nameVi: "Hóa đơn thương mại",
-      description: "Standard export document",
-      priority: "critical",
-    },
-    {
-      code: "packing_list",
-      name: "Packing List",
-      nameVi: "Phiếu đóng gói",
-      description: "Detailed shipment contents",
-      priority: "high",
-    },
-    {
-      code: "bill_of_lading",
-      name: "Bill of Lading",
-      nameVi: "Vận đơn (B/L)",
-      description: "Shipping document",
-      priority: "critical",
+      code: "export_license",
+      name: "Export License",
+      nameVi: "Giấy phép xuất khẩu",
+      description: "Giấy phép xuất khẩu (nếu yêu cầu)",
+      priority: "medium",
     },
   ],
 }
@@ -778,12 +717,12 @@ export async function analyzeDocumentsForOpportunity(
   const relevantMarketDocs = marketDocs.filter((doc) => {
     // FDA, food sanitation docs only for food categories
     if (
-      ["fda_certificate", "fda_prior_notice", "japan_food_sanitation", "korea_food_import", "aqsiq_registration"].includes(doc.code) &&
+      ["fda_certificate", "japan_food_sanitation", "aqsiq_registration"].includes(doc.code) &&
       !["food_beverage", "seafood", "agriculture"].includes(category)
     ) {
       return false
     }
-    // Wood-specific docs only for furniture
+    // Wood-specific docs only for furniture or wood products
     if (
       ["lacey_act", "carb_cert", "flegt", "eudr"].includes(doc.code) &&
       !["furniture"].includes(category) &&
@@ -802,6 +741,14 @@ export async function analyzeDocumentsForOpportunity(
     }
     // IUU only for seafood
     if (doc.code === "iuu_catch_certificate" && category !== "seafood") {
+      return false
+    }
+    // CE mark for applicable products
+    if (doc.code === "ce_mark" && ["food_beverage", "seafood", "agriculture"].includes(category)) {
+      return false // CE không cần cho thực phẩm
+    }
+    // CCC for electronics/appliances only
+    if (doc.code === "ccc_cert" && ["food_beverage", "seafood", "agriculture", "textiles"].includes(category)) {
       return false
     }
     return true
@@ -982,19 +929,21 @@ async function generateAIRecommendation(context: {
     EU: "EU (CE, REACH, EUDR)",
     CN: "Trung Quốc (CCC, GACC)",
     JP: "Nhật Bản (JIS, MHLW)",
-    KR: "Hàn Quốc (KC, MFDS)",
-    ASEAN: "ASEAN (Form D, Halal)",
+    KR: "Hàn Quốc (KC)",
+    ASEAN: "ASEAN (Halal)",
     OTHER: "Khác",
   }
 
-  const prompt = `Bạn là chuyên gia xuất nhập khẩu Việt Nam. Hãy viết lời khuyên ngắn gọn (3-5 câu) cho AE về tình trạng hồ sơ của client khi xuất khẩu sản phẩm này.
+  const prompt = `Bạn là chuyên gia xuất nhập khẩu Việt Nam. Hãy viết lời khuyên ngắn gọn (3-5 câu) cho AE về tình trạng HỒ SƠ NĂNG LỰC của client trong GIAI ĐOẠN CHÀO HÀNG.
+
+LƯU Ý QUAN TRỌNG: Đây là giai đoạn CHÀO HÀNG, CHƯA CÓ ĐƠN HÀNG. Chỉ đánh giá các hồ sơ chứng minh năng lực (FDA Registration, HACCP, COA, Health Certificate, v.v.). KHÔNG đề cập đến các tài liệu giai đoạn xuất khẩu như B/L, Commercial Invoice, Packing List, Prior Notice vì chưa có hàng để xuất.
 
 Sản phẩm: ${productName}
 Ngành: ${category}
 Thị trường đích: ${destinationCountry} (${marketName[marketCode]})
 Điểm sẵn sàng: ${summary.readinessScore}/100
 
-Tình trạng:
+Tình trạng hồ sơ năng lực:
 - Hồ sơ hợp lệ: ${summary.valid}/${summary.total}
 - Sắp hết hạn: ${summary.expiringSoon}
 - Đã hết hạn: ${summary.expired}
@@ -1004,8 +953,10 @@ ${missingCritical.length > 0 ? `Hồ sơ QUAN TRỌNG còn thiếu: ${missingCri
 ${expiringSoon.length > 0 ? `Sắp hết hạn: ${expiringSoon.map((d) => d.nameVi).join(", ")}` : ""}
 ${expired.length > 0 ? `Đã hết hạn: ${expired.map((d) => d.nameVi).join(", ")}` : ""}
 
-Lưu ý các quy định đặc thù của thị trường ${marketName[marketCode]} khi đưa ra lời khuyên.
-Viết lời khuyên bằng tiếng Việt, tập trung vào hành động cụ thể AE cần làm ngay.`
+Viết lời khuyên bằng tiếng Việt, tập trung vào:
+1. Client có đủ năng lực để chào hàng cho buyer này không?
+2. Hồ sơ nào cần bổ sung/gia hạn để tăng độ tin cậy khi chào hàng?
+3. Lưu ý gì về quy định thị trường ${marketName[marketCode]}?`
 
   try {
     const { text } = await generateText({
@@ -1019,13 +970,13 @@ Viết lời khuyên bằng tiếng Việt, tập trung vào hành động cụ 
 
     // Fallback recommendation
     if (missingCritical.length > 0) {
-      return `⚠️ Client cần bổ sung ${missingCritical.length} hồ sơ quan trọng trước khi xuất hàng: ${missingCritical.map((d) => d.nameVi).join(", ")}. Vui lòng liên hệ client ngay để chuẩn bị.`
+      return `Client cần bổ sung ${missingCritical.length} hồ sơ năng lực quan trọng để chào hàng: ${missingCritical.map((d) => d.nameVi).join(", ")}. Vui lòng liên hệ client ngay để chuẩn bị.`
     } else if (expiringSoon.length > 0) {
-      return `⏰ Có ${expiringSoon.length} hồ sơ sắp hết hạn cần gia hạn: ${expiringSoon.map((d) => d.nameVi).join(", ")}. Nhắc client chuẩn bị gia hạn sớm.`
+      return `Có ${expiringSoon.length} hồ sơ sắp hết hạn cần gia hạn: ${expiringSoon.map((d) => d.nameVi).join(", ")}. Nhắc client chuẩn bị gia hạn trước khi chào hàng.`
     } else if (summary.readinessScore >= 80) {
-      return `✅ Hồ sơ client tương đối đầy đủ (${summary.readinessScore}%). Có thể tiến hành đàm phán với buyer.`
+      return `Hồ sơ năng lực của client tương đối đầy đủ (${summary.readinessScore}%). Có thể tự tin chào hàng cho buyer.`
     } else {
-      return `📋 Client cần bổ sung thêm ${summary.missing} hồ sơ để hoàn thiện. Xem chi tiết bên dưới.`
+      return `Client cần bổ sung thêm ${summary.missing} hồ sơ năng lực để tăng độ tin cậy khi chào hàng. Xem chi tiết bên dưới.`
     }
   }
 }

@@ -372,7 +372,7 @@ export async function updateOpportunityStage(
       "id, client_id, stage, buyer_code, assigned_ae, leads:lead_id ( company_name, country )",
     )
     .eq("id", opportunityId)
-    .single()
+    .maybeSingle()
 
   if (!before) return { ok: false, error: "notFound" }
   if (before.stage === newStage) return { ok: true }

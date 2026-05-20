@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Mail, Sparkles, RefreshCw } from "lucide-react"
+import { Mail, Sparkles, PenLine, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
   Select,
@@ -12,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
@@ -29,6 +31,8 @@ const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
 interface Props {
   loading: boolean
   onGenerate: (emailType: EmailType, viPrompt: string) => void
+  /** Send manual email directly */
+  onSendManual?: (subject: string, content: string) => void
   /** Initial quoted text (e.g. buyer reply to respond to) */
   quoteReply?: string
   /** Callback when quote is cleared */
@@ -46,6 +50,7 @@ interface Props {
 export function EmailDraftComposer({ 
   loading, 
   onGenerate, 
+  onSendManual,
   quoteReply, 
   onClearQuote,
   attachments,
@@ -56,27 +61,36 @@ export function EmailDraftComposer({
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
-  const [emailType, setEmailType] = useState<EmailType>("follow_up")
-  const [viPrompt, setViPrompt] = useState("")
+  // AI mode state - default to introduction
+  const [emailType, setEmailType] = useState<EmailType>("introduction")
+  
+  // Manual mode state
+  const [manualSubject, setManualSubject] = useState("")
+  const [manualContent, setManualContent] = useState("")
 
-  function handleSubmit() {
-    const finalPrompt = viPrompt.trim() || getDefaultPrompt(emailType, locale)
-    onGenerate(emailType, finalPrompt)
+  function handleAISubmit() {
+    // AI auto-generates based on email type and buyer data - no Vietnamese prompt needed
+    onGenerate(emailType, "")
+  }
+
+  function handleManualSubmit() {
+    if (!manualSubject.trim() || !manualContent.trim()) return
+    onSendManual?.(manualSubject.trim(), manualContent.trim())
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Mail className="h-4 w-4 text-primary" />
         {s.composerTitle}
       </div>
 
-      {/* Quote context */}
+      {/* Quote context - shown in both tabs */}
       {quoteReply && (
         <div className="rounded-md bg-muted/50 border border-border p-3">
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              <span className="font-medium">Đang phản hồi:</span>
+              <span className="font-medium">Dang phan hoi:</span>
               <br />
               {quoteReply.slice(0, 150)}
               {quoteReply.length > 150 && "..."}
@@ -85,135 +99,194 @@ export function EmailDraftComposer({
               type="button"
               onClick={onClearQuote}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              aria-label="Xóa quote"
+              aria-label="Xoa quote"
             >
-              ✕
+              X
             </button>
           </div>
         </div>
       )}
 
-      <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel>{s.emailType}</FieldLabel>
-          <Select
-            value={emailType}
-            onValueChange={(v) => setEmailType(v as EmailType)}
+      <Tabs defaultValue="ai" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5" />
+            AI tu dong
+          </TabsTrigger>
+          <TabsTrigger value="manual" className="flex items-center gap-2">
+            <PenLine className="h-3.5 w-3.5" />
+            Thu cong
+          </TabsTrigger>
+        </TabsList>
+
+        {/* AI Tab */}
+        <TabsContent value="ai" className="mt-4 space-y-4">
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel>{s.emailType}</FieldLabel>
+              <Select
+                value={emailType}
+                onValueChange={(v) => setEmailType(v as EmailType)}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMAIL_TYPES.map((et) => (
+                    <SelectItem key={et.value} value={et.value}>
+                      {s[et.labelKey as keyof typeof s] ?? et.value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {s[`${emailType}Desc` as keyof typeof s] ?? ""}
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel>{s.attachmentsLabel ?? "Dinh kem"}</FieldLabel>
+              <EmailAttachmentPicker
+                attachments={attachments}
+                onChange={onAttachmentsChange}
+                disabled={loading}
+              />
+            </Field>
+
+            {/* Product Link Picker */}
+            {opportunityId && clientId && (
+              <Field>
+                <FieldLabel>Link san pham</FieldLabel>
+                <ProductLinkPicker
+                  opportunityId={opportunityId}
+                  clientId={clientId}
+                  disabled={loading}
+                />
+                <FieldDescription>
+                  Copy link san pham de gui cho buyer. Link co tracking de lien ket phan hoi voi deal nay.
+                </FieldDescription>
+              </Field>
+            )}
+          </FieldGroup>
+
+          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              AI se tu dong tao email dua tren thong tin buyer (lich su mua hang, nha cung cap, volume...). 
+              {quoteReply && " Neu buyer da phan hoi, AI se tu dong tao email tra loi phu hop."}
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleAISubmit}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {EMAIL_TYPES.map((et) => (
-                <SelectItem key={et.value} value={et.value}>
-                  {s[et.labelKey as keyof typeof s] ?? et.value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldDescription>
-            {s[`${emailType}Desc` as keyof typeof s] ?? ""}
-          </FieldDescription>
-        </Field>
+            {loading ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                {s.generating}
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {s.generateBtn}
+              </>
+            )}
+          </Button>
+        </TabsContent>
 
-        <Field>
-          <FieldLabel>{s.viPromptLabel}</FieldLabel>
-          <Textarea
-            rows={4}
-            value={viPrompt}
-            onChange={(e) => setViPrompt(e.target.value)}
-            placeholder={getDefaultPrompt(emailType, locale)}
-            disabled={loading}
-            className="resize-none"
-          />
-          <FieldDescription>{s.viPromptHelp}</FieldDescription>
-        </Field>
+        {/* Manual Tab */}
+        <TabsContent value="manual" className="mt-4 space-y-4">
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel>Tieu de email</FieldLabel>
+              <Input
+                value={manualSubject}
+                onChange={(e) => setManualSubject(e.target.value)}
+                placeholder="VD: Re: Quotation for Cashew Kernels"
+                disabled={loading}
+              />
+            </Field>
 
-        <Field>
-          <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
-          <EmailAttachmentPicker
-            attachments={attachments}
-            onChange={onAttachmentsChange}
-            disabled={loading}
-          />
-        </Field>
+            <Field>
+              <FieldLabel>Noi dung email</FieldLabel>
+              <Textarea
+                rows={8}
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
+                placeholder="Nhap noi dung email ban muon gui cho buyer..."
+                disabled={loading}
+                className="resize-none font-mono text-sm"
+              />
+              <FieldDescription>
+                Nhap truc tiep noi dung email (tieng Anh). Email se duoc gui dung nhu ban nhap.
+              </FieldDescription>
+            </Field>
 
-        {/* Product Link Picker */}
-        {opportunityId && clientId && (
-          <Field>
-            <FieldLabel>Link sản phẩm</FieldLabel>
-            <ProductLinkPicker
-              opportunityId={opportunityId}
-              clientId={clientId}
-              disabled={loading}
-            />
-            <FieldDescription>
-              Copy link sản phẩm để gửi cho buyer. Link có tracking để liên kết phản hồi với deal này.
-            </FieldDescription>
-          </Field>
-        )}
-      </FieldGroup>
+            <Field>
+              <FieldLabel>{s.attachmentsLabel ?? "Dinh kem"}</FieldLabel>
+              <EmailAttachmentPicker
+                attachments={attachments}
+                onChange={onAttachmentsChange}
+                disabled={loading}
+              />
+            </Field>
 
-      <Button
-        type="button"
-        onClick={handleSubmit}
-        disabled={loading}
-        className="w-full sm:w-auto"
-      >
-        {loading ? (
-          <>
-            <Spinner className="h-4 w-4" />
-            {s.generating}
-          </>
-        ) : (
-          <>
-            <Sparkles className="h-4 w-4" />
-            {s.generateBtn}
-          </>
-        )}
-      </Button>
+            {/* Product Link Picker */}
+            {opportunityId && clientId && (
+              <Field>
+                <FieldLabel>Link san pham</FieldLabel>
+                <ProductLinkPicker
+                  opportunityId={opportunityId}
+                  clientId={clientId}
+                  disabled={loading}
+                />
+                <FieldDescription>
+                  Copy link san pham de gui cho buyer.
+                </FieldDescription>
+              </Field>
+            )}
+          </FieldGroup>
+
+          <Button
+            type="button"
+            onClick={handleManualSubmit}
+            disabled={loading || !manualSubject.trim() || !manualContent.trim()}
+            className="w-full sm:w-auto"
+          >
+            {loading ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Dang gui...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Gui Email
+              </>
+            )}
+          </Button>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-function getDefaultPrompt(type: EmailType, locale: string): string {
-  const isVi = locale === "vi"
-  switch (type) {
-    case "introduction":
-      return isVi
-        ? "Giới thiệu công ty và sản phẩm, đề xuất cuộc gọi ngắn"
-        : "Introduce company and products, propose a short call"
-    case "follow_up":
-      return isVi
-        ? "Theo dõi sau email trước, nhắc lại giá trị, đề xuất bước tiếp theo"
-        : "Follow up on previous email, reiterate value, propose next step"
-    case "quotation":
-      return isVi
-        ? "Gửi báo giá chi tiết với sản phẩm, số lượng, giá, điều khoản thanh toán"
-        : "Send detailed quotation with product, quantity, price, payment terms"
-    case "custom":
-    default:
-      return isVi
-        ? "Nhập nội dung email bạn muốn gửi..."
-        : "Enter the email content you want to send..."
-  }
-}
-
 // Fallback strings in case translation file is not updated
 const fallbackStrings = {
-  composerTitle: "Soạn Email",
-  emailType: "Loại email",
-  typeIntro: "Giới thiệu",
-  typeIntroDesc: "Email giới thiệu công ty đến buyer mới",
-  typeFollowUp: "Theo dõi",
-  typeFollowUpDesc: "Email theo dõi sau cuộc trao đổi trước",
-  typeQuote: "Báo giá",
-  typeQuoteDesc: "Email gửi báo giá sản phẩm chi tiết",
-  typeCustom: "Tùy chỉnh",
-  typeCustomDesc: "Email tự do theo nội dung bạn nhập",
-  viPromptLabel: "Nội dung (tiếng Việt)",
-  viPromptHelp: "Nhập yêu cầu bằng tiếng Việt, AI sẽ tạo email tiếng Anh chuyên nghiệp",
-  generateBtn: "Tạo Email",
-  generating: "Đang tạo...",
+  composerTitle: "Soan Email",
+  emailType: "Loai email",
+  typeIntro: "Gioi thieu",
+  typeIntroDesc: "Email gioi thieu cong ty den buyer moi",
+  typeFollowUp: "Theo doi",
+  typeFollowUpDesc: "Email theo doi sau cuoc trao doi truoc",
+  typeQuote: "Bao gia",
+  typeQuoteDesc: "Email gui bao gia san pham chi tiet",
+  typeCustom: "Tuy chinh",
+  typeCustomDesc: "Email tu do theo noi dung ban nhap",
+  attachmentsLabel: "Dinh kem",
+  generateBtn: "Tao Email",
+  generating: "Dang tao...",
 }

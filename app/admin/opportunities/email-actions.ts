@@ -14,6 +14,10 @@ export type GenerateEmailActionInput = {
   opportunityId: string
   emailType: EmailType
   viPrompt: string
+  /** Manual mode - skip AI generation */
+  isManual?: boolean
+  manualSubject?: string
+  manualContent?: string
 }
 
 export type GenerateEmailActionResult =
@@ -28,6 +32,9 @@ export async function generateEmailDraftAction(
       opportunityId: input.opportunityId,
       emailType: input.emailType,
       viPrompt: input.viPrompt,
+      isManual: input.isManual,
+      manualSubject: input.manualSubject,
+      manualContent: input.manualContent,
     })
     return { ok: true, data: result }
   } catch (err) {

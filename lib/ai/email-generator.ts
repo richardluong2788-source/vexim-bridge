@@ -163,6 +163,10 @@ export type GenerateEmailInput = {
   opportunityId: string
   emailType: EmailType
   viPrompt: string
+  /** Manual mode - skip AI generation and use provided content directly */
+  isManual?: boolean
+  manualSubject?: string
+  manualContent?: string
 }
 
 export type GenerateEmailResult = {
@@ -521,7 +525,42 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
   ].join("\n")
 
   // ------------------------------------------------------------
-  // 4) Call OpenAI via AI Gateway and get structured output
+  // 4) Manual mode bypass - skip AI generation
+  // ------------------------------------------------------------
+  if (input.isManual && input.manualSubject && input.manualContent) {
+    const recipient = (lead["contact_email"] as string | null) ?? null
+    
+    const { data: draft, error: draftError } = await supabase
+      .from("email_drafts")
+      .insert({
+        opportunity_id: input.opportunityId,
+        email_type: input.emailType,
+        ai_prompt: "[MANUAL]",
+        generated_subject: input.manualSubject,
+        generated_content_en: input.manualContent,
+        translated_content_vi: input.manualContent, // Same content for manual
+        recipient_email: recipient,
+        status: "pending_approval",
+        created_by: user.id,
+      })
+      .select("id")
+      .single()
+
+    if (draftError || !draft) {
+      throw new Error(draftError?.message ?? "Failed to save manual draft")
+    }
+
+    return {
+      draftId: draft.id,
+      subject_en: input.manualSubject,
+      content_en: input.manualContent,
+      content_vi: input.manualContent,
+      recipient_email: recipient,
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 5) Call OpenAI via AI Gateway and get structured output
   // ------------------------------------------------------------
   const { experimental_output: generated } = await generateText({
     model: "openai/gpt-4o-mini",
@@ -531,7 +570,7 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
   })
 
   // ------------------------------------------------------------
-  // 5) Persist as email_draft awaiting approval
+  // 6) Persist as email_draft awaiting approval
   // ------------------------------------------------------------
   const recipient = (lead["contact_email"] as string | null) ?? null
 

@@ -143,6 +143,60 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     resetFlow()
   }
 
+  async function handleSendManual(subject: string, content: string) {
+    setSending(true)
+    try {
+      // First generate a draft record with the manual content
+      const genRes = await generateEmailDraftAction({
+        opportunityId,
+        emailType: "custom",
+        viPrompt: content, // Pass content as prompt for manual mode
+        isManual: true,
+        manualSubject: subject,
+        manualContent: content,
+      })
+      if (!genRes.ok) {
+        if (genRes.error === "noLead") {
+          toast.error(s.errorNoLead)
+        } else if (genRes.error === "unauthorized") {
+          toast.error(s.errorUnauthorized)
+        } else {
+          toast.error(genRes.message ?? s.errorGenerate)
+        }
+        return
+      }
+      
+      // Then send it immediately
+      const sendRes = await sendEmailDraftAction({
+        draftId: genRes.data.draftId,
+        overrideSubject: subject,
+        overrideContent: content,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      })
+      if (!sendRes.ok) {
+        if (sendRes.error === "noRecipient") {
+          toast.error(s.errorNoRecipient)
+        } else if (sendRes.error === "alreadySent") {
+          toast.error(s.errorAlreadySent)
+        } else {
+          toast.error(sendRes.message ?? s.errorSend)
+        }
+        return
+      }
+      toast.success(s.sendSuccess)
+      setFlowState("success")
+      // Refresh history
+      const historyRes = await fetchEmailDraftsAction(opportunityId)
+      if (historyRes.ok) {
+        setHistory(historyRes.drafts.filter((d) => d.status === "sent"))
+      }
+    } catch (err) {
+      toast.error(s.errorSend)
+    } finally {
+      setSending(false)
+    }
+  }
+
   function resetFlow() {
     setFlowState("compose")
     setDraft(null)
@@ -161,8 +215,9 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
       <div className="border border-border rounded-lg p-4 bg-card">
         {flowState === "compose" && (
           <EmailDraftComposer 
-            loading={generating} 
+            loading={generating || sending} 
             onGenerate={handleGenerate}
+            onSendManual={handleSendManual}
             quoteReply={quoteReply}
             onClearQuote={onClearQuote}
             attachments={attachments}

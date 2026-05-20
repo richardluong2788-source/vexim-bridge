@@ -306,10 +306,18 @@ CORE PRINCIPLES (Non-negotiable):
 5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 `,
-    `
+`
 ═══════════════════════════════════════════════════════════════════════════════
 PERSONALIZATION INTELLIGENCE - USE THIS DATA TO WRITE HIGHLY TARGETED EMAILS
-══════════════════════════���════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ CRITICAL DATA SOURCE PRIORITY:
+- "purchase_history" = OBJECTIVE trade data from customs/shipping records. TRUST THIS.
+- "buyer_notes" = Internal admin notes (may contain opinions, outdated info, or errors). USE WITH CAUTION.
+- When there's conflict between purchase_history and buyer_notes, ALWAYS trust purchase_history.
+
+Example: If buyer_notes says "stopped buying from VN" but purchase_history says "Bought from Visimex (VN) in 2024, then Chile in 2025", 
+the TRUTH is they DID buy from VN in 2024 and recently switched to Chile. This is an OPPORTUNITY to win them back.
 
 You have access to rich buyer intelligence. USE IT to personalize every email:
 
@@ -318,10 +326,11 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
    - Reference HS codes when relevant to show expertise: "HS 0801.32 cashews"
    - Use BOL descriptions to understand exact specs they buy
 
-2. SUPPLY CHAIN LEVERAGE (top_suppliers, has_vietnam_supplier, main_import_countries):
-   - If has_vietnam_supplier=true: "I noticed you've worked with [vietnam_supplier_names] before — we'd love to offer a complementary source..."
+2. SUPPLY CHAIN LEVERAGE (top_suppliers, has_vietnam_supplier, main_import_countries, purchase_history):
+   - READ purchase_history carefully to understand their sourcing timeline
+   - If they previously bought from Vietnam but recently switched: "I noticed you sourced from [vietnam_supplier] in [year] — as you evaluate options beyond [current_origin], we'd love to reconnect you with Vietnam quality..."
+   - If has_vietnam_supplier=true and still active: "Building on your experience with [vietnam_supplier_names], we offer a complementary source..."
    - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
-   - Reference their current origins to position competitively
 
 3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
    - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
@@ -359,16 +368,23 @@ STRICT RULES:
 CRITICAL: VIETNAM SUPPLIER INTELLIGENCE
 ═══════════════════════════════════════════════════════════════════════════════
 
-If has_vietnam_supplier = true, this buyer ALREADY SOURCES FROM VIETNAM.
-This is EXTREMELY VALUABLE intelligence. You MUST reference it in your email:
+ALWAYS check purchase_history FIRST to understand the buyer's Vietnam sourcing timeline:
 
-Example openings when has_vietnam_supplier=true:
-- "I noticed American Cashew has sourced from [vietnam_supplier_names] before — we'd love to offer a complementary Vietnam source as you diversify your supply chain."
-- "Since you've worked with Vietnamese suppliers like [vietnam_supplier_names], you already know the quality Vietnam offers. We'd like to introduce another option..."
-- "Your experience with [vietnam_supplier_names] shows you understand Vietnam's cashew quality — we believe Công Ty Long An can add value as an additional supplier."
+SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
+- Opening: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a complementary Vietnam source..."
+- Angle: Additional supplier, diversification, competitive pricing
+
+SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purchase_history as past, then switched to other origin)
+- Opening: "I noticed you worked with [vietnam_supplier] back in [year] before shifting to [current_origin] — we'd love to show you what's changed in Vietnam's [product] industry..."
+- Angle: Win them back, show improvements, offer fresh start with new supplier
+- NEVER say they "stopped" or "paused" — instead say "shifted" or "diversified to other origins"
+
+SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false)
+- Opening: "As you explore options beyond [main_import_countries], Vietnam offers compelling quality at very competitive landed costs..."
+- Angle: New opportunity, expand supplier base
 
 This reference shows you've done your homework and builds instant credibility.
-DO NOT ignore this data if it exists.
+DO NOT ignore this data if it exists. DO NOT make negative assumptions about why they switched suppliers.
 `,
   ].join("\n")
 

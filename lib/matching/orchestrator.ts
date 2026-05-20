@@ -30,7 +30,7 @@ import type {
   ScoringWeights,
   MatchingThresholds,
 } from "./types"
-import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS } from "./types"
+import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS, normalizeWeights } from "./types"
 
 // ============================================================
 // Main Orchestrator Function
@@ -106,9 +106,9 @@ async function loadMatchingConfig(
     .from("matching_config")
     .select("config_key, config_value")
 
-  const weights =
-    (configs?.find((c) => c.config_key === "scoring_weights")
-      ?.config_value as ScoringWeights) || DEFAULT_SCORING_WEIGHTS
+  // Use normalizeWeights to handle both old and new database formats
+  const rawWeights = configs?.find((c) => c.config_key === "scoring_weights")?.config_value
+  const weights = normalizeWeights(rawWeights as Partial<ScoringWeights> | null)
 
   const thresholds =
     (configs?.find((c) => c.config_key === "thresholds")

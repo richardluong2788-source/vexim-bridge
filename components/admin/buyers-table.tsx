@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { Search, Globe2, Building2, ExternalLink, Filter, Sparkles } from "lucide-react"
+import { Search, Globe2, Building2, ExternalLink, Filter, Sparkles, UserCircle2 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,6 +40,7 @@ export interface BuyerRow {
   latestStage: Stage | null
   latestClient: { id: string; name: string } | null
   latestUpdated: string | null
+  assignedAE: { id: string; name: string } | null
 }
 
 interface Props {
@@ -260,6 +261,9 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                 {locale === "vi" ? "Cơ hội" : "Deals"}
               </TableHead>
               <TableHead className="font-medium">
+                {locale === "vi" ? "AE quản lý" : "Assigned AE"}
+              </TableHead>
+              <TableHead className="font-medium">
                 {locale === "vi" ? "Mới nhất" : "Latest"}
               </TableHead>
               {canRunMatch && (
@@ -386,10 +390,22 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                           <span className="text-[10px] text-muted-foreground">
                             {locale === "vi" ? "chưa gán" : "none"}
                           </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {r.assignedAE ? (
+                          <div className="flex items-center gap-2">
+                            <UserCircle2 className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">{r.assignedAE.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            {locale === "vi" ? "Chưa gán AE" : "No AE assigned"}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
                       {r.latestStage && r.latestClient ? (
                         <div className="flex flex-col gap-1 max-w-[220px]">
                           <Badge variant="secondary" className="w-fit font-normal">

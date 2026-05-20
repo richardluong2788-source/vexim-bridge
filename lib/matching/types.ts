@@ -92,6 +92,87 @@ export const DEFAULT_THRESHOLDS: MatchingThresholds = {
 }
 
 // ============================================================
+// Legacy Weights Format (for backward compatibility)
+// ============================================================
+
+/**
+ * Old scoring weights format used before migration to new formula.
+ * These fields may still exist in database records.
+ */
+export interface LegacyScoringWeights {
+  win_rate?: number
+  workload?: number
+  industry_match?: number
+  fda_compliance?: number
+}
+
+/**
+ * Normalizes scoring weights from any format (legacy or new) to the current format.
+ * This handles database records that still use the old format.
+ * 
+ * Mapping from old to new (approximate conversion):
+ * - industry_match -> hs_code_match (40%)
+ * - win_rate -> product_match (25%)
+ * - workload -> logistics_match (10%)
+ * - fda_compliance -> country_match (20%)
+ * - (new) priority_bonus (5%)
+ */
+export function normalizeWeights(
+  raw: Partial<ScoringWeights & LegacyScoringWeights> | null | undefined
+): ScoringWeights {
+  if (!raw) return DEFAULT_SCORING_WEIGHTS
+
+  // Check if it's already in new format (has hs_code_match)
+  if (
+    typeof raw.hs_code_match === "number" &&
+    typeof raw.product_match === "number" &&
+    typeof raw.country_match === "number" &&
+    typeof raw.logistics_match === "number" &&
+    typeof raw.priority_bonus === "number"
+  ) {
+    return {
+      hs_code_match: raw.hs_code_match,
+      product_match: raw.product_match,
+      country_match: raw.country_match,
+      logistics_match: raw.logistics_match,
+      priority_bonus: raw.priority_bonus,
+      // Preserve legacy fields if present
+      industry_match: raw.industry_match ?? 0,
+      workload: raw.workload ?? 0,
+      win_rate: raw.win_rate ?? 0,
+      fda_compliance: raw.fda_compliance ?? 0,
+    }
+  }
+
+  // Convert from legacy format to new format
+  // Use sensible defaults if legacy fields are missing
+  const isLegacyFormat =
+    typeof raw.win_rate === "number" ||
+    typeof raw.workload === "number" ||
+    typeof raw.industry_match === "number" ||
+    typeof raw.fda_compliance === "number"
+
+  if (isLegacyFormat) {
+    // Map legacy weights to new weights with reasonable conversion
+    return {
+      hs_code_match: raw.industry_match ?? 40, // industry_match -> hs_code_match
+      product_match: raw.win_rate ?? 25, // win_rate -> product_match
+      country_match: raw.fda_compliance ?? 20, // fda_compliance -> country_match
+      logistics_match: raw.workload ?? 10, // workload -> logistics_match
+      priority_bonus: 5, // New field, default to 5%
+      // Keep legacy fields for reference
+      industry_match: raw.industry_match ?? 0,
+      workload: raw.workload ?? 0,
+      win_rate: raw.win_rate ?? 0,
+      fda_compliance: raw.fda_compliance ?? 0,
+    }
+  }
+
+  // Fallback to defaults if neither format is recognized
+  return DEFAULT_SCORING_WEIGHTS
+}
+
+// ============================================================
 // Scoring Context - Data needed to calculate scores
 // ============================================================
 

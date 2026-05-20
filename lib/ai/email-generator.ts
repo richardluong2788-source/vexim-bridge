@@ -507,9 +507,46 @@ SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purc
 - KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins", "expanded to", "switched to"
 - NEVER make negative assumptions about why they switched. Assume it was a business decision, not a problem with Vietnam suppliers.
 
-SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false)
-- Opening: "As you explore options beyond [main_import_countries], Vietnam offers compelling quality at very competitive landed costs..."
-- Angle: New opportunity, expand supplier base
+SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false, vietnam_supplier_names is empty)
+═══════════════════════════════════════════════════════════════════════════════
+This buyer has NEVER purchased from Vietnam. You need to SELL the Vietnam advantage.
+Use their CURRENT suppliers and countries to position Vietnam as a better/complementary option.
+
+OPENING OPTIONS for SCENARIO C (choose based on available data):
+
+Option C1 - If they source from expensive origins (Chile, Brazil, USA, Europe):
+"As [buyer_company] evaluates alternatives to [main_import_countries] for your [main_product] needs, Vietnam offers a compelling combination of quality and landed cost savings."
+
+Option C2 - If high volume buyer (total_shipments > 50 or avg_teu_per_month > 2):
+"With [buyer_company]'s substantial [main_product] volume — [total_shipments] shipments — diversifying your supply chain to include Vietnam could offer meaningful cost advantages and supply security."
+
+Option C3 - If they have specific suppliers you can name from top_suppliers:
+"I noticed [buyer_company] sources [main_product] from [top_suppliers]. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to [main_import_countries] at significantly more competitive landed costs."
+
+Option C4 - If peak_months data available and approaching:
+"With [buyer_company]'s peak months ([peak_months]) approaching, now is an ideal time to explore Vietnam as a complementary source for your [main_product] needs."
+
+Option C5 - Default fallback (use if no other data available):
+"As you explore options beyond [main_import_countries] for your [main_product] requirements, Vietnam offers compelling quality at very competitive landed costs."
+
+BODY for SCENARIO C:
+- Emphasize TRIAL/SAMPLE approach: "We'd welcome the opportunity to send samples so you can evaluate our quality firsthand"
+- Highlight competitive advantages: FDA-registered, consistent quality, competitive pricing
+- Don't push too hard - they've never tried Vietnam, so build trust first
+- Mention specific product using HS code and product name to show expertise
+
+ANGLE for SCENARIO C:
+- NEW OPPORTUNITY: "expand your supplier base", "diversify supply chain", "explore new origins"
+- RISK MITIGATION: "supply chain security", "backup source", "reduce single-origin dependency"
+- COST SAVINGS: "competitive landed costs", "favorable pricing", "value proposition"
+
+EXAMPLE for SCENARIO C (buyer sources from Chile/Kenya only, never Vietnam):
+"I noticed American Cashew sources Cashewnut Kernels from Beneficiadora De Nueces Bolivianas in Chile and Sasini Fruits & Nuts in Kenya. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to South American origins at significantly more competitive landed costs.
+
+We may be new to the U.S. market, but we are not new to quality. Our facility is FDA-registered and I'd be happy to send samples along with our Certificate of Analysis so you can evaluate our Cashewnut Kernels (HS 0801.32) firsthand.
+
+Would you be open to a brief call this week to discuss how Vietnam could complement your current supply chain?"
+═══════════════════════════════════════════════════════════════════════════════
 
 This reference shows you've done your homework and builds instant credibility.
 DO NOT ignore this data if it exists. DO NOT make negative assumptions about why they switched suppliers.

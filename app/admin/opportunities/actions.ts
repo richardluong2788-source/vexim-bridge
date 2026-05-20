@@ -366,15 +366,22 @@ export async function updateOpportunityStage(
   // Fetch BEFORE state for notification context + activity log.
   // Also pull the buyer country so we can enforce the Swift verification
   // gate when moving into shipping/production for high-risk deals.
-  const { data: before } = await admin
+  const { data: before, error: fetchError } = await admin
     .from("opportunities")
     .select(
-      "id, client_id, stage, buyer_code, assigned_ae, leads:lead_id ( company_name, country )",
+      "id, client_id, stage, buyer_code, account_manager_id, leads:lead_id ( company_name, country )",
     )
     .eq("id", opportunityId)
     .maybeSingle()
 
-  if (!before) return { ok: false, error: "notFound" }
+  if (fetchError) {
+    console.error("[v0] updateOpportunityStage fetch error:", fetchError.message, { opportunityId })
+    return { ok: false, error: "notFound" }
+  }
+  if (!before) {
+    console.error("[v0] updateOpportunityStage: opportunity not found", { opportunityId })
+    return { ok: false, error: "notFound" }
+  }
   if (before.stage === newStage) return { ok: true }
 
   // ------------------------------------------------------------------
@@ -452,9 +459,9 @@ export async function updateOpportunityStage(
     })
 
     // Also notify the assigned AE (if any) when deal is closed - for their records
-    if (isClosed && before.assigned_ae && before.assigned_ae !== user.id) {
+    if (isClosed && before.account_manager_id && before.account_manager_id !== user.id) {
       await dispatchNotification({
-        userId: before.assigned_ae,
+        userId: before.account_manager_id,
         category: "deal_closed",
         opportunityId,
         linkPath: `/admin/opportunities/${opportunityId}`,

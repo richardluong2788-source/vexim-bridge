@@ -138,7 +138,7 @@ export async function assignBuyerToClient(
     return { ok: true, data: { opportunityId: existing.id, alreadyExisted: true } }
   }
 
-  // 4) Create the opportunity
+  // 4) Create the opportunity with account_manager_id for ownership tracking
   const { data: opp, error: oppErr } = await admin
     .from("opportunities")
     .insert({
@@ -146,6 +146,7 @@ export async function assignBuyerToClient(
       lead_id: input.buyerId,
       stage: "new",
       potential_value: input.potentialValue,
+      account_manager_id: userId,
     })
     .select("id")
     .single()

@@ -518,6 +518,7 @@ export async function acceptInboxItem(
   const lead = inbox.leads
 
   // Create opportunity with mapped data from lead
+  // Set account_manager_id to the accepting user for ownership tracking.
   const { data: opportunity, error: oppError } = await supabase
     .from("opportunities")
     .insert({
@@ -528,6 +529,7 @@ export async function acceptInboxItem(
       products_interested: lead?.main_product || null,
       destination_port: lead?.destination_ports || null,
       notes: buildOpportunityNotes(lead, inbox.match_score_id),
+      account_manager_id: acceptedBy,
     })
     .select("id")
     .single()

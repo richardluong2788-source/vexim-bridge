@@ -392,10 +392,12 @@ export async function commitBulkImport(input: CommitInputLegacy): Promise<
   }
 
   // Create an opportunity per lead, assigned to the chosen client.
+  // Set account_manager_id to the importing user for ownership tracking.
   const oppPayload = insertedLeads.map((l) => ({
     client_id: input.clientId,
     lead_id: l.id,
     stage: "new" as const,
+    account_manager_id: who.userId,
   }))
   const { data: insertedOpps, error: oppErr } = await admin
     .from("opportunities")

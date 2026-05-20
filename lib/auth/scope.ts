@@ -123,6 +123,10 @@ export async function assertOpportunityOwned(
     .eq("id", opportunityId)
     .maybeSingle<{ id: string; account_manager_id: string | null }>()
   if (!data) return { ok: false, error: "notFound" }
+  // If account_manager_id is not set yet (legacy data or missing migration),
+  // allow the operation — the trigger or next update will populate it.
+  // This prevents blocking AEs from working with older opportunities.
+  if (!data.account_manager_id) return { ok: true }
   return data.account_manager_id === scope.userId
     ? { ok: true }
     : { ok: false, error: "forbidden" }

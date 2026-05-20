@@ -124,6 +124,9 @@ export function AddLeadForm({ clients }: AddLeadFormProps) {
         lead_id: lead.id,
         stage: "new",
         potential_value: potentialValue ? parseFloat(potentialValue) : null,
+        // Set account_manager_id to current user for ownership tracking.
+        // This enables the kanban drag-drop authorization check.
+        account_manager_id: user?.id ?? null,
       })
       .select()
       .single()

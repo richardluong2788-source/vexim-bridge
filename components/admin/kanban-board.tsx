@@ -139,6 +139,16 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
             icon: <ShieldAlert className="h-4 w-4" />,
             duration: 7000,
           })
+        } else if (res.error === "notFound") {
+          toast.error(t.kanban.notFoundTitle ?? "Không tìm thấy cơ hội", {
+            description: t.kanban.notFoundDesc ?? "Cơ hội này có thể đã bị xóa hoặc bạn không có quyền truy cập.",
+            duration: 5000,
+          })
+        } else if (res.error === "forbidden") {
+          toast.error(t.kanban.forbiddenTitle ?? "Không có quyền", {
+            description: t.kanban.forbiddenDesc ?? "Bạn không có quyền di chuyển cơ hội này.",
+            duration: 5000,
+          })
         } else {
           toast.error(res.error ?? "Failed to update stage")
         }

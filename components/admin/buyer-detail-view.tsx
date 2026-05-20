@@ -401,6 +401,32 @@ export function BuyerDetailView({
                     </div>
                     <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
                   </div>
+                  {buyer.peak_months_data_year && (
+                    <div className="flex flex-col gap-1 pt-2 border-t border-border">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <TrendingUp className="h-3.5 w-3.5 text-chart-1" />
+                        {locale === "vi" ? "Năm dữ liệu" : "Data year"}
+                      </div>
+                      <p className="text-sm text-foreground font-semibold">{buyer.peak_months_data_year}</p>
+                    </div>
+                  )}
+                  {buyer.import_trend && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <TrendingUp className="h-3.5 w-3.5 text-chart-2" />
+                        {locale === "vi" ? "Xu hướng nhập khẩu" : "Import trend"}
+                      </div>
+                      <Badge 
+                        variant="secondary" 
+                        className="w-fit text-xs font-normal"
+                      >
+                        {buyer.import_trend === "growing" && (locale === "vi" ? "Đang tăng" : "Growing")}
+                        {buyer.import_trend === "stable" && (locale === "vi" ? "Ổn định" : "Stable")}
+                        {buyer.import_trend === "declining" && (locale === "vi" ? "Đang giảm" : "Declining")}
+                        {buyer.import_trend === "unknown" && (locale === "vi" ? "Chưa rõ" : "Unknown")}
+                      </Badge>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

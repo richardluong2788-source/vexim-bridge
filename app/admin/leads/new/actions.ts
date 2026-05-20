@@ -52,6 +52,8 @@ export interface CreateLeadWithAIMatchingInput {
   avgTeuPerMonth?: number | null
   topPeakMonths?: string | null
   topLowMonths?: string | null
+  peakMonthsDataYear?: number | null
+  importTrend?: string | null
   
   // Section 3: MÃ HS & SẢN PHẨM
   industry?: string | null
@@ -140,6 +142,8 @@ export async function createLeadWithAIMatchingAction(
       avg_teu_per_month: input.avgTeuPerMonth ?? null,
       top_peak_months: input.topPeakMonths?.trim() ?? null,
       top_low_months: input.topLowMonths?.trim() ?? null,
+      peak_months_data_year: input.peakMonthsDataYear ?? null,
+      import_trend: input.importTrend?.trim() ?? null,
       
       // Section 3: MÃ HS & SẢN PHẨM
       industry: input.industry ?? null,

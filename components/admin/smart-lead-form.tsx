@@ -74,6 +74,8 @@ export function SmartLeadForm() {
   const [avgTeuPerMonth, setAvgTeuPerMonth] = useState("")
   const [topPeakMonths, setTopPeakMonths] = useState("")
   const [topLowMonths, setTopLowMonths] = useState("")
+  const [peakMonthsDataYear, setPeakMonthsDataYear] = useState("")
+  const [importTrend, setImportTrend] = useState("")
 
   // ══════════════════════════════════════════════════════════════════════════
   // Section 3: MÃ HS & SẢN PHẨM (LR nhập - quan trọng cho AI matching)
@@ -155,6 +157,8 @@ export function SmartLeadForm() {
       avgTeuPerMonth: avgTeuPerMonth ? parseFloat(avgTeuPerMonth) : null,
       topPeakMonths: topPeakMonths || null,
       topLowMonths: topLowMonths || null,
+      peakMonthsDataYear: peakMonthsDataYear ? parseInt(peakMonthsDataYear, 10) : null,
+      importTrend: importTrend || null,
       
       // Section 3
       hsCode: hsCode || null,
@@ -490,6 +494,52 @@ export function SmartLeadForm() {
                 onChange={(e) => setTopLowMonths(e.target.value)}
                 className="border-border"
               />
+            </div>
+
+            {/* Peak months data year */}
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="peakMonthsDataYear">
+                {locale === "vi" ? "Năm dữ liệu" : "Data Year"}
+              </Label>
+              <Input
+                id="peakMonthsDataYear"
+                placeholder={locale === "vi" ? "VD: 2025, 2026" : "E.g. 2025, 2026"}
+                value={peakMonthsDataYear}
+                onChange={(e) => setPeakMonthsDataYear(e.target.value)}
+                className="border-border"
+              />
+              <p className="text-xs text-muted-foreground">
+                {locale === "vi" ? "Năm của dữ liệu ImportYeti" : "Year of ImportYeti data"}
+              </p>
+            </div>
+
+            {/* Import trend */}
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="importTrend">
+                {locale === "vi" ? "Xu hướng nhập khẩu" : "Import Trend"}
+              </Label>
+              <Select value={importTrend} onValueChange={setImportTrend}>
+                <SelectTrigger id="importTrend" className="border-border">
+                  <SelectValue placeholder={locale === "vi" ? "Chọn xu hướng" : "Select trend"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="growing">
+                    {locale === "vi" ? "Đang tăng" : "Growing"}
+                  </SelectItem>
+                  <SelectItem value="stable">
+                    {locale === "vi" ? "Ổn định" : "Stable"}
+                  </SelectItem>
+                  <SelectItem value="declining">
+                    {locale === "vi" ? "Đang giảm" : "Declining"}
+                  </SelectItem>
+                  <SelectItem value="unknown">
+                    {locale === "vi" ? "Chưa rõ" : "Unknown"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {locale === "vi" ? "So sánh với các năm trước" : "Compare with previous years"}
+              </p>
             </div>
           </div>
         </CardContent>

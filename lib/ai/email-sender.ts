@@ -160,12 +160,18 @@ export async function sendEmailDraft(
     htmlBody += attachmentHtml
   }
 
+  // Generate unique ID for this email to prevent Gmail threading issues
+  const uniqueEmailId = `${Date.now()}-${Math.random().toString(36).substring(7)}`
+
   const headers: Record<string, string> = {
+    // X-Entity-Ref-ID: Unique ID to prevent Gmail from incorrectly threading emails
+    // Each email gets its own ID so they appear as separate conversations
+    "X-Entity-Ref-ID": uniqueEmailId,
     // Priority header - tells mail servers this is important business email
     "X-Priority": "1",
-    // Remove any promotion-like headers
+    // Mark as transactional (not promotional/marketing)
     "X-Campaign": "transactional",
-    // Gmail respects these headers for classification
+    // Custom mailer identification
     "X-Mailer": "Vexim-Trade-Transactional/1.0",
     // Store ref code in custom header for internal tracking (not visible to buyer)
     ...(refCode && { "X-Ref-Code": refCode }),

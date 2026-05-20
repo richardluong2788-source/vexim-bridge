@@ -42,7 +42,7 @@ export type SenderKey = keyof typeof SENDER_EMAILS
  * 
  * @param senderName - Full name of the person sending (e.g., "Hoc Luong")
  * @param senderKey - Which email address to use (trade, hello, noreply)
- * @returns Formatted sender string like "Hoc Luong <trade@veximtrade.com>"
+ * @returns Formatted sender string like '"Hoc Luong" <trade@veximtrade.com>'
  */
 export function buildPersonalizedSender(
   senderName: string | null | undefined,
@@ -51,7 +51,9 @@ export function buildPersonalizedSender(
   const email = SENDER_EMAILS[senderKey]
   // If no sender name, fall back to company name (less ideal but acceptable)
   const displayName = senderName?.trim() || "Vexim Trade"
-  return `${displayName} <${email}>`
+  // RFC 5322 recommends quoting display names that contain spaces or special characters
+  // This ensures email clients properly parse the sender name
+  return `"${displayName}" <${email}>`
 }
 
 /**
@@ -59,9 +61,9 @@ export function buildPersonalizedSender(
  * Kept for backward compatibility with system emails.
  */
 export const SENDERS = {
-  noreply: `Vexim Trade <${SENDER_EMAILS.noreply}>`,
-  trade: `Vexim Trade <${SENDER_EMAILS.trade}>`,
-  hello: `Vexim Trade <${SENDER_EMAILS.hello}>`,
+  noreply: `"Vexim Trade" <${SENDER_EMAILS.noreply}>`,
+  trade: `"Vexim Trade" <${SENDER_EMAILS.trade}>`,
+  hello: `"Vexim Trade" <${SENDER_EMAILS.hello}>`,
 } as const
 
 function getApiKey(): string {
@@ -138,14 +140,6 @@ export async function sendMail(
     if (input.replyTo) payload.reply_to = input.replyTo
     if (input.headers) payload.headers = input.headers
 
-    console.log("[v0] sendMail payload:", JSON.stringify({ 
-      from: payload.from, 
-      to: payload.to, 
-      subject: payload.subject,
-      hasHtml: !!payload.html,
-      hasText: !!payload.text,
-    }))
-
     const response = await fetch(RESEND_API_URL, {
       method: "POST",
       headers: {
@@ -156,7 +150,6 @@ export async function sendMail(
     })
 
     const responseText = await response.text()
-    console.log("[v0] Resend response:", response.status, responseText)
 
     if (!response.ok) {
       throw new Error(
@@ -165,11 +158,10 @@ export async function sendMail(
     }
 
     const data = JSON.parse(responseText) as { id?: string }
-    console.log("[v0] Email sent successfully, id:", data.id)
     return { data: { id: data.id ?? null }, error: null }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] sendMail Error:", message)
+    console.error("[mailer] sendMail error:", message)
     return { data: null, error: { message } }
   }
 }

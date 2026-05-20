@@ -762,7 +762,7 @@ export function SmartLeadForm() {
           </CardTitle>
           <CardDescription>
             {locale === "vi"
-              ? "LR nhap - QUAN TRONG cho email AI co 'vu khi'"
+              ? "LR nhap - QUAN TRONG cho email AI có dữ liệu phân tích"
               : "LR enters - CRITICAL for AI to write personalized emails"}
           </CardDescription>
           {(isPurchaseHistoryEmpty || isTopSuppliersEmpty) && (

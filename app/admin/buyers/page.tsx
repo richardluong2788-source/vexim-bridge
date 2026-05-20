@@ -59,6 +59,7 @@ export default async function BuyersDirectoryPage() {
   // One-shot read: buyer + every opportunity attached to it.
   // We join the minimum client fields needed for the "latest client" chip
   // so the admin can see who is currently working this buyer.
+  // Also fetch AE assignment from ae_match_scores
   let buyersQ = current.admin
     .from("leads")
     .select(`
@@ -79,6 +80,13 @@ export default async function BuyersDirectoryPage() {
         potential_value,
         account_manager_id,
         profiles:client_id ( id, full_name, company_name )
+      ),
+      ae_match_scores:ae_match_scores (
+        account_manager_id,
+        total_score,
+        assignment_source,
+        assigned_at,
+        profiles:account_manager_id ( id, full_name )
       )
     `)
     .order("created_at", { ascending: false })
@@ -125,6 +133,13 @@ export default async function BuyersDirectoryPage() {
     const openCount = opps.filter((o) => o.stage !== "won" && o.stage !== "lost").length
     const wonCount = opps.filter((o) => o.stage === "won").length
 
+    // Get assigned AE from ae_match_scores (the one with assignment_source set)
+    const aeScores = b.ae_match_scores ?? []
+    const assignedScore = aeScores.find((s: any) => s.assignment_source !== null)
+    const assignedAE = assignedScore?.profiles
+      ? { id: assignedScore.profiles.id, name: assignedScore.profiles.full_name ?? "—" }
+      : null
+
     return {
       id: b.id,
       company_name: b.company_name,
@@ -147,6 +162,7 @@ export default async function BuyersDirectoryPage() {
           }
         : null,
       latestUpdated: latest?.last_updated ?? null,
+      assignedAE,
     }
   })
 

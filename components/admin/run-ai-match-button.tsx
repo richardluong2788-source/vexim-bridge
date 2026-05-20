@@ -185,11 +185,11 @@ export function RunAIMatchButton({
                         </div>
                         <div className="flex items-center gap-2">
                           <Progress
-                            value={score.totalScore}
+                            value={isNaN(score.totalScore) ? 0 : score.totalScore}
                             className="h-2 w-16"
                           />
                           <span className="text-sm font-bold w-8 text-right">
-                            {score.totalScore.toFixed(0)}
+                            {isNaN(score.totalScore) ? "—" : score.totalScore.toFixed(0)}
                           </span>
                         </div>
                       </div>

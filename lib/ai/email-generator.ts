@@ -60,6 +60,8 @@ function extractPurchaseHistoryDetails(text: string | null): {
 
   return result
 }
+
+/**
  * Email guidance using proven copywriting frameworks from masters:
  * - Gary Halbert: "Reason Why" technique, specificity, curiosity hooks
  * - Dan Kennedy: No-BS direct response, benefit-stacking, urgency

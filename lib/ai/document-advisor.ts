@@ -614,13 +614,6 @@ function determineProductCategory(
 
   return "general"
 }
-  }
-  if (/food|beverage|snack|sauce|noodle/i.test(searchText)) {
-    return "food_beverage"
-  }
-
-  return "general"
-}
 
 // ============================================================
 // Helper: Map compliance_docs.kind to document codes

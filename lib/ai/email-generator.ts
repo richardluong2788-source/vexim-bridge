@@ -105,7 +105,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a signature placeholder. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature including: sender's real name, company name, email, and phone from context. NEVER use placeholders like '[Your Name]'. Use plain line breaks, no HTML.",
     ),
   content_vi: z
     .string()
@@ -166,6 +166,13 @@ export async function generateEmailDraft(
     throw new EmailGeneratorAuthError("Role not permitted to generate emails")
   }
 
+  // Get AE (sender) full profile information
+  const { data: aeProfile } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, phone, role")
+    .eq("id", user.id)
+    .single()
+
   // ------------------------------------------------------------
   // 2) Load opportunity context so the AI can personalize the email
   // ------------------------------------------------------------
@@ -178,7 +185,15 @@ export async function generateEmailDraft(
         potential_value,
         notes,
         leads:leads(*),
-        profiles:profiles!opportunities_client_id_fkey(company_name, industry)
+        profiles:profiles!opportunities_client_id_fkey(
+          id,
+          company_name, 
+          industry,
+          contact_email,
+          contact_phone,
+          website,
+          address
+        )
       `,
     )
     .eq("id", input.opportunityId)
@@ -254,6 +269,14 @@ export async function generateEmailDraft(
       // === EXPORTER (Our client) INFO ===
       exporter_company: exporter?.["company_name"] ?? null,
       exporter_industry: exporter?.["industry"] ?? null,
+      exporter_contact_email: exporter?.["contact_email"] ?? null,
+      exporter_contact_phone: exporter?.["contact_phone"] ?? null,
+      exporter_website: exporter?.["website"] ?? null,
+      
+      // === SENDER (AE) INFO - Use for email signature ===
+      sender_name: aeProfile?.full_name ?? null,
+      sender_email: aeProfile?.email ?? user.email ?? null,
+      sender_phone: aeProfile?.phone ?? null,
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -332,6 +355,23 @@ STRICT RULES:
 - Never use emoji or excessive punctuation (!!!, ???).
 - If context is thin, write a shorter, tighter email rather than padding with fluff.
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
+- SIGNATURE: Always end with a COMPLETE signature using sender_name, exporter_company, sender_email, sender_phone from context. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+`,
+    `
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: VIETNAM SUPPLIER INTELLIGENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+If has_vietnam_supplier = true, this buyer ALREADY SOURCES FROM VIETNAM.
+This is EXTREMELY VALUABLE intelligence. You MUST reference it in your email:
+
+Example openings when has_vietnam_supplier=true:
+- "I noticed American Cashew has sourced from [vietnam_supplier_names] before — we'd love to offer a complementary Vietnam source as you diversify your supply chain."
+- "Since you've worked with Vietnamese suppliers like [vietnam_supplier_names], you already know the quality Vietnam offers. We'd like to introduce another option..."
+- "Your experience with [vietnam_supplier_names] shows you understand Vietnam's cashew quality — we believe Công Ty Long An can add value as an additional supplier."
+
+This reference shows you've done your homework and builds instant credibility.
+DO NOT ignore this data if it exists.
 `,
   ].join("\n")
 

@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2, Send, Lock,
+  ChevronLeft, CheckCircle2, Building2, Send, Lock, FileCheck2,
 } from "lucide-react"
 import {
   Sheet,
@@ -36,6 +36,7 @@ import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
 import { ClientUpdateEmailDialog } from "@/components/admin/client-update-email-dialog"
+import { DocumentAdvisorSection } from "@/components/admin/document-advisor-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -73,6 +74,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: "status",       icon: Target,        labelKey: "sectionStatus" },
   { id: "commercial",   icon: Package,       labelKey: "sectionDeal" },
+  { id: "documents",    icon: FileCheck2,    labelKey: "sectionDocs" },
   { id: "email",        icon: Mail,          labelKey: "sectionEmail" },
   { id: "replies",      icon: MessageSquare, labelKey: "sectionReplies" },
   { id: "intelligence", icon: BarChart2,     labelKey: "sectionCI" },
@@ -287,7 +289,8 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const navLabel: Record<SectionId, string> = {
     status:       s.sectionStatus,
     commercial:   s.sectionDeal,
-        email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
+    documents:    "Hồ sơ & Tài liệu",
+    email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
     replies:      s.sectionReplies ?? "Phản hồi Buyer",
     intelligence: s.sectionCI ?? "Tình báo TM",
     financials:   s.sectionFinancials ?? "Tài chính",

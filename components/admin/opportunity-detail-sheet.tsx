@@ -116,6 +116,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())
+  const [pricingSuggestion, setPricingSuggestion] = useState<any>(null)
 
   if (opportunity && formKey !== opportunity.id) {
     setFormKey(opportunity.id)
@@ -146,6 +147,45 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const currentStage: Stage = (opportunity.stage as Stage) ?? "new"
   const stageLabel = t.kanban.stages[currentStage] ?? currentStage
   const activeStageIdx = stageIndex(currentStage)
+
+  async function handleSuggestPricing() {
+    setAiLoading(true)
+    try {
+      const response = await fetch("/api/pricing/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opportunityId: opportunity.id,
+          productName: form.products_interested,
+          quantity: form.quantity_required,
+          destinationPort: form.destination_port,
+          incoterm: form.incoterms,
+          industry: opportunity.leads?.industry,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to get pricing suggestion")
+
+      const suggestion = await response.json()
+      setPricingSuggestion(suggestion)
+      
+      // Auto-fill the form with suggested values
+      setForm((p) => ({
+        ...p,
+        target_price_usd: suggestion.suggestedPriceUsd.toString(),
+        price_unit: suggestion.priceUnit,
+        incoterms: suggestion.incoterm,
+        payment_terms: suggestion.paymentTerms,
+      }))
+
+      toast.success("Pricing suggestion generated!")
+    } catch (error) {
+      console.error("[v0] Pricing suggestion error:", error)
+      toast.error("Failed to generate pricing suggestion")
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   async function handleAiSuggest() {
     if (!opportunity) return
@@ -392,10 +432,40 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               {/* COMMERCIAL */}
               {activeSection === "commercial" && (
                 <section className="space-y-4 max-w-2xl">
-                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    {s.sectionDeal}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      {s.sectionDeal}
+                    </h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSuggestPricing}
+                      disabled={aiLoading || !form.products_interested}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {aiLoading ? "Suggesting..." : "Suggest Pricing"}
+                    </Button>
+                  </div>
+
+                  {pricingSuggestion && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                      <div className="text-xs font-semibold text-blue-900">AI Pricing Suggestion</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                        <div>
+                          <span className="opacity-70">Suggested Price:</span>
+                          <div className="font-semibold">${pricingSuggestion.suggestedPriceUsd}/{pricingSuggestion.priceUnit}</div>
+                        </div>
+                        <div>
+                          <span className="opacity-70">Confidence:</span>
+                          <div className="font-semibold capitalize">{pricingSuggestion.confidenceLevel}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-blue-700 italic">{pricingSuggestion.rationale}</div>
+                    </div>
+                  )}
+
                   <FieldGroup className="gap-4">
                     <Field>
                       <FieldLabel htmlFor="products_interested">{s.productName}</FieldLabel>

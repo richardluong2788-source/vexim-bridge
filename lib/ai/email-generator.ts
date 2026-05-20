@@ -105,7 +105,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature including: sender's real name, company name, email, and phone from context. NEVER use placeholders like '[Your Name]'. Use plain line breaks, no HTML.",
+      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT:\n\nBest regards,\n\n[SENDER_FULL_NAME]\n[EXPORTER_COMPANY_NAME]\n[SENDER_EMAIL]\n[SENDER_PHONE]\n\nNEVER use placeholders like '[Your Name]', '[Your Contact]', etc. Use the actual names and contacts provided in the context. If any info is missing, use only what's available. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -172,6 +172,13 @@ export async function generateEmailDraft(
     .select("id, full_name, email, phone, role")
     .eq("id", user.id)
     .single()
+
+  console.log("[v0] aeProfile loaded:", { 
+    id: aeProfile?.id, 
+    full_name: aeProfile?.full_name, 
+    email: aeProfile?.email,
+    phone: aeProfile?.phone 
+  })
 
   // ------------------------------------------------------------
   // 2) Load opportunity context so the AI can personalize the email
@@ -305,19 +312,31 @@ CORE PRINCIPLES (Non-negotiable):
 4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
 5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
+7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain:
+   - sender_name (the AE's real name - e.g., "Hoc Luong", NOT "[Your Name]")
+   - exporter_company (company name - e.g., "Công Ty Long An")
+   - sender_email (e.g., hocluongvan88@gmail.com)
+   - sender_phone (e.g., 0987868765)
+   Format should be clean and professional. NEVER use any placeholder text.
 `,
 `
-═══════════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════���═══════════════════════════════
 PERSONALIZATION INTELLIGENCE - USE THIS DATA TO WRITE HIGHLY TARGETED EMAILS
-═══════════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════���══
 
 ⚠️ CRITICAL DATA SOURCE PRIORITY:
 - "purchase_history" = OBJECTIVE trade data from customs/shipping records. TRUST THIS.
 - "buyer_notes" = Internal admin notes (may contain opinions, outdated info, or errors). USE WITH CAUTION.
 - When there's conflict between purchase_history and buyer_notes, ALWAYS trust purchase_history.
 
-Example: If buyer_notes says "stopped buying from VN" but purchase_history says "Bought from Visimex (VN) in 2024, then Chile in 2025", 
-the TRUTH is they DID buy from VN in 2024 and recently switched to Chile. This is an OPPORTUNITY to win them back.
+HOW TO DETECT WHICH SCENARIO:
+1. Read purchase_history carefully
+2. If vietnam_supplier_names is not empty AND most recent shipment is from Vietnam: SCENARIO A (still sourcing)
+3. If vietnam_supplier_names is not empty AND past shipments mention Vietnam BUT recent shipments show other origins: SCENARIO B (switched)
+4. If vietnam_supplier_names is empty: SCENARIO C (never sourced)
+
+Example: "Mua của Visimex Corp Joint Stock Com (VN) từ năm 2024, năm 2025 mua của Procesadora De Alimentos Santa Isab (Chile)"
+= SCENARIO B: They bought from VN in 2024, then switched to Chile in 2025. Use the specific opening for B.
 
 You have access to rich buyer intelligence. USE IT to personalize every email:
 
@@ -375,9 +394,12 @@ SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, 
 - Angle: Additional supplier, diversification, competitive pricing
 
 SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purchase_history as past, then switched to other origin)
-- Opening: "I noticed you worked with [vietnam_supplier] back in [year] before shifting to [current_origin] — we'd love to show you what's changed in Vietnam's [product] industry..."
-- Angle: Win them back, show improvements, offer fresh start with new supplier
-- NEVER say they "stopped" or "paused" — instead say "shifted" or "diversified to other origins"
+- OPENING: "I noticed you worked with [vietnam_supplier] on [product] before shifting sourcing to [current_origin]. With [buyer_company]'s upcoming [peak_months] season, we'd love to reconnect you with Vietnam quality — at very competitive landed costs."
+- BODY: Acknowledge the previous relationship. Focus on "as you evaluate options" and "complementary source" — don't criticize their current suppliers.
+- ANGLE: Win them back as alternative/secondary supplier, show what's improved, offer fresh start
+- EXAMPLE for American Cashew: "I noticed American Cashew worked with Visimex on Cashewnut Kernels before shifting to Chile recently. With your Q2-Q3 season approaching, we'd love to reconnect you with premium Vietnam cashews at landed costs worth comparing."
+- KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins", "expanded to", "switched to"
+- NEVER make negative assumptions about why they switched. Assume it was a business decision, not a problem with Vietnam suppliers.
 
 SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false)
 - Opening: "As you explore options beyond [main_import_countries], Vietnam offers compelling quality at very competitive landed costs..."

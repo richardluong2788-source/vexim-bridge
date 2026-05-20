@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2, Send,
+  ChevronLeft, CheckCircle2, Building2, Send, Lock,
 } from "lucide-react"
 import {
   Sheet,
@@ -117,6 +117,19 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [formKey, setFormKey] = useState<string | null>(null)
   const [form, setForm] = useState(() => emptyForm())
   const [pricingSuggestion, setPricingSuggestion] = useState<any>(null)
+  const [pricingStatus, setPricingStatus] = useState<{
+    isUnlocked: boolean
+    totalSuggestions: number
+    remaining: number
+  } | null>(null)
+
+  // Fetch pricing status on mount
+  useEffect(() => {
+    fetch("/api/pricing/status")
+      .then((res) => res.json())
+      .then((data) => setPricingStatus(data))
+      .catch(() => setPricingStatus({ isUnlocked: false, totalSuggestions: 0, remaining: 100 }))
+  }, [])
 
   if (opportunity && formKey !== opportunity.id) {
     setFormKey(opportunity.id)
@@ -441,13 +454,28 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                       size="sm"
                       variant="outline"
                       onClick={handleSuggestPricing}
-                      disabled={aiLoading || !form.products_interested}
+                      disabled={aiLoading || !form.products_interested || !pricingStatus?.isUnlocked}
                       className="gap-2"
+                      title={!pricingStatus?.isUnlocked ? `AI training: ${pricingStatus?.totalSuggestions || 0}/100 deals` : undefined}
                     >
                       <Sparkles className="h-4 w-4" />
                       {aiLoading ? "Suggesting..." : "Suggest Pricing"}
                     </Button>
                   </div>
+
+                  {/* Pricing locked message */}
+                  {pricingStatus && !pricingStatus.isUnlocked && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="text-xs font-semibold text-amber-900 flex items-center gap-2">
+                        <Lock className="h-3.5 w-3.5" />
+                        AI Pricing is Learning
+                      </div>
+                      <div className="text-xs text-amber-700 mt-1">
+                        System needs {pricingStatus.remaining} more deals to unlock AI pricing suggestions.
+                        Current progress: {pricingStatus.totalSuggestions}/100 deals.
+                      </div>
+                    </div>
+                  )}
 
                   {pricingSuggestion && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">

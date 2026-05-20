@@ -299,3 +299,26 @@ export async function getPricingHistory(opportunityId: string): Promise<any[]> {
     return []
   }
 }
+
+/**
+ * Get total suggestions count system-wide
+ * Used to determine if AI has enough training data
+ */
+export async function getTotalSuggestionsCount(): Promise<number> {
+  try {
+    const adminClient = createAdminClient()
+
+    const { count, error } = await adminClient
+      .from("opportunity_pricing_suggestions")
+      .select("*", { count: "exact", head: true })
+
+    if (error) throw error
+    return count || 0
+  } catch (error) {
+    console.error("[v0] Error fetching suggestions count:", error)
+    return 0
+  }
+}
+
+// Minimum suggestions required before AI pricing is unlocked
+export const MIN_SUGGESTIONS_REQUIRED = 100

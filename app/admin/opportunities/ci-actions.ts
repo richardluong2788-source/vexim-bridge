@@ -14,10 +14,24 @@ export async function getCIByOpportunityId(
   ok: true; 
   ci: CommercialIntelligence | null;
   leadData?: {
+    // Basic info
     hs_code: string | null;
     purchase_history: string | null;
     competitors: string | null;
     peak_months: string | null;
+    // Extended data for full trade intelligence display
+    main_product: string | null;
+    secondary_hs_codes: string | null;
+    bol_description: string | null;
+    top_suppliers: { name: string; country: string | null }[] | null;
+    main_import_countries: string | null;
+    origin_ports: string | null;
+    destination_ports: string | null;
+    container_types: string | null;
+    priority_rating: number | null;
+    total_shipments: number | null;
+    avg_teu_per_month: number | null;
+    top_low_months: string | null;
   } | null;
 } | { ok: false; error: string }> {
   try {
@@ -44,7 +58,24 @@ export async function getCIByOpportunityId(
       if (opp?.lead_id) {
         const { data: lead } = await supabase
           .from("leads")
-          .select("hs_code, purchase_history, competitors, peak_months")
+          .select(`
+            hs_code, 
+            purchase_history, 
+            competitors, 
+            peak_months,
+            main_product,
+            secondary_hs_codes,
+            bol_description,
+            top_suppliers,
+            main_import_countries,
+            origin_ports,
+            destination_ports,
+            container_types,
+            priority_rating,
+            total_shipments,
+            avg_teu_per_month,
+            top_low_months
+          `)
           .eq("id", opp.lead_id)
           .single()
 
@@ -54,6 +85,18 @@ export async function getCIByOpportunityId(
             purchase_history: lead.purchase_history,
             competitors: lead.competitors,
             peak_months: lead.peak_months,
+            main_product: lead.main_product,
+            secondary_hs_codes: lead.secondary_hs_codes,
+            bol_description: lead.bol_description,
+            top_suppliers: lead.top_suppliers as { name: string; country: string | null }[] | null,
+            main_import_countries: lead.main_import_countries,
+            origin_ports: lead.origin_ports,
+            destination_ports: lead.destination_ports,
+            container_types: lead.container_types,
+            priority_rating: lead.priority_rating,
+            total_shipments: lead.total_shipments,
+            avg_teu_per_month: lead.avg_teu_per_month,
+            top_low_months: lead.top_low_months,
           }
         }
       }

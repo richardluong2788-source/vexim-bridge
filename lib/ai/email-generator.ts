@@ -346,6 +346,9 @@ export async function generateEmailDraft(
       exporter_phone: exporter?.["phone"] ?? null,
       
       // === SENDER (AE) INFO - Use for email signature ===
+      // NOTE: Only name, title, and company are included.
+      // Personal email and phone are intentionally excluded to prevent
+      // buyers from contacting AEs directly outside the platform.
       sender_name: aeProfile?.full_name ?? null,
       sender_title: 
         aeProfile?.role === "super_admin" ? "Founder & CEO" :
@@ -353,8 +356,6 @@ export async function generateEmailDraft(
         aeProfile?.role === "staff" ? "Business Development Manager" :
         "Business Development",
       sender_company: "Vexim Trade",
-      sender_email: aeProfile?.email ?? user.email ?? null,
-      sender_phone: aeProfile?.phone ?? null,
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -394,12 +395,10 @@ Example to avoid confusion:
 4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
 5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
-7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain:
+7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain ONLY:
    - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")
    - sender_title (the AE's title/role at Vexim Trade - e.g., "Account Executive" or "Business Development Manager")
    - sender_company ("Vexim Trade")
-   - sender_email (the AE's Vexim email - e.g., luongvanhoc@veximtrade.com)
-   - sender_phone (the AE's phone)
    
    SIGNATURE FORMAT (MUST FOLLOW EXACTLY):
    Best regards,
@@ -407,11 +406,13 @@ Example to avoid confusion:
    [sender_name]
    [sender_title]
    Vexim Trade
-   [sender_email]
-   [sender_phone]
    
-   NEVER use placeholder text. NEVER use the buyer/exporter name in the signature. The signature represents the AE sending the email on behalf of Vexim Trade, not on behalf of the buyer.
-   Format should be clean and professional.
+   ⚠️ NEVER include personal email addresses (like hocluongvan88@gmail.com) in the signature.
+   ⚠️ NEVER include personal phone numbers in the signature.
+   ⚠️ NEVER use placeholder text like "[Your Name]" or "[Your Title]".
+   ⚠️ NEVER use the buyer/exporter name in the signature.
+   
+   The signature should be minimal and professional. Buyers will reply to the email directly - no need for additional contact info.
 `,
 `
 ═══════════════════════════════════════════════════════════════════════════════

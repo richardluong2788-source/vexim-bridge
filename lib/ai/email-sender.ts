@@ -129,8 +129,19 @@ export async function sendEmailDraft(
   // IMPORTANT: Using a human name instead of "Vexim Trade" significantly reduces
   // spam filtering. Gmail/Outlook trust emails from "Hoc Luong" more than
   // generic company names.
-  const senderName = profile.full_name // The logged-in AE's name
+  // 
+  // If full_name is not set in profile, we MUST still use a human-sounding name.
+  // Fallback to "Vexim Trade Team" if no name available (better than just email address).
+  const senderName = profile.full_name || "Vexim Trade Team"
   const fromAddress = buildPersonalizedSender(senderName, "trade")
+  
+  // DEBUG: Log sender info to verify it's working correctly
+  console.log("[email-sender] Building from address:", {
+    userId: user.id,
+    profileFullName: profile.full_name,
+    senderName,
+    fromAddress,
+  })
   
   // Build ref code for internal tracking (stored in X-Ref-Code header, not visible to buyer)
   const refCode = draft.opportunity_id

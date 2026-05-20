@@ -28,7 +28,7 @@ import type {
   AEContext,
   BuyerContext,
 } from "./types"
-import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS } from "./types"
+import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS, normalizeWeights } from "./types"
 import {
   calculateSemanticProductScore,
   type SemanticScoreResult,
@@ -42,7 +42,9 @@ export function calculateScore(
   context: ScoringContext,
   thresholds: MatchingThresholds = DEFAULT_THRESHOLDS
 ): ScoringResult {
-  const { buyer, ae, weights } = context
+  const { buyer, ae } = context
+  // Normalize weights to handle legacy format from database
+  const weights = normalizeWeights(context.weights)
 
   // Calculate individual factors using new formula
   const factors: ScoringFactors = {
@@ -153,7 +155,9 @@ export async function calculateHybridScore(
   context: ScoringContext,
   thresholds: MatchingThresholds = DEFAULT_THRESHOLDS
 ): Promise<HybridScoringResult> {
-  const { buyer, ae, weights } = context
+  const { buyer, ae } = context
+  // Normalize weights to handle legacy format from database
+  const weights = normalizeWeights(context.weights)
 
   // Calculate semantic score (async)
   let semanticResult: SemanticScoreResult | null = null

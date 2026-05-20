@@ -17,6 +17,49 @@ import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
 
 /**
+ * Extract specific purchase history details (supplier names, years, volumes) from raw text.
+ * Input: "Mua của Visimex Corp Joint Stock Com (VN) từ năm 2024, năm 2025 mua của Procesadora De Alimentos Santa Isab (Chile) số lượng 16.800kg"
+ * Output: { vietnamSupplier: "Visimex Corp Joint Stock Com", vietnamYear: "2024", currentSupplier: "Procesadora De Alimentos Santa Isab", currentYear: "2025", volume: "16,800kg" }
+ */
+function extractPurchaseHistoryDetails(text: string | null): {
+  vietnamSupplier: string | null
+  vietnamYear: string | null
+  currentSupplier: string | null
+  currentYear: string | null
+  volume: string | null
+} {
+  const result = {
+    vietnamSupplier: null,
+    vietnamYear: null,
+    currentSupplier: null,
+    currentYear: null,
+    volume: null,
+  }
+
+  if (!text?.trim()) return result
+
+  // Extract Vietnam supplier and year: "Mua của [NAME] (VN/Vietnam)" + optional "từ năm [YEAR]"
+  const vnMatch = text.match(/[Mm]ua\s+(?:của|của|from)?\s+(.+?)\s*\((?:VN|Việt\s*Nam|Vietnam|Viet Nam)\)(?:.*?(?:từ|from)\s+năm\s+(\d{4}))?/)
+  if (vnMatch) {
+    result.vietnamSupplier = vnMatch[1].trim()
+    if (vnMatch[2]) result.vietnamYear = vnMatch[2]
+  }
+
+  // Extract current/recent supplier: Look for "năm [YEAR] mua của [NAME] ([COUNTRY])"
+  const currentMatch = text.match(/năm\s+(\d{4})\s+mua\s+(?:của|của|from)?\s+(.+?)\s*\(([^)]+)\)/)
+  if (currentMatch) {
+    result.currentYear = currentMatch[1]
+    result.currentSupplier = currentMatch[2].trim()
+  }
+
+  // Extract volume: "số lượng [NUMBER]kg" or just "[NUMBER]kg"
+  const volumeMatch = text.match(/(?:số\s+lượng\s+)?(\d+(?:[.,]\d+)?)\s*kg/i)
+  if (volumeMatch) {
+    result.volume = volumeMatch[1].replace(",", ",") + " kg"
+  }
+
+  return result
+}
  * Email guidance using proven copywriting frameworks from masters:
  * - Gary Halbert: "Reason Why" technique, specificity, curiosity hooks
  * - Dan Kennedy: No-BS direct response, benefit-stacking, urgency
@@ -231,8 +274,11 @@ export async function generateEmailDraft(
   // Format suppliers for context
   const formattedSuppliers = topSuppliers?.map(s => `${s.name} (${s.country || "Unknown"})`).join(", ") ?? null
 
-  // ⚠️ DATA QUALITY CHECK: Log when critical fields are missing
+  // ⚠️ Extract specific purchase history details for SCENARIO detection
   const purchaseHistoryStr = lead["purchase_history"] as string | null
+  const purchaseHistoryData = extractPurchaseHistoryDetails(purchaseHistoryStr)
+
+  // ⚠️ DATA QUALITY CHECK: Log when critical fields are missing
   const hasPurchaseHistory = purchaseHistoryStr?.trim() && purchaseHistoryStr.trim().length > 10
   if (!hasPurchaseHistory) {
     console.warn(
@@ -273,6 +319,11 @@ export async function generateEmailDraft(
       
       // === PURCHASE HISTORY & VOLUME (For sizing the opportunity) ===
       purchase_history: lead["purchase_history"], // Summary of past purchases
+      purchase_history_vietnam_supplier: purchaseHistoryData.vietnamSupplier, // ⭐ EXTRACTED: Specific Vietnam supplier name if mentioned
+      purchase_history_vietnam_year: purchaseHistoryData.vietnamYear, // ⭐ EXTRACTED: Year when they bought from Vietnam
+      purchase_history_current_supplier: purchaseHistoryData.currentSupplier, // ⭐ EXTRACTED: Current/recent supplier name
+      purchase_history_current_year: purchaseHistoryData.currentYear, // ⭐ EXTRACTED: Year of current supplier
+      purchase_history_volume: purchaseHistoryData.volume, // ⭐ EXTRACTED: Specific volume in kg
       total_shipments: lead["total_shipments"], // Total shipment count
       avg_teu_per_month: lead["avg_teu_per_month"], // Average volume
       last_shipment_date: lead["last_shipment_date"], // Recency of activity
@@ -435,11 +486,18 @@ SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, 
 - Angle: Additional supplier, diversification, competitive pricing
 
 SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purchase_history as past, then switched to other origin)
-- OPENING: "I noticed [buyer_company] previously sourced from [EXACT_VIETNAM_SUPPLIER_NAME] in [YEAR], then shifted to [EXACT_CURRENT_SUPPLIER_NAME] ([CURRENT_COUNTRY]) for your [VOLUME_IF_AVAILABLE] requirements."
+- ⚠️ CRITICAL: The AI has EXTRACTED these for you - DO NOT re-parse from purchase_history:
+  • purchase_history_vietnam_supplier = exact Vietnam supplier name (e.g., "Visimex Corp Joint Stock Com")
+  • purchase_history_vietnam_year = year they bought from Vietnam (e.g., "2024")
+  • purchase_history_current_supplier = exact current supplier name (e.g., "Procesadora De Alimentos Santa Isab")
+  • purchase_history_current_year = year of current supplier (e.g., "2025")
+  • purchase_history_volume = specific volume (e.g., "16,800 kg")
+  
+- OPENING: "I noticed [buyer_company] previously sourced from [purchase_history_vietnam_supplier] in [purchase_history_vietnam_year], then shifted to [purchase_history_current_supplier] in [purchase_history_current_year][add volume if available: for your [purchase_history_volume] requirements]."
 - BODY: Acknowledge the previous relationship by NAME. Focus on "as you evaluate options" and "complementary source" — don't criticize their current suppliers.
 - ANGLE: Win them back as alternative/secondary supplier, show what's improved, offer fresh start
-- ⚠️ MANDATORY: You MUST extract and use EXACT company names from purchase_history! Never say just "Vietnam" or "Chile" when you have "Visimex Corp" or "Procesadora De Alimentos".
-- EXAMPLE for American Cashew: "I noticed American Cashew worked with Visimex on Cashewnut Kernels before shifting to Chile recently. With your Q2-Q3 season approaching, we'd love to reconnect you with premium Vietnam cashews at landed costs worth comparing."
+- ⚠️ MANDATORY: You MUST use the EXTRACTED field values! These are parsed from objective customs/purchase history data.
+- EXAMPLE for American Cashew: "I noticed American Cashew worked with Visimex Corp on Cashewnut Kernels in 2024 before shifting to Procesadora De Alimentos in Chile for your 16,800 kg requirements. With your Q2-Q3 season approaching, we'd love to reconnect you with premium Vietnam cashews at landed costs worth comparing."
 - KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins", "expanded to", "switched to"
 - NEVER make negative assumptions about why they switched. Assume it was a business decision, not a problem with Vietnam suppliers.
 

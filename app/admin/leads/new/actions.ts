@@ -32,6 +32,54 @@ function parseTopSuppliers(suppliersStr: string): { name: string; country: strin
   }).filter(s => s.name)
 }
 
+/**
+ * Extract key supplier information from purchase history.
+ * Input: "Mua của Visimex Corp Joint Stock Com (VN) từ năm 2024, năm 2025 mua của Procesadora De Alimentos Santa Isab (Chile) số lượng 16.800kg"
+ * Output: { vietnamSupplier: "Visimex Corp Joint Stock Com", vietnamYear: "2024", currentSupplier: "Procesadora De Alimentos Santa Isab", currentYear: "2025", volume: "16,800kg" }
+ */
+function extractPurchaseHistoryData(purchaseHistory: string | null): {
+  vietnamSupplier: string | null
+  vietnamYear: string | null
+  currentSupplier: string | null
+  currentYear: string | null
+  volume: string | null
+} {
+  const result = {
+    vietnamSupplier: null,
+    vietnamYear: null,
+    currentSupplier: null,
+    currentYear: null,
+    volume: null,
+  }
+
+  if (!purchaseHistory?.trim()) return result
+
+  const text = purchaseHistory.toLowerCase()
+
+  // Extract Vietnam supplier and year: "Mua của [NAME] (VN) từ năm [YEAR]" or just "[NAME] (VN)" + year mention
+  const vnMatch = purchaseHistory.match(/[Mm]ua\s+của\s+(.+?)\s*\((?:VN|Việt\s*Nam|Vietnam)\)(?:.*?từ\s+năm\s+(\d{4}))?/)
+  if (vnMatch) {
+    result.vietnamSupplier = vnMatch[1].trim()
+    result.vietnamYear = vnMatch[2] || null
+  }
+
+  // Extract current/recent supplier: Look for supplier name after year or after "(Chile/Brazil/etc)"
+  // Pattern: "năm 2025 mua của [NAME] ([COUNTRY])" or just specific country pattern
+  const currentMatch = purchaseHistory.match(/năm\s+(\d{4})\s+mua\s+của\s+(.+?)\s*\(([^)]+)\)/)
+  if (currentMatch) {
+    result.currentYear = currentMatch[1]
+    result.currentSupplier = currentMatch[2].trim()
+  }
+
+  // Extract volume: "số lượng [NUMBER]kg" or "[NUMBER]kg"
+  const volumeMatch = purchaseHistory.match(/(?:số\s+lượng\s+)?(\d+[\.,]\d+)(?:\s*kg)?/)
+  if (volumeMatch) {
+    result.volume = volumeMatch[1].replace(",", ",") + "kg"
+  }
+
+  return result
+}
+
 export interface CreateLeadWithAIMatchingInput {
   companyName: string
   contactPerson?: string | null

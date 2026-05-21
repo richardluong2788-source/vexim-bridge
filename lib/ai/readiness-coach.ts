@@ -11,10 +11,9 @@
  * - Business Readiness (20%): Giao tiếp, MOQ, thanh toán, lead time
  *
  * Output: Readiness Score (0-100), Tier (Gold/Potential/Pending),
- *         Strengths, Gaps, và Action Plan cá nhân hóa.
+ *         Strengths, Gaps, và Action Plan với giọng tư vấn cá nhân hóa.
  */
 
-import { generateText } from "ai"
 import type {
   AssessmentAnswers,
   ReadinessStrength,
@@ -521,6 +520,7 @@ function identifyGaps(
         estimatedTimeToFix: "2-4 weeks",
         estimatedCost: "$150-500",
         veximService: "Vexim Global - FDA Registration Support",
+        scoreBoostIfFixed: 13,
       })
     }
 
@@ -537,6 +537,7 @@ function identifyGaps(
         suggestedActionVi: "Triển khai hệ thống HACCP và được chứng nhận bởi tổ chức uy tín",
         estimatedTimeToFix: "3-6 months",
         estimatedCost: "$3,000-10,000",
+        scoreBoostIfFixed: 8,
       })
     }
 
@@ -553,6 +554,7 @@ function identifyGaps(
         suggestedActionVi: "Kiểm nghiệm sản phẩm tại phòng thí nghiệm uy tín",
         estimatedTimeToFix: "1-2 weeks",
         estimatedCost: "$200-500 per test",
+        scoreBoostIfFixed: 4,
       })
     }
 
@@ -569,6 +571,7 @@ function identifyGaps(
         suggestedActionVi: "Tạo video tham quan nhà máy và bộ ảnh chuyên nghiệp",
         estimatedTimeToFix: "1-2 weeks",
         estimatedCost: "$500-2,000",
+        scoreBoostIfFixed: 3,
       })
     }
   } else {
@@ -603,6 +606,7 @@ function identifyGaps(
         suggestedAction: "Partner with experienced trading company like Vexim",
         suggestedActionVi: "Hợp tác với công ty thương mại có kinh nghiệm như Vexim",
         veximService: "Vexim Bridge - Export Partnership Program",
+        scoreBoostIfFixed: 9,
       })
     }
 
@@ -618,6 +622,7 @@ function identifyGaps(
         suggestedAction: "Work with US market specialists to understand requirements",
         suggestedActionVi: "Làm việc với chuyên gia thị trường Mỹ để hiểu yêu cầu",
         veximService: "Vexim Bridge - US Market Entry Support",
+        scoreBoostIfFixed: 4,
       })
     }
   }
@@ -638,6 +643,7 @@ function identifyGaps(
         suggestedAction: "Hire bilingual staff or work through Vexim as intermediary",
         suggestedActionVi: "Tuyển nhân viên song ngữ hoặc làm việc qua Vexim làm trung gian",
         veximService: "Vexim Bridge - Communication Support",
+        scoreBoostIfFixed: 4,
       })
     }
 
@@ -710,50 +716,132 @@ function identifyGaps(
 }
 
 // ============================================================
-// Generate Action Plan with AI
+// Generate Action Plan with Advisor Tone + Cross-sell CTAs
 // ============================================================
+
+// Maps a gap code to a human, advisor-tone prescription
+const GAP_ADVISOR_NOTES: Record<string, { en: string; vi: string }> = {
+  no_fda: {
+    en: "This is the single most important step you can take right now. Without FDA registration, US buyers simply cannot place an order with you — no matter how great your product is. The good news: it only takes 2-4 weeks and Vexim can handle the entire process for you.",
+    vi: "Đây là bước quan trọng nhất bạn cần làm ngay lúc này. Không có đăng ký FDA, US buyer không thể đặt hàng từ bạn dù sản phẩm tốt đến đâu. Tin tốt là: chỉ mất 2-4 tuần và Vexim có thể xử lý toàn bộ quy trình cho bạn.",
+  },
+  no_haccp: {
+    en: "Many exporters overlook this — and then lose deals because of it. HACCP is your 'food safety passport'. Once you have it, you'll notice buyers' tone changes immediately. Don't wait for a buyer to ask for it.",
+    vi: "Nhiều nhà xuất khẩu bỏ qua điều này và sau đó mất hợp đồng vì nó. HACCP là 'hộ chiếu an toàn thực phẩm' của bạn. Khi có chứng chỉ này, bạn sẽ nhận thấy thái độ của buyer thay đổi ngay lập tức. Đừng chờ buyer hỏi mới làm.",
+  },
+  no_coa: {
+    en: "Great news — this is one of the fastest wins available to you. A COA from an accredited lab can be ready in 1-2 weeks and immediately boosts your credibility with every buyer you approach.",
+    vi: "Tin tốt — đây là một trong những cải thiện nhanh nhất bạn có thể làm. COA từ phòng thí nghiệm được công nhận có thể hoàn thành trong 1-2 tuần và ngay lập tức tăng độ tin cậy với mọi buyer bạn tiếp cận.",
+  },
+  no_factory_docs: {
+    en: "You'd be surprised how much a professional factory video changes buyer perception. Think of it as your '30-second elevator pitch' — buyers decide if they trust you within the first minute of seeing your facility.",
+    vi: "Bạn sẽ ngạc nhiên khi video nhà máy chuyên nghiệp thay đổi nhận thức của buyer như thế nào. Hãy xem nó như 'bài giới thiệu 30 giây' — buyer quyết định có tin bạn không trong vòng 1 phút đầu nhìn thấy cơ sở của bạn.",
+  },
+  no_export_experience: {
+    en: "Every successful exporter started exactly where you are. The key is to not navigate this alone. A strong partner who already knows the US market can cut your learning curve from 2 years to 2 months.",
+    vi: "Mọi nhà xuất khẩu thành công đều bắt đầu từ đúng vị trí của bạn. Điều quan trọng là đừng đi một mình. Một đối tác mạnh đã hiểu thị trường Mỹ có thể rút ngắn quá trình học hỏi từ 2 năm xuống còn 2 tháng.",
+  },
+  no_us_experience: {
+    en: "You've already proven you can export — that puts you ahead of 80% of applicants. Now it's about understanding US-specific nuances: FDA, labeling, buyer communication style. This is exactly what Vexim specializes in.",
+    vi: "Bạn đã chứng minh được khả năng xuất khẩu — điều này đã đưa bạn vượt qua 80% ứng viên. Bây giờ là về việc hiểu các đặc thù của Mỹ: FDA, nhãn hàng, phong cách giao tiếp với buyer. Đây chính xác là chuyên môn của Vexim.",
+  },
+  no_english: {
+    en: "This is a 'blind spot' many businesses overlook. US buyers expect responses within hours, in clear English. Even a small language barrier can cause deals to fall through. Vexim can bridge this gap for you immediately.",
+    vi: "Đây là một 'điểm mù' mà nhiều doanh nghiệp mắc phải. US buyer mong đợi phản hồi trong vài giờ, bằng tiếng Anh rõ ràng. Dù chỉ một rào cản ngôn ngữ nhỏ cũng có thể khiến hợp đồng tuột mất. Vexim có thể lấp đầy khoảng trống này cho bạn ngay lập tức.",
+  },
+  no_compliance_info: {
+    en: "Compliance documentation is the foundation of everything in the US market. Before any buyer conversation, you need to know exactly where you stand. Let's build this foundation together.",
+    vi: "Hồ sơ tuân thủ là nền tảng của mọi thứ trên thị trường Mỹ. Trước bất kỳ cuộc trò chuyện nào với buyer, bạn cần biết chính xác mình đang đứng ở đâu. Hãy cùng nhau xây dựng nền tảng này.",
+  },
+}
+
+// Maps a gap code to a Vexim cross-sell CTA
+const GAP_VEXIM_CTA: Record<string, { label: string; labelVi: string; url: string }> = {
+  no_fda: {
+    label: "Get FDA support from Vexim Global",
+    labelVi: "Nhận hỗ trợ FDA từ Vexim Global",
+    url: "/client/support?service=fda-registration",
+  },
+  no_haccp: {
+    label: "Connect with HACCP consultants",
+    labelVi: "Kết nối với chuyên gia tư vấn HACCP",
+    url: "/client/support?service=haccp-certification",
+  },
+  no_coa: {
+    label: "Request lab testing support",
+    labelVi: "Yêu cầu hỗ trợ kiểm nghiệm",
+    url: "/client/support?service=lab-testing",
+  },
+  no_export_experience: {
+    label: "Join the Vexim Export Partnership",
+    labelVi: "Tham gia Chương trình Đối tác Xuất khẩu Vexim",
+    url: "/client/support?service=export-partnership",
+  },
+  no_us_experience: {
+    label: "Get US Market Entry support",
+    labelVi: "Nhận hỗ trợ thâm nhập thị trường Mỹ",
+    url: "/client/support?service=us-market-entry",
+  },
+  no_english: {
+    label: "Use Vexim as your US communicator",
+    labelVi: "Dùng Vexim làm cầu nối giao tiếp với Mỹ",
+    url: "/client/support?service=communication-support",
+  },
+}
 
 async function generateActionPlan(
   gaps: ReadinessGap[],
   strengths: ReadinessStrength[],
   answers: AssessmentAnswers
 ): Promise<ActionPlanItem[]> {
-  // Build action plan from gaps, prioritized
   const actionPlan: ActionPlanItem[] = []
-
   let order = 1
 
   // Critical gaps first (Urgent)
   for (const gap of gaps.filter((g) => g.severity === "critical")) {
+    const note = GAP_ADVISOR_NOTES[gap.code]
+    const cta = GAP_VEXIM_CTA[gap.code]
     actionPlan.push({
       priority: "urgent",
       order: order++,
-      title: `Fix: ${gap.title}`,
-      titleVi: `Khắc phục: ${gap.titleVi}`,
+      title: gap.title,
+      titleVi: gap.titleVi,
       description: gap.suggestedAction,
       descriptionVi: gap.suggestedActionVi,
+      advisorNote: note?.en,
+      advisorNoteVi: note?.vi,
       category: gap.category,
       relatedGapCode: gap.code,
       estimatedTimeToComplete: gap.estimatedTimeToFix || "1-2 months",
-      veximCanHelp: !!gap.veximService,
+      veximCanHelp: !!gap.veximService || !!cta,
       veximServiceName: gap.veximService,
+      veximCtaLabel: cta?.label,
+      veximCtaLabelVi: cta?.labelVi,
+      veximCtaUrl: cta?.url,
     })
   }
 
   // High severity gaps (Important)
   for (const gap of gaps.filter((g) => g.severity === "high")) {
+    const note = GAP_ADVISOR_NOTES[gap.code]
+    const cta = GAP_VEXIM_CTA[gap.code]
     actionPlan.push({
       priority: "important",
       order: order++,
-      title: `Address: ${gap.title}`,
-      titleVi: `Giải quyết: ${gap.titleVi}`,
+      title: gap.title,
+      titleVi: gap.titleVi,
       description: gap.suggestedAction,
       descriptionVi: gap.suggestedActionVi,
+      advisorNote: note?.en,
+      advisorNoteVi: note?.vi,
       category: gap.category,
       relatedGapCode: gap.code,
       estimatedTimeToComplete: gap.estimatedTimeToFix || "2-4 weeks",
-      veximCanHelp: !!gap.veximService,
+      veximCanHelp: !!gap.veximService || !!cta,
       veximServiceName: gap.veximService,
+      veximCtaLabel: cta?.label,
+      veximCtaLabelVi: cta?.labelVi,
+      veximCtaUrl: cta?.url,
     })
   }
 
@@ -761,18 +849,25 @@ async function generateActionPlan(
   for (const gap of gaps.filter(
     (g) => g.severity === "medium" || g.severity === "low"
   )) {
+    const note = GAP_ADVISOR_NOTES[gap.code]
+    const cta = GAP_VEXIM_CTA[gap.code]
     actionPlan.push({
       priority: "nice_to_have",
       order: order++,
-      title: `Improve: ${gap.title}`,
-      titleVi: `Cải thiện: ${gap.titleVi}`,
+      title: gap.title,
+      titleVi: gap.titleVi,
       description: gap.suggestedAction,
       descriptionVi: gap.suggestedActionVi,
+      advisorNote: note?.en,
+      advisorNoteVi: note?.vi,
       category: gap.category,
       relatedGapCode: gap.code,
       estimatedTimeToComplete: gap.estimatedTimeToFix || "1-2 months",
-      veximCanHelp: !!gap.veximService,
+      veximCanHelp: !!gap.veximService || !!cta,
       veximServiceName: gap.veximService,
+      veximCtaLabel: cta?.label,
+      veximCtaLabelVi: cta?.labelVi,
+      veximCtaUrl: cta?.url,
     })
   }
 

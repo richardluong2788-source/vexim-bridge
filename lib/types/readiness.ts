@@ -166,6 +166,7 @@ export interface ReadinessGap {
   estimatedTimeToFix?: string
   estimatedCost?: string
   veximService?: string // Cross-sell opportunity
+  scoreBoostIfFixed?: number // How many points fixing this gap adds to score
 }
 
 export interface ActionPlanItem {
@@ -175,12 +176,19 @@ export interface ActionPlanItem {
   titleVi: string
   description: string
   descriptionVi: string
+  // Advisor-tone motivational context shown below the description
+  advisorNote?: string
+  advisorNoteVi?: string
   category: "product" | "compliance" | "experience" | "business"
   relatedGapCode?: string
   estimatedTimeToComplete: string
   resources?: string[]
   veximCanHelp: boolean
   veximServiceName?: string
+  // CTA button that links to the relevant Vexim service page
+  veximCtaLabel?: string
+  veximCtaLabelVi?: string
+  veximCtaUrl?: string
 }
 
 // ============================================================

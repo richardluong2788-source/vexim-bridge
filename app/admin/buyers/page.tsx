@@ -219,7 +219,7 @@ export default async function BuyersDirectoryPage() {
         )}
       </div>
 
-      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} isLeadResearcher={isLR} />
+      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} isLeadResearcher={isLR} canWriteBuyer={canWriteBuyer} />
     </div>
   )
 }

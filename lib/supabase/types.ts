@@ -730,6 +730,56 @@ export type Database = {
           created_at?: string
         }
       }
+      export_readiness_assessments: {
+        Row: {
+          id: string
+          client_id: string
+          readiness_score: number | null
+          tier: "gold" | "potential" | "pending" | null
+          strengths: Record<string, unknown>[]
+          gaps: Record<string, unknown>[]
+          action_plan: Record<string, unknown>[]
+          answers: Record<string, unknown>
+          status: "in_progress" | "completed" | "expired"
+          current_step: number
+          started_at: string
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          readiness_score?: number | null
+          tier?: "gold" | "potential" | "pending" | null
+          strengths?: Record<string, unknown>[]
+          gaps?: Record<string, unknown>[]
+          action_plan?: Record<string, unknown>[]
+          answers?: Record<string, unknown>
+          status?: "in_progress" | "completed" | "expired"
+          current_step?: number
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          readiness_score?: number | null
+          tier?: "gold" | "potential" | "pending" | null
+          strengths?: Record<string, unknown>[]
+          gaps?: Record<string, unknown>[]
+          action_plan?: Record<string, unknown>[]
+          answers?: Record<string, unknown>
+          status?: "in_progress" | "completed" | "expired"
+          current_step?: number
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }

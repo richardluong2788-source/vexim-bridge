@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck, UserCircle, Globe, ExternalLink } from "lucide-react"
+import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck, UserCircle, Globe, ExternalLink, ClipboardCheck } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
+import { ClientReadinessCard } from "@/components/admin/client-readiness-card"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, canAny } from "@/lib/auth/permissions"
@@ -258,7 +259,7 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
 
         return (
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
+            <TabsList className="grid w-full grid-cols-5 sm:inline-flex sm:w-auto">
               {showPerf && (
                 <TabsTrigger value="performance" className="gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
@@ -266,6 +267,11 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                   <span className="sm:hidden">{tabsCopy.performance}</span>
                 </TabsTrigger>
               )}
+              <TabsTrigger value="readiness" className="gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Readiness</span>
+                <span className="sm:hidden">Readiness</span>
+              </TabsTrigger>
               <TabsTrigger value="products" className="gap-1.5">
                 <Package className="h-3.5 w-3.5" />
                 {tabsCopy.products}
@@ -289,6 +295,10 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                 />
               </TabsContent>
             )}
+
+            <TabsContent value="readiness" className="mt-4">
+              <ClientReadinessCard clientId={client.id} />
+            </TabsContent>
 
             <TabsContent value="products" className="mt-4">
               <AdminClientProductsManager

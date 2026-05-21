@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { Search, Globe2, Building2, ExternalLink, Filter, Sparkles, UserCircle2 } from "lucide-react"
+import { Search, Globe2, Building2, ExternalLink, Filter, Sparkles, UserCircle2, MoreVertical } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,10 +14,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import { RunAIMatchButton } from "@/components/admin/run-ai-match-button"
+import { DeleteBuyerButton } from "@/components/admin/delete-buyer-button"
 import type { Stage } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -49,6 +57,7 @@ interface Props {
   canViewPII: boolean
   canRunMatch?: boolean
   isLeadResearcher?: boolean
+  canWriteBuyer?: boolean
 }
 
 // Compact labels for the "latest stage" badge. Matches the kanban
@@ -85,7 +94,7 @@ const RISK_STYLE: Record<RiskLevel, string> = {
   high: "border-destructive/40 bg-destructive/10 text-destructive",
 }
 
-export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isLeadResearcher = false }: Props) {
+export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isLeadResearcher = false, canWriteBuyer = false }: Props) {
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [industryFilter, setIndustryFilter] = useState<string>("all")
@@ -274,6 +283,9 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                   </span>
                 </TableHead>
               )}
+              <TableHead className="font-medium text-center w-12">
+                {locale === "vi" ? "Thao tác" : "Actions"}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -440,6 +452,36 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                         />
                       </TableCell>
                     )}
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">
+                              {locale === "vi" ? "Mở menu" : "Open menu"}
+                            </span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/buyers/${r.id}`}>
+                              {locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                            </Link>
+                          </DropdownMenuItem>
+                          {canWriteBuyer && (
+                            <DropdownMenuItem asChild>
+                              <DeleteBuyerButton
+                                buyerId={r.id}
+                                buyerName={r.company_name}
+                                locale={locale}
+                                variant="ghost"
+                                size="sm"
+                              />
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 )
               })

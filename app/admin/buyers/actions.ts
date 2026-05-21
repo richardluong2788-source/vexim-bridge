@@ -169,3 +169,50 @@ export async function assignBuyerToClient(
 
   return { ok: true, data: { opportunityId: opp.id, alreadyExisted: false } }
 }
+
+// ---------------------------------------------------------------------------
+// Delete buyer (a.k.a. `leads` row)
+// ---------------------------------------------------------------------------
+//
+// Business rules:
+//   - Must hold BUYER_WRITE capability.
+//   - If the buyer has any opportunities, return an error (no orphaned
+//     opportunities). User must manually clean up first.
+//
+export async function deleteBuyer(buyerId: string): Promise<ActionResult<void>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  // 1) Check if buyer exists
+  const { data: buyer, error: buyerErr } = await admin
+    .from("leads")
+    .select("id")
+    .eq("id", buyerId)
+    .single()
+  if (buyerErr || !buyer) {
+    return { ok: false, error: "buyer_not_found" }
+  }
+
+  // 2) Check if buyer has any opportunities
+  const { data: opps } = await admin
+    .from("opportunities")
+    .select("id")
+    .eq("lead_id", buyerId)
+    .limit(1)
+  if (opps && opps.length > 0) {
+    return { ok: false, error: "buyer_has_opportunities" }
+  }
+
+  // 3) Delete the buyer
+  const { error: delErr } = await admin
+    .from("leads")
+    .delete()
+    .eq("id", buyerId)
+  if (delErr) {
+    return { ok: false, error: delErr.message }
+  }
+
+  revalidatePath("/admin/buyers")
+  return { ok: true, data: undefined }
+}

@@ -49,6 +49,9 @@ import { assessCountryRisk } from "@/lib/risk/country-risk"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
 import { createLeadWithAIMatchingAction, type CreateLeadWithAIMatchingInput } from "@/app/admin/leads/new/actions"
 import { toast } from "sonner"
+import { BuyerAnalysisCard } from "@/components/admin/buyer-analysis-card"
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 export function SmartLeadForm() {
   const router = useRouter()
@@ -118,13 +121,16 @@ export function SmartLeadForm() {
   const [needsCapacity, setNeedsCapacity] = useState("")
   const [potentialValue, setPotentialValue] = useState("")
 
-  // ── Submit state ──────────────────────────────────────────────────────
+  // ── Submit state ───────────��──────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   
   // ── Auto-fill from ImportYeti API ──────────────────────────────────────
   const [autoFillLoading, setAutoFillLoading] = useState(false)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [buyerAnalysis, setBuyerAnalysis] = useState<BuyerAnalysisResult | null>(null)
+  const [buyerStrategy, setBuyerStrategy] = useState<BuyerStrategy | null>(null)
 
   const riskAssessment = country.trim() ? assessCountryRisk(country) : null
   const isCompanyNameMissing = !companyName.trim()
@@ -209,8 +215,11 @@ export function SmartLeadForm() {
       if (data.purchaseHistory) setPurchaseHistory(data.purchaseHistory)
 
       toast.success(locale === "vi"
-        ? `Đã tự động điền dữ liệu cho ${data.companyName || "company"}. Vui lòng kiểm tra và bổ sung thông tin liên hệ.`
-        : `Auto-filled data for ${data.companyName || "company"}. Please review and add contact information.`)
+        ? `Đã tự động điền dữ liệu cho ${data.companyName || "company"}. Đang phân tích buyer...`
+        : `Auto-filled data for ${data.companyName || "company"}. Analyzing buyer...`)
+
+      // Trigger AI analysis in background
+      runBuyerAnalysis()
 
     } catch (err) {
       console.error("[SmartLeadForm] Auto-fill error:", err)
@@ -219,6 +228,45 @@ export function SmartLeadForm() {
       toast.error(message)
     } finally {
       setAutoFillLoading(false)
+    }
+  }
+
+  // Run AI Buyer Analysis
+  async function runBuyerAnalysis() {
+    if (!importYetiLink.trim()) return
+
+    setAnalysisLoading(true)
+    setBuyerAnalysis(null)
+    setBuyerStrategy(null)
+
+    try {
+      const response = await fetch("/api/importyeti/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importYetiLink: importYetiLink.trim() }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        console.error("[SmartLeadForm] Analysis failed:", result.error)
+        toast.error(locale === "vi" 
+          ? "Không thể phân tích buyer. Vui lòng thử lại."
+          : "Could not analyze buyer. Please try again.")
+        return
+      }
+
+      setBuyerAnalysis(result.analysis)
+      setBuyerStrategy(result.strategy)
+      
+      toast.success(locale === "vi"
+        ? "Đã hoàn thành phân tích buyer!"
+        : "Buyer analysis complete!")
+
+    } catch (err) {
+      console.error("[SmartLeadForm] Analysis error:", err)
+    } finally {
+      setAnalysisLoading(false)
     }
   }
 
@@ -328,6 +376,32 @@ export function SmartLeadForm() {
         <div className="flex gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
           <AlertCircle className="h-5 w-5 flex-shrink-0 text-destructive" />
           <div className="text-sm text-destructive">{error}</div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* AI Buyer Analysis Card (shows after auto-fill) */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {(analysisLoading || buyerAnalysis) && (
+        <div className="space-y-2">
+          {analysisLoading ? (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    {locale === "vi" ? "Đang phân tích buyer với AI..." : "Analyzing buyer with AI..."}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : buyerAnalysis && buyerStrategy ? (
+            <BuyerAnalysisCard 
+              analysis={buyerAnalysis} 
+              strategy={buyerStrategy} 
+              locale={locale}
+            />
+          ) : null}
         </div>
       )}
 

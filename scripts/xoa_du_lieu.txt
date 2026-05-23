@@ -1,0 +1,54 @@
+-- ⚠️ CẢNH BÁO: Script này sẽ XÓA TẤT CẢ dữ liệu!
+-- Chạy trong Supabase SQL Editor
+
+-- 1. Xóa các bảng phụ thuộc trước (child tables)
+TRUNCATE TABLE notification_email_log CASCADE;
+TRUNCATE TABLE notifications CASCADE;
+TRUNCATE TABLE notification_preferences CASCADE;
+
+TRUNCATE TABLE buyer_replies CASCADE;
+TRUNCATE TABLE buyer_email_log CASCADE;
+TRUNCATE TABLE buyer_embeddings CASCADE;
+
+TRUNCATE TABLE email_drafts CASCADE;
+TRUNCATE TABLE commercial_intelligence CASCADE;
+TRUNCATE TABLE lc_verifications CASCADE;
+
+TRUNCATE TABLE stage_transitions CASCADE;
+TRUNCATE TABLE activities CASCADE;
+
+TRUNCATE TABLE deals CASCADE;
+TRUNCATE TABLE invoices CASCADE;
+TRUNCATE TABLE invoice_counters CASCADE;
+TRUNCATE TABLE retainer_credits CASCADE;
+
+TRUNCATE TABLE sla_violations CASCADE;
+TRUNCATE TABLE sla_targets CASCADE;
+TRUNCATE TABLE sla_evaluation_runs CASCADE;
+
+TRUNCATE TABLE ae_match_inbox CASCADE;
+TRUNCATE TABLE ae_match_scores CASCADE;
+TRUNCATE TABLE semantic_match_logs CASCADE;
+
+TRUNCATE TABLE tokenized_share_link_docs CASCADE;
+TRUNCATE TABLE tokenized_share_links CASCADE;
+TRUNCATE TABLE compliance_doc_history CASCADE;
+TRUNCATE TABLE compliance_docs CASCADE;
+
+TRUNCATE TABLE client_request_replies CASCADE;
+TRUNCATE TABLE client_requests CASCADE;
+
+TRUNCATE TABLE product_embeddings CASCADE;
+TRUNCATE TABLE client_products CASCADE;
+TRUNCATE TABLE client_profiles CASCADE;
+
+-- 2. Xóa bảng chính (parent tables)
+TRUNCATE TABLE opportunities CASCADE;
+TRUNCATE TABLE leads CASCADE;
+-- buyer_pool là VIEW, không cần truncate
+
+TRUNCATE TABLE billing_plans CASCADE;
+TRUNCATE TABLE operating_expenses CASCADE;
+
+-- 3. Xóa profiles (KHÔNG xóa Super Admin)
+DELETE FROM profiles WHERE role != 'super_admin';

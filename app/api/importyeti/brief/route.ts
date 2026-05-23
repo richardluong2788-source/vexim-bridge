@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateBuyerIntelligenceBrief, exportBuyerBriefAsText } from "@/lib/briefing/buyer-brief-generator"
 import { fetchAndTransformImportYetiData } from "@/lib/importyeti/api-transformer"
-import { analyzeBuyerProfile } from "@/lib/ai/buyer-analyzer"
+import { analyzeBuyer } from "@/lib/ai/buyer-analyzer"
 import { generateBuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 export async function POST(request: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Analyze buyer profile
-    const analysis = analyzeBuyerProfile(transformedData)
+    const analysis = analyzeBuyer(transformedData)
 
     // Step 3: Generate strategy with AI
     const strategy = await generateBuyerStrategy(transformedData, analysis)
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       strategy,
       metadata: {
         generatedDate: new Date().toISOString().split("T")[0],
-        buyerId: transformedData.companyName?.replace(/\\s+/g, "-").toLowerCase(),
+        buyerId: transformedData.companyName?.replace(/\s+/g, "-").toLowerCase(),
         documentId: `BRIEF-${Date.now()}`,
       },
     })

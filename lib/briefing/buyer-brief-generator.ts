@@ -312,7 +312,7 @@ export function exportBuyerBriefAsText(
   brief: string,
   companyName: string
 ): { filename: string; content: string } {
-  const filename = \`Buyer-Brief-\${companyName.replace(/\\s+/g, "-")}-\${Date.now()}.md\`
+  const filename = `Buyer-Brief-${companyName.replace(/\s+/g, "-")}-${Date.now()}.md`
   return {
     filename,
     content: brief,

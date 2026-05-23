@@ -41,12 +41,14 @@ import {
   MessageSquareText,
   Star,
   ExternalLink,
+  Wand2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
-import { createLeadWithAIMatchingAction } from "@/app/admin/leads/new/actions"
+import { createLeadWithAIMatchingAction, type CreateLeadWithAIMatchingInput } from "@/app/admin/leads/new/actions"
+import { toast } from "sonner"
 
 export function SmartLeadForm() {
   const router = useRouter()
@@ -120,10 +122,105 @@ export function SmartLeadForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  
+  // ── Auto-fill from ImportYeti API ──────────────────────────────────────
+  const [autoFillLoading, setAutoFillLoading] = useState(false)
 
   const riskAssessment = country.trim() ? assessCountryRisk(country) : null
   const isCompanyNameMissing = !companyName.trim()
   const isImportYetiLinkMissing = !importYetiLink.trim()
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Auto-fill from ImportYeti API
+  // ══════════════════════════════════════════════════════════════════════════
+  async function handleAutoFillFromImportYeti() {
+    if (!importYetiLink.trim()) {
+      toast.error(locale === "vi" 
+        ? "Vui lòng nhập đường link ImportYeti trước" 
+        : "Please enter ImportYeti link first")
+      return
+    }
+
+    // Validate URL format
+    if (!importYetiLink.includes("importyeti.com/company/")) {
+      toast.error(locale === "vi"
+        ? "Link không hợp lệ. Vui lòng nhập link có dạng: https://importyeti.com/company/company-name"
+        : "Invalid link. Please enter a link like: https://importyeti.com/company/company-name")
+      return
+    }
+
+    setAutoFillLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch("/api/importyeti/transform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importYetiLink: importYetiLink.trim() }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch data from ImportYeti")
+      }
+
+      const data: Partial<CreateLeadWithAIMatchingInput> = result.data
+
+      // Auto-fill all available fields
+      if (data.companyName) setCompanyName(data.companyName)
+      if (data.importAddress) setImportAddress(data.importAddress)
+      if (data.website) setWebsite(data.website)
+      if (data.contactPhone) setContactPhone(data.contactPhone)
+      if (data.country) setCountry(data.country)
+      
+      // Section 2: Quantitative data
+      if (data.totalShipments) setTotalShipments(data.totalShipments.toString())
+      if (data.lastShipmentDate) {
+        // Convert DD/MM/YYYY to YYYY-MM-DD for input type="date"
+        const parts = data.lastShipmentDate.split("/")
+        if (parts.length === 3) {
+          const [day, month, year] = parts
+          setLastShipmentDate(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`)
+        }
+      }
+      if (data.avgTeuPerMonth) setAvgTeuPerMonth(data.avgTeuPerMonth.toString())
+      if (data.topPeakMonths) setTopPeakMonths(data.topPeakMonths)
+      if (data.topLowMonths) setTopLowMonths(data.topLowMonths)
+      if (data.peakMonthsDataYear) setPeakMonthsDataYear(data.peakMonthsDataYear.toString())
+      if (data.importTrend) setImportTrend(data.importTrend)
+      
+      // Section 3: HS codes & products
+      if (data.hsCode) setHsCode(data.hsCode)
+      if (data.mainProduct) setMainProduct(data.mainProduct)
+      if (data.secondaryHsCodes) setSecondaryHsCodes(data.secondaryHsCodes)
+      
+      // Section 4: Supply chain
+      if (data.topSuppliers) setTopSuppliers(data.topSuppliers)
+      if (data.mainImportCountries) setMainImportCountries(data.mainImportCountries)
+      
+      // Section 5: Logistics
+      if (data.originPorts) setOriginPorts(data.originPorts)
+      if (data.destinationPorts) setDestinationPorts(data.destinationPorts)
+      if (data.containerTypes) setContainerTypes(data.containerTypes)
+      
+      // Section 6: AI notes
+      if (data.bolDescription) setBolDescription(data.bolDescription)
+      if (data.purchaseHistory) setPurchaseHistory(data.purchaseHistory)
+
+      toast.success(locale === "vi"
+        ? `Đã tự động điền dữ liệu cho ${data.companyName || "company"}. Vui lòng kiểm tra và bổ sung thông tin liên hệ.`
+        : `Auto-filled data for ${data.companyName || "company"}. Please review and add contact information.`)
+
+    } catch (err) {
+      console.error("[SmartLeadForm] Auto-fill error:", err)
+      const message = err instanceof Error ? err.message : "Failed to fetch data"
+      setError(message)
+      toast.error(message)
+    } finally {
+      setAutoFillLoading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -306,17 +403,50 @@ export function SmartLeadForm() {
                 {locale === "vi" ? "Đường link ImportYeti *" : "ImportYeti Link *"}
                 <ExternalLink className="h-3 w-3 text-muted-foreground" />
               </Label>
-              <Input
-                id="importYetiLink"
-                type="url"
-                placeholder="https://importyeti.com/company/..."
-                value={importYetiLink}
-                onChange={(e) => setImportYetiLink(e.target.value)}
-                className={cn(
-                  "border-border",
-                  isImportYetiLinkMissing && importYetiLink !== "" && "border-destructive bg-destructive/5"
-                )}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="importYetiLink"
+                  type="url"
+                  placeholder="https://importyeti.com/company/..."
+                  value={importYetiLink}
+                  onChange={(e) => setImportYetiLink(e.target.value)}
+                  className={cn(
+                    "border-border flex-1",
+                    isImportYetiLinkMissing && importYetiLink !== "" && "border-destructive bg-destructive/5"
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoFillFromImportYeti}
+                  disabled={autoFillLoading || !importYetiLink.trim()}
+                  className="shrink-0 gap-1.5"
+                >
+                  {autoFillLoading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span className="hidden sm:inline">
+                        {locale === "vi" ? "Đang tải..." : "Loading..."}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">
+                        {locale === "vi" ? "Tự động điền" : "Auto-fill"}
+                      </span>
+                    </>
+                  )}
+                </Button>
+              </div>
+              {importYetiLink.trim() && (
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi" 
+                    ? "Nhấn \"Tự động điền\" để lấy dữ liệu từ ImportYeti API" 
+                    : "Click \"Auto-fill\" to fetch data from ImportYeti API"}
+                </p>
+              )}
             </div>
 
             {/* Contact person */}

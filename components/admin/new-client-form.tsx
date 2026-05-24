@@ -49,6 +49,19 @@ export function NewClientForm({ locale }: NewClientFormProps) {
 
   const tr = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
+  // Industries that require FDA registration
+  const FDA_REQUIRED_INDUSTRIES: Industry[] = [
+    "Pharmaceuticals",
+    "Food & Beverage",
+    "Cosmetics & Personal Care",
+    "Seafood",
+  ]
+
+  // Check if any selected industry requires FDA
+  const needsFda = selectedIndustries.some((ind) =>
+    FDA_REQUIRED_INDUSTRIES.includes(ind)
+  )
+
   function translateError(code: string): string {
     switch (code) {
       case "invalid_email":
@@ -352,45 +365,47 @@ export function NewClientForm({ locale }: NewClientFormProps) {
             />
           </div>
 
-          {/* FDA section */}
-          <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Label className="text-sm font-medium">
-                {tr(
-                  "Thông tin FDA (tùy chọn — có thể bổ sung sau)",
-                  "FDA Registration (optional — can be added later)",
-                )}
-              </Label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {tr(
-                  "Cần thiết trước khi gán Buyer và đẩy cơ hội qua giai đoạn Sample. Nếu chưa có, bạn có thể bổ sung trong hồ sơ khách hàng.",
-                  "Required before assigning buyers and advancing past Sample. Can be added later from the client profile.",
-                )}
-              </p>
+          {/* FDA section — only show if FDA-required industry is selected */}
+          {needsFda && (
+            <div className="grid gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label className="text-sm font-medium text-amber-900">
+                  {tr(
+                    "Thông tin FDA (bắt buộc cho ngành này)",
+                    "FDA Registration (required for this industry)",
+                  )}
+                </Label>
+                <p className="mt-1 text-xs text-amber-800">
+                  {tr(
+                    "FDA đăng ký cần thiết trước khi gán Buyer và đẩy cơ hội qua giai đoạn Sample. Nếu chưa có, bạn có thể bổ sung trong hồ sơ khách hàng.",
+                    "FDA registration is required before assigning buyers and advancing past Sample. Can be added later from the client profile.",
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaNumber" className="text-xs">
+                  {tr("Số đăng ký FDA", "FDA Registration Number")}
+                </Label>
+                <Input
+                  id="fdaNumber"
+                  value={fdaNumber}
+                  onChange={(e) => setFdaNumber(e.target.value)}
+                  placeholder="12345678901"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaExpires" className="text-xs">
+                  {tr("Ngày hết hạn", "Expiry Date")}
+                </Label>
+                <Input
+                  id="fdaExpires"
+                  type="date"
+                  value={fdaExpiresAt}
+                  onChange={(e) => setFdaExpiresAt(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaNumber" className="text-xs">
-                {tr("Số đăng ký FDA", "FDA Registration Number")}
-              </Label>
-              <Input
-                id="fdaNumber"
-                value={fdaNumber}
-                onChange={(e) => setFdaNumber(e.target.value)}
-                placeholder="12345678901"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaExpires" className="text-xs">
-                {tr("Ngày hết hạn", "Expiry Date")}
-              </Label>
-              <Input
-                id="fdaExpires"
-                type="date"
-                value={fdaExpiresAt}
-                onChange={(e) => setFdaExpiresAt(e.target.value)}
-              />
-            </div>
-          </div>
+          )}
 
           {/* Error */}
           {error && (

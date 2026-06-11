@@ -152,7 +152,8 @@ export function LegalPage({ pathname, title, summary, effectiveDate, sections, c
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Tài liệu liên quan
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <CrossLink href="/legal/contract" label="Hợp đồng dịch vụ" pathname={pathname} />
                 <CrossLink href="/legal/terms" label="Điều khoản dịch vụ" pathname={pathname} />
                 <CrossLink href="/legal/privacy" label="Chính sách bảo mật" pathname={pathname} />
                 <CrossLink href="/legal/cookies" label="Chính sách cookie" pathname={pathname} />

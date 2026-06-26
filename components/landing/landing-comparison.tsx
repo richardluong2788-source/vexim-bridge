@@ -1,4 +1,5 @@
 import { X, Check } from "lucide-react"
+import { CostComparisonChart } from "@/components/landing/cost-comparison-chart"
 
 const SELF_SETUP = [
   "Tuyển 2–3 nhân sự sales biết tiếng Anh thương mại: 6–9 tháng, chi phí lương + đào tạo từ 300–600 triệu/năm",
@@ -107,11 +108,34 @@ export function LandingComparison() {
           </div>
         </div>
 
-        {/* Callout */}
-        <p className="mx-auto mt-8 max-w-2xl text-balance text-center text-sm text-muted-foreground">
-          Câu hỏi thực sự không phải là <span className="font-semibold text-foreground">"Vexim có đắt không?"</span> — mà là{" "}
-          <span className="font-semibold text-foreground">"Mỗi tháng không có đơn hàng Mỹ đang tốn bạn bao nhiêu cơ hội?"</span>
-        </p>
+        {/* Visual cost chart */}
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-center">
+          <CostComparisonChart />
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-semibold text-foreground">
+              Câu hỏi thực sự không phải là{" "}
+              <span className="text-destructive">"Vexim có đắt không?"</span>
+            </p>
+            <p className="text-base text-muted-foreground">
+              Mà là: <span className="font-semibold text-foreground">"Mỗi tháng không có đơn hàng Mỹ đang tốn bạn bao nhiêu cơ hội bị bỏ lỡ?"</span>
+            </p>
+            <div className="flex flex-col gap-3">
+              {[
+                { label: "Tự lập phòng sales năm đầu", cost: "500M – 1 tỷ VND", color: "text-destructive" },
+                { label: "Và vẫn không có đơn hàng nào được đảm bảo", cost: "", color: "text-muted-foreground" },
+                { label: "Vexim: phí chỉ tính khi bạn có doanh thu USD", cost: "", color: "text-teal-600" },
+              ].map((row) => (
+                <div key={row.label} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-border" aria-hidden="true" />
+                  <p className={`text-sm ${row.color}`}>
+                    {row.label}
+                    {row.cost && <strong className="ml-1">{row.cost}</strong>}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

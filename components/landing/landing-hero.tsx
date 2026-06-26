@@ -1,7 +1,9 @@
 import Link from "next/link"
-import { ArrowRight, TrendingUp, Clock, DollarSign } from "lucide-react"
+import Image from "next/image"
+import { ArrowRight, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConsultationBookingDialog } from "@/components/landing/consultation-booking-dialog"
+import { HeroRevenueChart } from "@/components/landing/hero-revenue-chart"
 
 interface LandingHeroProps {
   isAuthed: boolean
@@ -12,103 +14,127 @@ export function LandingHero({ isAuthed, dashboardHref }: LandingHeroProps) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="relative overflow-hidden border-b border-border/60 bg-background"
+      className="relative overflow-hidden border-b border-border/60"
+      style={{ background: "oklch(0.17 0.04 264)" }}
     >
-      {/* Subtle grid backdrop */}
+      {/* Dot pattern overlay */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-20"
         style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in oklch, var(--primary) 5%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklch, var(--primary) 5%, transparent) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
         }}
       />
 
-      <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 lg:px-8 lg:pb-28 lg:pt-24">
+      <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8 lg:py-24">
 
-        {/* Eye-catching kicker */}
-        <div className="flex justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+        {/* LEFT — copy */}
+        <div className="flex flex-col gap-6">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-semibold text-white">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-teal-400" />
             </span>
             180+ nhà máy Việt Nam đã có đơn hàng USD
           </div>
-        </div>
 
-        {/* Main headline — outcome, not feature */}
-        <h1
-          id="hero-title"
-          className="mx-auto mt-8 max-w-4xl text-balance text-center text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl"
-        >
-          Nhà máy của bạn xứng đáng có{" "}
-          <span className="text-primary">đơn hàng từ Mỹ</span>
-          {" "}— không phải chờ đợi thêm 2 năm nữa.
-        </h1>
+          <h1
+            id="hero-title"
+            className="text-balance text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl lg:text-[3.25rem]"
+          >
+            Nhà máy của bạn xứng đáng có{" "}
+            <span className="text-teal-300">đơn hàng từ Mỹ</span>{" "}
+            — không phải chờ thêm 2 năm.
+          </h1>
 
-        <p className="mx-auto mt-6 max-w-2xl text-balance text-center text-lg leading-relaxed text-muted-foreground">
-          Vexim Trade là đội sales xuất khẩu chuyên trách của bạn tại thị trường Mỹ. Chúng tôi chủ động tìm buyer, đàm phán, xử lý FDA — bạn chỉ cần lo sản xuất và nhận tiền.
-        </p>
+          <p className="max-w-lg text-pretty text-lg leading-relaxed text-white/70">
+            Vexim Trade là đội sales xuất khẩu chuyên trách của bạn. Chúng tôi chủ động tìm buyer, đàm phán, xử lý FDA — bạn chỉ cần lo sản xuất và nhận tiền.
+          </p>
 
-        {/* CTA buttons */}
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          {isAuthed ? (
-            <Button asChild size="lg" className="gap-2">
-              <Link href={dashboardHref}>
-                Vào Dashboard
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          ) : (
-            <>
-              <ConsultationBookingDialog
-                trigger={
-                  <Button size="lg" className="gap-2 text-base">
-                    Đặt lịch tư vấn miễn phí
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                }
-              />
-              <Button asChild size="lg" variant="outline" className="text-base">
-                <a href="#comparison">Tại sao không tự lập phòng sales?</a>
+          {/* Key proof points */}
+          <ul className="flex flex-col gap-2">
+            {[
+              "Đơn mẫu đầu tiên trong 8–12 tuần",
+              "50+ buyer Mỹ được tiếp cận mỗi tháng",
+              "Hoa hồng chỉ thu khi tiền USD vào tài khoản bạn",
+            ].map((point) => (
+              <li key={point} className="flex items-center gap-2.5 text-sm text-white/80">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-teal-400" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
+
+          {/* CTAs */}
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+            {isAuthed ? (
+              <Button asChild size="lg" className="gap-2 bg-teal-500 text-white hover:bg-teal-400">
+                <Link href={dashboardHref}>
+                  Vào Dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
               </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <ConsultationBookingDialog
+                  trigger={
+                    <Button size="lg" className="gap-2 bg-teal-500 text-white hover:bg-teal-400">
+                      Đặt lịch tư vấn miễn phí
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  }
+                />
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                >
+                  <a href="#comparison">So sánh vs tự lập phòng sales</a>
+                </Button>
+              </>
+            )}
+          </div>
+          <p className="text-xs text-white/40">Miễn phí tư vấn · Không ràng buộc · Phản hồi trong 24h</p>
         </div>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Tư vấn 1:1 miễn phí · Phản hồi trong 24 giờ làm việc · Không ràng buộc
-        </p>
+        {/* RIGHT — visual panel */}
+        <div className="flex flex-col gap-4">
+          {/* Dashboard mockup */}
+          <div className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/40">
+            <div className="flex items-center gap-1.5 border-b border-white/10 bg-white/5 px-4 py-2.5">
+              <span className="h-3 w-3 rounded-full bg-red-400/70" aria-hidden="true" />
+              <span className="h-3 w-3 rounded-full bg-yellow-400/70" aria-hidden="true" />
+              <span className="h-3 w-3 rounded-full bg-green-400/70" aria-hidden="true" />
+              <span className="ml-2 text-xs text-white/40">Vexim Trade — Pipeline</span>
+            </div>
+            <Image
+              src="/landing/hero-dashboard.png"
+              alt="Màn hình quản lý pipeline đơn hàng xuất khẩu của Vexim Trade"
+              width={640}
+              height={400}
+              className="w-full object-cover"
+              priority
+            />
+          </div>
 
-        {/* Outcome metrics — the 3 numbers that matter to a factory owner */}
-        <dl className="mx-auto mt-16 grid max-w-3xl grid-cols-1 gap-px overflow-hidden rounded-xl border border-border/80 bg-border/40 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5 bg-card px-8 py-6">
-            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Clock className="h-4 w-4 text-accent" aria-hidden="true" />
-              Đơn mẫu đầu tiên
-            </dt>
-            <dd className="text-3xl font-semibold tracking-tight text-foreground">8–12 tuần</dd>
-            <p className="text-xs text-muted-foreground">Tính từ ngày ký hợp đồng dịch vụ</p>
+          {/* Revenue chart card */}
+          <HeroRevenueChart />
+
+          {/* Mini stat strip */}
+          <div className="grid grid-cols-3 divide-x divide-white/10 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            {[
+              { value: "8–12", label: "Tuần ra đơn", unit: "tuần" },
+              { value: "$12.4M", label: "Đã thanh toán", unit: "" },
+              { value: "94%", label: "Đạt FDA / 30 ngày", unit: "" },
+            ].map((s) => (
+              <div key={s.label} className="flex flex-col items-center justify-center px-4 py-4 text-center">
+                <span className="text-xl font-semibold text-white">{s.value}</span>
+                <span className="mt-0.5 text-[11px] text-white/50">{s.label}</span>
+              </div>
+            ))}
           </div>
-          <div className="flex flex-col gap-1.5 bg-card px-8 py-6">
-            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <TrendingUp className="h-4 w-4 text-accent" aria-hidden="true" />
-              Buyer được tiếp cận mỗi tháng
-            </dt>
-            <dd className="text-3xl font-semibold tracking-tight text-foreground">50+</dd>
-            <p className="text-xs text-muted-foreground">Chủ động tìm và sàng lọc — không thụ động chờ</p>
-          </div>
-          <div className="flex flex-col gap-1.5 bg-card px-8 py-6">
-            <dt className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-accent" aria-hidden="true" />
-              Kim ngạch đã thanh toán
-            </dt>
-            <dd className="text-3xl font-semibold tracking-tight text-foreground">$12.4M</dd>
-            <p className="text-xs text-muted-foreground">Cho các nhà máy Việt Nam trong hệ thống Vexim</p>
-          </div>
-        </dl>
+        </div>
       </div>
     </section>
   )

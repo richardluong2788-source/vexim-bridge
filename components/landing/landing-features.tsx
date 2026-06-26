@@ -1,48 +1,47 @@
-import {
-  BadgeCheck,
-  EyeOff,
-  FileCheck2,
-  KanbanSquare,
-  Lock,
-  Receipt,
-} from "lucide-react"
+import { Users, FileCheck2, BadgeCheck, BarChart3, Headphones, ShieldCheck } from "lucide-react"
 
-const FEATURES = [
+const DELIVERABLES = [
   {
-    icon: FileCheck2,
-    title: "Tự động kiểm tra FDA",
-    desc: "Đơn hàng chỉ giao cho nhà máy có giấy phép FDA còn hạn. Hệ thống tự nhắc trước 30 ngày để bạn kịp gia hạn, không lo hàng bị giữ ở cảng.",
-    tag: "FDA",
+    icon: Users,
+    tag: "Bạn nhận được",
+    title: "Đội sales chuyên trách của riêng bạn",
+    outcome: "50+ buyer Mỹ được tiếp cận mỗi tháng",
+    desc: "Account Executive am hiểu ngành của bạn, biết thị trường Mỹ và chủ động mang đơn hàng về. Không phải đăng tin, không phải chờ khách tự liên hệ.",
   },
   {
-    icon: EyeOff,
-    title: "Liên hệ trực tiếp, không qua trung gian",
-    desc: "Vexim kết nối thẳng nhà máy với buyer Mỹ - không có tầng broker ép giá hay chen vào đơn hàng. Thông tin buyer được bảo mật trong giai đoạn đàm phán để tránh bị cướp mối.",
-    tag: "Bảo mật",
+    icon: FileCheck2,
+    tag: "Bạn nhận được",
+    title: "Hồ sơ FDA đúng chuẩn, không lo bị giữ hàng",
+    outcome: "94% nhà máy đạt chuẩn FDA trong 30 ngày",
+    desc: "Chuyên gia của Vexim xử lý đăng ký FDA, chuẩn bị nhãn hàng và hồ sơ tuân thủ cho từng lô hàng. Bạn không cần thuê tư vấn riêng.",
   },
   {
     icon: BadgeCheck,
-    title: "Xác thực chuyển tiền hai lớp",
-    desc: "Người nhập chứng từ chuyển tiền quốc tế không được tự xác nhận. Hai người độc lập cùng duyệt mới ghi nhận thanh toán - không ai có thể làm tắt.",
-    tag: "An toàn",
+    tag: "Bạn nhận được",
+    title: "Thanh toán USD được xác thực hai lớp",
+    outcome: "Không ai có thể làm giả SWIFT trong hệ thống",
+    desc: "Chứng từ thanh toán quốc tế luôn được xác nhận bởi hai người độc lập. Bạn chỉ nhận đơn hoàn thành khi tiền thực sự vào tài khoản.",
   },
   {
-    icon: KanbanSquare,
-    title: "Theo dõi đơn hàng rõ ràng",
-    desc: "Bảng đơn hàng 5 bước (Mới → Đã liên hệ → Đã chào giá → Thành công / Thất bại). Mỗi bộ phận chỉ thấy đúng phần việc của mình.",
-    tag: "Quy trình",
+    icon: BarChart3,
+    tag: "Bạn nhận được",
+    title: "Dashboard theo dõi deal real-time",
+    outcome: "Biết chính xác đơn nào đang ở bước nào, lúc nào",
+    desc: "Không còn hỏi qua Zalo. Bạn đăng nhập bất cứ lúc nào và thấy trạng thái từng deal, từng tài liệu, từng bước đàm phán.",
   },
   {
-    icon: Receipt,
-    title: "Hoá đơn & lịch thanh toán",
-    desc: "Phát hành hoá đơn, chia nhỏ theo từng đợt giao hàng, quản lý chi phí vận hành - tất cả gắn với đơn hàng gốc để dễ đối chiếu.",
-    tag: "Tài chính",
+    icon: Headphones,
+    tag: "Bạn nhận được",
+    title: "Đàm phán chuyên nghiệp bằng tiếng Anh thương mại",
+    outcome: "Không mất deal vì rào cản ngôn ngữ",
+    desc: "Đội Vexim soạn thảo, đàm phán và xử lý toàn bộ giao tiếp với buyer bằng tiếng Anh chuẩn thương mại quốc tế — lưu hết vào hệ thống để bạn theo dõi.",
   },
   {
-    icon: Lock,
-    title: "Lịch sử đơn hàng không thể chỉnh sửa",
-    desc: "Mọi thay đổi về giá, nhân sự phụ trách, giấy tờ đều được ghi lại và không ai có thể xoá — sẵn sàng khi cần đối chứng với đối tác hoặc thanh tra.",
-    tag: "Minh bạch",
+    icon: ShieldCheck,
+    tag: "Bạn nhận được",
+    title: "Toàn bộ lịch sử giao dịch được bảo vệ",
+    outcome: "Không bao giờ mất dữ liệu dù nhân sự thay đổi",
+    desc: "Mọi trao đổi, chứng từ và lịch sử giá đều được ghi lại và không thể xoá. Bạn luôn có bằng chứng để đối chiếu với đối tác hoặc cơ quan thanh tra.",
   },
 ]
 
@@ -55,38 +54,33 @@ export function LandingFeatures() {
     >
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Tính năng</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-accent">Bạn nhận được gì</p>
           <h2
             id="features-title"
             className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
-            Giải quyết mọi rào cản xuất khẩu, ngay trong quy trình
+            6 thứ bạn có ngay từ tháng đầu tiên
           </h2>
           <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground">
-            Không phải danh sách kiểm tra thủ công. Vexim Trade tự nhắc và tự chặn đúng lúc — đội
-            ngũ của bạn không cần nhớ từng quy định, chỉ cần làm đúng việc của mình.
+            Không phải phần mềm để bạn tự dùng. Đây là đội ngũ, quy trình và cơ sở hạ tầng xuất khẩu hoàn chỉnh — vận hành thay bạn.
           </p>
         </div>
 
         <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((feature) => {
-            const Icon = feature.icon
+          {DELIVERABLES.map((item) => {
+            const Icon = item.icon
             return (
               <article
-                key={feature.title}
-                className="group relative flex flex-col gap-4 rounded-xl border border-border/80 bg-card p-6 transition-all hover:border-accent/60 hover:shadow-lg"
+                key={item.title}
+                className="group flex flex-col gap-4 rounded-xl border border-border/80 bg-card p-6 transition-all hover:border-accent/60 hover:shadow-lg"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-inset ring-primary/10 transition-colors group-hover:bg-accent/10 group-hover:text-accent group-hover:ring-accent/20">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {feature.tag}
-                  </span>
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-inset ring-primary/10 transition-colors group-hover:bg-accent/10 group-hover:text-accent group-hover:ring-accent/20">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
+                  <p className="text-sm font-semibold text-accent">{item.outcome}</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{item.desc}</p>
                 </div>
               </article>
             )

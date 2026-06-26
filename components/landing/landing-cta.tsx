@@ -27,12 +27,21 @@ export function LandingCta({ isAuthed, dashboardHref }: LandingCtaProps) {
               id="final-cta-title"
               className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl"
             >
-              Sẵn sàng xuất khẩu sang Mỹ một cách an toàn?
+              Mỗi tháng chờ đợi là một tháng đối thủ có thêm đơn hàng Mỹ.
             </h2>
             <p className="mt-4 text-pretty text-base leading-relaxed text-primary-foreground/80">
-              Đặt lịch tư vấn 1:1 miễn phí với chuyên gia Vexim Trade. Chúng tôi sẽ liên hệ
-              trong 24 giờ làm việc để hướng dẫn bạn hoàn tất hồ sơ FDA và nhận đơn hàng đầu tiên.
+              Đặt lịch tư vấn 1:1 miễn phí. Trong 30 phút, chuyên gia Vexim sẽ đánh giá nhà máy của bạn, chỉ ra cụ thể hồ sơ FDA cần bổ sung gì và đưa ra kế hoạch tiếp cận buyer phù hợp với ngành hàng của bạn.
             </p>
+
+            {/* Risk reversal */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-primary-foreground/70">
+              <span>Tư vấn miễn phí, không ràng buộc</span>
+              <span aria-hidden="true">·</span>
+              <span>Phản hồi trong 24 giờ làm việc</span>
+              <span aria-hidden="true">·</span>
+              <span>Hoa hồng chỉ thu khi bạn nhận được tiền</span>
+            </div>
+
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {isAuthed ? (
                 <Button
@@ -52,21 +61,10 @@ export function LandingCta({ isAuthed, dashboardHref }: LandingCtaProps) {
                     trigger={
                       <Button
                         size="lg"
-                        className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+                        className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 text-base"
                       >
-                        Đặt lịch tư vấn 1:1
+                        Đặt lịch tư vấn miễn phí ngay
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    }
-                  />
-                  <ConsultationBookingDialog
-                    trigger={
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-                      >
-                        Liên hệ tư vấn
                       </Button>
                     }
                   />

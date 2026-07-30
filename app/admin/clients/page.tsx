@@ -56,7 +56,7 @@ export default async function AdminClientsPage() {
   // assigned to them via profiles.account_manager_id.
   let clientsQ = admin
     .from("profiles")
-    .select("*")
+    .select("*, client_profiles(display_name)")
     .eq("role", "client")
     .order("created_at", { ascending: false })
   if (scope.kind === "owned") {

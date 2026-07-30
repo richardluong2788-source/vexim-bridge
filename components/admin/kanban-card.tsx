@@ -303,7 +303,7 @@ export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount =
           <div className="flex items-center gap-1.5 min-w-0">
             <User className="h-3 w-3 text-muted-foreground shrink-0" />
             <span className="text-xs text-muted-foreground truncate">
-              {client?.company_name ?? client?.full_name ?? "—"}
+              {(client?.client_profiles as Array<{ display_name: string | null }> | undefined)?.[0]?.display_name ?? client?.company_name ?? client?.full_name ?? "—"}
             </span>
           </div>
           {opportunity.potential_value ? (

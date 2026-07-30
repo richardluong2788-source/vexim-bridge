@@ -60,7 +60,8 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         full_name,
         company_name,
         fda_registration_number,
-        fda_expires_at
+        fda_expires_at,
+        client_profiles(display_name)
       )
     `,
     )
@@ -81,7 +82,10 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       ? {
           id: o.profiles.id,
           name:
-            o.profiles.company_name ?? o.profiles.full_name ?? "—",
+            (o.profiles.client_profiles as Array<{ display_name: string | null }> | undefined)?.[0]?.display_name ??
+            o.profiles.company_name ??
+            o.profiles.full_name ??
+            "—",
           fdaRegistrationNumber: o.profiles.fda_registration_number,
           fdaExpiresAt: o.profiles.fda_expires_at,
         }

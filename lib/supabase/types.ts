@@ -683,6 +683,97 @@ export type Database = {
           created_at?: string
         }
       }
+      client_profiles: {
+        Row: {
+          id: string
+          client_id: string
+          slug: string
+          display_name: string | null
+          tagline: string | null
+          cover_image_url: string | null
+          logo_url: string | null
+          video_url: string | null
+          video_thumbnail_url: string | null
+          usp_points: Record<string, unknown>[]
+          production_capacity: string | null
+          moq: string | null
+          lead_time_days: string | null
+          featured_certifications: string[]
+          featured_products: string[]
+          enable_request_quote: boolean
+          enable_download_pdf: boolean
+          pdf_capability_url: string | null
+          is_published: boolean
+          published_at: string | null
+          view_count: number
+          created_by: string | null
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          slug: string
+          display_name?: string | null
+          tagline?: string | null
+          cover_image_url?: string | null
+          logo_url?: string | null
+          video_url?: string | null
+          video_thumbnail_url?: string | null
+          usp_points?: Record<string, unknown>[]
+          production_capacity?: string | null
+          moq?: string | null
+          lead_time_days?: string | null
+          featured_certifications?: string[]
+          featured_products?: string[]
+          enable_request_quote?: boolean
+          enable_download_pdf?: boolean
+          pdf_capability_url?: string | null
+          is_published?: boolean
+          published_at?: string | null
+          view_count?: number
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          slug?: string
+          display_name?: string | null
+          tagline?: string | null
+          cover_image_url?: string | null
+          logo_url?: string | null
+          video_url?: string | null
+          video_thumbnail_url?: string | null
+          usp_points?: Record<string, unknown>[]
+          production_capacity?: string | null
+          moq?: string | null
+          lead_time_days?: string | null
+          featured_certifications?: string[]
+          featured_products?: string[]
+          enable_request_quote?: boolean
+          enable_download_pdf?: boolean
+          pdf_capability_url?: string | null
+          is_published?: boolean
+          published_at?: string | null
+          view_count?: number
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_profiles_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       email_drafts: {
         Row: {
           id: string
@@ -744,6 +835,8 @@ export type EmailDraft = Database["public"]["Tables"]["email_drafts"]["Row"]
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"]
 export type NotificationPreferences = Database["public"]["Tables"]["notification_preferences"]["Row"]
 export type NotificationEmailLog = Database["public"]["Tables"]["notification_email_log"]["Row"]
+
+export type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"]
 
 export type OpportunityWithLead = Opportunity & {
   leads: Lead

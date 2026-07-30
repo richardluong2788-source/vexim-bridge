@@ -65,7 +65,12 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
       .order("product_name", { ascending: true }),
   ])
 
-  const companyLabel = client.company_name ?? client.full_name ?? client.email ?? "Client"
+  const companyLabel =
+    existingProfile?.display_name ??
+    client.company_name ??
+    client.full_name ??
+    client.email ??
+    "Client"
 
   return (
     <div className="flex flex-col gap-6 p-8 max-w-4xl mx-auto">

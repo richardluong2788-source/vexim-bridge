@@ -97,7 +97,12 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
   }))
 
   const fdaInfo = getFdaStatus(client.fda_expires_at)
-  const companyLabel = client.company_name ?? client.full_name ?? client.email ?? "—"
+  const companyLabel =
+    clientProfile?.display_name ??
+    client.company_name ??
+    client.full_name ??
+    client.email ??
+    "—"
   const s = t.admin.clients
 
   return (

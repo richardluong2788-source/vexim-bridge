@@ -1,16 +1,29 @@
 "use client"
 
 import Link from "next/link"
+import { useState, useTransition } from "react"
 import type { Profile } from "@/lib/supabase/types"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
-import { AlertTriangle, CheckCircle2, XCircle, Building2, Clock, ExternalLink, Star } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { AlertTriangle, CheckCircle2, XCircle, Building2, Clock, ExternalLink, Star, Trash2 } from "lucide-react"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { AccountManagerSelect, type ManagerOption } from "@/components/admin/account-manager-select"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
+import { deleteClient } from "@/app/admin/clients/actions"
 
 type ClientWithProfile = Profile & {
   client_profiles?: Array<{ display_name: string | null }> | null
@@ -24,6 +37,8 @@ interface ClientsTableProps {
   managerLabels: Record<string, string>
   /** True when the current viewer has CLIENT_WRITE. */
   canAssignManager: boolean
+  /** True when the current viewer is super_admin — enables the delete button. */
+  isSuperAdmin?: boolean
 }
 
 export function ClientsTable({
@@ -31,9 +46,20 @@ export function ClientsTable({
   managers,
   managerLabels,
   canAssignManager,
+  isSuperAdmin = false,
 }: ClientsTableProps) {
   const { t, locale } = useTranslation()
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleDeleteConfirm() {
+    if (!pendingDeleteId) return
+    startTransition(async () => {
+      await deleteClient(pendingDeleteId)
+      setPendingDeleteId(null)
+    })
+  }
 
   if (clients.length === 0) {
     return (
@@ -48,8 +74,37 @@ export function ClientsTable({
     )
   }
 
+  const pendingClient = clients.find((c) => c.id === pendingDeleteId)
+  const pendingName =
+    pendingClient?.client_profiles?.[0]?.display_name ??
+    pendingClient?.company_name ??
+    pendingClient?.full_name ??
+    "khách hàng này"
+
   return (
-    <Card className="border-border overflow-hidden">
+    <>
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa khách hàng</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa <span className="font-semibold text-foreground">{pendingName}</span>?
+              Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu liên quan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Card className="border-border overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -118,26 +173,40 @@ export function ClientsTable({
                 })}
               </TableCell>
               <TableCell className="text-right">
-                {client.role === "client" ? (
-                  <FdaEditDialog
-                    client={{
-                      id: client.id,
-                      full_name: client.full_name,
-                      company_name: client.company_name,
-                      fda_registration_number: client.fda_registration_number,
-                      fda_registered_at: client.fda_registered_at,
-                      fda_expires_at: client.fda_expires_at,
-                    }}
-                  />
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
+                <div className="flex items-center justify-end gap-1">
+                  {client.role === "client" ? (
+                    <FdaEditDialog
+                      client={{
+                        id: client.id,
+                        full_name: client.full_name,
+                        company_name: client.company_name,
+                        fda_registration_number: client.fda_registration_number,
+                        fda_registered_at: client.fda_registered_at,
+                        fda_expires_at: client.fda_expires_at,
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                  {isSuperAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setPendingDeleteId(client.id)}
+                      aria-label="Xóa khách hàng"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </Card>
+    </>
   )
 }
 

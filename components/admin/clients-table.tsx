@@ -12,8 +12,12 @@ import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { AccountManagerSelect, type ManagerOption } from "@/components/admin/account-manager-select"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 
+type ClientWithProfile = Profile & {
+  client_profiles?: Array<{ display_name: string | null }> | null
+}
+
 interface ClientsTableProps {
-  clients: Profile[]
+  clients: ClientWithProfile[]
   /** Staff list shown in the "Account Manager" dropdown. */
   managers: ManagerOption[]
   /** Map of managerId -> label, used to render read-only cells. */
@@ -71,7 +75,7 @@ export function ClientsTable({
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-foreground text-sm group-hover:text-primary transition-colors flex items-center gap-1">
-                      {client.company_name ?? "—"}
+                      {client.client_profiles?.[0]?.display_name ?? client.company_name ?? "—"}
                       <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </span>
                     <span className="text-xs text-muted-foreground">{client.full_name}</span>

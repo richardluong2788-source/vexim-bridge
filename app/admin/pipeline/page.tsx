@@ -26,7 +26,7 @@ export default async function AdminPipelinePage() {
     .from("opportunities")
     .select(`
       *,
-      profiles:client_id (*),
+      profiles:client_id (*, client_profiles(display_name)),
       leads:lead_id (*)
     `)
     .order("last_updated", { ascending: false })
@@ -38,7 +38,7 @@ export default async function AdminPipelinePage() {
   // Fetch unread buyer reply counts per opportunity so the Kanban card can
   // surface a notification badge when the buyer has replied and the AE
   // has not yet read the reply.
-  const oppIds = (opportunities ?? []).map((o) => o.id)
+  const oppIds = ((opportunities ?? []) as Array<{ id: string }>).map((o) => o.id)
   let unreadByOpp: Record<string, number> = {}
   if (oppIds.length > 0) {
     const { data: unreadReplies } = await admin
@@ -47,7 +47,7 @@ export default async function AdminPipelinePage() {
       .in("opportunity_id", oppIds)
       .is("read_at", null)
     if (unreadReplies) {
-      for (const row of unreadReplies) {
+      for (const row of unreadReplies as Array<{ opportunity_id: string }>) {
         unreadByOpp[row.opportunity_id] = (unreadByOpp[row.opportunity_id] ?? 0) + 1
       }
     }

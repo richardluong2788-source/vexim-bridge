@@ -155,9 +155,14 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
   if (!opportunity) return null
 
+  const clientDisplayName =
+    (opportunity.profiles?.client_profiles as Array<{ display_name: string | null }> | undefined)?.[0]?.display_name ??
+    opportunity.profiles?.company_name ??
+    null
+
   const companyName =
     opportunity.leads?.company_name ??
-    opportunity.profiles?.company_name ??
+    clientDisplayName ??
     "—"
 
   const currentStage: Stage = (opportunity.stage as Stage) ?? "new"
@@ -719,8 +724,8 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                 <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Client</span>
               </div>
-              <p className="text-xs font-semibold text-foreground leading-snug truncate" title={opportunity.profiles?.company_name ?? undefined}>
-                {opportunity.profiles?.company_name ?? "—"}
+              <p className="text-xs font-semibold text-foreground leading-snug truncate" title={clientDisplayName ?? undefined}>
+                {clientDisplayName ?? "—"}
               </p>
               {opportunity.profiles?.industry && (
                 <p className="text-[10px] text-muted-foreground mt-0.5 truncate" title={opportunity.profiles.industry}>

@@ -750,7 +750,7 @@ export type OpportunityWithLead = Opportunity & {
 }
 
 export type OpportunityWithClient = Opportunity & {
-  profiles: Profile
+  profiles: Profile & { client_profiles?: Pick<ClientProfile, "display_name"> | null }
   leads: Lead
 }
 

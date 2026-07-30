@@ -140,6 +140,51 @@ export async function updateFdaRegistration(
   return { ok: true }
 }
 
+// ---------------------------------------------------------------------------
+// Delete client
+// ---------------------------------------------------------------------------
+
+export interface DeleteClientResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Permanently deletes a client profile from the system.
+ * Only super_admin is allowed to perform this action.
+ */
+export async function deleteClient(clientId: string): Promise<DeleteClientResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { ok: false, error: "unauthenticated" }
+
+  const { data: callerRaw } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+  const caller = callerRaw as { role: string } | null
+
+  if (caller?.role !== "super_admin") {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from("profiles")
+    .delete()
+    .eq("id", clientId)
+    .eq("role", "client")
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/clients")
+  return { ok: true }
+}
+
 /**
  * Accepts `YYYY-MM-DD` (what <input type="date"> emits). Returns `null` for
  * empty/invalid input, or the cleaned-up ISO date string.

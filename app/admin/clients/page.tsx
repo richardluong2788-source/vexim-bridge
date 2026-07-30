@@ -48,6 +48,7 @@ export default async function AdminClientsPage() {
   // Only roles with OWNERSHIP_BYPASS may reassign — see
   // setAccountManager() server action for the matching server-side check.
   const canAssignManager = canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
+  const isSuperAdmin = role === "super_admin"
   // AEs can create clients (they will auto-become account manager)
   const canCreateClient = can(role, CAPS.CLIENT_WRITE) || role === "account_executive"
   const scope = ownershipScopeFor(role, userId)
@@ -127,6 +128,7 @@ export default async function AdminClientsPage() {
         managers={managers}
         managerLabels={managerLabels}
         canAssignManager={canAssignManager}
+        isSuperAdmin={isSuperAdmin}
       />
     </div>
   )

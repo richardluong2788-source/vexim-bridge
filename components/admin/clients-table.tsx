@@ -23,6 +23,7 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { AccountManagerSelect, type ManagerOption } from "@/components/admin/account-manager-select"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
+import { GRADE_COLORS } from "@/lib/assessment/scoring"
 import { deleteClient } from "@/app/admin/clients/actions"
 
 type ClientWithProfile = Profile & {
@@ -39,6 +40,8 @@ interface ClientsTableProps {
   canAssignManager: boolean
   /** True when the current viewer is super_admin — enables the delete button. */
   isSuperAdmin?: boolean
+  /** Map client_id -> assessment score/grade. */
+  assessmentMap?: Record<string, { score_total: number | null; score_grade: string | null }>
 }
 
 export function ClientsTable({
@@ -47,6 +50,7 @@ export function ClientsTable({
   managerLabels,
   canAssignManager,
   isSuperAdmin = false,
+  assessmentMap = {},
 }: ClientsTableProps) {
   const { t, locale } = useTranslation()
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
@@ -112,6 +116,7 @@ export function ClientsTable({
             <TableHead className="font-medium">{t.auth.login.email}</TableHead>
             <TableHead className="font-medium">{t.admin.clients.industry}</TableHead>
             <TableHead className="font-medium">{t.admin.clients.fdaRegistration}</TableHead>
+            <TableHead className="font-medium">Năng lực</TableHead>
             <TableHead className="font-medium">Account Manager</TableHead>
             <TableHead className="font-medium">{t.admin.clients.joined}</TableHead>
             <TableHead className="font-medium text-right">{t.admin.clients.actions}</TableHead>
@@ -151,6 +156,9 @@ export function ClientsTable({
                   t={t.admin.clients}
                   locale={locale}
                 />
+              </TableCell>
+              <TableCell>
+                <GradeCell grade={assessmentMap[client.id]?.score_grade ?? null} score={assessmentMap[client.id]?.score_total ?? null} />
               </TableCell>
               <TableCell>
                 <AccountManagerSelect
@@ -254,6 +262,19 @@ function IndustriesCell({
         </Badge>
       )}
     </div>
+  )
+}
+
+/** Badge diem nang luc nha may (A/B/C/D). */
+function GradeCell({ grade, score }: { grade: string | null; score: number | null }) {
+  if (!grade) {
+    return <span className="text-xs text-muted-foreground">—</span>
+  }
+  return (
+    <Badge variant="outline" className={`text-xs font-semibold ${GRADE_COLORS[grade] ?? ""}`}>
+      {grade}
+      {score != null && <span className="ml-1 font-normal opacity-80">· {score}</span>}
+    </Badge>
   )
 }
 

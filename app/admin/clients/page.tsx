@@ -64,17 +64,36 @@ export default async function AdminClientsPage() {
     clientsQ = clientsQ.eq("account_manager_id", scope.userId)
   }
 
-  const [{ data: clients }, { data: staff }] = await Promise.all([
+  const [{ data: clients }, { data: staff }, { data: assessments }] = await Promise.all([
     clientsQ,
     admin
       .from("profiles")
       .select("id, full_name, email, role")
       .in("role", STAFF_ROLES)
       .order("full_name", { ascending: true }),
+    admin
+      .from("client_factory_assessments")
+      .select("client_id, score_total, score_grade"),
   ])
 
+  // Map client_id -> { score_total, score_grade } de hien thi badge
+  const assessmentMap: Record<string, { score_total: number | null; score_grade: string | null }> =
+    Object.fromEntries(
+      ((assessments ?? []) as Array<{
+        client_id: string
+        score_total: number | null
+        score_grade: string | null
+      }>).map((a) => [a.client_id, { score_total: a.score_total, score_grade: a.score_grade }])
+    )
+
   // Build the dropdown option list once; each row reuses the same array.
-  const managers: ManagerOption[] = (staff ?? [])
+  const staffList = (staff ?? []) as Array<{
+    id: string
+    full_name: string | null
+    email: string | null
+    role: string | null
+  }>
+  const managers: ManagerOption[] = staffList
     .filter((s) => s.role && STAFF_ROLES.includes(s.role as Role))
     .map((s) => {
       const r = s.role as Role
@@ -129,6 +148,7 @@ export default async function AdminClientsPage() {
         managerLabels={managerLabels}
         canAssignManager={canAssignManager}
         isSuperAdmin={isSuperAdmin}
+        assessmentMap={assessmentMap}
       />
     </div>
   )

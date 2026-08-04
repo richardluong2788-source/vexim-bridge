@@ -4,7 +4,9 @@ import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { getProfileWithRelationsByClientId } from "@/lib/profile/actions"
+import { getAssessmentByClientId } from "@/lib/assessment/actions"
 import { AdminProfileManager } from "@/components/admin/admin-profile-manager"
+import { AdminFactoryAssessment } from "@/components/admin/admin-factory-assessment"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { canAny, CAPS } from "@/lib/auth/permissions"
 import { ownershipScopeFor } from "@/lib/auth/scope"
@@ -31,11 +33,21 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
   if (!allowedRoles) return notFound()
 
   // Fetch client
-  const { data: client } = await supabase
+  const { data: clientRaw } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", id)
     .single()
+  const client = clientRaw as {
+    id: string
+    role: string
+    account_manager_id: string | null
+    company_name: string | null
+    full_name: string | null
+    email: string | null
+    fda_registration_number: string | null
+    fda_expires_at: string | null
+  } | null
 
   if (!client || client.role !== "client") return notFound()
 
@@ -45,9 +57,13 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
     return notFound()
   }
 
-  // Fetch existing profile (if any)
-  const profileResult = await getProfileWithRelationsByClientId(id)
+  // Fetch existing profile (if any) + factory assessment song song
+  const [profileResult, assessmentResult] = await Promise.all([
+    getProfileWithRelationsByClientId(id),
+    getAssessmentByClientId(id),
+  ])
   const existingProfile = profileResult.success ? profileResult.data : null
+  const existingAssessment = assessmentResult.success ? assessmentResult.data : null
 
   // Fetch compliance docs and products for selection
   const [{ data: docs }, { data: products }] = await Promise.all([
@@ -102,6 +118,17 @@ export default async function AdminClientProfilePage({ params }: PageProps) {
         availableDocs={docs ?? []}
         availableProducts={products ?? []}
         t={t.admin.profile}
+      />
+
+      {/* Factory Assessment (muc 6-15) */}
+      <AdminFactoryAssessment
+        clientId={id}
+        existing={existingAssessment ?? null}
+        fdaNumber={client.fda_registration_number ?? null}
+        fdaExpiresAt={client.fda_expires_at ?? null}
+        moq={existingProfile?.moq ?? null}
+        leadTime={existingProfile?.lead_time_days ?? null}
+        productionCapacity={existingProfile?.production_capacity ?? null}
       />
     </div>
   )

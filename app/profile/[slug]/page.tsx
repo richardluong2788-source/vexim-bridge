@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getProfileBySlug } from "@/lib/profile/actions"
+import { getPublicCapabilityByClientId } from "@/lib/assessment/actions"
 import { ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileDescription } from "@/components/profile/profile-description"
 import { ProfileVideo } from "@/components/profile/profile-video"
@@ -8,6 +9,7 @@ import { ProfileUSP } from "@/components/profile/profile-usp"
 import { ProfileCertifications } from "@/components/profile/profile-certifications"
 import { ProfileProducts } from "@/components/profile/profile-products"
 import { ProfileStats } from "@/components/profile/profile-stats"
+import { ProfileCapabilities } from "@/components/profile/profile-capabilities"
 import { ProfileCTA } from "@/components/profile/profile-cta"
 
 interface ProfilePageProps {
@@ -64,6 +66,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   const profile = result.data
 
+  // Lay phan nang luc AN TOAN de hien thi cong khai (khong diem so/nhan su/cam ket)
+  const capResult = await getPublicCapabilityByClientId(profile.client_id)
+  const capability = capResult.success ? capResult.data : null
+
   return (
     <main className="min-h-screen bg-background">
       {/* Block 1: Hero (Cover + Logo + Name) */}
@@ -86,6 +92,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
       {/* Block 7: Production Stats */}
       <ProfileStats profile={profile} />
+
+      {/* Block 7b: Verified Capabilities (tu danh gia nang luc) */}
+      <ProfileCapabilities capability={capability ?? null} />
 
       {/* Block 8: CTA */}
       <ProfileCTA profile={profile} />

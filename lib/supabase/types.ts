@@ -774,6 +774,109 @@ export type Database = {
           }
         ]
       }
+      client_factory_assessments: {
+        Row: {
+          id: string
+          client_id: string
+          quality_systems: string[]
+          quality_systems_other: string | null
+          oem_odm: string[]
+          company_scale: string | null
+          export_since_year: number | null
+          export_markets: string[]
+          export_markets_other: string | null
+          traceability: string[]
+          audit_readiness: string[]
+          audit_owner: string | null
+          incoterms: string[]
+          payment_policy: string | null
+          oem_policy: string | null
+          odm_policy: string | null
+          has_export_dept: boolean | null
+          has_english_staff: boolean | null
+          pricing_decision_maker: string | null
+          commitments: string[]
+          project_priority: string | null
+          score_total: number | null
+          score_grade: string | null
+          score_breakdown: Record<string, unknown>
+          scored_at: string | null
+          created_by: string | null
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          quality_systems?: string[]
+          quality_systems_other?: string | null
+          oem_odm?: string[]
+          company_scale?: string | null
+          export_since_year?: number | null
+          export_markets?: string[]
+          export_markets_other?: string | null
+          traceability?: string[]
+          audit_readiness?: string[]
+          audit_owner?: string | null
+          incoterms?: string[]
+          payment_policy?: string | null
+          oem_policy?: string | null
+          odm_policy?: string | null
+          has_export_dept?: boolean | null
+          has_english_staff?: boolean | null
+          pricing_decision_maker?: string | null
+          commitments?: string[]
+          project_priority?: string | null
+          score_total?: number | null
+          score_grade?: string | null
+          score_breakdown?: Record<string, unknown>
+          scored_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          quality_systems?: string[]
+          quality_systems_other?: string | null
+          oem_odm?: string[]
+          company_scale?: string | null
+          export_since_year?: number | null
+          export_markets?: string[]
+          export_markets_other?: string | null
+          traceability?: string[]
+          audit_readiness?: string[]
+          audit_owner?: string | null
+          incoterms?: string[]
+          payment_policy?: string | null
+          oem_policy?: string | null
+          odm_policy?: string | null
+          has_export_dept?: boolean | null
+          has_english_staff?: boolean | null
+          pricing_decision_maker?: string | null
+          commitments?: string[]
+          project_priority?: string | null
+          score_total?: number | null
+          score_grade?: string | null
+          score_breakdown?: Record<string, unknown>
+          scored_at?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_factory_assessments_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       email_drafts: {
         Row: {
           id: string
@@ -836,7 +939,8 @@ export type Notification = Database["public"]["Tables"]["notifications"]["Row"]
 export type NotificationPreferences = Database["public"]["Tables"]["notification_preferences"]["Row"]
 export type NotificationEmailLog = Database["public"]["Tables"]["notification_email_log"]["Row"]
 
-export type ClientProfile = Database["public"]["Tables"]["client_profiles"]["Row"]
+export type ClientFactoryAssessment =
+  Database["public"]["Tables"]["client_factory_assessments"]["Row"]
 
 export type OpportunityWithLead = Opportunity & {
   leads: Lead

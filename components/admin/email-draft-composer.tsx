@@ -34,7 +34,7 @@ interface Props {
   loading: boolean
   onGenerate: (emailType: EmailType, viPrompt: string) => void
   /** Send manual email directly */
-  onSendManual?: (subject: string, content: string) => void
+  onSendManual?: (subject: string, content: string, recipient: string) => void
   /** Initial quoted text (e.g. buyer reply to respond to) */
   quoteReply?: string
   /** Callback when quote is cleared */
@@ -90,6 +90,15 @@ export function EmailDraftComposer({
   // Manual mode state
   const [manualSubject, setManualSubject] = useState("")
   const [manualContent, setManualContent] = useState("")
+  const [manualRecipient, setManualRecipient] = useState("")
+
+  // Prefill recipient from the buyer's primary contact once the contact
+  // directory loads. Don't overwrite if the AE already typed something.
+  useEffect(() => {
+    if (manualRecipient) return
+    const primary = contacts.find((c) => c.is_primary && c.email) ?? contacts.find((c) => !!c.email)
+    if (primary?.email) setManualRecipient(primary.email)
+  }, [contacts, manualRecipient])
 
   function handleAISubmit() {
     // AI auto-generates based on email type and buyer data - no Vietnamese prompt needed
@@ -97,8 +106,8 @@ export function EmailDraftComposer({
   }
 
   function handleManualSubmit() {
-    if (!manualSubject.trim() || !manualContent.trim()) return
-    onSendManual?.(manualSubject.trim(), manualContent.trim())
+    if (!manualSubject.trim() || !manualContent.trim() || !manualRecipient.trim()) return
+    onSendManual?.(manualSubject.trim(), manualContent.trim(), manualRecipient.trim())
   }
 
   const ccableContacts = contacts.filter((c) => !!c.email)
@@ -264,6 +273,37 @@ export function EmailDraftComposer({
         <TabsContent value="manual" className="mt-4 space-y-4">
           <FieldGroup className="gap-4">
             <Field>
+              <FieldLabel>Email người nhận</FieldLabel>
+              <Input
+                type="email"
+                value={manualRecipient}
+                onChange={(e) => setManualRecipient(e.target.value)}
+                placeholder="buyer@company.com"
+                disabled={loading}
+              />
+              {contacts.filter((c) => !!c.email).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {contacts
+                    .filter((c) => !!c.email)
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setManualRecipient(c.email!)}
+                        disabled={loading}
+                        className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {c.full_name} ({c.email}){c.is_primary ? " · Chính" : ""}
+                      </button>
+                    ))}
+                </div>
+              )}
+              <FieldDescription>
+                Email sẽ được gửi trực tiếp đến địa chỉ này.
+              </FieldDescription>
+            </Field>
+
+            <Field>
               <FieldLabel>Tiêu đề email</FieldLabel>
               <Input
                 value={manualSubject}
@@ -316,7 +356,7 @@ export function EmailDraftComposer({
           <Button
             type="button"
             onClick={handleManualSubmit}
-            disabled={loading || !manualSubject.trim() || !manualContent.trim()}
+            disabled={loading || !manualSubject.trim() || !manualContent.trim() || !manualRecipient.trim()}
             className="w-full sm:w-auto"
           >
             {loading ? (

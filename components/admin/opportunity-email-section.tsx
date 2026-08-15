@@ -160,7 +160,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     resetFlow()
   }
 
-  async function handleSendManual(subject: string, content: string) {
+  async function handleSendManual(subject: string, content: string, recipient: string) {
     setSending(true)
     try {
       // First generate a draft record with the manual content
@@ -188,6 +188,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         draftId: genRes.data.draftId,
         overrideSubject: subject,
         overrideContent: content,
+        overrideRecipient: recipient,
         overrideCc: ccEmails.length > 0 ? ccEmails : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
       })

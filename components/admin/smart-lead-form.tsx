@@ -42,12 +42,19 @@ import {
   Star,
   ExternalLink,
   Wand2,
+  UserPlus,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
-import { createLeadWithAIMatchingAction, type CreateLeadWithAIMatchingInput } from "@/app/admin/leads/new/actions"
+import { Switch } from "@/components/ui/switch"
+import {
+  createLeadWithAIMatchingAction,
+  type CreateLeadWithAIMatchingInput,
+  type AdditionalContactInput,
+} from "@/app/admin/leads/new/actions"
 import { toast } from "sonner"
 import { BuyerAnalysisCard } from "@/components/admin/buyer-analysis-card"
 import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
@@ -70,6 +77,26 @@ export function SmartLeadForm() {
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
   const [country, setCountry] = useState("")
+
+  // Liên hệ khác của công ty (phòng ban / đại diện thị trường khác) — nhập
+  // ngay lúc tạo buyer, thay vì phải lưu xong rồi mới vào trang chi tiết để
+  // thêm. Người liên hệ chính ở trên vẫn được lưu như cũ.
+  const [additionalContacts, setAdditionalContacts] = useState<AdditionalContactInput[]>([])
+
+  function addContactRow() {
+    setAdditionalContacts((prev) => [
+      ...prev,
+      { fullName: "", title: "", department: "", marketRegion: "", email: "", phone: "", isDecisionMaker: false },
+    ])
+  }
+
+  function updateContactRow(index: number, patch: Partial<AdditionalContactInput>) {
+    setAdditionalContacts((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)))
+  }
+
+  function removeContactRow(index: number) {
+    setAdditionalContacts((prev) => prev.filter((_, i) => i !== index))
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // Section 2: DỮ LIỆU ĐỊNH LƯỢNG (LR copy-paste từ ImportYeti)
@@ -299,6 +326,17 @@ export function SmartLeadForm() {
       contactEmail: contactEmail || null,
       contactPhone: contactPhone || null,
       country: country.trim() || null,
+      additionalContacts: additionalContacts
+        .filter((c) => c.fullName.trim())
+        .map((c) => ({
+          fullName: c.fullName.trim(),
+          title: c.title?.trim() || null,
+          department: c.department?.trim() || null,
+          marketRegion: c.marketRegion?.trim() || null,
+          email: c.email?.trim() || null,
+          phone: c.phone?.trim() || null,
+          isDecisionMaker: c.isDecisionMaker ?? false,
+        })),
       
       // Section 2
       totalShipments: totalShipments ? parseInt(totalShipments, 10) : null,
@@ -610,6 +648,93 @@ export function SmartLeadForm() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Liên hệ khác (nhiều phòng ban / đại diện thị trường) */}
+          <div className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {locale === "vi" ? "Liên hệ khác trong công ty" : "Other contacts at this company"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi"
+                    ? "Nếu công ty có nhiều phòng ban / đại diện thị trường, thêm ngay ở đây."
+                    : "If this company has multiple departments / market reps, add them here."}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addContactRow} className="gap-1.5 shrink-0">
+                <UserPlus className="h-3.5 w-3.5" />
+                {locale === "vi" ? "Thêm liên hệ" : "Add contact"}
+              </Button>
+            </div>
+
+            {additionalContacts.map((c, index) => (
+              <div key={index} className="space-y-3 rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {locale === "vi" ? `Liên hệ #${index + 2}` : `Contact #${index + 2}`}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeContactRow(index)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    placeholder={locale === "vi" ? "Họ tên *" : "Full name *"}
+                    value={c.fullName}
+                    onChange={(e) => updateContactRow(index, { fullName: e.target.value })}
+                    className="border-border"
+                  />
+                  <Input
+                    placeholder={locale === "vi" ? "Chức vụ" : "Title"}
+                    value={c.title ?? ""}
+                    onChange={(e) => updateContactRow(index, { title: e.target.value })}
+                    className="border-border"
+                  />
+                  <Input
+                    placeholder={locale === "vi" ? "Phòng ban" : "Department"}
+                    value={c.department ?? ""}
+                    onChange={(e) => updateContactRow(index, { department: e.target.value })}
+                    className="border-border"
+                  />
+                  <Input
+                    placeholder={locale === "vi" ? "Thị trường / khu vực phụ trách" : "Market / region"}
+                    value={c.marketRegion ?? ""}
+                    onChange={(e) => updateContactRow(index, { marketRegion: e.target.value })}
+                    className="border-border"
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={c.email ?? ""}
+                    onChange={(e) => updateContactRow(index, { email: e.target.value })}
+                    className="border-border"
+                  />
+                  <Input
+                    placeholder={locale === "vi" ? "Số điện thoại" : "Phone"}
+                    value={c.phone ?? ""}
+                    onChange={(e) => updateContactRow(index, { phone: e.target.value })}
+                    className="border-border"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-border p-2.5">
+                  <Label className="text-xs font-normal">
+                    {locale === "vi" ? "Người quyết định" : "Decision maker"}
+                  </Label>
+                  <Switch
+                    checked={!!c.isDecisionMaker}
+                    onCheckedChange={(v) => updateContactRow(index, { isDecisionMaker: v })}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

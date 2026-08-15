@@ -180,12 +180,14 @@ export async function sendEmailDraft(
     // X-Entity-Ref-ID: Unique ID to prevent Gmail from incorrectly threading emails
     // Each email gets its own ID so they appear as separate conversations
     "X-Entity-Ref-ID": uniqueEmailId,
-    // Priority header - tells mail servers this is important business email
-    "X-Priority": "1",
-    // Mark as transactional (not promotional/marketing)
-    "X-Campaign": "transactional",
-    // Custom mailer identification
-    "X-Mailer": "Vexim-Trade-Transactional/1.0",
+    // NOTE: Deliberately NOT setting "X-Priority: 1" or "X-Campaign: transactional".
+    // - X-Priority: 1 is a decades-old classic spam-filter trigger ("urgent" marketing
+    //   emails abuse it); it does nothing for real deliverability and only adds risk.
+    // - Mislabeling cold outreach as "X-Campaign: transactional" doesn't fool
+    //   content-based spam filters (which read the actual sales-pitch content) and
+    //   is an inconsistent signal.
+    // Custom mailer identification (neutral, doesn't affect spam scoring either way)
+    "X-Mailer": "Vexim-Trade/1.0",
     // Store ref code in custom header for internal tracking (not visible to buyer)
     ...(refCode && { "X-Ref-Code": refCode }),
   }

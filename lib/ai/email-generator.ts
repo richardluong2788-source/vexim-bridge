@@ -101,7 +101,7 @@ CRITICAL RULES:
 - ALWAYS offer TANGIBLE PROOF: factory video, COA, certification photos — NOT fake testimonials.
 
 STRUCTURE:
-1. SUBJECT LINE: Personalized + specific. Format: "[Name], re: [Company]'s [product] supply / [value hook]". Example: "Richard, re: Nodom's Arabica supply / FDA-registered alternative from Vietnam"
+1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, FDA-registered alternative for Nodom's Arabica supply"
 2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
 3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution with HONESTY. "We may be new to the U.S. market, but we are not new to quality..."
 4. 3 PILLARS PROOF (2-3 sentences): Offer concrete evidence from the 3 pillars. "I can send over our facility video, a recent COA, and our FDA registration certificate..."
@@ -119,7 +119,7 @@ STRUCTURE:
 4. URGENCY + CTA: Real deadline or scarcity if applicable. Clear single action.
 
 TONE: Respectful persistence. Assume they're busy, not uninterested. Add value, don't just "check in."
-Word count: 80-140 words. Subject line: Re: original thread OR new hook with urgency.`,
+Word count: 80-140 words. Subject line: each email uses its own fresh subject (the system intentionally does NOT thread these as Gmail replies) — NEVER prefix with "Re:" or "Fwd:" since there is no real thread to reply to; that fake-reply pattern is flagged as deceptive by spam filters. Use a new hook with urgency instead, e.g. "Following up — [Company]'s [product] supply / [new angle]".`,
 
   quotation: `COMMERCIAL QUOTATION - Use Gary Halbert's specificity + Dan Kennedy's value stacking.
 
@@ -402,14 +402,14 @@ Example to avoid confusion:
     `
 GREETING & SUBJECT PERSONALIZATION:
 - "buyer_contact" is the EXACT person this email is addressed to (the AE explicitly selected them as the main recipient). ALWAYS greet them by this name: "Dear [buyer_contact]," or "Hi [first name],". Never use a generic greeting like "Dear Sir/Madam" or "Dear Team" when buyer_contact is provided.
-- Use only the person's given first name in the subject line personalization (e.g. buyer_contact="Mark Johnson" → "Mark, re: ..."), and their full name or first name in the greeting.
+- Use only the person's given first name in the subject line personalization (e.g. buyer_contact="Mark Johnson" → "Mark, ..." — NEVER "Mark, re: ..." since a fake "Re:" on a non-reply is flagged as a deceptive subject line by spam filters), and their full name or first name in the greeting.
 - If buyer_contact is null, fall back to a professional generic greeting referencing buyer_company, e.g. "Dear [buyer_company] Team,".`,
     `
 1. NO EMPTY PROMISES: NEVER claim specific percentages or savings unless the admin explicitly provides verified data. "15-20% savings" without proof is a credibility killer. Instead use: "very competitive landed cost", "pricing worth comparing", "cost structure that typically outperforms [origin]".
 2. PROOF OVER CLAIMS: Always offer to SHOW evidence rather than just TELL. "I can send a case study showing how we helped [similar client]..." is 10x more powerful than "We can save you money."
 3. YOU-FOCUSED: Use "you/your" 3x more than "we/our/I". Start with THEIR problem, not your pitch.
 4. SOFT CTA: Use partnership language. "Would you be open to compare notes?" beats "Schedule a call now." Never pushy.
-5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], re: [topic] / [value hook]". Never generic like "Partnership Opportunity" or "Introduction".
+5. SUBJECT LINE: Must be personalized + specific. Format: "[Name], [value hook] / [topic]". NEVER prefix with "Re:" or "Fwd:" — there is no real prior thread, and a fake reply prefix is flagged as a deceptive subject line by Gmail/Outlook spam filters. Never generic like "Partnership Opportunity" or "Introduction" either.
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain ONLY:
    - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")

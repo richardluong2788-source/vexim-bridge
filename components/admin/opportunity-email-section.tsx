@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/sheet"
 import { EmailDraftComposer } from "@/components/admin/email-draft-composer"
 import { EmailDraftReviewer } from "@/components/admin/email-draft-reviewer"
+import { contactsToRecipientOptions, type RecipientOption } from "@/components/admin/email-recipient-picker"
+import { listContacts } from "@/lib/buyers/contacts-actions"
 import {
   generateEmailDraftAction,
   sendEmailDraftAction,
@@ -50,6 +52,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   const [draft, setDraft] = useState<GenerateEmailResult | null>(null)
   const [draftId, setDraftId] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([])
+  const [contactOptions, setContactOptions] = useState<RecipientOption[]>([])
 
   // History
   const [history, setHistory] = useState<EmailDraftRow[]>([])
@@ -90,6 +93,12 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
       setDraft(res.data)
       setDraftId(res.data.draftId)
       setFlowState("review")
+      if (res.data.lead_id) {
+        const contactsRes = await listContacts(res.data.lead_id)
+        if (contactsRes.success) {
+          setContactOptions(contactsToRecipientOptions(contactsRes.data ?? []))
+        }
+      }
     } catch (err) {
       toast.error(s.errorGenerate)
     } finally {
@@ -97,7 +106,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     }
   }
 
-  async function handleSend(overrides: { subject?: string; content?: string; recipient?: string }) {
+  async function handleSend(overrides: { subject?: string; content?: string; recipient?: string; cc?: string[] }) {
     if (!draftId) return
     setSending(true)
     try {
@@ -106,6 +115,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         overrideSubject: overrides.subject,
         overrideContent: overrides.content,
         overrideRecipient: overrides.recipient,
+        overrideCc: overrides.cc,
         attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!res.ok) {
@@ -202,6 +212,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     setDraft(null)
     setDraftId(null)
     setAttachments([])
+    setContactOptions([])
   }
 
   return (
@@ -236,6 +247,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             onBack={resetFlow}
             attachments={attachments}
             onRemoveAttachment={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+            contactOptions={contactOptions}
           />
         )}
 
@@ -334,6 +346,12 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
                     <p className="text-xs font-medium text-muted-foreground">Gửi đến</p>
                     <p className="text-sm text-foreground">{selectedEmailDetail.recipient_email ?? "—"}</p>
                   </div>
+                  {selectedEmailDetail.cc_emails && selectedEmailDetail.cc_emails.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">CC</p>
+                      <p className="text-sm text-foreground">{selectedEmailDetail.cc_emails.join(", ")}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Ngày gửi</p>
                     <p className="text-sm text-foreground">

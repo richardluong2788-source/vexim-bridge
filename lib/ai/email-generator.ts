@@ -175,6 +175,8 @@ export type GenerateEmailResult = {
   content_en: string
   content_vi: string
   recipient_email: string | null
+  /** Lead (buyer) id — used to look up additional contacts for CC/To selection. */
+  lead_id: string | null
 }
 
 /** Thrown when the caller does not have permission to use the AI email tool. */
@@ -613,6 +615,7 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
       content_en: input.manualContent,
       content_vi: input.manualContent,
       recipient_email: recipient,
+      lead_id: (lead["id"] as string | null) ?? null,
     }
   }
 
@@ -657,5 +660,6 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
     content_en: generated.content_en,
     content_vi: generated.content_vi,
     recipient_email: recipient,
+    lead_id: (lead["id"] as string | null) ?? null,
   }
 }

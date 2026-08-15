@@ -12,6 +12,7 @@ import {
   type BuyerReply,
   type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
+import type { BuyerContact } from "@/lib/supabase/types"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
 
@@ -130,6 +131,16 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     }))
   }
 
+  // --- 3b) Buyer contacts (multi-contact directory) -----------------------
+  const { data: rawContacts } = await current.admin
+    .from("buyer_contacts")
+    .select("*")
+    .eq("lead_id", id)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true })
+
+  const contacts: BuyerContact[] = (rawContacts ?? []) as BuyerContact[]
+
   // --- 4) Clients eligible to be assigned this buyer ---------------------
   // We only include clients with a non-empty FDA registration number. The
   // expiry check happens server-side inside assignBuyerToClient, but we
@@ -211,6 +222,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         opportunities={oppRows}
         replies={replies}
         clients={clients}
+        contacts={contacts}
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}

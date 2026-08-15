@@ -255,6 +255,76 @@ export type Database = {
           priority_rating?: number | null
         }
       }
+      buyer_contacts: {
+        Row: {
+          id: string
+          lead_id: string
+          full_name: string
+          title: string | null
+          email: string | null
+          phone: string | null
+          department: string | null
+          market_region: string | null
+          is_primary: boolean
+          is_decision_maker: boolean
+          status: string
+          referred_by_contact_id: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          full_name: string
+          title?: string | null
+          email?: string | null
+          phone?: string | null
+          department?: string | null
+          market_region?: string | null
+          is_primary?: boolean
+          is_decision_maker?: boolean
+          status?: string
+          referred_by_contact_id?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          full_name?: string
+          title?: string | null
+          email?: string | null
+          phone?: string | null
+          department?: string | null
+          market_region?: string | null
+          is_primary?: boolean
+          is_decision_maker?: boolean
+          status?: string
+          referred_by_contact_id?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_contacts_referred_by_contact_id_fkey"
+            columns: ["referred_by_contact_id"]
+            referencedRelation: "buyer_contacts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       opportunities: {
         Row: {
           id: string
@@ -888,6 +958,7 @@ export type Database = {
           translated_content_vi: string | null
           status: EmailDraftStatus
           recipient_email: string | null
+          cc_emails: string[] | null
           created_by: string | null
           approved_by: string | null
           sent_at: string | null
@@ -903,6 +974,7 @@ export type Database = {
           translated_content_vi?: string | null
           status?: EmailDraftStatus
           recipient_email?: string | null
+          cc_emails?: string[] | null
           created_by?: string | null
           approved_by?: string | null
           sent_at?: string | null
@@ -918,6 +990,7 @@ export type Database = {
           translated_content_vi?: string | null
           status?: EmailDraftStatus
           recipient_email?: string | null
+          cc_emails?: string[] | null
           created_by?: string | null
           approved_by?: string | null
           sent_at?: string | null
@@ -931,6 +1004,7 @@ export type Database = {
 // Convenience types for joined queries
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type Lead = Database["public"]["Tables"]["leads"]["Row"]
+export type BuyerContact = Database["public"]["Tables"]["buyer_contacts"]["Row"]
 export type Opportunity = Database["public"]["Tables"]["opportunities"]["Row"]
 export type Activity = Database["public"]["Tables"]["activities"]["Row"]
 export type Deal = Database["public"]["Tables"]["deals"]["Row"]

@@ -43,6 +43,10 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSaved?: (updated: Partial<OpportunityWithClient>) => void
+  /** Tab to land on when the sheet opens for a new opportunity. Defaults
+   *  to "status". Used by the "Cần phản hồi" triage list so clicking a
+   *  buyer reply jumps straight to that tab instead of the status tab. */
+  initialSection?: SectionId
 }
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"] as const
@@ -100,7 +104,7 @@ function stageIndex(stage: Stage): number {
   return idx === -1 ? -1 : idx
 }
 
-export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSaved }: Props) {
+export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSaved, initialSection }: Props) {
   const { t } = useTranslation()
   const [pending, startTransition] = useTransition()
   const [aiLoading, setAiLoading] = useState(false)
@@ -154,7 +158,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
       client_action_required: opportunity.client_action_required ?? "",
       notes: opportunity.notes ?? "",
     })
-    setActiveSection("status")
+    setActiveSection(initialSection ?? "status")
   }
 
   if (!opportunity) return null

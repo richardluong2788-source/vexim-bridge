@@ -54,6 +54,8 @@ export async function sendEmailDraft(
     overrideContent?: string
     /** Optional manual recipient (e.g. user typed one because lead lacked it). */
     overrideRecipient?: string
+    /** Additional recipients CC'd (e.g. other contacts at the buyer company). */
+    overrideCc?: string[]
     /** File attachments to include in email */
     attachments?: UploadedAttachment[]
   },
@@ -188,9 +190,12 @@ export async function sendEmailDraft(
     ...(refCode && { "X-Ref-Code": refCode }),
   }
 
+  const ccEmails = (opts?.overrideCc ?? []).filter((e) => e.trim().length > 0)
+
   const sendRes = await sendMail({
     from: fromAddress,
     to: recipient,
+    cc: ccEmails.length > 0 ? ccEmails : undefined,
     replyTo: replyToEmail,
     subject,
     html: htmlBody,
@@ -218,6 +223,7 @@ export async function sendEmailDraft(
       generated_subject: subject,
       generated_content_en: content,
       resend_message_id: sendRes.data?.id ?? null,
+      cc_emails: ccEmails.length > 0 ? ccEmails : null,
     })
     .eq("id", draftId)
 

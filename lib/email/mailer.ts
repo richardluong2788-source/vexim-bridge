@@ -100,6 +100,8 @@ export function getSenderEmail(sender: SenderKey = "trade"): string {
 export interface SendMailInput {
   from?: string
   to: string | string[]
+  /** Additional recipients CC'd on the email (e.g. other contacts at the buyer company). */
+  cc?: string | string[]
   /**
    * Reply-To header. When set, recipients' "Reply" button targets this
    * address instead of `from`. We use plus-addressing here (e.g.
@@ -139,6 +141,10 @@ export async function sendMail(
     if (input.text) payload.text = input.text
     if (input.replyTo) payload.reply_to = input.replyTo
     if (input.headers) payload.headers = input.headers
+    if (input.cc) {
+      const ccArray = Array.isArray(input.cc) ? input.cc : [input.cc]
+      if (ccArray.length > 0) payload.cc = ccArray
+    }
 
     const response = await fetch(RESEND_API_URL, {
       method: "POST",

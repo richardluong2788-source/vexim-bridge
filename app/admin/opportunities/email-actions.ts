@@ -59,6 +59,7 @@ export type SendEmailActionInput = {
   overrideSubject?: string
   overrideContent?: string
   overrideRecipient?: string
+  overrideCc?: string[]
   attachments?: UploadedAttachment[]
 }
 
@@ -74,6 +75,7 @@ export async function sendEmailDraftAction(
       overrideSubject: input.overrideSubject,
       overrideContent: input.overrideContent,
       overrideRecipient: input.overrideRecipient,
+      overrideCc: input.overrideCc,
       attachments: input.attachments,
     })
     return { ok: true, data: result }
@@ -129,6 +131,7 @@ export type EmailDraftRow = {
   generated_content_en: string | null
   translated_content_vi: string | null
   recipient_email: string | null
+  cc_emails: string[] | null
   status: "draft" | "pending_approval" | "sent" | "rejected" | "failed"
   sent_at: string | null
   created_at: string
@@ -148,7 +151,7 @@ export async function fetchEmailDraftsAction(
 
     const { data, error } = await supabase
       .from("email_drafts")
-      .select("id, email_type, ai_prompt, generated_subject, generated_content_en, translated_content_vi, recipient_email, status, sent_at, created_at")
+      .select("id, email_type, ai_prompt, generated_subject, generated_content_en, translated_content_vi, recipient_email, cc_emails, status, sent_at, created_at")
       .eq("opportunity_id", opportunityId)
       .order("created_at", { ascending: false })
       .limit(20)

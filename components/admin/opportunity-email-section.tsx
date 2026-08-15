@@ -23,9 +23,10 @@ import {
   type EmailDraftRow,
 } from "@/app/admin/opportunities/email-actions"
 import { useTranslation } from "@/components/i18n/language-provider"
-import type { EmailType } from "@/lib/supabase/types"
+import type { EmailType, BuyerContact } from "@/lib/supabase/types"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
+import { listContactsByOpportunity } from "@/lib/buyers/contacts-actions"
 
 type FlowState = "compose" | "review" | "success"
 
@@ -51,6 +52,11 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   const [draftId, setDraftId] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([])
 
+  // Multi-contact directory for this buyer — lets AE CC other contacts
+  // (departments / market reps) when sending.
+  const [contacts, setContacts] = useState<BuyerContact[]>([])
+  const [ccEmails, setCcEmails] = useState<string[]>([])
+
   // History
   const [history, setHistory] = useState<EmailDraftRow[]>([])
   const [showHistory, setShowHistory] = useState(false)
@@ -65,6 +71,16 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         if (res.ok) {
           setHistory(res.drafts.filter((d) => d.status === "sent"))
         }
+      })
+    }
+  }, [open, opportunityId])
+
+  // Load the buyer's contact directory (multi-contact) so the composer can
+  // offer a CC picker for other people/departments at the same company.
+  useEffect(() => {
+    if (open && opportunityId) {
+      listContactsByOpportunity(opportunityId).then((res) => {
+        if (res.success) setContacts(res.data ?? [])
       })
     }
   }, [open, opportunityId])
@@ -106,6 +122,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         overrideSubject: overrides.subject,
         overrideContent: overrides.content,
         overrideRecipient: overrides.recipient,
+        overrideCc: ccEmails.length > 0 ? ccEmails : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!res.ok) {
@@ -171,6 +188,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         draftId: genRes.data.draftId,
         overrideSubject: subject,
         overrideContent: content,
+        overrideCc: ccEmails.length > 0 ? ccEmails : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!sendRes.ok) {
@@ -202,6 +220,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     setDraft(null)
     setDraftId(null)
     setAttachments([])
+    setCcEmails([])
   }
 
   return (
@@ -224,6 +243,9 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             onAttachmentsChange={setAttachments}
             opportunityId={opportunityId}
             clientId={clientId}
+            contacts={contacts}
+            ccEmails={ccEmails}
+            onCcChange={setCcEmails}
           />
         )}
 
@@ -236,6 +258,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             onBack={resetFlow}
             attachments={attachments}
             onRemoveAttachment={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+            ccEmails={ccEmails}
           />
         )}
 
@@ -334,6 +357,12 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
                     <p className="text-xs font-medium text-muted-foreground">Gửi đến</p>
                     <p className="text-sm text-foreground">{selectedEmailDetail.recipient_email ?? "—"}</p>
                   </div>
+                  {selectedEmailDetail.cc_emails && selectedEmailDetail.cc_emails.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">CC</p>
+                      <p className="text-sm text-foreground">{selectedEmailDetail.cc_emails.join(", ")}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Ngày gửi</p>
                     <p className="text-sm text-foreground">

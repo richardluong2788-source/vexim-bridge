@@ -14,6 +14,8 @@ import {
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
+import { listContacts } from "@/lib/buyers/contacts-actions"
+import type { BuyerContact } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
 
@@ -40,6 +42,10 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
+
+  // --- 1b) Contacts (multi-contact directory for this buyer company) -----
+  const contactsResult = await listContacts(id)
+  const contacts: BuyerContact[] = contactsResult.success ? contactsResult.data ?? [] : []
 
   // --- 2) Opportunities attached to this buyer ---------------------------
   const { data: opps } = await current.admin
@@ -211,6 +217,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         opportunities={oppRows}
         replies={replies}
         clients={clients}
+        contacts={contacts}
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}

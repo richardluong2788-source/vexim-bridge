@@ -22,6 +22,8 @@ interface Props {
   attachments: UploadedAttachment[]
   /** Callback to remove an attachment */
   onRemoveAttachment: (index: number) => void
+  /** CC recipients selected in the composer (read-only confirmation here) */
+  ccEmails?: string[]
 }
 
 export function EmailDraftReviewer({ 
@@ -32,6 +34,7 @@ export function EmailDraftReviewer({
   onBack,
   attachments,
   onRemoveAttachment,
+  ccEmails = [],
 }: Props) {
   const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
@@ -85,6 +88,20 @@ export function EmailDraftReviewer({
           </div>
         )}
       </Field>
+
+      {/* CC (read-only confirmation - chosen in composer's contact directory picker) */}
+      {ccEmails.length > 0 && (
+        <Field>
+          <FieldLabel>CC</FieldLabel>
+          <div className="flex flex-wrap gap-1.5 bg-muted/50 px-3 py-2 rounded-md">
+            {ccEmails.map((email) => (
+              <Badge key={email} variant="secondary" className="text-xs font-normal">
+                {email}
+              </Badge>
+            ))}
+          </div>
+        </Field>
+      )}
 
       {/* Subject */}
       <Field>

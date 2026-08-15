@@ -259,7 +259,7 @@ export function KanbanBoard({
       )}
 
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex items-start gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
           const cards = opportunities.filter((o) => o.stage === stage.id)
           const isBlocked =

@@ -57,11 +57,15 @@ export function KanbanColumn({
         </span>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — height is capped so a column with hundreds of cards
+          scrolls internally instead of stretching the whole board taller
+          and pushing far-right columns out of view. min-h keeps a short
+          column from collapsing to nothing so it's still a visible drop
+          target when empty or nearly empty. */}
       <div
         ref={setNodeRef}
         className={cn(
-          "flex flex-col gap-2 min-h-96 p-2 rounded-b-lg border border-t-0 transition-colors",
+          "flex flex-col gap-2 min-h-96 max-h-[calc(100vh-260px)] overflow-y-auto p-2 rounded-b-lg border border-t-0 transition-colors",
           stage.color,
           isOver && !isBlocked && "ring-2 ring-accent ring-inset",
           isOver && isBlocked && "ring-2 ring-destructive ring-inset",

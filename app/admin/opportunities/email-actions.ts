@@ -18,6 +18,9 @@ export type GenerateEmailActionInput = {
   isManual?: boolean
   manualSubject?: string
   manualContent?: string
+  /** Liên hệ AE đã tích chọn làm "email chính" (người nhận thật) */
+  recipientContactName?: string | null
+  recipientContactEmail?: string | null
 }
 
 export type GenerateEmailActionResult =
@@ -35,6 +38,8 @@ export async function generateEmailDraftAction(
       isManual: input.isManual,
       manualSubject: input.manualSubject,
       manualContent: input.manualContent,
+      recipientContactName: input.recipientContactName,
+      recipientContactEmail: input.recipientContactEmail,
     })
     return { ok: true, data: result }
   } catch (err) {

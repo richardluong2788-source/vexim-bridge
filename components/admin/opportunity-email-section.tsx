@@ -57,6 +57,9 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   const [contacts, setContacts] = useState<BuyerContact[]>([])
   const [ccEmails, setCcEmails] = useState<string[]>([])
   const [leadId, setLeadId] = useState<string | undefined>()
+  // Liên hệ AE tích chọn làm "email chính" - đây là người nhận thật
+  // (khác với ccEmails chỉ là các địa chỉ CC thêm).
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
 
   // History
   const [history, setHistory] = useState<EmailDraftRow[]>([])
@@ -82,12 +85,27 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     if (open && opportunityId) {
       listContactsByOpportunity(opportunityId).then((res) => {
         if (res.success) {
-          setContacts(res.data ?? [])
+          const data = res.data ?? []
+          setContacts(data)
           setLeadId(res.leadId)
+          // Mặc định chọn liên hệ primary (hoặc liên hệ đầu tiên có email)
+          // làm email chính, để AE không phải tự tay chọn mỗi lần mở panel.
+          const defaultContact = data.find((c) => c.is_primary && c.email) ?? data.find((c) => !!c.email)
+          setSelectedContactId(defaultContact?.id ?? null)
         }
       })
     }
   }, [open, opportunityId])
+
+  // AE tích chọn một liên hệ khác làm email chính - nếu liên hệ đó đang
+  // được CC thì bỏ CC luôn, tránh gửi trùng đến 2 chỗ.
+  function handleSelectContact(contactId: string) {
+    setSelectedContactId(contactId)
+    const contact = contacts.find((c) => c.id === contactId)
+    if (contact?.email) {
+      setCcEmails((prev) => prev.filter((e) => e !== contact.email))
+    }
+  }
 
   // Cho phép AE thêm nhanh một email khác của công ty buyer (VD: phòng mua
   // hàng, đại diện thị trường khác) ngay trong panel soạn email, để có thể
@@ -103,8 +121,13 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
       return false
     }
     setContacts((prev) => [...prev, res.data!])
-    // Tự động CC email mới thêm luôn, vì AE thêm vào đây là để gửi kèm ngay.
-    setCcEmails((prev) => (prev.includes(res.data!.email!) ? prev : [...prev, res.data!.email!]))
+    if (!selectedContactId) {
+      // Chưa có ai được chọn làm email chính - liên hệ mới thêm sẽ là người nhận.
+      setSelectedContactId(res.data!.id)
+    } else {
+      // Đã có email chính - liên hệ mới thêm là để CC thêm, gửi kèm ngay.
+      setCcEmails((prev) => (prev.includes(res.data!.email!) ? prev : [...prev, res.data!.email!]))
+    }
     toast.success("Đã thêm liên hệ")
     return true
   }
@@ -112,10 +135,13 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   async function handleGenerate(emailType: EmailType, viPrompt: string) {
     setGenerating(true)
     try {
+      const selectedContact = contacts.find((c) => c.id === selectedContactId)
       const res = await generateEmailDraftAction({
         opportunityId,
         emailType,
         viPrompt,
+        recipientContactName: selectedContact?.full_name,
+        recipientContactEmail: selectedContact?.email,
       })
       if (!res.ok) {
         if (res.error === "noLead") {
@@ -187,6 +213,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   async function handleSendManual(subject: string, content: string, recipient: string) {
     setSending(true)
     try {
+      const selectedContact = contacts.find((c) => c.id === selectedContactId)
       // First generate a draft record with the manual content
       const genRes = await generateEmailDraftAction({
         opportunityId,
@@ -195,6 +222,8 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         isManual: true,
         manualSubject: subject,
         manualContent: content,
+        recipientContactName: selectedContact?.full_name,
+        recipientContactEmail: selectedContact?.email,
       })
       if (!genRes.ok) {
         if (genRes.error === "noLead") {
@@ -269,6 +298,8 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             opportunityId={opportunityId}
             clientId={clientId}
             contacts={contacts}
+            selectedContactId={selectedContactId}
+            onSelectContact={handleSelectContact}
             ccEmails={ccEmails}
             onCcChange={setCcEmails}
             onAddContact={handleAddContact}

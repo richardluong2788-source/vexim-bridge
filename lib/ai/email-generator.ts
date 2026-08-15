@@ -167,6 +167,14 @@ export type GenerateEmailInput = {
   isManual?: boolean
   manualSubject?: string
   manualContent?: string
+  /**
+   * AE đã tích chọn một liên hệ cụ thể trong danh bạ làm "email chính".
+   * Khi có giá trị, đây LÀ người nhận thật (ghi vào recipient_email) và
+   * AI phải dùng đúng tên này để cá nhân hóa (VD: "Dear Mark Johnson"),
+   * thay vì mặc định lấy contact_person/contact_email của lead.
+   */
+  recipientContactName?: string | null
+  recipientContactEmail?: string | null
 }
 
 export type GenerateEmailResult = {
@@ -297,9 +305,12 @@ export async function generateEmailDraft(
   const contextBlock = JSON.stringify(
     {
       // === BUYER BASIC INFO ===
+      // buyer_contact/buyer_email ưu tiên liên hệ AE vừa chọn ở cột "Email
+      // chính" (danh bạ đa liên hệ), chỉ fallback về contact_person/
+      // contact_email của lead khi AE không chọn ai cụ thể.
       buyer_company: lead["company_name"],
-      buyer_contact: lead["contact_person"],
-      buyer_email: lead["contact_email"],
+      buyer_contact: input.recipientContactName ?? lead["contact_person"],
+      buyer_email: input.recipientContactEmail ?? lead["contact_email"],
       buyer_industry: lead["industry"],
       buyer_country: lead["country"],
       buyer_notes: lead["notes"],
@@ -388,6 +399,11 @@ Example to avoid confusion:
 - Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
 - Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (This is the AE sending the email)
 - The email is FROM Luong Van Hoc (Vexim Trade) TO the buyer at Công Ty Long An.`,
+    `
+GREETING & SUBJECT PERSONALIZATION:
+- "buyer_contact" is the EXACT person this email is addressed to (the AE explicitly selected them as the main recipient). ALWAYS greet them by this name: "Dear [buyer_contact]," or "Hi [first name],". Never use a generic greeting like "Dear Sir/Madam" or "Dear Team" when buyer_contact is provided.
+- Use only the person's given first name in the subject line personalization (e.g. buyer_contact="Mark Johnson" → "Mark, re: ..."), and their full name or first name in the greeting.
+- If buyer_contact is null, fall back to a professional generic greeting referencing buyer_company, e.g. "Dear [buyer_company] Team,".`,
     `
 1. NO EMPTY PROMISES: NEVER claim specific percentages or savings unless the admin explicitly provides verified data. "15-20% savings" without proof is a credibility killer. Instead use: "very competitive landed cost", "pricing worth comparing", "cost structure that typically outperforms [origin]".
 2. PROOF OVER CLAIMS: Always offer to SHOW evidence rather than just TELL. "I can send a case study showing how we helped [similar client]..." is 10x more powerful than "We can save you money."
@@ -585,7 +601,7 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
   // 4) Manual mode bypass - skip AI generation
   // ------------------------------------------------------------
   if (input.isManual && input.manualSubject && input.manualContent) {
-    const recipient = (lead["contact_email"] as string | null) ?? null
+    const recipient = input.recipientContactEmail ?? (lead["contact_email"] as string | null) ?? null
     
     const { data: draft, error: draftError } = await supabase
       .from("email_drafts")
@@ -629,7 +645,7 @@ DO NOT ignore this data if it exists. DO NOT make negative assumptions about why
   // ------------------------------------------------------------
   // 6) Persist as email_draft awaiting approval
   // ------------------------------------------------------------
-  const recipient = (lead["contact_email"] as string | null) ?? null
+  const recipient = input.recipientContactEmail ?? (lead["contact_email"] as string | null) ?? null
 
   const { data: draft, error: draftError } = await supabase
     .from("email_drafts")

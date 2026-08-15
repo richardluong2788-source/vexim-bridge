@@ -42,6 +42,26 @@ export default async function AdminPipelinePage() {
   const oppIds = ((opportunities ?? []) as Array<{ id: string }>).map((o) => o.id)
   let unreadByOpp: Record<string, number> = {}
   const needsReplyItems: NeedsReplyItem[] = []
+
+  // Time-in-current-stage, sourced from the `opportunity_metrics_v` view
+  // (migration 029) so the Kanban card can show "đã ở giai đoạn này X
+  // ngày" — this is what lets an AE spot a buyer that's gone stale in a
+  // stage without having to recall how long ago they dragged the card.
+  let daysInStageByOpp: Record<string, number> = {}
+  if (oppIds.length > 0) {
+    const { data: metrics } = await admin
+      .from("opportunity_metrics_v")
+      .select("opportunity_id, days_in_current_stage")
+      .in("opportunity_id", oppIds)
+    if (metrics) {
+      for (const row of metrics as Array<{
+        opportunity_id: string
+        days_in_current_stage: number
+      }>) {
+        daysInStageByOpp[row.opportunity_id] = row.days_in_current_stage
+      }
+    }
+  }
   if (oppIds.length > 0) {
     const { data: unreadReplies } = await admin
       .from("buyer_replies")
@@ -102,6 +122,7 @@ export default async function AdminPipelinePage() {
         opportunities={(opportunities as OpportunityWithClient[]) ?? []}
         unreadReplyCountByOpp={unreadByOpp}
         needsReplyItems={needsReplyItems}
+        daysInStageByOpp={daysInStageByOpp}
       />
     </div>
   )

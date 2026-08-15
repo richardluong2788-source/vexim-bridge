@@ -18,6 +18,7 @@ import {
   Package,
   Star,
   TrendingDown,
+  Clock,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -31,9 +32,19 @@ interface KanbanCardProps {
   onEdit?: (opportunity: OpportunityWithClient) => void
   /** Number of unread buyer replies for this opportunity */
   unreadReplyCount?: number
+  /** Days spent in the current stage (from `opportunity_metrics_v`).
+   *  Undefined while metrics haven't loaded — the line is simply omitted
+   *  rather than showing a misleading "0 ngày". */
+  daysInStage?: number
 }
 
-export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount = 0 }: KanbanCardProps) {
+export function KanbanCard({
+  opportunity,
+  isDragging,
+  onEdit,
+  unreadReplyCount = 0,
+  daysInStage,
+}: KanbanCardProps) {
   const { t, locale } = useTranslation()
   const {
     attributes,
@@ -81,6 +92,27 @@ export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount =
     
     return lowMonths.includes(currentMonth) || lowMonths.includes(currentMonthShort)
   })()
+
+  // Staleness label — color escalates the longer a card sits in one
+  // stage, so an AE scanning the board can spot who needs a nudge without
+  // reading every number. Won/lost deals are terminal, so "time stuck"
+  // doesn't apply there and the line is suppressed.
+  const isTerminalStage = opportunity.stage === "won" || opportunity.stage === "lost"
+  const showDaysInStage = typeof daysInStage === "number" && !isTerminalStage
+  const daysInStageLabel = showDaysInStage
+    ? daysInStage === 0
+      ? "Hôm nay"
+      : daysInStage === 1
+        ? "1 ngày ở đây"
+        : `${daysInStage} ngày ở đây`
+    : null
+  const daysInStageColorClass = !showDaysInStage
+    ? ""
+    : daysInStage >= 7
+      ? "text-destructive"
+      : daysInStage >= 3
+        ? "text-chart-5"
+        : "text-muted-foreground"
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -306,6 +338,19 @@ export function KanbanCard({ opportunity, isDragging, onEdit, unreadReplyCount =
               {(client?.client_profiles as Array<{ display_name: string | null }> | undefined)?.[0]?.display_name ?? client?.company_name ?? client?.full_name ?? "—"}
             </span>
           </div>
+          {daysInStageLabel ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn("flex items-center gap-1 shrink-0", daysInStageColorClass)}>
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span className="text-[11px] font-medium whitespace-nowrap">{daysInStageLabel}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Đã ở giai đoạn này {daysInStage} ngày</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {opportunity.potential_value ? (
             <div className="flex items-center gap-0.5 shrink-0">
               <DollarSign className="h-3 w-3 text-chart-4" />

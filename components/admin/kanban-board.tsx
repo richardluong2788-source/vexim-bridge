@@ -86,12 +86,17 @@ interface KanbanBoardProps {
    *  themselves so column order stays stable while an AE is scanning or
    *  dragging cards. */
   needsReplyItems?: NeedsReplyItem[]
+  /** Map of opportunity_id → number of days spent in its current stage
+   *  (from `opportunity_metrics_v`), rendered on the card so an AE can
+   *  spot a buyer that's gone stale without recalling when it was moved. */
+  daysInStageByOpp?: Record<string, number>
 }
 
 export function KanbanBoard({
   opportunities: initialOpportunities,
   unreadReplyCountByOpp = {},
   needsReplyItems = [],
+  daysInStageByOpp = {},
 }: KanbanBoardProps) {
   const { t } = useTranslation()
   const [opportunities, setOpportunities] = useState(initialOpportunities)
@@ -283,6 +288,7 @@ export function KanbanBoard({
                     key={opp.id}
                     opportunity={opp}
                     unreadReplyCount={unreadReplyCountByOpp[opp.id] ?? 0}
+                    daysInStage={daysInStageByOpp[opp.id]}
                     onEdit={(o) => {
                       setEditingSection("status")
                       setEditingId(o.id)
@@ -296,7 +302,13 @@ export function KanbanBoard({
       </div>
 
       <DragOverlay>
-        {activeOpportunity ? <KanbanCard opportunity={activeOpportunity} isDragging /> : null}
+        {activeOpportunity ? (
+          <KanbanCard
+            opportunity={activeOpportunity}
+            isDragging
+            daysInStage={daysInStageByOpp[activeOpportunity.id]}
+          />
+        ) : null}
       </DragOverlay>
 
       <OpportunityDetailSheet

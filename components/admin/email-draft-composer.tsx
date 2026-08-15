@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Mail, Sparkles, PenLine, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -72,9 +72,21 @@ export function EmailDraftComposer({
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
-  // AI mode state - default to introduction
+  // AI mode state - default to introduction (cold outreach, no prior contact)
   const [emailType, setEmailType] = useState<EmailType>("introduction")
-  
+
+  // Khi AE bấm "Phản hồi" trên một tin buyer đã gửi, quoteReply sẽ được set
+  // từ component cha. Composer này thường đã mount từ trước nên state
+  // emailType không tự đổi theo - phải đồng bộ ở đây, vì loại email này
+  // ảnh hưởng trực tiếp đến chiến lược viết của AI (EMAIL_TYPE_GUIDANCE):
+  // "introduction" ép AI viết như chào hàng lần đầu, sai hoàn toàn khi
+  // buyer đã ở giữa cuộc trao đổi và đang chờ trả lời.
+  useEffect(() => {
+    if (quoteReply) {
+      setEmailType("follow_up")
+    }
+  }, [quoteReply])
+
   // Manual mode state
   const [manualSubject, setManualSubject] = useState("")
   const [manualContent, setManualContent] = useState("")

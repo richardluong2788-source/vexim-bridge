@@ -80,6 +80,17 @@ function extractPurchaseHistoryData(purchaseHistory: string | null): {
   return result
 }
 
+/** Mot lien he bo sung (them nguoi khac o chinh man hinh tao buyer, khong can vao lai chi tiet buyer). */
+export interface AdditionalContactInput {
+  fullName: string
+  title?: string | null
+  department?: string | null
+  marketRegion?: string | null
+  email?: string | null
+  phone?: string | null
+  isDecisionMaker?: boolean
+}
+
 export interface CreateLeadWithAIMatchingInput {
   companyName: string
   contactPerson?: string | null
@@ -89,6 +100,8 @@ export interface CreateLeadWithAIMatchingInput {
   country?: string | null
   website?: string | null
   notes?: string | null
+  /** Cac lien he khac cua cong ty (phong ban / dai dien thi truong khac) nhap ngay luc tao. */
+  additionalContacts?: AdditionalContactInput[]
   
   // Section 1: THÔNG TIN ĐỊNH DANH
   importAddress?: string | null
@@ -223,6 +236,66 @@ export async function createLeadWithAIMatchingAction(
   if (leadError || !lead) {
     console.error("[v0] createLeadWithAIMatchingAction lead insert failed:", leadError)
     return { success: false, error: leadError?.message ?? "Failed to create lead" }
+  }
+
+  // 1b. Tao dong tuong ung trong buyer_contacts (danh ba nhieu lien he).
+  // Truoc day chi ghi vao leads.contact_* nen ngay sau khi tao buyer, tab
+  // "Lien he" tren trang chi tiet luon rong - phai vao sua/them lai lien he
+  // vua nhap. O day dong bo ca lien he chinh (Section 1) va cac lien he bo
+  // sung (phong ban / dai dien thi truong khac) nhap ngay luc tao.
+  const contactRows: {
+    lead_id: string
+    full_name: string
+    title: string | null
+    department: string | null
+    market_region: string | null
+    email: string | null
+    phone: string | null
+    is_primary: boolean
+    is_decision_maker: boolean
+    status: "active"
+    created_by: string
+  }[] = []
+
+  if (input.contactPerson?.trim() || input.contactEmail?.trim()) {
+    contactRows.push({
+      lead_id: lead.id,
+      full_name: input.contactPerson?.trim() || "Chưa rõ tên",
+      title: input.contactTitle?.trim() ?? null,
+      department: null,
+      market_region: null,
+      email: input.contactEmail?.trim() ?? null,
+      phone: input.contactPhone?.trim() ?? null,
+      is_primary: true,
+      is_decision_maker: true,
+      status: "active",
+      created_by: user.id,
+    })
+  }
+
+  for (const c of input.additionalContacts ?? []) {
+    if (!c.fullName?.trim()) continue
+    contactRows.push({
+      lead_id: lead.id,
+      full_name: c.fullName.trim(),
+      title: c.title?.trim() || null,
+      department: c.department?.trim() || null,
+      market_region: c.marketRegion?.trim() || null,
+      email: c.email?.trim() || null,
+      phone: c.phone?.trim() || null,
+      is_primary: false,
+      is_decision_maker: c.isDecisionMaker ?? false,
+      status: "active",
+      created_by: user.id,
+    })
+  }
+
+  if (contactRows.length > 0) {
+    const { error: contactsError } = await supabase.from("buyer_contacts").insert(contactRows)
+    if (contactsError) {
+      console.error("[v0] createLeadWithAIMatchingAction buyer_contacts insert failed:", contactsError)
+      // Non-fatal — buyer da duoc tao, LR co the them lai lien he thu cong.
+    }
   }
 
   // 2. Log activity: lead created

@@ -63,7 +63,7 @@ import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import type { Stage, BuyerContact } from "@/lib/supabase/types"
 import { updateBuyer, assignBuyerToClient } from "@/app/admin/buyers/actions"
-import { BuyerContactsPanel } from "@/components/admin/buyer-contacts-panel"
+import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -237,15 +237,14 @@ export function BuyerDetailView({
   locale,
   canWrite,
   canViewPII,
-  }: Props) {
+}: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
   const INTENT = locale === "vi" ? INTENT_LABEL_VI : INTENT_LABEL_EN
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
   const [assignOpen, setAssignOpen] = useState(false)
-  const [contactsState, setContactsState] = useState<BuyerContact[]>(contacts)
-  
+
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
 
   const openCount = opportunities.filter(
@@ -339,8 +338,15 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        <Tabs defaultValue="importyeti" className="flex flex-col gap-4">
+        <Tabs defaultValue="contacts" className="flex flex-col gap-4">
           <TabsList className="self-start">
+            <TabsTrigger value="contacts" className="gap-2">
+              <Users className="h-4 w-4" />
+              {locale === "vi" ? "Liên hệ" : "Contacts"}
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
+                {contacts.filter((c) => c.status === "active").length}
+              </Badge>
+            </TabsTrigger>
             <TabsTrigger value="importyeti" className="gap-2">
               <Ship className="h-4 w-4" />
               {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
@@ -359,14 +365,17 @@ export function BuyerDetailView({
                 {replies.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="contacts" className="gap-2">
-              <Users className="h-4 w-4" />
-              {locale === "vi" ? "Danh bạ" : "Contacts"}
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
-                {contactsState.length}
-              </Badge>
-            </TabsTrigger>
           </TabsList>
+
+          {/* Contacts Tab */}
+          <TabsContent value="contacts" className="mt-0">
+            <BuyerContactsManager
+              leadId={buyer.id}
+              initialContacts={contacts}
+              locale={locale}
+              canWrite={canWrite}
+            />
+          </TabsContent>
 
           {/* ImportYeti Data Tab */}
           <TabsContent value="importyeti" className="mt-0">
@@ -760,17 +769,6 @@ export function BuyerDetailView({
                 ))}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="contacts" className="mt-0">
-            <BuyerContactsPanel
-              leadId={buyer.id}
-              initialContacts={contactsState}
-              locale={locale}
-              canWrite={canWrite}
-              canViewPII={canViewPII}
-              onContactsChange={setContactsState}
-            />
           </TabsContent>
         </Tabs>
       </div>

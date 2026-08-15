@@ -12,9 +12,10 @@ import {
   type BuyerReply,
   type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
-import type { BuyerContact } from "@/lib/supabase/types"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
+import { listContacts } from "@/lib/buyers/contacts-actions"
+import type { BuyerContact } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
 
@@ -41,6 +42,10 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
+
+  // --- 1b) Contacts (multi-contact directory for this buyer company) -----
+  const contactsResult = await listContacts(id)
+  const contacts: BuyerContact[] = contactsResult.success ? contactsResult.data ?? [] : []
 
   // --- 2) Opportunities attached to this buyer ---------------------------
   const { data: opps } = await current.admin
@@ -130,16 +135,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       rawContent: r.raw_content,
     }))
   }
-
-  // --- 3b) Buyer contacts (multi-contact directory) -----------------------
-  const { data: rawContacts } = await current.admin
-    .from("buyer_contacts")
-    .select("*")
-    .eq("lead_id", id)
-    .order("is_primary", { ascending: false })
-    .order("created_at", { ascending: true })
-
-  const contacts: BuyerContact[] = (rawContacts ?? []) as BuyerContact[]
 
   // --- 4) Clients eligible to be assigned this buyer ---------------------
   // We only include clients with a non-empty FDA registration number. The

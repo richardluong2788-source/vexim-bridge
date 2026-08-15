@@ -62,6 +62,39 @@ export async function listContacts(
   return { success: true, data: (data ?? []) as BuyerContact[] }
 }
 
+/**
+ * Lay danh ba lien he cua buyer gan voi mot opportunity (tra ve ca leadId
+ * de UI co the goi cac action khac nhu setPrimary/referToNewContact).
+ */
+export async function listContactsByOpportunity(
+  opportunityId: string
+): Promise<{ success: boolean; data?: BuyerContact[]; leadId?: string; error?: string }> {
+  const auth = await requireInternalUser()
+  if ("error" in auth) return { success: false, error: auth.error }
+
+  const admin = createAdminClient()
+  const { data: oppRaw, error: oppError } = await admin
+    .from("opportunities")
+    .select("lead_id")
+    .eq("id", opportunityId)
+    .maybeSingle()
+  const opp = oppRaw as { lead_id: string | null } | null
+
+  if (oppError) return { success: false, error: oppError.message }
+  if (!opp?.lead_id) return { success: true, data: [], leadId: undefined }
+
+  const { data, error } = await admin
+    .from("buyer_contacts")
+    .select("*")
+    .eq("lead_id", opp.lead_id)
+    .eq("status", "active")
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true })
+
+  if (error) return { success: false, error: error.message }
+  return { success: true, data: (data ?? []) as BuyerContact[], leadId: opp.lead_id }
+}
+
 export interface ContactInput {
   full_name: string
   title?: string | null

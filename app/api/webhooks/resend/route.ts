@@ -132,20 +132,40 @@ function extractReplyBody(text: string): string {
 /**
  * Find opportunity by matching:
  * 1. Our sent email's Message-ID (stored in email_drafts.smtp_message_id or resend_message_id)
- * 2. Buyer's email address (from leads.contact_email via opportunities)
+ * 2. Buyer's email address (any contact in buyer_contacts for the lead, not
+ *    just the single legacy leads.contact_email — a buyer company can have
+ *    many contacts/departments/market reps).
+ *
+ * When matched via In-Reply-To but the sender email is NOT in buyer_contacts,
+ * we still accept the match (the thread is what matters) but flag
+ * `isUnrecognizedSender` so the AE gets prompted to add this person as a new
+ * contact (e.g. they were referred/introduced by the original contact).
  */
 async function findOpportunityByEmail(
   fromEmail: string,
   inReplyTo?: string,
 ): Promise<{
   opportunityId: string
+  leadId: string | null
   leadCompany: string | null
   leadIndustry: string | null
   oppStage: string | null
   matchSource: "in_reply_to" | "sender_email"
   matchConfidence: number
+  matchedContactId: string | null
+  isUnrecognizedSender: boolean
 } | null> {
   const admin = createAdminClient()
+
+  /** Tim contact trong buyer_contacts cua lead nay khop voi fromEmail. */
+  async function findContactForLead(leadId: string) {
+    const { data } = await admin
+      .from("buyer_contacts")
+      .select("id, email")
+      .eq("lead_id", leadId)
+    const contacts = (data ?? []) as { id: string; email: string | null }[]
+    return contacts.find((c) => c.email?.toLowerCase() === fromEmail) ?? null
+  }
 
   // Method 1: Match by In-Reply-To header (high confidence)
   if (inReplyTo) {
@@ -162,44 +182,65 @@ async function findOpportunityByEmail(
       // Get opportunity context
       const { data: opp } = await admin
         .from("opportunities")
-        .select("id, stage, leads:lead_id ( company_name, industry )")
+        .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
         .eq("id", draft.opportunity_id)
         .single()
 
       if (opp) {
         const lead = opp.leads as { company_name?: string; industry?: string } | null
+        const leadId = (opp as { lead_id: string | null }).lead_id
+        const matchedContact = leadId ? await findContactForLead(leadId) : null
+
         return {
           opportunityId: opp.id,
+          leadId,
           leadCompany: lead?.company_name ?? null,
           leadIndustry: lead?.industry ?? null,
           oppStage: opp.stage,
           matchSource: "in_reply_to",
           matchConfidence: 0.95,
+          matchedContactId: matchedContact?.id ?? null,
+          // Thread matched, but this specific person isn't in our directory
+          // yet — likely introduced/referred by the original contact.
+          isUnrecognizedSender: !matchedContact,
         }
       }
     }
   }
 
-  // Method 2: Match by sender email address (medium confidence)
-  const { data: opps } = await admin
-    .from("opportunities")
-    .select("id, stage, leads:lead_id ( company_name, industry, contact_email )")
-    .not("stage", "in", '("won","lost")')
-    .order("last_updated", { ascending: false })
-    .limit(100)
+  // Method 2: Match by sender email against ANY contact in buyer_contacts
+  // (medium confidence) — supports multi-contact companies where different
+  // departments/market reps email in independently, not just the primary.
+  const { data: matchingContacts } = await admin
+    .from("buyer_contacts")
+    .select("id, lead_id")
+    .eq("status", "active")
+    .ilike("email", fromEmail)
 
-  if (opps) {
-    for (const opp of opps) {
-      const lead = opp.leads as { company_name?: string; industry?: string; contact_email?: string } | null
-      if (lead?.contact_email?.toLowerCase() === fromEmail) {
-        return {
-          opportunityId: opp.id,
-          leadCompany: lead.company_name ?? null,
-          leadIndustry: lead.industry ?? null,
-          oppStage: opp.stage,
-          matchSource: "sender_email",
-          matchConfidence: 0.75,
-        }
+  const contactMatches = (matchingContacts ?? []) as { id: string; lead_id: string }[]
+
+  for (const contactMatch of contactMatches) {
+    const { data: opp } = await admin
+      .from("opportunities")
+      .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
+      .eq("lead_id", contactMatch.lead_id)
+      .not("stage", "in", '("won","lost")')
+      .order("last_updated", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (opp) {
+      const lead = opp.leads as { company_name?: string; industry?: string } | null
+      return {
+        opportunityId: opp.id,
+        leadId: contactMatch.lead_id,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        oppStage: opp.stage,
+        matchSource: "sender_email",
+        matchConfidence: 0.75,
+        matchedContactId: contactMatch.id,
+        isUnrecognizedSender: false,
       }
     }
   }
@@ -359,6 +400,8 @@ export async function POST(req: NextRequest) {
         ai_model: classification?.model ?? null,
         match_source: match.matchSource,
         match_confidence: match.matchConfidence,
+        matched_contact_id: match.matchedContactId,
+        is_unrecognized_sender: match.isUnrecognizedSender,
         received_at: data.created_at,
         created_by: null, // System-created, not by a user
       })
@@ -388,14 +431,24 @@ export async function POST(req: NextRequest) {
           opportunityId: match.opportunityId,
           linkPath: `/admin/opportunities/${match.opportunityId}?tab=replies`,
           dedupKey: `buyer_reply:${reply?.id}`,
-          title: {
-            vi: `Có phản hồi từ ${fromEmail}`,
-            en: `New reply from ${fromEmail}`,
-          },
-          body: {
-            vi: `${data.subject.slice(0, 60)}...`,
-            en: `${data.subject.slice(0, 60)}...`,
-          },
+          title: match.isUnrecognizedSender
+            ? {
+                vi: `Người lạ trả lời (chưa có trong danh bạ): ${fromEmail}`,
+                en: `Unrecognized sender replied (not in contact directory): ${fromEmail}`,
+              }
+            : {
+                vi: `Có phản hồi từ ${fromEmail}`,
+                en: `New reply from ${fromEmail}`,
+              },
+          body: match.isUnrecognizedSender
+            ? {
+                vi: `Có thể buyer đã giới thiệu sang người khác. Hãy vào Danh bạ để thêm liên hệ mới. ${data.subject.slice(0, 60)}...`,
+                en: `Buyer may have introduced a different contact. Add them to the contact directory. ${data.subject.slice(0, 60)}...`,
+              }
+            : {
+                vi: `${data.subject.slice(0, 60)}...`,
+                en: `${data.subject.slice(0, 60)}...`,
+              },
           ctaLabel: {
             vi: "Xem phản hồi",
             en: "View reply",

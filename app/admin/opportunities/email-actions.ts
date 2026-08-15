@@ -59,7 +59,6 @@ export type SendEmailActionInput = {
   overrideSubject?: string
   overrideContent?: string
   overrideRecipient?: string
-  /** CC recipients selected from the buyer contacts picker. */
   overrideCc?: string[]
   attachments?: UploadedAttachment[]
 }

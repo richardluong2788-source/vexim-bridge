@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Mail, Sparkles, PenLine, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,7 +18,9 @@ import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
 import { ProductLinkPicker } from "@/components/admin/product-link-picker"
-import type { EmailType } from "@/lib/supabase/types"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Users } from "lucide-react"
+import type { EmailType, BuyerContact } from "@/lib/supabase/types"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
@@ -45,6 +47,12 @@ interface Props {
   opportunityId?: string
   /** Client ID for fetching products */
   clientId?: string | null
+  /** Buyer contacts available to CC (from danh bạ liên hệ) */
+  contacts?: BuyerContact[]
+  /** Currently selected CC emails */
+  ccEmails?: string[]
+  /** Callback when CC selection changes */
+  onCcChange?: (emails: string[]) => void
 }
 
 export function EmailDraftComposer({ 
@@ -57,13 +65,28 @@ export function EmailDraftComposer({
   onAttachmentsChange,
   opportunityId,
   clientId,
+  contacts = [],
+  ccEmails = [],
+  onCcChange,
 }: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
-  // AI mode state - default to introduction
+  // AI mode state - default to introduction (cold outreach, no prior contact)
   const [emailType, setEmailType] = useState<EmailType>("introduction")
-  
+
+  // Khi AE bấm "Phản hồi" trên một tin buyer đã gửi, quoteReply sẽ được set
+  // từ component cha. Composer này thường đã mount từ trước nên state
+  // emailType không tự đổi theo - phải đồng bộ ở đây, vì loại email này
+  // ảnh hưởng trực tiếp đến chiến lược viết của AI (EMAIL_TYPE_GUIDANCE):
+  // "introduction" ép AI viết như chào hàng lần đầu, sai hoàn toàn khi
+  // buyer đã ở giữa cuộc trao đổi và đang chờ trả lời.
+  useEffect(() => {
+    if (quoteReply) {
+      setEmailType("follow_up")
+    }
+  }, [quoteReply])
+
   // Manual mode state
   const [manualSubject, setManualSubject] = useState("")
   const [manualContent, setManualContent] = useState("")
@@ -76,6 +99,17 @@ export function EmailDraftComposer({
   function handleManualSubmit() {
     if (!manualSubject.trim() || !manualContent.trim()) return
     onSendManual?.(manualSubject.trim(), manualContent.trim())
+  }
+
+  const ccableContacts = contacts.filter((c) => !!c.email)
+
+  function toggleCc(email: string) {
+    if (!onCcChange) return
+    if (ccEmails.includes(email)) {
+      onCcChange(ccEmails.filter((e) => e !== email))
+    } else {
+      onCcChange([...ccEmails, email])
+    }
   }
 
   return (
@@ -103,6 +137,35 @@ export function EmailDraftComposer({
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CC picker - danh bạ liên hệ khác của buyer (đa liên hệ) */}
+      {ccableContacts.length > 0 && (
+        <div className="rounded-md border border-border p-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+            <Users className="h-3.5 w-3.5" />
+            CC thêm liên hệ khác
+          </div>
+          <div className="flex flex-col gap-2">
+            {ccableContacts.map((contact) => (
+              <label
+                key={contact.id}
+                className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+              >
+                <Checkbox
+                  checked={ccEmails.includes(contact.email!)}
+                  onCheckedChange={() => toggleCc(contact.email!)}
+                  disabled={loading}
+                />
+                <span className="font-medium">{contact.full_name}</span>
+                {contact.title && (
+                  <span className="text-xs text-muted-foreground">· {contact.title}</span>
+                )}
+                <span className="text-xs text-muted-foreground">({contact.email})</span>
+              </label>
+            ))}
           </div>
         </div>
       )}

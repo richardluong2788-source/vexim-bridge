@@ -52,9 +52,9 @@ export async function sendEmailDraft(
     /** Allow admin edits before send (optional). */
     overrideSubject?: string
     overrideContent?: string
-    /** Optional manual recipient(s) — comma-separated for multiple "To" addresses. */
+    /** Optional manual recipient (e.g. user typed one because lead lacked it). */
     overrideRecipient?: string
-    /** Optional CC recipients (e.g. secondary buyer contacts selected in the picker). */
+    /** Additional recipients CC'd (e.g. other contacts at the buyer company). */
     overrideCc?: string[]
     /** File attachments to include in email */
     attachments?: UploadedAttachment[]
@@ -99,23 +99,6 @@ export async function sendEmailDraft(
       "No recipient email available on lead — please add a contact email first",
     )
   }
-  // Support multiple "To" addresses via comma-separated string (e.g. from the
-  // multi-select recipient picker).
-  const recipientList: string[] = recipient
-    .split(",")
-    .map((e: string) => e.trim())
-    .filter(Boolean)
-
-  // CC list: explicit override wins, otherwise fall back to whatever was
-  // previously saved on the draft (e.g. from a prior edit).
-  const ccList: string[] = (
-    opts?.overrideCc ?? (draft as { cc_emails?: string[] | null }).cc_emails ?? []
-  )
-    .map((e: string) => e.trim())
-    .filter(
-      (e: string) =>
-        e.length > 0 && !recipientList.some((r: string) => r.toLowerCase() === e.toLowerCase()),
-    )
 
   const baseSubject =
     opts?.overrideSubject?.trim() ||
@@ -207,10 +190,12 @@ export async function sendEmailDraft(
     ...(refCode && { "X-Ref-Code": refCode }),
   }
 
+  const ccEmails = (opts?.overrideCc ?? []).filter((e) => e.trim().length > 0)
+
   const sendRes = await sendMail({
     from: fromAddress,
-    to: recipientList,
-    cc: ccList.length > 0 ? ccList : undefined,
+    to: recipient,
+    cc: ccEmails.length > 0 ? ccEmails : undefined,
     replyTo: replyToEmail,
     subject,
     html: htmlBody,
@@ -229,17 +214,16 @@ export async function sendEmailDraft(
 
   // 4. Flip draft status — also persist the Resend Message-ID so webhook
   //    can match buyer replies via the In-Reply-To header.
-  await (supabase
-    .from("email_drafts") as any)
+  await supabase
+    .from("email_drafts")
     .update({
       status: "sent",
       approved_by: user.id,
       sent_at: new Date().toISOString(),
       generated_subject: subject,
       generated_content_en: content,
-      recipient_email: recipientList.join(", "),
-      cc_emails: ccList,
       resend_message_id: sendRes.data?.id ?? null,
+      cc_emails: ccEmails.length > 0 ? ccEmails : null,
     })
     .eq("id", draftId)
 
@@ -247,11 +231,10 @@ export async function sendEmailDraft(
   //    the exact tag buyers will see in their reply subject.
   if (draft.opportunity_id) {
     const refSuffix = refCode ? ` [ref: ${refCode}]` : ""
-    const ccSuffix = ccList.length > 0 ? ` (cc: ${ccList.join(", ")})` : ""
     await supabase.from("activities").insert({
       opportunity_id: draft.opportunity_id,
       action_type: "email_sent",
-      description: `Email sent to ${recipientList.join(", ")}${ccSuffix}: "${subject}"${refSuffix}`,
+      description: `Email sent to ${recipient}: "${subject}"${refSuffix}`,
       performed_by: user.id,
     })
   }

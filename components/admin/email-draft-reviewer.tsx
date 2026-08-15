@@ -9,22 +9,21 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { EmailRecipientPicker, type RecipientOption } from "@/components/admin/email-recipient-picker"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 interface Props {
   draft: GenerateEmailResult
   sending: boolean
-  onSend: (overrides: { subject?: string; content?: string; recipient?: string; cc?: string[] }) => void
+  onSend: (overrides: { subject?: string; content?: string; recipient?: string }) => void
   onReject: () => void
   onBack: () => void
   /** Attachments to include with the email */
   attachments: UploadedAttachment[]
   /** Callback to remove an attachment */
   onRemoveAttachment: (index: number) => void
-  /** Buyer contacts available for the To/CC pickers (from buyer_contacts). */
-  contactOptions?: RecipientOption[]
+  /** CC recipients selected in the composer (read-only confirmation here) */
+  ccEmails?: string[]
 }
 
 export function EmailDraftReviewer({ 
@@ -35,21 +34,16 @@ export function EmailDraftReviewer({
   onBack,
   attachments,
   onRemoveAttachment,
-  contactOptions = [],
+  ccEmails = [],
 }: Props) {
-  const { t, locale } = useTranslation()
+  const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
   const [showVi, setShowVi] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [subject, setSubject] = useState(draft.subject_en)
   const [content, setContent] = useState(draft.content_en)
-  const [toEmails, setToEmails] = useState<string[]>(
-    draft.recipient_email
-      ? draft.recipient_email.split(",").map((e) => e.trim()).filter(Boolean)
-      : [],
-  )
-  const [ccEmails, setCcEmails] = useState<string[]>([])
+  const [recipient, setRecipient] = useState(draft.recipient_email ?? "")
 
   function handleCopy() {
     const text = `Subject: ${subject}\n\n${content}`
@@ -58,12 +52,10 @@ export function EmailDraftReviewer({
   }
 
   function handleSend() {
-    const overrides: { subject?: string; content?: string; recipient?: string; cc?: string[] } = {}
+    const overrides: { subject?: string; content?: string; recipient?: string } = {}
     if (subject !== draft.subject_en) overrides.subject = subject
     if (content !== draft.content_en) overrides.content = content
-    const toJoined = toEmails.join(",")
-    if (toJoined !== (draft.recipient_email ?? "")) overrides.recipient = toJoined
-    overrides.cc = ccEmails
+    if (recipient !== draft.recipient_email) overrides.recipient = recipient
     onSend(overrides)
   }
 
@@ -79,29 +71,36 @@ export function EmailDraftReviewer({
         </Badge>
       </div>
 
-      {/* Recipients: To / CC */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <EmailRecipientPicker
-          label={s.recipient}
-          placeholder={locale === "vi" ? "Chọn người nhận (To)..." : "Select recipients (To)..."}
-          options={contactOptions}
-          selectedEmails={toEmails}
-          onChange={setToEmails}
-          locale={locale}
-          disabled={sending}
-        />
-        <EmailRecipientPicker
-          label={locale === "vi" ? "CC" : "CC"}
-          placeholder={locale === "vi" ? "Chọn liên hệ CC..." : "Select CC contacts..."}
-          options={contactOptions.filter((opt) => !toEmails.some((e) => e.toLowerCase() === opt.email.toLowerCase()))}
-          selectedEmails={ccEmails}
-          onChange={setCcEmails}
-          locale={locale}
-          disabled={sending}
-        />
-      </div>
-      {toEmails.length === 0 && (
-        <p className="text-xs text-destructive">{s.noRecipient}</p>
+      {/* Recipient */}
+      <Field>
+        <FieldLabel>{s.recipient}</FieldLabel>
+        {editMode ? (
+          <Input
+            type="email"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="buyer@company.com"
+            disabled={sending}
+          />
+        ) : (
+          <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+            {recipient || <span className="text-destructive">{s.noRecipient}</span>}
+          </div>
+        )}
+      </Field>
+
+      {/* CC (read-only confirmation - chosen in composer's contact directory picker) */}
+      {ccEmails.length > 0 && (
+        <Field>
+          <FieldLabel>CC</FieldLabel>
+          <div className="flex flex-wrap gap-1.5 bg-muted/50 px-3 py-2 rounded-md">
+            {ccEmails.map((email) => (
+              <Badge key={email} variant="secondary" className="text-xs font-normal">
+                {email}
+              </Badge>
+            ))}
+          </div>
+        </Field>
       )}
 
       {/* Subject */}
@@ -254,7 +253,7 @@ export function EmailDraftReviewer({
           type="button"
           size="sm"
           onClick={handleSend}
-          disabled={sending || toEmails.length === 0}
+          disabled={sending || !recipient.trim()}
           className="ml-auto"
         >
           <Send className="h-4 w-4" />

@@ -37,11 +37,27 @@ interface Props {
   quoteReply?: string
   /** Callback when user clears the quote */
   onClearQuote?: () => void
+  /** buyer_contacts.id that sent the reply being responded to - already
+   *  known to be in the directory. When set, the composer auto-selects
+   *  and locks the recipient to this contact. */
+  lockedContactId?: string | null
+  /** Raw sender email of the reply being responded to. Used as a fallback
+   *  to match a contact by email when lockedContactId isn't available
+   *  (e.g. legacy match by sender email only). */
+  lockedEmail?: string | null
   /** Client ID for product link picker */
   clientId?: string | null
 }
 
-export function OpportunityEmailSection({ opportunityId, open, quoteReply, onClearQuote, clientId }: Props) {
+export function OpportunityEmailSection({
+  opportunityId,
+  open,
+  quoteReply,
+  onClearQuote,
+  lockedContactId,
+  lockedEmail,
+  clientId,
+}: Props) {
   const { t } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
 
@@ -96,6 +112,24 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
       })
     }
   }, [open, opportunityId])
+
+  // Khi AE bấm "Phản hồi" trên một tin buyer cụ thể (từ tab Phản hồi buyer),
+  // tự động ép chọn đúng liên hệ đã gửi tin đó làm "email chính" - không để
+  // AE phải tự tay tích chọn lại, tránh gửi nhầm sang liên hệ khác của cùng
+  // công ty buyer. Ưu tiên khớp theo contactId (chắc chắn nhất), fallback
+  // khớp theo email nếu chỉ có địa chỉ gửi.
+  useEffect(() => {
+    if (!lockedContactId && !lockedEmail) return
+    if (contacts.length === 0) return
+    const match =
+      (lockedContactId && contacts.find((c) => c.id === lockedContactId)) ||
+      (lockedEmail && contacts.find((c) => c.email?.toLowerCase() === lockedEmail.toLowerCase())) ||
+      null
+    if (match) {
+      setSelectedContactId(match.id)
+      setCcEmails((prev) => prev.filter((e) => e !== match.email))
+    }
+  }, [lockedContactId, lockedEmail, contacts])
 
   // AE tích chọn một liên hệ khác làm email chính - nếu liên hệ đó đang
   // được CC thì bỏ CC luôn, tránh gửi trùng đến 2 chỗ.
@@ -277,6 +311,15 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     setCcEmails([])
   }
 
+  // Liên hệ thực sự đã khớp được (theo id hoặc theo email) - dùng để báo
+  // cho composer biết cần khoá radio "Email chính" vào đúng người này.
+  // Nếu buyer trả lời từ địa chỉ chưa có trong danh bạ (is_unrecognized_sender),
+  // sẽ không có match nào ở đây và composer quay lại cho AE chọn thủ công.
+  const resolvedLockedContactId =
+    ((lockedContactId && contacts.find((c) => c.id === lockedContactId)) ||
+      (lockedEmail && contacts.find((c) => c.email?.toLowerCase() === lockedEmail.toLowerCase())) ||
+      null)?.id ?? null
+
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2">
@@ -300,6 +343,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             contacts={contacts}
             selectedContactId={selectedContactId}
             onSelectContact={handleSelectContact}
+            lockedContactId={resolvedLockedContactId}
             ccEmails={ccEmails}
             onCcChange={setCcEmails}
             onAddContact={handleAddContact}

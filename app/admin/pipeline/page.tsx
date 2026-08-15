@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { KanbanBoard } from "@/components/admin/kanban-board"
+import { KanbanBoard, type NeedsReplyItem } from "@/components/admin/kanban-board"
 import { PipelineRefSearch } from "@/components/admin/pipeline-ref-search"
 import { ScopeBanner } from "@/components/admin/scope-banner"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
@@ -35,20 +35,50 @@ export default async function AdminPipelinePage() {
   }
   const { data: opportunities } = await oppQ
 
-  // Fetch unread buyer reply counts per opportunity so the Kanban card can
-  // surface a notification badge when the buyer has replied and the AE
-  // has not yet read the reply.
+  // Fetch unread buyer replies (with enough detail to render a "Cần phản
+  // hồi" triage list) so the Kanban card can surface a notification badge
+  // AND admins get a chat-inbox-style list of who just replied, without
+  // reordering the Kanban cards themselves (see needsReplyItems below).
   const oppIds = ((opportunities ?? []) as Array<{ id: string }>).map((o) => o.id)
   let unreadByOpp: Record<string, number> = {}
+  const needsReplyItems: NeedsReplyItem[] = []
   if (oppIds.length > 0) {
     const { data: unreadReplies } = await admin
       .from("buyer_replies")
-      .select("opportunity_id")
+      .select("opportunity_id, raw_content, from_email, received_at")
       .in("opportunity_id", oppIds)
       .is("read_at", null)
+      .order("received_at", { ascending: false })
     if (unreadReplies) {
-      for (const row of unreadReplies as Array<{ opportunity_id: string }>) {
+      const oppById = new Map(
+        ((opportunities ?? []) as OpportunityWithClient[]).map((o) => [o.id, o]),
+      )
+      const seenOpp = new Set<string>()
+      for (const row of unreadReplies as Array<{
+        opportunity_id: string
+        raw_content: string
+        from_email: string | null
+        received_at: string
+      }>) {
         unreadByOpp[row.opportunity_id] = (unreadByOpp[row.opportunity_id] ?? 0) + 1
+        // Already ordered newest-first, so the first row we see per
+        // opportunity is its most recent unread reply — that's the one
+        // we surface in the triage list (one row per opportunity, not
+        // per message, to keep the list scannable).
+        if (!seenOpp.has(row.opportunity_id)) {
+          seenOpp.add(row.opportunity_id)
+          const opp = oppById.get(row.opportunity_id)
+          if (opp) {
+            needsReplyItems.push({
+              opportunityId: row.opportunity_id,
+              companyName: opp.leads?.company_name ?? "—",
+              stage: opp.stage,
+              fromEmail: row.from_email,
+              snippet: row.raw_content.slice(0, 140),
+              receivedAt: row.received_at,
+            })
+          }
+        }
       }
     }
   }
@@ -71,6 +101,7 @@ export default async function AdminPipelinePage() {
       <KanbanBoard
         opportunities={(opportunities as OpportunityWithClient[]) ?? []}
         unreadReplyCountByOpp={unreadByOpp}
+        needsReplyItems={needsReplyItems}
       />
     </div>
   )

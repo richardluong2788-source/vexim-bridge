@@ -12,7 +12,8 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { toast } from "sonner"
-import { ShieldAlert } from "lucide-react"
+import { ShieldAlert, Mail } from "lucide-react"
+import { Card } from "@/components/ui/card"
 import {
   COMPLIANCE_REQUIRED_STAGES,
   type OpportunityWithClient,
@@ -23,6 +24,19 @@ import { KanbanColumn } from "@/components/admin/kanban-column"
 import { KanbanCard } from "@/components/admin/kanban-card"
 import { OpportunityDetailSheet } from "@/components/admin/opportunity-detail-sheet"
 import { useTranslation } from "@/components/i18n/language-provider"
+
+// Compact "X phút trước" style label for the "Cần phản hồi" strip - keeps
+// each item scannable without a full timestamp taking up card width.
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 1) return "Vừa xong"
+  if (minutes < 60) return `${minutes} phút trước`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} giờ trước`
+  const days = Math.floor(hours / 24)
+  return `${days} ngày trước`
+}
 
 // Full Phase-2 pipeline: 10 columns reflecting the export-sales SOP.
 const STAGE_IDS: Stage[] = [
@@ -53,17 +67,40 @@ const STAGE_STYLE: Record<Stage, { color: string; dot: string }> = {
   lost: { color: "bg-destructive/10 border-destructive/30", dot: "bg-destructive" },
 }
 
+export interface NeedsReplyItem {
+  opportunityId: string
+  companyName: string
+  stage: Stage
+  fromEmail: string | null
+  snippet: string
+  receivedAt: string
+}
+
 interface KanbanBoardProps {
   opportunities: OpportunityWithClient[]
   /** Map of opportunity_id → unread buyer reply count */
   unreadReplyCountByOpp?: Record<string, number>
+  /** One row per opportunity with an unread reply, newest reply first.
+   *  Rendered as a triage strip above the board — this is the "moves to
+   *  the top like a chatbot" behavior, kept OUT of the Kanban cards
+   *  themselves so column order stays stable while an AE is scanning or
+   *  dragging cards. */
+  needsReplyItems?: NeedsReplyItem[]
 }
 
-export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCountByOpp = {} }: KanbanBoardProps) {
+export function KanbanBoard({
+  opportunities: initialOpportunities,
+  unreadReplyCountByOpp = {},
+  needsReplyItems = [],
+}: KanbanBoardProps) {
   const { t } = useTranslation()
   const [opportunities, setOpportunities] = useState(initialOpportunities)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  // "status" when opened via the pencil icon on a card, "replies" when
+  // opened by clicking an item in the "Cần phản hồi" triage strip — so
+  // the sheet lands directly on the buyer conversation, not the status tab.
+  const [editingSection, setEditingSection] = useState<"status" | "replies">("status")
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const activeOpportunity = opportunities.find((o) => o.id === activeId)
@@ -96,9 +133,21 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
       if (!over || active.id === over.id) return
 
       const draggedId = active.id as string
-      const targetStage = over.id as Stage
 
-      if (!STAGE_IDS.includes(targetStage)) return
+      // `over.id` is the column's droppableId when dropped on empty column
+      // space, but once a column already has cards filling most of its
+      // area, the pointer almost always lands ON one of those existing
+      // cards instead — dnd-kit then reports `over.id` as THAT CARD's id
+      // (via its own useSortable droppable), not the column id. Without
+      // resolving through the card's own stage here, a column with 3+
+      // cards silently rejects the 4th drop the moment you land on a card
+      // rather than the sliver of empty space below it.
+      const overId = over.id as string
+      const targetStage = STAGE_IDS.includes(overId as Stage)
+        ? (overId as Stage)
+        : opportunities.find((o) => o.id === overId)?.stage
+
+      if (!targetStage) return
 
       const prevOpportunities = opportunities
       const dragged = prevOpportunities.find((o) => o.id === draggedId)
@@ -163,8 +212,54 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
   )
 
   return (
+    <>
+      {/* CẦN PHẢN HỒI — chat-inbox-style triage strip, newest reply first.
+          Kanban columns below stay in fixed positions (drag/drop + scanning
+          rely on stable card position); this is the "jumps to top" surface
+          instead, so a busy pipeline never buries a fresh buyer reply. */}
+      {needsReplyItems.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Mail className="h-3.5 w-3.5 text-chart-2" />
+            Cần phản hồi ({needsReplyItems.length})
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {needsReplyItems.map((item) => (
+              <button
+                key={item.opportunityId}
+                type="button"
+                onClick={() => {
+                  setEditingSection("replies")
+                  setEditingId(item.opportunityId)
+                }}
+                className="text-left shrink-0"
+              >
+                <Card className="w-64 p-2.5 border-chart-2/30 bg-chart-2/5 hover:bg-chart-2/10 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {item.companyName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatRelativeTime(item.receivedAt)}
+                    </span>
+                  </div>
+                  {item.fromEmail && (
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {item.fromEmail}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-snug">
+                    {item.snippet}
+                  </p>
+                </Card>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex items-start gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
           const cards = opportunities.filter((o) => o.stage === stage.id)
           const isBlocked =
@@ -188,7 +283,10 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
                     key={opp.id}
                     opportunity={opp}
                     unreadReplyCount={unreadReplyCountByOpp[opp.id] ?? 0}
-                    onEdit={(o) => setEditingId(o.id)}
+                    onEdit={(o) => {
+                      setEditingSection("status")
+                      setEditingId(o.id)
+                    }}
                   />
                 ))}
               </KanbanColumn>
@@ -204,6 +302,7 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
       <OpportunityDetailSheet
         opportunity={opportunities.find((o) => o.id === editingId) ?? null}
         open={editingId !== null}
+        initialSection={editingSection}
         onOpenChange={(v) => {
           if (!v) setEditingId(null)
         }}
@@ -217,5 +316,6 @@ export function KanbanBoard({ opportunities: initialOpportunities, unreadReplyCo
         }}
       />
     </DndContext>
+    </>
   )
 }

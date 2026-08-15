@@ -133,9 +133,21 @@ export function KanbanBoard({
       if (!over || active.id === over.id) return
 
       const draggedId = active.id as string
-      const targetStage = over.id as Stage
 
-      if (!STAGE_IDS.includes(targetStage)) return
+      // `over.id` is the column's droppableId when dropped on empty column
+      // space, but once a column already has cards filling most of its
+      // area, the pointer almost always lands ON one of those existing
+      // cards instead — dnd-kit then reports `over.id` as THAT CARD's id
+      // (via its own useSortable droppable), not the column id. Without
+      // resolving through the card's own stage here, a column with 3+
+      // cards silently rejects the 4th drop the moment you land on a card
+      // rather than the sliver of empty space below it.
+      const overId = over.id as string
+      const targetStage = STAGE_IDS.includes(overId as Stage)
+        ? (overId as Stage)
+        : opportunities.find((o) => o.id === overId)?.stage
+
+      if (!targetStage) return
 
       const prevOpportunities = opportunities
       const dragged = prevOpportunities.find((o) => o.id === draggedId)

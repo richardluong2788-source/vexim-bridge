@@ -107,6 +107,10 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
   const [activeSection, setActiveSection] = useState<SectionId>("status")
   const emailSectionRef = useRef<HTMLDivElement>(null)
   const [quoteReply, setQuoteReply] = useState<string | undefined>()
+  // Khi AE bấm "Phản hồi" trên một tin buyer cụ thể, khóa luôn người nhận
+  // theo đúng liên hệ/email đã gửi tin đó - tránh trường hợp buyer công ty
+  // có nhiều liên hệ mà AE lại tích chọn nhầm người khác trong danh sách.
+  const [replyLock, setReplyLock] = useState<{ contactId: string | null; fromEmail: string | null } | null>(null)
   const [clientEmailDialogOpen, setClientEmailDialogOpen] = useState(false)
 
   // When the sheet opens for an opportunity, silently mark all its unread
@@ -596,7 +600,12 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                     opportunityId={opportunity.id} 
                     open={open}
                     quoteReply={quoteReply}
-                    onClearQuote={() => setQuoteReply(undefined)}
+                    onClearQuote={() => {
+                      setQuoteReply(undefined)
+                      setReplyLock(null)
+                    }}
+                    lockedContactId={replyLock?.contactId ?? null}
+                    lockedEmail={replyLock?.fromEmail ?? null}
                     clientId={opportunity.client_id}
                   />
                 </section>
@@ -608,8 +617,9 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                   <OpportunityBuyerRepliesSection 
                     opportunityId={opportunity.id} 
                     open={open}
-                    onReplyClick={(replyText) => {
+                    onReplyClick={(replyText, recipient) => {
                       setQuoteReply(replyText)
+                      setReplyLock(recipient)
                       setActiveSection("email")
                       // Scroll to email section after state update
                       setTimeout(() => {

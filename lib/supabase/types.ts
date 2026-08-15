@@ -1065,6 +1065,23 @@ export type BuyerReply = {
   created_at: string
   /** Null = unread. Set when an admin first reads this reply. */
   read_at: string | null
+  /** Sender address of the inbound email (from Resend webhook). Null for
+   *  legacy replies logged manually by pasting text — no sender captured. */
+  from_email: string | null
+  subject: string | null
+  message_id: string | null
+  in_reply_to: string | null
+  /** How this reply was matched to an opportunity: thread header vs sender email. */
+  match_source: "in_reply_to" | "sender_email" | null
+  match_confidence: number | null
+  /** buyer_contacts.id that matches from_email, if this sender is already
+   *  in the buyer's contact directory. Used to auto-lock the reply
+   *  composer's recipient so AE cannot accidentally reply to the wrong
+   *  contact when a buyer company has multiple contacts. */
+  matched_contact_id: string | null
+  /** True when from_email is NOT in buyer_contacts for this lead yet
+   *  (e.g. buyer introduced a colleague) — AE should add them as a contact. */
+  is_unrecognized_sender: boolean
 }
 
 // ============================================================

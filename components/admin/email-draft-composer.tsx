@@ -53,6 +53,10 @@ interface Props {
   selectedContactId?: string | null
   /** Callback when AE tích chọn một liên hệ khác làm email chính */
   onSelectContact?: (contactId: string) => void
+  /** When set, this contact is the one who sent the buyer reply being
+   *  answered - the "Email chính" radio group locks to it so AE can't
+   *  accidentally pick a different contact at the same company. */
+  lockedContactId?: string | null
   /** Currently selected CC emails */
   ccEmails?: string[]
   /** Callback when CC selection changes */
@@ -74,6 +78,7 @@ export function EmailDraftComposer({
   contacts = [],
   selectedContactId,
   onSelectContact,
+  lockedContactId,
   ccEmails = [],
   onCcChange,
   onAddContact,
@@ -107,6 +112,17 @@ export function EmailDraftComposer({
     const selected = contacts.find((c) => c.id === selectedContactId)
     if (selected?.email) setManualRecipient(selected.email)
   }, [contacts, selectedContactId])
+
+  // Khi đang trả lời một tin nhắn cụ thể của buyer (lockedContactId được
+  // set từ tab "Phản hồi buyer"), khoá luôn radio "Email chính" vào đúng
+  // liên hệ đó - AE không cần và không nên tự tay chọn lại, tránh gửi
+  // nhầm sang liên hệ khác cùng công ty. Vẫn cho AE mở khoá nếu thực sự
+  // cần đổi (trường hợp hiếm, ví dụ hệ thống khớp nhầm liên hệ).
+  const [manualOverride, setManualOverride] = useState(false)
+  useEffect(() => {
+    setManualOverride(false)
+  }, [lockedContactId])
+  const isRecipientLocked = !!lockedContactId && !manualOverride
 
   function handleAISubmit() {
     // AI auto-generates based on email type and buyer data - no Vietnamese prompt needed
@@ -192,19 +208,37 @@ export function EmailDraftComposer({
               <UserCheck className="h-3.5 w-3.5" />
               Email chính (người nhận)
             </div>
+            {isRecipientLocked && (
+              <div className="flex items-start justify-between gap-2 rounded-md bg-primary/5 border border-primary/20 px-2.5 py-2">
+                <p className="text-xs text-primary leading-relaxed">
+                  Đã tự động chọn theo đúng người vừa gửi tin để tránh trả lời nhầm liên hệ khác.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setManualOverride(true)}
+                  className="text-xs font-medium text-primary hover:underline shrink-0 whitespace-nowrap"
+                >
+                  Chọn lại
+                </button>
+              </div>
+            )}
             {ccableContacts.length > 0 ? (
               <div className="flex flex-col gap-2">
                 {ccableContacts.map((contact) => (
                   <label
                     key={contact.id}
-                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                    className={
+                      isRecipientLocked && contact.id !== lockedContactId
+                        ? "flex items-center gap-2 text-sm text-muted-foreground/60 cursor-not-allowed"
+                        : "flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                    }
                   >
                     <input
                       type="radio"
                       name="primary-contact"
                       checked={selectedContactId === contact.id}
                       onChange={() => onSelectContact?.(contact.id)}
-                      disabled={loading}
+                      disabled={loading || (isRecipientLocked && contact.id !== lockedContactId)}
                       className="h-3.5 w-3.5 accent-primary shrink-0"
                     />
                     <span className="font-medium">{contact.full_name}</span>

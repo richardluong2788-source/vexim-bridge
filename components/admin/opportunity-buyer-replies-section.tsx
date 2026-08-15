@@ -38,11 +38,19 @@ import {
 } from "@/app/admin/opportunities/reply-actions"
 import type { BuyerReply, BuyerReplyIntent } from "@/lib/supabase/types"
 
+/** Info to auto-lock the reply composer to the exact contact that sent
+ *  this reply, so AE doesn't have to (and can't accidentally mis-) pick
+ *  a different contact manually when the buyer company has several. */
+export type ReplyRecipientMeta = {
+  contactId: string | null
+  fromEmail: string | null
+}
+
 interface Props {
   opportunityId: string
   open: boolean
   /** Callback when user clicks Reply on a message */
-  onReplyClick?: (replyText: string) => void
+  onReplyClick?: (replyText: string, recipient: ReplyRecipientMeta) => void
 }
 
 const INTENT_META: Record<
@@ -221,7 +229,12 @@ export function OpportunityBuyerRepliesSection({ opportunityId, open, onReplyCli
               key={reply.id} 
               reply={reply} 
               labels={s}
-              onReply={() => onReplyClick?.(reply.raw_content)}
+              onReply={() =>
+                onReplyClick?.(reply.raw_content, {
+                  contactId: reply.matched_contact_id,
+                  fromEmail: reply.from_email,
+                })
+              }
             />
           ))}
         </ul>
@@ -267,6 +280,11 @@ function ReplyCard({
               {confidencePct != null && (
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   {labels.confidence} {confidencePct}%
+                </span>
+              )}
+              {reply.from_email && (
+                <span className="text-[11px] text-muted-foreground">
+                  Từ: <span className="font-medium text-foreground">{reply.from_email}</span>
                 </span>
               )}
             </div>

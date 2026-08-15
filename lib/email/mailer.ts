@@ -107,6 +107,7 @@ export interface SendMailInput {
    * back to the originating opportunity.
    */
   replyTo?: string
+  cc?: string | string[]
   subject: string
   html?: string
   text?: string
@@ -138,6 +139,7 @@ export async function sendMail(
     if (input.html) payload.html = input.html
     if (input.text) payload.text = input.text
     if (input.replyTo) payload.reply_to = input.replyTo
+    if (input.cc) payload.cc = Array.isArray(input.cc) ? input.cc : [input.cc]
     if (input.headers) payload.headers = input.headers
 
     const response = await fetch(RESEND_API_URL, {

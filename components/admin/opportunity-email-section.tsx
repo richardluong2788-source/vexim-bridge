@@ -97,7 +97,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
     }
   }
 
-  async function handleSend(overrides: { subject?: string; content?: string; recipient?: string }) {
+  async function handleSend(overrides: { subject?: string; content?: string; recipient?: string; cc?: string }) {
     if (!draftId) return
     setSending(true)
     try {
@@ -106,6 +106,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
         overrideSubject: overrides.subject,
         overrideContent: overrides.content,
         overrideRecipient: overrides.recipient,
+        overrideCc: overrides.cc,
         attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!res.ok) {

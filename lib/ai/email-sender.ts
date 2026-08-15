@@ -54,6 +54,8 @@ export async function sendEmailDraft(
     overrideContent?: string
     /** Optional manual recipient (e.g. user typed one because lead lacked it). */
     overrideRecipient?: string
+    /** Optional comma/semicolon-separated CC recipients. */
+    overrideCc?: string | string[]
     /** File attachments to include in email */
     attachments?: UploadedAttachment[]
   },
@@ -92,6 +94,9 @@ export async function sendEmailDraft(
 
   const recipient =
     opts?.overrideRecipient?.trim() || draft.recipient_email?.trim() || ""
+  const cc = (Array.isArray(opts?.overrideCc) ? opts?.overrideCc : (opts?.overrideCc ?? "").split(/[;,\s]+/))
+    .map((email) => email.trim().toLowerCase())
+    .filter((email, index, list) => email && email !== recipient.toLowerCase() && list.indexOf(email) === index)
   if (!recipient) {
     throw new Error(
       "No recipient email available on lead — please add a contact email first",
@@ -191,6 +196,7 @@ export async function sendEmailDraft(
   const sendRes = await sendMail({
     from: fromAddress,
     to: recipient,
+    cc: cc.length > 0 ? cc : undefined,
     replyTo: replyToEmail,
     subject,
     html: htmlBody,

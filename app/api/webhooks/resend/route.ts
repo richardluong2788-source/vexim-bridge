@@ -183,15 +183,16 @@ async function findOpportunityByEmail(
   // Method 2: Match by sender email address (medium confidence)
   const { data: opps } = await admin
     .from("opportunities")
-    .select("id, stage, leads:lead_id ( company_name, industry, contact_email )")
+    .select("id, stage, leads:lead_id ( company_name, industry, contact_email, buyer_contacts(email, status) )")
     .not("stage", "in", '("won","lost")')
     .order("last_updated", { ascending: false })
     .limit(100)
 
   if (opps) {
     for (const opp of opps) {
-      const lead = opp.leads as { company_name?: string; industry?: string; contact_email?: string } | null
-      if (lead?.contact_email?.toLowerCase() === fromEmail) {
+      const lead = opp.leads as { company_name?: string; industry?: string; contact_email?: string; buyer_contacts?: Array<{ email?: string | null; status?: string | null }> } | null
+      const contactMatch = lead?.buyer_contacts?.some((contact) => contact.status !== "inactive" && contact.email?.trim().toLowerCase() === fromEmail)
+      if (lead?.contact_email?.trim().toLowerCase() === fromEmail || contactMatch) {
         return {
           opportunityId: opp.id,
           leadCompany: lead.company_name ?? null,

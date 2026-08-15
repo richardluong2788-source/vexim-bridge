@@ -65,6 +65,12 @@ export async function listContacts(
 /**
  * Lay danh ba lien he cua buyer gan voi mot opportunity (tra ve ca leadId
  * de UI co the goi cac action khac nhu setPrimary/referToNewContact).
+ *
+ * Cac lead cu (tao truoc khi co bang buyer_contacts) chi co
+ * leads.contact_email/contact_person, chua duoc backfill vao
+ * buyer_contacts. Neu khong co dong nao active, ta tong hop mot lien he
+ * "primary" ao tu chinh cac cot nay de UI (auto-fill nguoi nhan, CC) van
+ * hoat dong thay vi tra ve danh sach rong.
  */
 export async function listContactsByOpportunity(
   opportunityId: string
@@ -92,7 +98,48 @@ export async function listContactsByOpportunity(
     .order("created_at", { ascending: true })
 
   if (error) return { success: false, error: error.message }
-  return { success: true, data: (data ?? []) as BuyerContact[], leadId: opp.lead_id }
+
+  if (data && data.length > 0) {
+    return { success: true, data: data as BuyerContact[], leadId: opp.lead_id }
+  }
+
+  // Chua co danh ba - fallback ve contact_* tren lead
+  const { data: leadRaw } = await admin
+    .from("leads")
+    .select("contact_person, contact_email, contact_phone, contact_title")
+    .eq("id", opp.lead_id)
+    .maybeSingle()
+  const lead = leadRaw as {
+    contact_person: string | null
+    contact_email: string | null
+    contact_phone: string | null
+    contact_title: string | null
+  } | null
+
+  if (!lead?.contact_email) {
+    return { success: true, data: [], leadId: opp.lead_id }
+  }
+
+  const virtualContact: BuyerContact = {
+    id: `virtual-${opp.lead_id}`,
+    lead_id: opp.lead_id,
+    full_name: lead.contact_person ?? "Liên hệ chính",
+    title: lead.contact_title,
+    email: lead.contact_email,
+    phone: lead.contact_phone,
+    department: null,
+    market_region: null,
+    is_primary: true,
+    is_decision_maker: false,
+    status: "active",
+    referred_by_contact_id: null,
+    notes: null,
+    created_by: null,
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+  }
+
+  return { success: true, data: [virtualContact], leadId: opp.lead_id }
 }
 
 export interface ContactInput {

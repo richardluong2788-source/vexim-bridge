@@ -26,7 +26,7 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import type { EmailType, BuyerContact } from "@/lib/supabase/types"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
-import { listContactsByOpportunity } from "@/lib/buyers/contacts-actions"
+import { listContactsByOpportunity, createContact } from "@/lib/buyers/contacts-actions"
 
 type FlowState = "compose" | "review" | "success"
 
@@ -56,6 +56,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   // (departments / market reps) when sending.
   const [contacts, setContacts] = useState<BuyerContact[]>([])
   const [ccEmails, setCcEmails] = useState<string[]>([])
+  const [leadId, setLeadId] = useState<string | undefined>()
 
   // History
   const [history, setHistory] = useState<EmailDraftRow[]>([])
@@ -80,10 +81,33 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
   useEffect(() => {
     if (open && opportunityId) {
       listContactsByOpportunity(opportunityId).then((res) => {
-        if (res.success) setContacts(res.data ?? [])
+        if (res.success) {
+          setContacts(res.data ?? [])
+          setLeadId(res.leadId)
+        }
       })
     }
   }, [open, opportunityId])
+
+  // Cho phép AE thêm nhanh một email khác của công ty buyer (VD: phòng mua
+  // hàng, đại diện thị trường khác) ngay trong panel soạn email, để có thể
+  // CC ngay mà không phải rời sang màn Danh bạ liên hệ của buyer.
+  async function handleAddContact(input: { full_name: string; email: string }): Promise<boolean> {
+    if (!leadId) {
+      toast.error(s.errorNoLead)
+      return false
+    }
+    const res = await createContact(leadId, input)
+    if (!res.success || !res.data) {
+      toast.error(res.error ?? s.errorGenerate)
+      return false
+    }
+    setContacts((prev) => [...prev, res.data!])
+    // Tự động CC email mới thêm luôn, vì AE thêm vào đây là để gửi kèm ngay.
+    setCcEmails((prev) => (prev.includes(res.data!.email!) ? prev : [...prev, res.data!.email!]))
+    toast.success("Đã thêm liên hệ")
+    return true
+  }
 
   async function handleGenerate(emailType: EmailType, viPrompt: string) {
     setGenerating(true)
@@ -247,6 +271,7 @@ export function OpportunityEmailSection({ opportunityId, open, quoteReply, onCle
             contacts={contacts}
             ccEmails={ccEmails}
             onCcChange={setCcEmails}
+            onAddContact={handleAddContact}
           />
         )}
 

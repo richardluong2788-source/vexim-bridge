@@ -53,6 +53,8 @@ interface Props {
   ccEmails?: string[]
   /** Callback when CC selection changes */
   onCcChange?: (emails: string[]) => void
+  /** Quick-add a new contact to the buyer's directory (for CC) without leaving the page */
+  onAddContact?: (input: { full_name: string; email: string }) => Promise<boolean> | boolean
 }
 
 export function EmailDraftComposer({ 
@@ -68,6 +70,7 @@ export function EmailDraftComposer({
   contacts = [],
   ccEmails = [],
   onCcChange,
+  onAddContact,
 }: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
@@ -121,6 +124,29 @@ export function EmailDraftComposer({
     }
   }
 
+  // Quick-add: cho phép thêm email khác của cùng công ty buyer ngay tại đây
+  // (VD: phòng mua hàng, đại diện thị trường khác) mà không phải rời trang
+  // sang màn Danh bạ liên hệ của buyer.
+  const [showAddContact, setShowAddContact] = useState(false)
+  const [newContactName, setNewContactName] = useState("")
+  const [newContactEmail, setNewContactEmail] = useState("")
+  const [addingContact, setAddingContact] = useState(false)
+
+  async function handleAddContact() {
+    if (!newContactName.trim() || !newContactEmail.trim() || !onAddContact) return
+    setAddingContact(true)
+    try {
+      const ok = await onAddContact({ full_name: newContactName.trim(), email: newContactEmail.trim() })
+      if (ok) {
+        setNewContactName("")
+        setNewContactEmail("")
+        setShowAddContact(false)
+      }
+    } finally {
+      setAddingContact(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -151,13 +177,14 @@ export function EmailDraftComposer({
       )}
 
       {/* CC picker - danh bạ liên hệ khác của buyer (đa liên hệ) */}
-      {ccableContacts.length > 0 && (
-        <div className="rounded-md border border-border p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
-            <Users className="h-3.5 w-3.5" />
-            CC thêm liên hệ khác
-          </div>
-          <div className="flex flex-col gap-2">
+      <div className="rounded-md border border-border p-3">
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+          <Users className="h-3.5 w-3.5" />
+          CC thêm liên hệ khác
+        </div>
+
+        {ccableContacts.length > 0 ? (
+          <div className="flex flex-col gap-2 mb-2">
             {ccableContacts.map((contact) => (
               <label
                 key={contact.id}
@@ -176,8 +203,68 @@ export function EmailDraftComposer({
               </label>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-muted-foreground mb-2">
+            Chưa có liên hệ nào khác trong danh bạ của công ty này.
+          </p>
+        )}
+
+        {onAddContact && (
+          showAddContact ? (
+            <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  placeholder="Tên liên hệ"
+                  disabled={addingContact}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => setNewContactEmail(e.target.value)}
+                  placeholder="email@company.com"
+                  disabled={addingContact}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleAddContact}
+                  disabled={addingContact || !newContactName.trim() || !newContactEmail.trim()}
+                >
+                  {addingContact ? <Spinner className="h-3.5 w-3.5" /> : "Lưu liên hệ"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowAddContact(false)
+                    setNewContactName("")
+                    setNewContactEmail("")
+                  }}
+                  disabled={addingContact}
+                >
+                  Hủy
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAddContact(true)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              + Thêm liên hệ khác để CC
+            </button>
+          )
+        )}
+      </div>
 
       <Tabs defaultValue="ai" className="w-full">
         <TabsList className="grid w-full grid-cols-2">

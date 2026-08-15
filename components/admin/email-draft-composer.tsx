@@ -19,7 +19,7 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
 import { ProductLinkPicker } from "@/components/admin/product-link-picker"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Users } from "lucide-react"
+import { Users, UserCheck } from "lucide-react"
 import type { EmailType, BuyerContact } from "@/lib/supabase/types"
 import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
@@ -47,12 +47,18 @@ interface Props {
   opportunityId?: string
   /** Client ID for fetching products */
   clientId?: string | null
-  /** Buyer contacts available to CC (from danh bạ liên hệ) */
+  /** Buyer contacts available to select as primary / CC (from danh bạ liên hệ) */
   contacts?: BuyerContact[]
+  /** Contact id currently selected as the primary ("Email chính") recipient */
+  selectedContactId?: string | null
+  /** Callback when AE tích chọn một liên hệ khác làm email chính */
+  onSelectContact?: (contactId: string) => void
   /** Currently selected CC emails */
   ccEmails?: string[]
   /** Callback when CC selection changes */
   onCcChange?: (emails: string[]) => void
+  /** Quick-add a new contact to the buyer's directory without leaving the page */
+  onAddContact?: (input: { full_name: string; email: string }) => Promise<boolean> | boolean
 }
 
 export function EmailDraftComposer({ 
@@ -66,8 +72,11 @@ export function EmailDraftComposer({
   opportunityId,
   clientId,
   contacts = [],
+  selectedContactId,
+  onSelectContact,
   ccEmails = [],
   onCcChange,
+  onAddContact,
 }: Props) {
   const { t, locale } = useTranslation()
   const s = t.admin.email ?? fallbackStrings
@@ -92,13 +101,12 @@ export function EmailDraftComposer({
   const [manualContent, setManualContent] = useState("")
   const [manualRecipient, setManualRecipient] = useState("")
 
-  // Prefill recipient from the buyer's primary contact once the contact
-  // directory loads. Don't overwrite if the AE already typed something.
+  // Email chính luôn theo đúng liên hệ AE tích chọn ở cột "Email chính" -
+  // đây là nguồn sự thật duy nhất cho người nhận, ở cả 2 tab AI và Thủ công.
   useEffect(() => {
-    if (manualRecipient) return
-    const primary = contacts.find((c) => c.is_primary && c.email) ?? contacts.find((c) => !!c.email)
-    if (primary?.email) setManualRecipient(primary.email)
-  }, [contacts, manualRecipient])
+    const selected = contacts.find((c) => c.id === selectedContactId)
+    if (selected?.email) setManualRecipient(selected.email)
+  }, [contacts, selectedContactId])
 
   function handleAISubmit() {
     // AI auto-generates based on email type and buyer data - no Vietnamese prompt needed
@@ -111,6 +119,8 @@ export function EmailDraftComposer({
   }
 
   const ccableContacts = contacts.filter((c) => !!c.email)
+  // Không cho CC trùng với người đang được chọn làm email chính.
+  const ccOptions = ccableContacts.filter((c) => c.id !== selectedContactId)
 
   function toggleCc(email: string) {
     if (!onCcChange) return
@@ -118,6 +128,29 @@ export function EmailDraftComposer({
       onCcChange(ccEmails.filter((e) => e !== email))
     } else {
       onCcChange([...ccEmails, email])
+    }
+  }
+
+  // Quick-add: cho phép thêm email khác của cùng công ty buyer ngay tại đây
+  // (VD: phòng mua hàng, đại diện thị trường khác) mà không phải rời trang
+  // sang màn Danh bạ liên hệ của buyer.
+  const [showAddContact, setShowAddContact] = useState(false)
+  const [newContactName, setNewContactName] = useState("")
+  const [newContactEmail, setNewContactEmail] = useState("")
+  const [addingContact, setAddingContact] = useState(false)
+
+  async function handleAddContact() {
+    if (!newContactName.trim() || !newContactEmail.trim() || !onAddContact) return
+    setAddingContact(true)
+    try {
+      const ok = await onAddContact({ full_name: newContactName.trim(), email: newContactEmail.trim() })
+      if (ok) {
+        setNewContactName("")
+        setNewContactEmail("")
+        setShowAddContact(false)
+      }
+    } finally {
+      setAddingContact(false)
     }
   }
 
@@ -150,34 +183,140 @@ export function EmailDraftComposer({
         </div>
       )}
 
-      {/* CC picker - danh bạ liên hệ khác của buyer (đa liên hệ) */}
-      {ccableContacts.length > 0 && (
-        <div className="rounded-md border border-border p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
-            <Users className="h-3.5 w-3.5" />
-            CC thêm liên hệ khác
-          </div>
+      {/* Danh bạ liên hệ của buyer - chia 2 cột: Email chính (chọn 1) và CC (chọn nhiều) */}
+      <div className="rounded-md border border-border p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Cột trái: Email chính - tích chọn 1 liên hệ làm người nhận thật */}
           <div className="flex flex-col gap-2">
-            {ccableContacts.map((contact) => (
-              <label
-                key={contact.id}
-                className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
-              >
-                <Checkbox
-                  checked={ccEmails.includes(contact.email!)}
-                  onCheckedChange={() => toggleCc(contact.email!)}
-                  disabled={loading}
-                />
-                <span className="font-medium">{contact.full_name}</span>
-                {contact.title && (
-                  <span className="text-xs text-muted-foreground">· {contact.title}</span>
-                )}
-                <span className="text-xs text-muted-foreground">({contact.email})</span>
-              </label>
-            ))}
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <UserCheck className="h-3.5 w-3.5" />
+              Email chính (người nhận)
+            </div>
+            {ccableContacts.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {ccableContacts.map((contact) => (
+                  <label
+                    key={contact.id}
+                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="primary-contact"
+                      checked={selectedContactId === contact.id}
+                      onChange={() => onSelectContact?.(contact.id)}
+                      disabled={loading}
+                      className="h-3.5 w-3.5 accent-primary shrink-0"
+                    />
+                    <span className="font-medium">{contact.full_name}</span>
+                    {contact.title && (
+                      <span className="text-xs text-muted-foreground">· {contact.title}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground truncate">({contact.email})</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Chưa có liên hệ nào trong danh bạ của công ty này.
+              </p>
+            )}
+            <FieldDescription>
+              AI sẽ tự nhận diện tên người này để chào hỏi trong email.
+            </FieldDescription>
+          </div>
+
+          {/* Cột phải: CC thêm liên hệ khác */}
+          <div className="flex flex-col gap-2 sm:border-l sm:border-border sm:pl-4">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Users className="h-3.5 w-3.5" />
+              CC thêm liên hệ khác
+            </div>
+            {ccOptions.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {ccOptions.map((contact) => (
+                  <label
+                    key={contact.id}
+                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={ccEmails.includes(contact.email!)}
+                      onCheckedChange={() => toggleCc(contact.email!)}
+                      disabled={loading}
+                    />
+                    <span className="font-medium">{contact.full_name}</span>
+                    {contact.title && (
+                      <span className="text-xs text-muted-foreground">· {contact.title}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground truncate">({contact.email})</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Không còn liên hệ nào khác để CC.
+              </p>
+            )}
           </div>
         </div>
-      )}
+
+        <div className="mt-3 pt-3 border-t border-border">
+          {onAddContact && (
+            showAddContact ? (
+              <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={newContactName}
+                    onChange={(e) => setNewContactName(e.target.value)}
+                    placeholder="Tên liên hệ"
+                    disabled={addingContact}
+                    className="h-8 text-sm"
+                  />
+                  <Input
+                    type="email"
+                    value={newContactEmail}
+                    onChange={(e) => setNewContactEmail(e.target.value)}
+                    placeholder="email@company.com"
+                    disabled={addingContact}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleAddContact}
+                    disabled={addingContact || !newContactName.trim() || !newContactEmail.trim()}
+                  >
+                    {addingContact ? <Spinner className="h-3.5 w-3.5" /> : "Lưu liên hệ"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowAddContact(false)
+                      setNewContactName("")
+                      setNewContactEmail("")
+                    }}
+                    disabled={addingContact}
+                  >
+                    Hủy
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAddContact(true)}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                + Thêm liên hệ khác
+              </button>
+            )
+          )}
+        </div>
+      </div>
 
       <Tabs defaultValue="ai" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -281,25 +420,8 @@ export function EmailDraftComposer({
                 placeholder="buyer@company.com"
                 disabled={loading}
               />
-              {contacts.filter((c) => !!c.email).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {contacts
-                    .filter((c) => !!c.email)
-                    .map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setManualRecipient(c.email!)}
-                        disabled={loading}
-                        className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-                      >
-                        {c.full_name} ({c.email}){c.is_primary ? " · Chính" : ""}
-                      </button>
-                    ))}
-                </div>
-              )}
               <FieldDescription>
-                Email sẽ được gửi trực tiếp đến địa chỉ này.
+                Tự động lấy theo liên hệ được tích chọn ở cột &quot;Email chính&quot; phía trên. Bạn vẫn có thể sửa tay nếu cần.
               </FieldDescription>
             </Field>
 

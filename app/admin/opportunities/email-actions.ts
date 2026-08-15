@@ -59,7 +59,6 @@ export type SendEmailActionInput = {
   overrideSubject?: string
   overrideContent?: string
   overrideRecipient?: string
-  overrideCc?: string | string[]
   attachments?: UploadedAttachment[]
 }
 
@@ -75,7 +74,6 @@ export async function sendEmailDraftAction(
       overrideSubject: input.overrideSubject,
       overrideContent: input.overrideContent,
       overrideRecipient: input.overrideRecipient,
-      overrideCc: input.overrideCc,
       attachments: input.attachments,
     })
     return { ok: true, data: result }

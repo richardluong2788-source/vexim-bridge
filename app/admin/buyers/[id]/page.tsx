@@ -13,7 +13,6 @@ import {
   type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
-import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import { canAny } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
@@ -41,14 +40,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
-
-  // --- 1b) Multi-contact buyer directory -------------------------------
-  const { data: rawContacts } = await current.admin
-    .from("buyer_contacts")
-    .select("*")
-    .eq("lead_id", id)
-    .order("is_primary", { ascending: false })
-    .order("full_name", { ascending: true })
 
   // --- 2) Opportunities attached to this buyer ---------------------------
   const { data: opps } = await current.admin
@@ -223,13 +214,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}
-      />
-
-      <BuyerContactsManager
-        leadId={id}
-        initialContacts={(rawContacts ?? []) as any}
-        canWrite={canWrite}
-        locale={locale}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

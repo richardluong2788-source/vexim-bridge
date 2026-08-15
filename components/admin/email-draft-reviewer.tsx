@@ -15,7 +15,7 @@ import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 interface Props {
   draft: GenerateEmailResult
   sending: boolean
-  onSend: (overrides: { subject?: string; content?: string; recipient?: string; cc?: string }) => void
+  onSend: (overrides: { subject?: string; content?: string; recipient?: string }) => void
   onReject: () => void
   onBack: () => void
   /** Attachments to include with the email */
@@ -41,7 +41,6 @@ export function EmailDraftReviewer({
   const [subject, setSubject] = useState(draft.subject_en)
   const [content, setContent] = useState(draft.content_en)
   const [recipient, setRecipient] = useState(draft.recipient_email ?? "")
-  const [cc, setCc] = useState("")
 
   function handleCopy() {
     const text = `Subject: ${subject}\n\n${content}`
@@ -50,11 +49,10 @@ export function EmailDraftReviewer({
   }
 
   function handleSend() {
-    const overrides: { subject?: string; content?: string; recipient?: string; cc?: string } = {}
+    const overrides: { subject?: string; content?: string; recipient?: string } = {}
     if (subject !== draft.subject_en) overrides.subject = subject
     if (content !== draft.content_en) overrides.content = content
     if (recipient !== draft.recipient_email) overrides.recipient = recipient
-    if (cc.trim()) overrides.cc = cc
     onSend(overrides)
   }
 
@@ -86,25 +84,6 @@ export function EmailDraftReviewer({
             {recipient || <span className="text-destructive">{s.noRecipient}</span>}
           </div>
         )}
-      </Field>
-
-      {/* CC recipients */}
-      <Field>
-        <FieldLabel>CC</FieldLabel>
-        {editMode ? (
-          <Input
-            type="text"
-            value={cc}
-            onChange={(e) => setCc(e.target.value)}
-            placeholder="qa@company.com, import@company.com"
-            disabled={sending}
-          />
-        ) : (
-          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
-            {cc || "—"}
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">Nhập nhiều email, phân cách bằng dấu phẩy hoặc dấu chấm phẩy.</p>
       </Field>
 
       {/* Subject */}

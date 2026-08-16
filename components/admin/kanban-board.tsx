@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import {
   DndContext,
   DragOverlay,
@@ -24,6 +25,7 @@ import { KanbanColumn } from "@/components/admin/kanban-column"
 import { KanbanCard } from "@/components/admin/kanban-card"
 import { OpportunityDetailSheet } from "@/components/admin/opportunity-detail-sheet"
 import { useTranslation } from "@/components/i18n/language-provider"
+import { createClient } from "@/lib/supabase/client"
 
 // Compact "X phút trước" style label for the "Cần phản hồi" strip - keeps
 // each item scannable without a full timestamp taking up card width.
@@ -99,6 +101,7 @@ export function KanbanBoard({
   daysInStageByOpp = {},
 }: KanbanBoardProps) {
   const { t } = useTranslation()
+  const router = useRouter()
   const [opportunities, setOpportunities] = useState(initialOpportunities)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -106,6 +109,50 @@ export function KanbanBoard({
   // opened by clicking an item in the "Cần phản hồi" triage strip — so
   // the sheet lands directly on the buyer conversation, not the status tab.
   const [editingSection, setEditingSection] = useState<"status" | "replies">("status")
+
+  // The board's own local `opportunities` state exists only for optimistic
+  // drag-and-drop; once a server refresh brings fresh props (e.g. after the
+  // realtime-triggered router.refresh() below), sync it back in. Without
+  // this, opportunities/unreadReplyCountByOpp/daysInStageByOpp would drift:
+  // the initial props are only read once by useState.
+  useEffect(() => {
+    setOpportunities(initialOpportunities)
+  }, [initialOpportunities])
+
+  // Auto-refresh the board when a buyer email arrives, instead of making an
+  // AE reload the page to see the new reply. buyer_replies is written to by
+  // the Resend inbound webhook the instant an email lands (see
+  // app/api/webhooks/resend/route.ts) — this just tells the open board that
+  // happened. router.refresh() re-runs the Server Component in
+  // app/admin/pipeline/page.tsx, which recomputes unreadReplyCountByOpp,
+  // needsReplyItems, and the opportunities list with proper ownership
+  // scoping — cheaper and less error-prone than duplicating that
+  // aggregation logic here from the raw realtime payload.
+  //
+  // A short debounce collapses bursts (e.g. several buyers emailing within
+  // the same second) into a single refresh.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel("pipeline-buyer-replies")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "buyer_replies" },
+        () => {
+          if (refreshTimer.current) clearTimeout(refreshTimer.current)
+          refreshTimer.current = setTimeout(() => {
+            router.refresh()
+          }, 800)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current)
+      supabase.removeChannel(channel)
+    }
+  }, [router])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const activeOpportunity = opportunities.find((o) => o.id === activeId)

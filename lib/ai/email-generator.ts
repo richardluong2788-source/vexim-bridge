@@ -69,54 +69,61 @@ function extractPurchaseHistoryDetails(text: string | null): {
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - "Partnership Invitation" approach (NOT a sales pitch).
+  introduction: `COLD INTRODUCTION - "Buyer Relevance" approach (NOT a sales pitch, NOT a supplier pitch).
 
 ═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: THE "3 PILLARS OF TRUST" STRATEGY FOR NEW-TO-US-MARKET SUPPLIERS
+CRITICAL: THIS EMAIL'S ONLY JOB IS "WE UNDERSTAND WHAT YOU BUY"
 ═══════════════════════════════════════════════════════════════════════════════
-If the supplier has NO proven U.S. export history, NEVER fabricate case studies or client references. 
-U.S. buyers can easily verify via ImportYeti or customs data. One lie = total credibility destruction.
-
-Instead, use the "3 Pillars of Trust" to build credibility through REAL capabilities:
-
-PILLAR 1 - "Who are they?" (Production Capability)
-→ Offer to send factory video/photos showing production line, lab, packaging area
-→ "I'd be happy to send a short video walkthrough of our facility..."
-
-PILLAR 2 - "How do they make it?" (Quality Control)
-→ Offer real COA (Certificate of Analysis) from a recent batch - doesn't need to be US shipment
-→ "I can share a recent COA showing our quality specs: moisture, screen size, defect count..."
-
-PILLAR 3 - "Are they trustworthy?" (Compliance)
-→ Highlight REAL certifications: FDA-registered, HACCP, ISO 22000, Organic, etc.
-→ "Our facility is FDA-registered and [other certs], so we're fully ready for U.S. import..."
-
-KEY PHRASE TO USE: "We may be new to the U.S. market, but we are not new to quality."
-This transforms the "weakness" into a strength of honesty and professionalism.
-═══════════════════════════════════════════════════════════════════════════════
+This is email 1 of the funnel: Buyer relevance → Supplier credibility → Commercial offer.
+Do NOT try to prove the supplier is good in this email — that is the job of the follow-up,
+sent AFTER the buyer responds and shows interest (see the "3 Pillars of Trust" stage in the
+follow_up guidance). Leading with factory proof / COA / certifications here is premature and
+dilutes the one thing this email needs to land: proof that you did your homework on THIS buyer.
 
 CRITICAL RULES:
 - NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
 - Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
-- ALWAYS offer TANGIBLE PROOF: factory video, COA, certification photos — NOT fake testimonials.
+- Do NOT offer factory video, COA, or certifications in this email — save concrete proof for the follow-up.
+- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Prefer:
+  "Rather than sending you a general supplier list, we can shortlist manufacturers based on your
+  current specification, volume and compliance requirements" over "we work with a few Vietnamese
+  manufacturers that may fit your needs."
 
 STRUCTURE:
-1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, FDA-registered alternative for Nodom's Arabica supply"
+1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
 2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
-3. BRIDGE (1-2 sentences): Empathize briefly, then pivot to solution with HONESTY. "We may be new to the U.S. market, but we are not new to quality..."
-4. 3 PILLARS PROOF (2-3 sentences): Offer concrete evidence from the 3 pillars. "I can send over our facility video, a recent COA, and our FDA registration certificate..."
-5. SOFT CTA (1 sentence): Low-pressure, partnership language. "Would you be open to a 15-minute call this week to compare notes?"
+3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
+4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
+5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
 
-TONE: Peer-to-peer, consultative, HONEST. Admit newness to US market but showcase readiness.
+TONE: Peer-to-peer, consultative, curious about THEIR business. Confident without overselling.
 Word count: 100-150 words (shorter = better for cold emails).`,
 
-  follow_up: `FOLLOW-UP - Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.
+  follow_up: `FOLLOW-UP — this email type covers TWO different sub-modes. Read the admin's Vietnamese
+instruction and the opportunity context to tell which one applies, then follow that structure:
 
+SUB-MODE 1 — "SUPPLIER CREDIBILITY" STAGE (the buyer already replied / showed interest):
+This is email 2 of the funnel: Buyer relevance → Supplier credibility → Commercial offer.
+Now that the buyer has engaged, it's time to answer the question the introduction email
+deliberately left open: "Is this supplier actually any good?" Apply the "3 Pillars of Trust"
+proof strategy in full (see the dedicated section below in this prompt for the exact content
+and phrasing) — offer factory video/photos, a real COA, and real certifications (FDA, HACCP,
+ISO 22000, etc.). This is also where more specific personalization (naming a past Vietnam
+supplier, year, or volume) becomes appropriate, since the buyer already opted into the
+conversation — see the funnel-stage guidance below for the exact rule.
+STRUCTURE: 1) Thank them / acknowledge their reply, 2) answer what they asked or showed
+interest in, 3) offer the 3 Pillars proof, 4) soft CTA (sample request, short call, or send
+of the COA/certs they'd like to see first).
+
+SUB-MODE 2 — "PATTERN INTERRUPT" (no response yet to a previous introduction):
+Use Eugene Schwartz's escalating awareness + Dan Kennedy's urgency principles.
 STRUCTURE:
 1. PATTERN INTERRUPT (1 sentence): Don't say "just following up." Instead, add NEW value — a relevant industry insight, a price change, a limited availability notice.
 2. RECONNECT (1 sentence): Brief reference to previous contact.
 3. NEW ANGLE (1-2 sentences): Present the opportunity from a different angle — emphasize a benefit not mentioned before, or address a likely objection.
 4. URGENCY + CTA: Real deadline or scarcity if applicable. Clear single action.
+Do NOT lead with supplier proof here either — the buyer still hasn't engaged, so this stays
+at the "buyer relevance" level, just with a new angle and urgency.
 
 TONE: Respectful persistence. Assume they're busy, not uninterested. Add value, don't just "check in."
 Word count: 80-140 words. Subject line: each email uses its own fresh subject (the system intentionally does NOT thread these as Gmail replies) — NEVER prefix with "Re:" or "Fwd:" since there is no real thread to reply to; that fake-reply pattern is flagged as deceptive by spam filters. Use a new hook with urgency instead, e.g. "Following up — [Company]'s [product] supply / [new angle]".`,
@@ -141,6 +148,152 @@ Word count: 140-220 words. Subject line: "Your [Product] Quote — Valid until [
 5. If the admin's intent is unclear, ask for clarification in the Vietnamese translation note.
 
 Follow the admin's intent precisely while applying these principles. Tone: professional, warm, US-business English.`,
+}
+
+/**
+ * The "3 Pillars of Trust" supplier-credibility proof strategy.
+ * Only included once the buyer has already engaged (follow_up sub-mode 1),
+ * never on a cold introduction — see buildScenarioIntelligenceBlock below.
+ */
+const THREE_PILLARS_OF_TRUST = `
+═══════════════════════════════════════════════════════════════════════════════
+THE "3 PILLARS OF TRUST" - SUPPLIER CREDIBILITY STAGE (buyer already engaged)
+═══════════════════════════════════════════════════════════════════════════════
+The buyer has replied or shown interest, so this — not the introduction — is the right
+moment to offer concrete supplier proof.
+If the supplier has NO proven U.S. export history, NEVER fabricate case studies or client
+references. U.S. buyers can easily verify via ImportYeti or customs data. One lie = total
+credibility destruction.
+
+PILLAR 1 - "Who are they?" (Production Capability)
+→ Offer to send factory video/photos showing production line, lab, packaging area.
+→ "I'd be happy to send a short video walkthrough of our facility..."
+
+PILLAR 2 - "How do they make it?" (Quality Control)
+→ Offer real COA (Certificate of Analysis) from a recent batch - doesn't need to be a US shipment.
+→ "I can share a recent COA showing our quality specs: moisture, screen size, defect count..."
+
+PILLAR 3 - "Are they trustworthy?" (Compliance)
+→ Highlight REAL certifications: FDA-registered, HACCP, ISO 22000, Organic, etc.
+→ "Our facility is FDA-registered and [other certs], so we're fully ready for U.S. import..."
+
+KEY PHRASE TO USE: "We may be new to the U.S. market, but we are not new to quality."
+This transforms the "weakness" into a strength of honesty and professionalism.
+═══════════════════════════════════════════════════════════════════════════════
+`
+
+/**
+ * Builds the "Vietnam Supplier Intelligence" (Scenario A/B/C) guidance, gated by
+ * funnel stage:
+ * - isFirstContact=true (introduction): "buyer relevance" only. Scenario B stays
+ *   generic (no naming a former/current supplier) since specific naming on a cold
+ *   email reads as surveillance. No sample/COA/proof offers.
+ * - isFirstContact=false: buyer has already engaged. Specific naming (extracted
+ *   supplier/year/volume) is appropriate. includePillars additionally appends the
+ *   full "3 Pillars of Trust" proof content (used for the follow_up credibility stage).
+ */
+function buildScenarioIntelligenceBlock(isFirstContact: boolean, includePillars: boolean): string {
+  const scenarioB = isFirstContact
+    ? `SCENARIO B: Previously sourced from Vietnam but switched away
+- ⚠️ SOFT VERSION ONLY - this is a cold first-contact email. Do NOT name the exact former
+  Vietnam supplier, the exact current supplier, or the exact year/volume — even though the
+  data is accurate, naming specific companies on a first email reads as if the buyer is
+  being surveilled, not researched.
+- OPENING: "We understand that [buyer_company] has previously sourced [main_product] from
+  Vietnam. As you evaluate your current supply chain, we'd welcome the chance to reconnect
+  you with Vietnam quality."
+- Do NOT use purchase_history_vietnam_supplier / purchase_history_current_supplier by name
+  in this email. Keep the reference to "Vietnam" general.
+- ANGLE: Win them back as an alternative/secondary supplier, offer a fresh start.
+- NEVER say "stopped" or "paused" — use "shifted", "diversified", "expanded". Never assume
+  the switch was a problem with Vietnam suppliers.`
+    : `SCENARIO B: Previously sourced from Vietnam but switched away
+- ⚠️ HIGH-CONFIDENCE VERSION - the buyer is already engaged with us, so specific naming now
+  reads as informed partnership, not surveillance. The AI has EXTRACTED these for you - do
+  NOT re-parse from purchase_history:
+  • purchase_history_vietnam_supplier = exact Vietnam supplier name (e.g., "Visimex Corp Joint Stock Com")
+  • purchase_history_vietnam_year = year they bought from Vietnam (e.g., "2024")
+  • purchase_history_current_supplier = exact current supplier name (e.g., "Procesadora De Alimentos Santa Isab")
+  • purchase_history_current_year = year of current supplier (e.g., "2025")
+  • purchase_history_volume = specific volume (e.g., "16,800 kg")
+- OPENING: "I noticed [buyer_company] previously sourced from [purchase_history_vietnam_supplier]
+  in [purchase_history_vietnam_year], then shifted to [purchase_history_current_supplier] in
+  [purchase_history_current_year][add volume if available: for your [purchase_history_volume]
+  requirements]."
+- BODY: Acknowledge the previous relationship by NAME. Focus on "as you evaluate options" and
+  "complementary source" — don't criticize their current suppliers.
+- ⚠️ MANDATORY at this stage: use the EXTRACTED field values — they are parsed from objective
+  customs/purchase history data.
+- KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins",
+  "expanded to", "switched to". Never assume the switch was a problem with Vietnam suppliers.
+- ANGLE: Win them back as alternative/secondary supplier, show what's improved, offer fresh start.`
+
+  const scenarioCBody = isFirstContact
+    ? `BODY for SCENARIO C:
+- Do NOT offer samples, COA, or certifications yet — this email's only job is to open the
+  conversation, not prove supplier quality. That comes once the buyer responds.
+- Mention specific product using HS code and product name to show expertise.
+- End with a QUALIFYING question about THEIR needs rather than a proof offer, e.g. "Would
+  you be open to sharing your current specification so we can see if there's a fit?"`
+    : `BODY for SCENARIO C:
+- Emphasize TRIAL/SAMPLE approach: "We'd welcome the opportunity to send samples so you can
+  evaluate our quality firsthand."
+- Highlight competitive advantages: FDA-registered, consistent quality, competitive pricing.
+- Mention specific product using HS code and product name to show expertise.`
+
+  return `
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: VIETNAM SUPPLIER INTELLIGENCE — FUNNEL STAGE: ${
+    isFirstContact ? "EMAIL 1, buyer relevance only" : "buyer already engaged"
+  }
+═══════════════════════════════════════════════════════════════════════════════
+ALWAYS check purchase_history FIRST to understand the buyer's Vietnam sourcing timeline.
+${
+  isFirstContact
+    ? `⚠️ THIS IS A COLD FIRST-CONTACT EMAIL. Its ONLY job is to prove "I understand what you buy
+and have a reason to believe I can help" — NOT to prove the supplier is good. Do not offer
+factory video, COA, or certifications yet; that comes in the follow-up once the buyer responds.`
+    : `⚠️ This email continues a conversation the buyer already engaged with. Specific, detailed
+personalization (naming past suppliers, years, volumes) is now appropriate.`
+}
+
+SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
+- Opening: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a complementary Vietnam source..."
+- Angle: Additional supplier, diversification, competitive pricing
+
+${scenarioB}
+
+SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false, vietnam_supplier_names is empty)
+This buyer has NEVER purchased from Vietnam. ${isFirstContact ? "You need to earn the right to be considered, not sell yet." : "You need to build trust before they'll try Vietnam."}
+Use their CURRENT suppliers and countries to position Vietnam as a relevant, worth-exploring option.
+
+OPENING OPTIONS for SCENARIO C (choose based on available data):
+
+Option C1 - If they source from expensive origins (Chile, Brazil, USA, Europe):
+"As [buyer_company] evaluates alternatives to [main_import_countries] for your [main_product] needs, Vietnam offers a compelling combination of quality and landed cost savings."
+
+Option C2 - If high volume buyer (total_shipments > 50 or avg_teu_per_month > 2):
+"With [buyer_company]'s substantial [main_product] volume — [total_shipments] shipments — diversifying your supply chain to include Vietnam could offer meaningful cost advantages and supply security."
+
+Option C3 - If they have specific suppliers you can name from top_suppliers:
+"I noticed [buyer_company] sources [main_product] from [top_suppliers]. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to [main_import_countries] at significantly more competitive landed costs."
+
+Option C4 - If peak_months data available and approaching:
+"With [buyer_company]'s peak months ([peak_months]) approaching, now is an ideal time to explore Vietnam as a complementary source for your [main_product] needs."
+
+Option C5 - Default fallback (use if no other data available):
+"As you explore options beyond [main_import_countries] for your [main_product] requirements, Vietnam offers compelling quality at very competitive landed costs."
+
+${scenarioCBody}
+
+ANGLE for SCENARIO C:
+- NEW OPPORTUNITY: "expand your supplier base", "diversify supply chain", "explore new origins"
+- RISK MITIGATION: "supply chain security", "backup source", "reduce single-origin dependency"
+- COST SAVINGS: "competitive landed costs", "favorable pricing", "value proposition"
+${includePillars ? THREE_PILLARS_OF_TRUST : ""}
+This buyer intelligence shows you've done your homework and builds instant credibility.
+DO NOT ignore this data if it exists. DO NOT make negative assumptions about why they switched suppliers.
+`
 }
 
 const outputSchema = z.object({
@@ -387,9 +540,27 @@ export async function generateEmailDraft(
     ? `You are writing on behalf of a Vietnamese ${exporterIndustry.toLowerCase()} exporter reaching out to US buyers. Use terminology, certifications, and sales language appropriate for the ${exporterIndustry} industry.`
     : "You are writing on behalf of a Vietnamese exporter reaching out to US buyers. Adapt tone and terminology to the exporter's industry indicated in the context."
 
+  // Funnel stage flags gating the buyer-intelligence playbook:
+  // Buyer relevance (introduction) → Supplier credibility (follow_up) → Commercial offer (quotation).
+  // introduction must never lead with supplier proof or name a past Vietnam supplier by
+  // name (reads as surveillance on a cold email). follow_up is where the "3 Pillars of
+  // Trust" proof and specific historical naming belong, since the buyer already engaged.
+  const isFirstContact = input.emailType === "introduction"
+  const includeThreePillars = input.emailType === "follow_up"
+
   const system = [
     `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
+    `
+VEXIM POSITIONING - WHO WE ARE (never contradict this):
+Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese manufacturers
+matched to their specific requirements — NOT a broker blasting out a generic supplier list.
+- Prefer partner language over broker language. Instead of "we work with a few Vietnamese
+  manufacturers that may fit your sourcing requirements," write: "Rather than sending you a general
+  supplier list, we can shortlist manufacturers based on your current specification, volume and
+  compliance requirements."
+- Vexim's value is in understanding the buyer's sourcing profile FIRST, then matching the right
+  manufacturer — never in pushing a specific supplier before the buyer's needs are understood.`,
     `
 CONTEXT DATA - Do NOT get confused:
 - "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
@@ -469,15 +640,15 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
      b) SPECIFIC years (e.g. "2024", "2025")
      c) SPECIFIC volumes if mentioned (e.g. "16,800kg")
    
-   ⚠️ MANDATORY: You MUST use the EXACT supplier names from purchase_history in the email!
-   - WRONG: "I noticed you sourced from Vietnam in 2024, then shifted to Chile"
-   - CORRECT: "I noticed you sourced from Visimex Corp in Vietnam during 2024, then shifted to Procesadora De Alimentos in Chile for your 16,800kg requirements"
+   ⚠️ HOW SPECIFIC TO GET DEPENDS ON THE FUNNEL STAGE — see the "VIETNAM SUPPLIER
+   INTELLIGENCE" section further below for the exact rule. On a COLD FIRST-CONTACT
+   email (introduction), naming the exact former/current supplier by name reads as
+   surveillance, not insight — use the soft version instead. Once the buyer has
+   replied and is engaged (follow_up credibility stage), naming the exact extracted
+   supplier/year/volume is the high-impact move.
    
-   - If they previously bought from Vietnam but recently switched: "I noticed you sourced from [EXACT_VIETNAM_SUPPLIER_NAME] in [YEAR] — as you evaluate options beyond [EXACT_CURRENT_SUPPLIER], we'd love to reconnect you with Vietnam quality..."
-   - If has_vietnam_supplier=true and still active: "Building on your experience with [EXACT_vietnam_supplier_name], we offer a complementary source..."
+   - If has_vietnam_supplier=true and still active: "Building on your experience with [EXACT_vietnam_supplier_name], we offer a complementary source..." (this framing is fine even on a first email, since it is not surfacing a SWITCH, just an ongoing relationship)
    - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
-   
-   NEVER use generic terms like "Vietnam" or "Chile" when you have the actual company name!
 
 3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
    - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
@@ -516,77 +687,7 @@ STRICT RULES:
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
 - SIGNATURE: Always end with a COMPLETE signature using sender_name, exporter_company, sender_email, sender_phone from context. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
 `,
-    `
-═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: VIETNAM SUPPLIER INTELLIGENCE
-═══════════════════════════════════════════════════════════════════════════════
-
-ALWAYS check purchase_history FIRST to understand the buyer's Vietnam sourcing timeline:
-
-SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
-- Opening: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a complementary Vietnam source..."
-- Angle: Additional supplier, diversification, competitive pricing
-
-SCENARIO B: Previously sourced from Vietnam but switched away (mentioned in purchase_history as past, then switched to other origin)
-- ⚠️ CRITICAL: The AI has EXTRACTED these for you - DO NOT re-parse from purchase_history:
-  • purchase_history_vietnam_supplier = exact Vietnam supplier name (e.g., "Visimex Corp Joint Stock Com")
-  • purchase_history_vietnam_year = year they bought from Vietnam (e.g., "2024")
-  • purchase_history_current_supplier = exact current supplier name (e.g., "Procesadora De Alimentos Santa Isab")
-  • purchase_history_current_year = year of current supplier (e.g., "2025")
-  • purchase_history_volume = specific volume (e.g., "16,800 kg")
-  
-- OPENING: "I noticed [buyer_company] previously sourced from [purchase_history_vietnam_supplier] in [purchase_history_vietnam_year], then shifted to [purchase_history_current_supplier] in [purchase_history_current_year][add volume if available: for your [purchase_history_volume] requirements]."
-- BODY: Acknowledge the previous relationship by NAME. Focus on "as you evaluate options" and "complementary source" — don't criticize their current suppliers.
-- ANGLE: Win them back as alternative/secondary supplier, show what's improved, offer fresh start
-- ⚠️ MANDATORY: You MUST use the EXTRACTED field values! These are parsed from objective customs/purchase history data.
-- EXAMPLE for American Cashew: "I noticed American Cashew worked with Visimex Corp on Cashewnut Kernels in 2024 before shifting to Procesadora De Alimentos in Chile for your 16,800 kg requirements. With your Q2-Q3 season approaching, we'd love to reconnect you with premium Vietnam cashews at landed costs worth comparing."
-- KEY: Never say "stopped" or "paused" — use "shifted", "diversified to other origins", "expanded to", "switched to"
-- NEVER make negative assumptions about why they switched. Assume it was a business decision, not a problem with Vietnam suppliers.
-
-SCENARIO C: Never sourced from Vietnam (has_vietnam_supplier=false, vietnam_supplier_names is empty)
-═══════════════════════════════════════════════════════════════════════════════
-This buyer has NEVER purchased from Vietnam. You need to SELL the Vietnam advantage.
-Use their CURRENT suppliers and countries to position Vietnam as a better/complementary option.
-
-OPENING OPTIONS for SCENARIO C (choose based on available data):
-
-Option C1 - If they source from expensive origins (Chile, Brazil, USA, Europe):
-"As [buyer_company] evaluates alternatives to [main_import_countries] for your [main_product] needs, Vietnam offers a compelling combination of quality and landed cost savings."
-
-Option C2 - If high volume buyer (total_shipments > 50 or avg_teu_per_month > 2):
-"With [buyer_company]'s substantial [main_product] volume — [total_shipments] shipments — diversifying your supply chain to include Vietnam could offer meaningful cost advantages and supply security."
-
-Option C3 - If they have specific suppliers you can name from top_suppliers:
-"I noticed [buyer_company] sources [main_product] from [top_suppliers]. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to [main_import_countries] at significantly more competitive landed costs."
-
-Option C4 - If peak_months data available and approaching:
-"With [buyer_company]'s peak months ([peak_months]) approaching, now is an ideal time to explore Vietnam as a complementary source for your [main_product] needs."
-
-Option C5 - Default fallback (use if no other data available):
-"As you explore options beyond [main_import_countries] for your [main_product] requirements, Vietnam offers compelling quality at very competitive landed costs."
-
-BODY for SCENARIO C:
-- Emphasize TRIAL/SAMPLE approach: "We'd welcome the opportunity to send samples so you can evaluate our quality firsthand"
-- Highlight competitive advantages: FDA-registered, consistent quality, competitive pricing
-- Don't push too hard - they've never tried Vietnam, so build trust first
-- Mention specific product using HS code and product name to show expertise
-
-ANGLE for SCENARIO C:
-- NEW OPPORTUNITY: "expand your supplier base", "diversify supply chain", "explore new origins"
-- RISK MITIGATION: "supply chain security", "backup source", "reduce single-origin dependency"
-- COST SAVINGS: "competitive landed costs", "favorable pricing", "value proposition"
-
-EXAMPLE for SCENARIO C (buyer sources from Chile/Kenya only, never Vietnam):
-"I noticed American Cashew sources Cashewnut Kernels from Beneficiadora De Nueces Bolivianas in Chile and Sasini Fruits & Nuts in Kenya. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to South American origins at significantly more competitive landed costs.
-
-We may be new to the U.S. market, but we are not new to quality. Our facility is FDA-registered and I'd be happy to send samples along with our Certificate of Analysis so you can evaluate our Cashewnut Kernels (HS 0801.32) firsthand.
-
-Would you be open to a brief call this week to discuss how Vietnam could complement your current supply chain?"
-═══════════════════════════════════════════════════════════════════════════════
-
-This reference shows you've done your homework and builds instant credibility.
-DO NOT ignore this data if it exists. DO NOT make negative assumptions about why they switched suppliers.
-`,
+    buildScenarioIntelligenceBlock(isFirstContact, includeThreePillars),
   ].join("\n")
 
   const userPrompt = [

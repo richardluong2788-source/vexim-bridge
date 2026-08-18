@@ -22,6 +22,7 @@ import { notifyLeadAssigned } from "@/app/admin/opportunities/actions"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
+import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 
 interface ClientOption {
   id: string
@@ -338,24 +339,7 @@ export function AddLeadForm({ clients }: AddLeadFormProps) {
                 list="country-suggestions"
               />
               <datalist id="country-suggestions">
-                {[
-                  "United States",
-                  "Canada",
-                  "United Kingdom",
-                  "Germany",
-                  "France",
-                  "Netherlands",
-                  "Japan",
-                  "South Korea",
-                  "Australia",
-                  "Singapore",
-                  "United Arab Emirates",
-                  "India",
-                  "Pakistan",
-                  "Nigeria",
-                  "Mexico",
-                  "Brazil",
-                ].map((c) => (
+                {COUNTRY_SUGGESTIONS.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>

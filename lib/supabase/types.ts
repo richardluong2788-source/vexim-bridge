@@ -74,6 +74,8 @@ export type Database = {
           company_name: string | null
           industry: string | null
           industries: string[]
+          /** Client's (supplier's) own country — free text, mirrors leads.country. Added in 047; used by calculateCountryMatch(). */
+          country: string | null
           phone: string | null
           fda_registration_number: string | null
           fda_registered_at: string | null
@@ -99,6 +101,7 @@ export type Database = {
           company_name?: string | null
           industry?: string | null
           industries?: string[]
+          country?: string | null
           phone?: string | null
           fda_registration_number?: string | null
           fda_registered_at?: string | null
@@ -120,6 +123,7 @@ export type Database = {
           company_name?: string | null
           industry?: string | null
           industries?: string[]
+          country?: string | null
           phone?: string | null
           fda_registration_number?: string | null
           fda_registered_at?: string | null

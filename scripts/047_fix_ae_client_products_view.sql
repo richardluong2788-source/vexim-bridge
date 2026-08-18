@@ -1,14 +1,37 @@
 -- Migration: 047_fix_ae_client_products_view.sql
 -- Purpose: Fix two gaps in the AE matching engine (lib/matching/scorer.ts)
---   1. calculateCountryMatch() reads `client.client_country`, but the
---      `ae_client_products` view never selected the client's country —
---      so country match was always neutral (40/50) for every AE.
+--   1. calculateCountryMatch() reads `client.client_country`, but no column
+--      for a client's (supplier's) own country existed anywhere — not on
+--      `profiles`, not on `client_products`, not in the `ae_client_products`
+--      view. This dimension was silently dead: every AE always fell back
+--      to the neutral/no-match branch (40 or 50 points), regardless of
+--      where their clients actually operate.
 --   2. calculateHSCodeMatch() mines HS-code-shaped digit sequences out of
 --      free-text `category` strings via regex. client_products already has
 --      a real `hs_code` column that was never aggregated into this view,
 --      so real HS data was silently ignored in favor of a regex guess.
 -- Date: 2026-08-18
--- Depends on: 002_phase2_schema.sql (profiles.country — see 007), 023_client_products_schema.sql (hs_code), 035_ai_matching_schema.sql (view)
+-- Depends on: 001_create_schema.sql (profiles), 023_client_products_schema.sql
+--   (hs_code), 035_ai_matching_schema.sql (view)
+-- IDEMPOTENT — safe to run multiple times.
+
+-- ============================================================
+-- 1. PROFILES: add `country` (free text, e.g. "Vietnam" / "VN")
+-- ============================================================
+-- Mirrors the existing `leads.country` convention from 007 — free text
+-- instead of an enum, normalised at read time by lib/risk/country-risk.ts.
+-- This captures where the CLIENT (supplier) company is based, so the
+-- matching engine can compare it against the BUYER's country/import
+-- countries on `leads`.
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS country TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_country ON public.profiles(country);
+
+-- ============================================================
+-- 2. VIEW: ae_client_products — add client_country + product_hs_codes
+-- ============================================================
 
 CREATE OR REPLACE VIEW public.ae_client_products AS
 SELECT
@@ -48,7 +71,13 @@ GROUP BY p.id, p.account_manager_id, p.company_name, p.industry, p.industries, p
 -- After running this migration:
 --   1. Verify the new columns exist:
 --      SELECT client_country, product_hs_codes FROM public.ae_client_products LIMIT 5;
---   2. lib/supabase/types.ts AEClientProducts and lib/matching/scorer.ts
---      (calculateHSCodeMatch) were updated in the same change to consume
---      product_hs_codes instead of regex-mining product_categories.
+--   2. `profiles.country` starts out NULL for every existing client — this
+--      migration only unlocks the column. Admins must set it per-client via
+--      /admin/clients/[id] (new "Country" edit control) or when creating a
+--      new client, or calculateCountryMatch() keeps returning the neutral
+--      "no match" branch for that client.
+--   3. lib/supabase/types.ts (Profile, AEClientProducts) and
+--      lib/matching/scorer.ts (calculateHSCodeMatch) were updated in the
+--      same change to consume product_hs_codes instead of regex-mining
+--      product_categories.
 -- ============================================================

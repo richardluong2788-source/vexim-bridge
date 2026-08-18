@@ -1,8 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
-import { Search, Globe2, Building2, ExternalLink, Filter, Sparkles, UserCircle2, MoreVertical } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import {
+  Search,
+  Globe2,
+  Building2,
+  ExternalLink,
+  Filter,
+  Sparkles,
+  UserCircle2,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -94,6 +105,8 @@ const RISK_STYLE: Record<RiskLevel, string> = {
   high: "border-destructive/40 bg-destructive/10 text-destructive",
 }
 
+const PAGE_SIZE = 20
+
 export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isLeadResearcher = false, canWriteBuyer = false }: Props) {
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
@@ -101,6 +114,7 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
   const [statusFilter, setStatusFilter] = useState<
     "all" | "has_open" | "has_any" | "never_assigned"
   >("all")
+  const [page, setPage] = useState(1)
 
   // Build distinct filter buckets from the data so we don't hardcode them.
   const { countries, industries } = useMemo(() => {
@@ -135,6 +149,20 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
       )
     })
   }, [rows, search, countryFilter, industryFilter, statusFilter])
+
+  // Any change to search/filters can shrink the result set below the
+  // current page — snap back to page 1 so the user never lands on a
+  // page number that no longer has any rows.
+  useEffect(() => {
+    setPage(1)
+  }, [search, countryFilter, industryFilter, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paginated = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  )
 
   if (rows.length === 0) {
     return (
@@ -243,9 +271,13 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
           </div>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          {locale === "vi"
-            ? `Đang hiển thị ${filtered.length.toLocaleString("vi-VN")} / ${rows.length.toLocaleString("vi-VN")} buyer`
-            : `Showing ${filtered.length.toLocaleString("en-US")} of ${rows.length.toLocaleString("en-US")} buyers`}
+          {filtered.length === 0
+            ? locale === "vi"
+              ? `Đang hiển thị 0 / ${rows.length.toLocaleString("vi-VN")} buyer`
+              : `Showing 0 of ${rows.length.toLocaleString("en-US")} buyers`
+            : locale === "vi"
+              ? `Đang hiển thị ${((safePage - 1) * PAGE_SIZE + 1).toLocaleString("vi-VN")}–${Math.min(safePage * PAGE_SIZE, filtered.length).toLocaleString("vi-VN")} / ${filtered.length.toLocaleString("vi-VN")} buyer (tổng ${rows.length.toLocaleString("vi-VN")})`
+              : `Showing ${((safePage - 1) * PAGE_SIZE + 1).toLocaleString("en-US")}–${Math.min(safePage * PAGE_SIZE, filtered.length).toLocaleString("en-US")} of ${filtered.length.toLocaleString("en-US")} buyers (${rows.length.toLocaleString("en-US")} total)`}
         </p>
       </Card>
 
@@ -301,7 +333,7 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((r) => {
+              paginated.map((r) => {
                 const risk = assessCountryRisk(r.country)
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30 align-top">
@@ -489,6 +521,82 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-muted-foreground">
+            {locale === "vi"
+              ? `Trang ${safePage} / ${totalPages}`
+              : `Page ${safePage} of ${totalPages}`}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {locale === "vi" ? "Trước" : "Previous"}
+            </Button>
+            <div className="flex items-center gap-1 px-1">
+              {getPageNumbers(safePage, totalPages).map((p, idx) =>
+                p === "ellipsis" ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-1.5 text-xs text-muted-foreground"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === safePage ? "outline" : "ghost"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ),
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              {locale === "vi" ? "Sau" : "Next"}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+// Builds a compact page-number list with ellipses, e.g. 1 … 4 5 [6] 7 8 … 25,
+// so the pager stays usable even with hundreds of buyers.
+function getPageNumbers(current: number, total: number): Array<number | "ellipsis"> {
+  const pages: Array<number | "ellipsis"> = []
+  const delta = 1
+  const range = new Set<number>()
+  range.add(1)
+  range.add(total)
+  for (let p = current - delta; p <= current + delta; p++) {
+    if (p > 1 && p < total) range.add(p)
+  }
+  const sorted = Array.from(range).sort((a, b) => a - b)
+  let prev = 0
+  for (const p of sorted) {
+    if (prev && p - prev > 1) pages.push("ellipsis")
+    pages.push(p)
+    prev = p
+  }
+  return pages
 }

@@ -454,6 +454,8 @@ emailSectionHint:
         "This will grant them access to the {role} portal. You can change it back at any time.",
       updated: "Role updated successfully",
       updateFailed: "Failed to update role",
+      industryUpdated: "Industry updated successfully",
+      industryUpdateFailed: "Failed to update industry",
       cannotChangeSelf: "You cannot change your own role",
       superAdminOnly: "Only a super admin can make this change.",
       superAdminLocked: "Only a super admin can change another super admin.",

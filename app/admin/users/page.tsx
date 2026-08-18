@@ -19,7 +19,7 @@ export default async function UsersPage() {
   // recursion on profiles.
   const { data: profiles } = await current.admin
     .from("profiles")
-    .select("id, email, full_name, role, company_name, created_at")
+    .select("id, email, full_name, role, company_name, industry, created_at")
     .order("created_at", { ascending: false })
 
   const rows = (profiles ?? []).map((p) => ({
@@ -29,6 +29,7 @@ export default async function UsersPage() {
     // Fall back to a known role so the UI never crashes on legacy values.
     role: (normaliseRole(p.role) ?? "client") as Role,
     company_name: p.company_name,
+    industry: p.industry,
     created_at: p.created_at,
   }))
 

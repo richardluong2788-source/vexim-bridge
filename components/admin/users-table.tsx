@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { updateUserRole } from "@/app/admin/users/actions"
+import { updateUserRole, updateUserIndustry } from "@/app/admin/users/actions"
 import { ROLE_META, assignableRoles } from "@/lib/auth/permissions"
+import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
 import type { Role } from "@/lib/supabase/types"
 import type { Locale } from "@/lib/i18n/config"
 
@@ -18,6 +19,7 @@ interface UserRow {
   full_name: string | null
   role: Role
   company_name: string | null
+  industry: string | null
   created_at: string
 }
 
@@ -48,6 +50,8 @@ export function UsersTable({
   const { t } = useTranslation()
   const [pending, startTransition] = useTransition()
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [industryPendingId, setIndustryPendingId] = useState<string | null>(null)
+  const [industryPending, industryStartTransition] = useTransition()
   const [query, setQuery] = useState("")
   const [filterRole, setFilterRole] = useState<Role | "all">("all")
 
@@ -88,6 +92,19 @@ export function UsersTable({
       month: "short",
       day: "numeric",
     })
+
+  function handleIndustryChange(userId: string, nextIndustry: string) {
+    setIndustryPendingId(userId)
+    industryStartTransition(async () => {
+      const res = await updateUserIndustry(userId, nextIndustry)
+      setIndustryPendingId(null)
+      if (res.ok) {
+        toast.success(t.admin.users.industryUpdated)
+      } else {
+        toast.error(t.admin.users.industryUpdateFailed, { description: res.error })
+      }
+    })
+  }
 
   function handleChange(userId: string, nextRole: Role) {
     setPendingId(userId)
@@ -143,6 +160,9 @@ export function UsersTable({
               <th className="px-6 py-3">{t.admin.users.user}</th>
               <th className="px-6 py-3">{t.admin.users.company}</th>
               <th className="px-6 py-3">{t.admin.users.role}</th>
+              <th className="w-48 px-6 py-3">
+                {locale === "vi" ? "Ngành hàng (AE)" : "Industry (AE)"}
+              </th>
               <th className="px-6 py-3">{t.admin.users.joined}</th>
               <th className="w-56 px-6 py-3">{t.admin.users.changeRole}</th>
             </tr>
@@ -176,6 +196,32 @@ export function UsersTable({
                         </span>
                       ) : null}
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {u.role === "account_executive" ? (
+                      <Select
+                        value={u.industry ?? ""}
+                        disabled={industryPending && industryPendingId === u.id}
+                        onValueChange={(v) => handleIndustryChange(u.id, v)}
+                      >
+                        <SelectTrigger className="h-8 w-full">
+                          <SelectValue
+                            placeholder={
+                              locale === "vi" ? "Chưa đặt ngành" : "Not set"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INDUSTRIES.map((ind) => (
+                            <SelectItem key={ind} value={ind}>
+                              {locale === "vi" ? `${ind} · ${INDUSTRY_LABELS_VI[ind]}` : ind}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{formatDate(u.created_at)}</td>
                   <td className="px-6 py-4">
@@ -216,7 +262,7 @@ export function UsersTable({
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="px-6 py-10 text-center text-sm text-muted-foreground">
                   {t.admin.users.noResults ?? "No users match these filters."}
                 </td>
               </tr>

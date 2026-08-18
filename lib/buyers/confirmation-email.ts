@@ -34,7 +34,20 @@ export type BuyerEmailOutcome =
   | { status: "skipped_no_email" }
   | { status: "skipped_unsubscribed" }
   | { status: "skipped_duplicate" }
+  | { status: "skipped_disabled" }
   | { status: "failed"; error: string }
+
+/**
+ * Feature flag: automatic buyer acknowledgement emails.
+ *
+ * Turned off — sending an automated "we received your inquiry" email the
+ * instant a lead is created was creating an unwanted impression of AI/auto
+ * outreach before any AE had reviewed the lead. Flip back to `true` to
+ * re-enable without touching any of the call sites in
+ * app/admin/leads/new/actions.ts, app/admin/leads/import/actions.ts,
+ * components/admin/add-lead-form.tsx, and lib/product/actions.ts.
+ */
+const BUYER_ACKNOWLEDGEMENT_EMAILS_ENABLED = false
 
 interface LeadRow {
   id: string
@@ -181,6 +194,19 @@ export async function sendBuyerInquiryReceivedEmail(
 ): Promise<BuyerEmailOutcome> {
   const admin = createAdminClient()
   const emailType: BuyerEmailType = "inquiry_received"
+
+  // 0. Feature flag gate: acknowledgement emails are currently disabled.
+  // Still logged to buyer_email_log for a consistent audit trail.
+  if (!BUYER_ACKNOWLEDGEMENT_EMAILS_ENABLED) {
+    await admin.from("buyer_email_log").insert({
+      lead_id: leadId,
+      email_type: emailType,
+      recipient_email: "",
+      status: "skipped_disabled",
+      sent_by: options.sentBy ?? null,
+    })
+    return { status: "skipped_disabled" }
+  }
 
   // 1. Load the lead
   const { data: lead, error: leadErr } = await admin

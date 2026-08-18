@@ -292,10 +292,9 @@ export async function commitBulkImportWithMatching(input: CommitInput): Promise<
   // Non-blocking — if one fails, others continue. Errors are logged server-side.
   for (const lead of insertedLeads) {
     try {
-      await runMatchingPipeline(lead.id, {
-        needsIndustry: null, // Bulk import doesn't have granular needs,
-        needsProduct: null,  // so pipeline uses buyer's industry field
-        needsCapacity: null, // plus available company data.
+      await runMatchingPipeline({
+        leadId: lead.id,
+        triggeredBy: who.userId,
       })
     } catch (err) {
       console.error("[v0] runMatchingPipeline failed for bulk lead", lead.id, err)

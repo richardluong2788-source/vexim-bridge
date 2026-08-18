@@ -311,22 +311,10 @@ export async function createLeadWithAIMatchingAction(
   // 3. Trigger AI matching pipeline
   // This will create ae_match_scores, push to ae_match_inbox, etc.
   try {
-    const matchingResult = await runMatchingPipeline(lead.id, {
-      needsIndustry: input.industry,
-      needsProduct: input.productKeyword,
-      needsCapacity: input.capacityNeeded,
-      potentialValue: input.potentialValue,
+    await runMatchingPipeline({
+      leadId: lead.id,
+      triggeredBy: user.id,
     })
-
-    if (!matchingResult.success) {
-      console.warn(
-        "[v0] runMatchingPipeline partial failure for lead",
-        lead.id,
-        matchingResult.error,
-      )
-      // Non-fatal — lead was created, matching just had issues.
-      // Log it so support can debug, but return success.
-    }
   } catch (err) {
     console.error("[v0] runMatchingPipeline error for lead", lead.id, err)
     // Non-fatal — lead creation succeeded, matching pipeline had an exception.

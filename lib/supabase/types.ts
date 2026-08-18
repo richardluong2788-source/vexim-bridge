@@ -86,6 +86,10 @@ export type Database = {
           // Drives ANALYTICS_VIEW_OWN scope for AE / Lead Researcher.
           account_manager_id: string | null
           created_at: string
+          // AI Match — KYC verification (Trust Score input)
+          is_verified: boolean
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           id: string
@@ -104,6 +108,9 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           created_at?: string
+          is_verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           id?: string
@@ -122,6 +129,9 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           created_at?: string
+          is_verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
         }
       }
       leads: {
@@ -1438,6 +1448,34 @@ export type ClientProduct = {
   created_by: string | null
   created_at: string
   updated_at: string
+
+  // Origin & specifications
+  country_of_origin: string | null
+  key_specifications: string | null
+  usp: string | null
+
+  // Order terms
+  moq_value: number | null
+  moq_unit: string | null
+  lead_time: string | null
+  sample_available: boolean
+  sample_notes: string | null
+
+  // Pricing & trade terms
+  price_unit: string | null
+  incoterm: string | null
+  incoterm_place: string | null
+  payment_terms: string | null
+
+  // Packing & storage
+  packing: string | null
+  package_size: string | null
+  shelf_life: string | null
+  storage_conditions: string | null
+
+  // Private label
+  private_label_available: boolean
+  private_label_notes: string | null
 }
 
 /** Client profile for public display to buyers */

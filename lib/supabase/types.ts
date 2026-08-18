@@ -1393,10 +1393,14 @@ export type AEClientProducts = {
   client_name: string | null
   client_industry: string | null
   client_industries: string[]
+  /** Client's registered country — drives calculateCountryMatch() in the AE matching scorer. */
+  client_country: string | null
   fda_expires_at: string | null
   fda_valid: boolean
   product_categories: string[]
   product_subcategories: string[]
+  /** Real HS codes from client_products.hs_code — drives calculateHSCodeMatch() instead of regex-mining product_categories. */
+  product_hs_codes: string[]
 }
 
 /** Buyer pool view row */

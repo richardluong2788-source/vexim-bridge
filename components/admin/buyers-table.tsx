@@ -329,6 +329,9 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
               <TableHead className="font-medium">
                 {locale === "vi" ? "Mới nhất" : "Latest"}
               </TableHead>
+              <TableHead className="font-medium">
+                {locale === "vi" ? "Ngày tạo" : "Created"}
+              </TableHead>
               {canRunMatch && (
                 <TableHead className="font-medium text-center">
                   <span className="flex items-center justify-center gap-1">
@@ -346,7 +349,7 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={canRunMatch ? 9 : 8}
                   className="h-32 text-center text-sm text-muted-foreground"
                 >
                   {locale === "vi"
@@ -506,6 +509,27 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                         <span className="text-muted-foreground text-xs">
                           {locale === "vi" ? "Chưa gán cho client" : "Not assigned"}
                         </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {r.created_at ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-foreground">
+                            {new Date(r.created_at).toLocaleDateString(dateLocale, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(r.created_at).toLocaleTimeString(dateLocale, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     {canRunMatch && (

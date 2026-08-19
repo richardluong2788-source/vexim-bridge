@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { UserPlus, Download } from "lucide-react"
+import { UserPlus, Download, UserX } from "lucide-react"
 import { ClientsTable } from "@/components/admin/clients-table"
 import { getDictionary } from "@/lib/i18n/server"
 import { Button } from "@/components/ui/button"
@@ -35,8 +35,16 @@ const ROLE_SHORT: Record<Role, string> = {
   client: "Client",
 }
 
-export default async function AdminClientsPage() {
+export default async function AdminClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>
+}) {
   const { t, locale } = await getDictionary()
+  const { status } = await searchParams
+  // "inactive" shows deactivated clients (for reactivating); anything else
+  // (including missing) shows the normal active list.
+  const showInactive = status === "inactive"
 
   // Use the service-role client (already inside `current`) to avoid the
   // RLS recursion on `profiles` and to keep the page fast.
@@ -55,10 +63,14 @@ export default async function AdminClientsPage() {
 
   // Build the client query. AEs without OWNERSHIP_BYPASS only see clients
   // assigned to them via profiles.account_manager_id.
+  // Deactivated clients are hidden from this default view — they're only
+  // reachable via direct link / the client detail page — but their
+  // history (invoices, deals, etc.) stays fully intact in the DB.
   let clientsQ = admin
     .from("profiles")
     .select("*, client_profiles(display_name)")
     .eq("role", "client")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
   if (scope.kind === "owned") {
     clientsQ = clientsQ.eq("account_manager_id", scope.userId)

@@ -92,6 +92,10 @@ export type Database = {
           is_verified: boolean
           verified_at: string | null
           verified_by: string | null
+          // Soft-delete for client accounts (050) — see column comment.
+          is_active: boolean
+          deactivated_at: string | null
+          deactivated_by: string | null
         }
         Insert: {
           id: string
@@ -114,6 +118,9 @@ export type Database = {
           is_verified?: boolean
           verified_at?: string | null
           verified_by?: string | null
+          is_active?: boolean
+          deactivated_at?: string | null
+          deactivated_by?: string | null
         }
         Update: {
           id?: string
@@ -136,6 +143,9 @@ export type Database = {
           is_verified?: boolean
           verified_at?: string | null
           verified_by?: string | null
+          is_active?: boolean
+          deactivated_at?: string | null
+          deactivated_by?: string | null
         }
       }
       leads: {

@@ -280,6 +280,93 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
   return { ok: true }
 }
 
+// ---------------------------------------------------------------------------
+// Deactivate / reactivate client (soft delete)
+// ---------------------------------------------------------------------------
+
+export interface SetClientActiveResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Deactivates or reactivates a client profile ("soft delete").
+ *
+ * Unlike `deleteClient`, this never touches the row's history — invoices,
+ * deals, and other financial records referencing this client are left
+ * completely intact. A deactivated client:
+ *   - Is hidden from the default admin/AE client list (see clients/page.tsx)
+ *   - Cannot log in to the client portal (blocked in login + layout guard)
+ *   - Keeps showing up wherever historical/financial records are queried
+ *
+ * Authz mirrors updateClientCountry/updateFdaRegistration: any staff role
+ * with write access can toggle their own clients; ownership-scoped roles
+ * (e.g. AE) are restricted to clients they manage.
+ */
+export async function setClientActiveStatus(
+  clientId: string,
+  isActive: boolean,
+): Promise<SetClientActiveResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "unauthenticated" }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (
+    !callerProfile ||
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+      callerProfile.role,
+    )
+  ) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const admin = createAdminClient()
+  const { data: target, error: targetErr } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", clientId)
+    .single()
+
+  if (targetErr || !target) return { ok: false, error: "notFound" }
+  if (target.role !== "client") return { ok: false, error: "notAClient" }
+
+  // Ownership gate — scoped users can only (de)activate clients they manage.
+  {
+    const role = normaliseRole(callerProfile.role)
+    if (role) {
+      const scope = ownershipScopeFor(role, user.id)
+      const own = await assertClientOwned(scope, admin, clientId)
+      if (!own.ok) return { ok: false, error: own.error }
+    }
+  }
+
+  const { error: updateErr } = await admin
+    .from("profiles")
+    .update(
+      isActive
+        ? { is_active: true, deactivated_at: null, deactivated_by: null }
+        : { is_active: false, deactivated_at: new Date().toISOString(), deactivated_by: user.id },
+    )
+    .eq("id", clientId)
+    .eq("role", "client")
+
+  if (updateErr) {
+    return { ok: false, error: updateErr.message }
+  }
+
+  revalidatePath("/admin/clients")
+  revalidatePath(`/admin/clients/${clientId}`)
+  return { ok: true }
+}
+
 /**
  * Accepts `YYYY-MM-DD` (what <input type="date"> emits). Returns `null` for
  * empty/invalid input, or the cleaned-up ISO date string.

@@ -5,3 +5,15 @@
 // plain `export const` there breaks the entire module (and every other
 // export in it) at build time.
 export const MAX_BULK_ASSIGN_CLIENTS = 7
+
+// Max number of clients (Vietnamese factories/exporters) that can be
+// assigned to a single AE/account manager at once. Keeps each AE's client
+// portfolio manageable as the buyer/client base scales into the hundreds.
+// Enforced in app/admin/clients/account-manager-actions.ts.
+export const MAX_CLIENTS_PER_AE = 7
+
+// Max number of ACTIVE (not won/lost) buyer opportunities a single client
+// can have open at once. Once a client hits this cap, no new buyer can be
+// assigned to them until one of their existing opportunities moves to
+// won or lost. Enforced in app/admin/buyers/actions.ts (assignOneClient).
+export const MAX_ACTIVE_BUYERS_PER_CLIENT = 30

@@ -11,7 +11,7 @@ import type {
   ClientTrustInput,
   ClientMatchResult,
 } from "@/lib/matching/client-types"
-import { MAX_BULK_ASSIGN_CLIENTS } from "@/lib/buyers/constants"
+import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -193,6 +193,23 @@ async function assignOneClient(
       opportunityId: existing.id,
       alreadyExisted: true,
     }
+  }
+
+  // 2b) Enforce the per-client active-buyer cap. "Active" = anything not
+  // yet won/lost. Once a client has MAX_ACTIVE_BUYERS_PER_CLIENT open
+  // opportunities, no new buyer can be assigned until one of them closes
+  // out (won or lost) — this is what keeps a single client's column from
+  // growing without bound as the buyer base scales into the hundreds.
+  const { count: activeCount, error: activeCountErr } = await admin
+    .from("opportunities")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .not("stage", "in", "(won,lost)")
+  if (activeCountErr) {
+    return { clientId, clientName: clientLabel, ok: false, error: activeCountErr.message }
+  }
+  if ((activeCount ?? 0) >= MAX_ACTIVE_BUYERS_PER_CLIENT) {
+    return { clientId, clientName: clientLabel, ok: false, error: "client_at_capacity" }
   }
 
   // 3) Create the opportunity with account_manager_id for ownership tracking

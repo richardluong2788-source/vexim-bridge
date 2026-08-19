@@ -79,7 +79,7 @@ import {
   getAIMatchedClients,
   type AssignBuyerToClientsResultItem,
 } from "@/app/admin/buyers/actions"
-import { MAX_BULK_ASSIGN_CLIENTS } from "@/lib/buyers/constants"
+import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 
@@ -1667,11 +1667,15 @@ function AssignBuyerDialog({
               ? locale === "vi"
                 ? "FDA của client đã hết hạn"
                 : "Client FDA has expired"
-              : res.error === "forbidden"
+              : res.error === "client_at_capacity"
                 ? locale === "vi"
-                  ? "Bạn không có quyền gán buyer"
-                  : "You do not have permission to assign"
-                : res.error
+                  ? `Client đã có ${MAX_ACTIVE_BUYERS_PER_CLIENT} buyer đang hoạt động — cần đóng (won/lost) 1 buyer trước khi gán thêm`
+                  : `Client already has ${MAX_ACTIVE_BUYERS_PER_CLIENT} active buyers — close one (won/lost) before assigning another`
+                : res.error === "forbidden"
+                  ? locale === "vi"
+                    ? "Bạn không có quyền gán buyer"
+                    : "You do not have permission to assign"
+                  : res.error
         toast.error(msg)
       }
     })
@@ -1739,8 +1743,8 @@ function AssignBuyerDialog({
       if (failed.length > 0) {
         toast.error(
           locale === "vi"
-            ? `${failed.length} supplier không thể gán (đã có FDA hết hạn hoặc thiếu FDA)`
-            : `${failed.length} suppliers could not be assigned (missing or expired FDA)`,
+            ? `${failed.length} supplier không thể gán (thiếu/hết hạn FDA, hoặc đã đủ ${MAX_ACTIVE_BUYERS_PER_CLIENT} buyer active)`
+            : `${failed.length} suppliers could not be assigned (missing/expired FDA, or already at ${MAX_ACTIVE_BUYERS_PER_CLIENT} active buyers)`,
         )
       }
       if (succeeded.length > 0) {

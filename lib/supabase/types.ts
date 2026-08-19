@@ -1096,6 +1096,18 @@ export type BuyerReply = {
   /** True when from_email is NOT in buyer_contacts for this lead yet
    *  (e.g. buyer introduced a colleague) — AE should add them as a contact. */
   is_unrecognized_sender: boolean
+  /** True when the sender-email fallback match (no In-Reply-To thread)
+   *  found 2+ equally plausible open opportunities for this buyer — i.e.
+   *  multiple competing clients/AEs. opportunity_id is only a provisional
+   *  guess until one of the candidate AEs confirms via confirmed_by. */
+  needs_ae_confirmation: boolean
+  /** All open opportunity ids that were plausible matches when this reply
+   *  arrived (includes opportunity_id). Only meaningful when
+   *  needs_ae_confirmation is/was true. */
+  candidate_opportunity_ids: string[]
+  /** profiles.id of whoever confirmed this reply belongs to opportunity_id. */
+  confirmed_by: string | null
+  confirmed_at: string | null
 }
 
 // ============================================================

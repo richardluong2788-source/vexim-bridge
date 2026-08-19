@@ -11,7 +11,11 @@ import type {
   ClientTrustInput,
   ClientMatchResult,
 } from "@/lib/matching/client-types"
-import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
+import {
+  MAX_BULK_ASSIGN_CLIENTS,
+  MAX_ACTIVE_BUYERS_PER_CLIENT,
+  MAX_CLIENTS_PER_BUYER,
+} from "@/lib/buyers/constants"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -113,7 +117,12 @@ export async function updateBuyer(
 export async function assignBuyerToClient(
   input: AssignBuyerToClientInput,
 ): Promise<ActionResult<{ opportunityId: string; alreadyExisted: boolean }>> {
-  const guard = await requireCap(CAPS.BUYER_WRITE)
+  // Gated on BUYER_MANUAL_INTAKE, not BUYER_WRITE: this creates an
+  // opportunity DIRECTLY, bypassing AI matching / the AE inbox accept flow.
+  // Per the capability catalog, account_executive must go through the
+  // inbox instead — only super_admin / lead_researcher (and admin, via
+  // ALL_CAPS) can self-assign a buyer straight to a client here.
+  const guard = await requireCap(CAPS.BUYER_MANUAL_INTAKE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 
@@ -156,7 +165,9 @@ async function assignOneClient(
   // 1) Load client + FDA status
   const { data: client, error: clientErr } = await admin
     .from("profiles")
-    .select("id, role, full_name, company_name, fda_registration_number, fda_expires_at")
+    .select(
+      "id, role, full_name, company_name, fda_registration_number, fda_expires_at, account_manager_id",
+    )
     .eq("id", clientId)
     .single()
   if (clientErr || !client) {
@@ -212,7 +223,27 @@ async function assignOneClient(
     return { clientId, clientName: clientLabel, ok: false, error: "client_at_capacity" }
   }
 
-  // 3) Create the opportunity with account_manager_id for ownership tracking
+  // 2c) Enforce the buyer-side shortlist cap: a buyer should be introduced
+  // to exactly 3 competing clients, never an unbounded number. Count
+  // DISTINCT clients that already have a live opportunity for this buyer
+  // before adding one more.
+  const { data: existingForBuyer, error: existingForBuyerErr } = await admin
+    .from("opportunities")
+    .select("client_id")
+    .eq("lead_id", buyer.id)
+  if (existingForBuyerErr) {
+    return { clientId, clientName: clientLabel, ok: false, error: existingForBuyerErr.message }
+  }
+  const distinctClientsForBuyer = new Set((existingForBuyer || []).map((o) => o.client_id))
+  if (distinctClientsForBuyer.size >= MAX_CLIENTS_PER_BUYER) {
+    return { clientId, clientName: clientLabel, ok: false, error: "buyer_shortlist_full" }
+  }
+
+  // 3) Create the opportunity with account_manager_id set to the AE who
+  // actually owns this client's portfolio — NOT whoever (Admin/Lead
+  // Researcher) clicked the assign button — so the opportunity shows up
+  // in the correct AE's pipeline. Falls back to the acting user only if
+  // the client has no AE assigned yet.
   const { data: opp, error: oppErr } = await admin
     .from("opportunities")
     .insert({
@@ -220,7 +251,7 @@ async function assignOneClient(
       lead_id: buyer.id,
       stage: "new",
       potential_value: potentialValue,
-      account_manager_id: userId,
+      account_manager_id: client.account_manager_id ?? userId,
     })
     .select("id")
     .single()
@@ -259,7 +290,10 @@ async function assignOneClient(
 export async function assignBuyerToClients(
   input: AssignBuyerToClientsInput,
 ): Promise<ActionResult<{ items: AssignBuyerToClientsResultItem[] }>> {
-  const guard = await requireCap(CAPS.BUYER_WRITE)
+  // Same reasoning as assignBuyerToClient above: bulk direct-assign bypasses
+  // the AE inbox entirely, so it requires BUYER_MANUAL_INTAKE, not the
+  // broader BUYER_WRITE that account_executive also holds.
+  const guard = await requireCap(CAPS.BUYER_MANUAL_INTAKE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 
@@ -447,6 +481,18 @@ export async function getAIMatchedClients(
   }
 
   const results = rankClientsForBuyer(buyer, products, trustByClientId, attachedClientIds)
+
+  // Vexim shortlist rule: once this buyer already has MAX_CLIENTS_PER_BUYER
+  // distinct clients attached, no further client can be added — mark every
+  // remaining not-yet-attached client as ineligible instead of letting the
+  // UI offer a selection that assignOneClient will just reject afterwards.
+  if (attachedClientIds.size >= MAX_CLIENTS_PER_BUYER) {
+    for (const r of results) {
+      if (!r.eligible) continue
+      r.eligible = false
+      r.ineligibleReason = "buyer_shortlist_full"
+    }
+  }
 
   return { ok: true, data: results }
 }

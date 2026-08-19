@@ -23,6 +23,8 @@ import {
   HandshakeIcon,
   Loader2,
   Reply,
+  ShieldQuestion,
+  CheckCircle2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -35,6 +37,7 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import {
   addBuyerReplyAction,
   listBuyerRepliesAction,
+  confirmBuyerReplyOwnerAction,
 } from "@/app/admin/opportunities/reply-actions"
 import type { BuyerReply, BuyerReplyIntent } from "@/lib/supabase/types"
 
@@ -225,15 +228,25 @@ export function OpportunityBuyerRepliesSection({ opportunityId, open, onReplyCli
       ) : (
         <ul className="flex flex-col gap-3">
           {replies.map((reply) => (
-            <ReplyCard 
-              key={reply.id} 
-              reply={reply} 
+            <ReplyCard
+              key={reply.id}
+              reply={reply}
+              opportunityId={opportunityId}
               labels={s}
               onReply={() =>
                 onReplyClick?.(reply.raw_content, {
                   contactId: reply.matched_contact_id,
                   fromEmail: reply.from_email,
                 })
+              }
+              onConfirmed={() =>
+                setReplies((prev) =>
+                  prev.map((r) =>
+                    r.id === reply.id
+                      ? { ...r, needs_ae_confirmation: false }
+                      : r,
+                  ),
+                )
               }
             />
           ))}
@@ -245,14 +258,19 @@ export function OpportunityBuyerRepliesSection({ opportunityId, open, onReplyCli
 
 function ReplyCard({
   reply,
+  opportunityId,
   labels,
   onReply,
+  onConfirmed,
 }: {
   reply: BuyerReply
+  opportunityId: string
   labels: ReturnType<typeof useTranslation>["t"]["admin"]["buyerReplies"]
   onReply?: () => void
+  onConfirmed?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const intent = reply.ai_intent ?? "general"
   const meta = INTENT_META[intent]
   const Icon = meta.icon
@@ -262,10 +280,66 @@ function ReplyCard({
       ? Math.round(reply.ai_confidence * 100)
       : null
 
+  async function handleConfirm() {
+    setConfirming(true)
+    try {
+      const res = await confirmBuyerReplyOwnerAction(reply.id, opportunityId)
+      if (res.ok) {
+        toast.success(labels.confirmSuccess)
+        onConfirmed?.()
+      } else {
+        const message =
+          res.error === "notCandidate"
+            ? labels.confirmErrorNotCandidate
+            : res.error === "notYourOpportunity"
+              ? labels.confirmErrorNotYours
+              : labels.confirmErrorGeneric
+        toast.error(message)
+      }
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   return (
     <li>
-      <Card className="overflow-hidden">
+      <Card className={cn("overflow-hidden", reply.needs_ae_confirmation && "border-amber-500/40")}>
         <CardContent className="p-4 flex flex-col gap-3">
+          {reply.needs_ae_confirmation && (
+            <div className="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 flex flex-col gap-2">
+              <div className="flex items-start gap-2">
+                <ShieldQuestion className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    {labels.needsConfirmationTitle}
+                  </p>
+                  <p className="text-xs text-foreground/80 leading-relaxed">
+                    {labels.needsConfirmationBody}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleConfirm}
+                disabled={confirming}
+                className="gap-1.5 self-start border-amber-500/40 hover:bg-amber-500/10"
+              >
+                {confirming ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {labels.confirming}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {labels.confirmMine}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span

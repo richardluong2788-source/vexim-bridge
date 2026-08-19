@@ -110,7 +110,12 @@ export interface ClientMatchResult {
   commercialFlags: CommercialFlag[]
   /** Existing eligibility rule (valid FDA, not already attached to buyer). */
   eligible: boolean
-  ineligibleReason: "fda_missing" | "fda_expired" | "already_attached" | null
+  ineligibleReason:
+    | "fda_missing"
+    | "fda_expired"
+    | "already_attached"
+    | "buyer_shortlist_full"
+    | null
 }
 
 // ============================================================

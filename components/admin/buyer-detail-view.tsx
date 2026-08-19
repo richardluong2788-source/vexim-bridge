@@ -376,16 +376,16 @@ export function BuyerDetailView({
         {/* Right: tabs */}
         <Tabs defaultValue="contacts" className="flex flex-col gap-4">
           <TabsList className="self-start">
+            <TabsTrigger value="importyeti" className="gap-2">
+              <Ship className="h-4 w-4" />
+              {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
+            </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Users className="h-4 w-4" />
               {locale === "vi" ? "Liên hệ" : "Contacts"}
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
                 {contacts.filter((c) => c.status === "active").length}
               </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="importyeti" className="gap-2">
-              <Ship className="h-4 w-4" />
-              {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
             </TabsTrigger>
             <TabsTrigger value="opportunities" className="gap-2">
               <Kanban className="h-4 w-4" />
@@ -453,7 +453,7 @@ export function BuyerDetailView({
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <TrendingDown className="h-3.5 w-3.5 text-chart-5" />
-                      {locale === "vi" ? "Tháng thấp điểm" : "Low months"}
+                      {locale === "vi" ? "Tháng thấp đi���m" : "Low months"}
                     </div>
                     <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
                   </div>

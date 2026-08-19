@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Loader2,
   ArrowRight,
+  Package,
+  Tag,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -66,6 +68,10 @@ interface InboxItem {
     contact_person: string | null
     country: string | null
     industry: string | null
+    main_product: string | null
+    hs_code: string | null
+    hs_codes: string[] | null
+    product_keywords: string[] | null
   } | null
   profiles: {
     id: string
@@ -327,6 +333,40 @@ export function InboxList({
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const productLabel =
+                        lead?.main_product ||
+                        lead?.product_keywords?.filter(Boolean).join(", ")
+                      const hsCodes = Array.from(
+                        new Set(
+                          [
+                            lead?.hs_code,
+                            ...(lead?.hs_codes || []),
+                          ].filter((code): code is string => Boolean(code))
+                        )
+                      )
+
+                      if (!productLabel && hsCodes.length === 0) return null
+
+                      return (
+                        <div className="flex flex-wrap items-start gap-3 text-sm text-muted-foreground">
+                          {productLabel && (
+                            <span className="flex items-start gap-1.5 max-w-md">
+                              <Package className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="text-pretty">{productLabel}</span>
+                            </span>
+                          )}
+                          {hsCodes.length > 0 && (
+                            <span className="flex items-start gap-1.5">
+                              <Tag className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="font-mono text-xs">
+                                {hsCodes.join(", ")}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {score ? (

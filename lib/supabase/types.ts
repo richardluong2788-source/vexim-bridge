@@ -74,6 +74,8 @@ export type Database = {
           company_name: string | null
           industry: string | null
           industries: string[]
+          /** Client's (supplier's) own country — free text, mirrors leads.country. Added in 047; used by calculateCountryMatch(). */
+          country: string | null
           phone: string | null
           fda_registration_number: string | null
           fda_registered_at: string | null
@@ -86,6 +88,10 @@ export type Database = {
           // Drives ANALYTICS_VIEW_OWN scope for AE / Lead Researcher.
           account_manager_id: string | null
           created_at: string
+          // AI Match — KYC verification (Trust Score input)
+          is_verified: boolean
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           id: string
@@ -95,6 +101,7 @@ export type Database = {
           company_name?: string | null
           industry?: string | null
           industries?: string[]
+          country?: string | null
           phone?: string | null
           fda_registration_number?: string | null
           fda_registered_at?: string | null
@@ -104,6 +111,9 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           created_at?: string
+          is_verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           id?: string
@@ -113,6 +123,7 @@ export type Database = {
           company_name?: string | null
           industry?: string | null
           industries?: string[]
+          country?: string | null
           phone?: string | null
           fda_registration_number?: string | null
           fda_registered_at?: string | null
@@ -122,6 +133,9 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           created_at?: string
+          is_verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
         }
       }
       leads: {
@@ -151,8 +165,6 @@ export type Database = {
           avg_teu_per_month: number | null
           top_peak_months: string | null
           top_low_months: string | null
-          peak_months_data_year: number | null
-          import_trend: string | null
           // Section 3: MA HS & SAN PHAM
           hs_code: string | null
           main_product: string | null
@@ -196,8 +208,6 @@ export type Database = {
           avg_teu_per_month?: number | null
           top_peak_months?: string | null
           top_low_months?: string | null
-          peak_months_data_year?: number | null
-          import_trend?: string | null
           // Section 3
           hs_code?: string | null
           main_product?: string | null
@@ -241,8 +251,6 @@ export type Database = {
           avg_teu_per_month?: number | null
           top_peak_months?: string | null
           top_low_months?: string | null
-          peak_months_data_year?: number | null
-          import_trend?: string | null
           // Section 3
           hs_code?: string | null
           main_product?: string | null
@@ -513,41 +521,6 @@ export type Database = {
           created_by?: string | null
           created_at?: string
           updated_at?: string
-        }
-      }
-      buyer_intel_notes: {
-        Row: {
-          id: string
-          opportunity_id: string
-          category: "pricing" | "payment" | "documents" | "testing" | "general"
-          raw_note: string
-          ai_summary: string | null
-          ai_extracted: Record<string, unknown> | null
-          applied_to_opportunity: boolean
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          opportunity_id: string
-          category?: "pricing" | "payment" | "documents" | "testing" | "general"
-          raw_note: string
-          ai_summary?: string | null
-          ai_extracted?: Record<string, unknown> | null
-          applied_to_opportunity?: boolean
-          created_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          opportunity_id?: string
-          category?: "pricing" | "payment" | "documents" | "testing" | "general"
-          raw_note?: string
-          ai_summary?: string | null
-          ai_extracted?: Record<string, unknown> | null
-          applied_to_opportunity?: boolean
-          created_by?: string | null
-          created_at?: string
         }
       }
       compliance_docs: {
@@ -1424,10 +1397,14 @@ export type AEClientProducts = {
   client_name: string | null
   client_industry: string | null
   client_industries: string[]
+  /** Client's registered country — drives calculateCountryMatch() in the AE matching scorer. */
+  client_country: string | null
   fda_expires_at: string | null
   fda_valid: boolean
   product_categories: string[]
   product_subcategories: string[]
+  /** Real HS codes from client_products.hs_code — drives calculateHSCodeMatch() instead of regex-mining product_categories. */
+  product_hs_codes: string[]
 }
 
 /** Buyer pool view row */
@@ -1479,6 +1456,34 @@ export type ClientProduct = {
   created_by: string | null
   created_at: string
   updated_at: string
+
+  // Origin & specifications
+  country_of_origin: string | null
+  key_specifications: string | null
+  usp: string | null
+
+  // Order terms
+  moq_value: number | null
+  moq_unit: string | null
+  lead_time: string | null
+  sample_available: boolean
+  sample_notes: string | null
+
+  // Pricing & trade terms
+  price_unit: string | null
+  incoterm: string | null
+  incoterm_place: string | null
+  payment_terms: string | null
+
+  // Packing & storage
+  packing: string | null
+  package_size: string | null
+  shelf_life: string | null
+  storage_conditions: string | null
+
+  // Private label
+  private_label_available: boolean
+  private_label_notes: string | null
 }
 
 /** Client profile for public display to buyers */

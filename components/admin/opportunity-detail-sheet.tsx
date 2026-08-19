@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
-  ChevronLeft, CheckCircle2, Building2, Send, Lock, FileCheck2, NotebookPen,
+  ChevronLeft, CheckCircle2, Building2, Send, Lock, FileCheck2,
 } from "lucide-react"
 import {
   Sheet,
@@ -37,7 +37,6 @@ import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
 import { ClientUpdateEmailDialog } from "@/components/admin/client-update-email-dialog"
 import { DocumentAdvisorSection } from "@/components/admin/document-advisor-section"
-import { OpportunityBuyerIntelSection } from "@/components/admin/opportunity-buyer-intel-section"
 
 interface Props {
   opportunity: OpportunityWithClient | null
@@ -69,7 +68,6 @@ type SectionId =
   | "financials"
   | "compliance"
   | "lc"
-  | "buyerIntel"
   | "notes"
 
 interface NavItem {
@@ -88,7 +86,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "financials",   icon: DollarSign,    labelKey: "sectionFinancials" },
   { id: "compliance",   icon: ShieldCheck,   labelKey: "sectionCompliance" },
   { id: "lc",           icon: Landmark,      labelKey: "sectionLC" },
-  { id: "buyerIntel",   icon: NotebookPen,   labelKey: "sectionBuyerIntel" },
   { id: "notes",        icon: StickyNote,    labelKey: "sectionInternal" },
 ]
 
@@ -313,7 +310,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
     financials:   s.sectionFinancials ?? "Tài chính",
     compliance:   s.sectionCompliance ?? "Tuân thủ",
     lc:           s.sectionLC ?? "L/C & Ngân hàng",
-    buyerIntel:   s.sectionBuyerIntel ?? "Ghi nhận từ AE",
     notes:        s.sectionInternal,
   }
 
@@ -663,13 +659,6 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
               {activeSection === "lc" && (
                 <section className="space-y-4 max-w-3xl">
                   <OpportunityLCSection opportunityId={opportunity.id} open={open} />
-                </section>
-              )}
-
-              {/* BUYER INTEL — thông tin AE thu được sau khi liên lạc trực tiếp với buyer */}
-              {activeSection === "buyerIntel" && (
-                <section className="space-y-4 max-w-3xl">
-                  <OpportunityBuyerIntelSection opportunityId={opportunity.id} open={open} />
                 </section>
               )}
 

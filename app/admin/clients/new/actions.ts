@@ -20,6 +20,12 @@ export interface CreateClientInput {
   fda_registration_number?: string | null
   fda_expires_at?: string | null // YYYY-MM-DD
   phone?: string | null
+  /**
+   * Country the client (supplier) company is based in. Free text — feeds
+   * calculateCountryMatch() in lib/matching/scorer.ts so AE auto-assignment
+   * can compare against a buyer's country.
+   */
+  country?: string | null
 }
 
 export interface CreateClientResult {
@@ -158,6 +164,7 @@ export async function createClientAccount(
         company_name: company,
         industries,
         phone: input.phone?.trim() || null,
+        country: input.country?.trim() || null,
         fda_registration_number: fdaNumber,
         fda_expires_at: fdaExpiresAt,
         // Auto-assign AE as account manager when they create the client

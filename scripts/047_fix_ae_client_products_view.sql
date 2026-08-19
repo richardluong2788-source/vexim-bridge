@@ -32,15 +32,21 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON public.profiles(country);
 -- ============================================================
 -- 2. VIEW: ae_client_products — add client_country + product_hs_codes
 -- ============================================================
+-- Postgres's CREATE OR REPLACE VIEW can only APPEND columns at the end of
+-- the SELECT list — it cannot insert a column in the middle or reorder
+-- existing ones without erroring ("cannot change name of view column").
+-- DROP + CREATE sidesteps that restriction entirely. Nothing else in the
+-- schema depends on this view (checked scripts/*.sql), so this is safe.
 
-CREATE OR REPLACE VIEW public.ae_client_products AS
+DROP VIEW IF EXISTS public.ae_client_products;
+
+CREATE VIEW public.ae_client_products AS
 SELECT
   p.account_manager_id,
   p.id AS client_id,
   p.company_name AS client_name,
   p.industry AS client_industry,
   p.industries AS client_industries,
-  p.country AS client_country,
   p.fda_expires_at,
   CASE
     WHEN p.fda_expires_at IS NULL THEN false
@@ -55,6 +61,7 @@ SELECT
     ARRAY_AGG(DISTINCT cp.subcategory) FILTER (WHERE cp.subcategory IS NOT NULL),
     ARRAY[]::TEXT[]
   ) AS product_subcategories,
+  p.country AS client_country,
   COALESCE(
     ARRAY_AGG(DISTINCT cp.hs_code) FILTER (WHERE cp.hs_code IS NOT NULL AND cp.hs_code <> ''),
     ARRAY[]::TEXT[]

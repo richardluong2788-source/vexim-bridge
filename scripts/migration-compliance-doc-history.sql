@@ -2,9 +2,14 @@
 -- Run this in Supabase SQL Editor
 
 -- Create history table
+-- NOTE: doc_id intentionally has NO foreign key to compliance_docs(id).
+-- The audit trigger below writes a 'deleted' row AFTER the source row in
+-- compliance_docs is already gone, so a hard FK here would always fail on
+-- delete (see scripts/048_fix_compliance_doc_history_fk.sql). An audit
+-- trail must be able to reference rows that no longer exist.
 CREATE TABLE IF NOT EXISTS compliance_doc_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  doc_id UUID NOT NULL REFERENCES compliance_docs(id) ON DELETE CASCADE,
+  doc_id UUID NOT NULL,
   owner_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'expired', 'renewed')),
   changed_by UUID REFERENCES profiles(id),

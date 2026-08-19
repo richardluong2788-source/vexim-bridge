@@ -282,13 +282,22 @@ export function InboxList({
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    {score && (
+                    {score ? (
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary" />
                         <span className="text-2xl font-bold text-primary">
                           {score.total_score.toFixed(0)}
                         </span>
                       </div>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-dashed text-muted-foreground"
+                      >
+                        {locale === "vi"
+                          ? "Không có AE cùng ngành — mở cho mọi AE"
+                          : "No industry-matched AE — open to everyone"}
+                      </Badge>
                     )}
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />

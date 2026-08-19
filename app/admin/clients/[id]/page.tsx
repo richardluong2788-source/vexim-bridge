@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
+import { CountryEditDialog } from "@/components/admin/country-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
@@ -215,6 +216,15 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                   fda_registration_number: client.fda_registration_number,
                   fda_registered_at: client.fda_registered_at,
                   fda_expires_at: client.fda_expires_at,
+                }}
+              />
+
+              <CountryEditDialog
+                client={{
+                  id: client.id,
+                  full_name: client.full_name,
+                  company_name: client.company_name,
+                  country: client.country,
                 }}
               />
 

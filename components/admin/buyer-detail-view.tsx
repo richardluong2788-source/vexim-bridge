@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import {
   Building2,
@@ -35,10 +35,10 @@ import {
   Users,
   Link2,
   Sparkles,
-  NotebookPen,
-  DollarSign,
-  CreditCard,
-  FlaskConical,
+  ChevronDown,
+  ShieldCheck,
+  Factory,
+  BadgeCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +48,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Dialog,
   DialogContent,
@@ -66,8 +71,9 @@ import {
 import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import type { Stage, BuyerContact } from "@/lib/supabase/types"
-import { updateBuyer, assignBuyerToClient } from "@/app/admin/buyers/actions"
+import { updateBuyer, assignBuyerToClient, getAIMatchedClients } from "@/app/admin/buyers/actions"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
+import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -97,8 +103,6 @@ export interface BuyerDetailData {
   avg_teu_per_month: number | null
   top_peak_months: string | null
   top_low_months: string | null
-  peak_months_data_year: number | null
-  import_trend: "growing" | "stable" | "declining" | "unknown" | null
   
   // Section 3: MA HS & SAN PHAM
   hs_code: string | null
@@ -159,28 +163,16 @@ export interface AssignableClient {
   alreadyAttached: boolean
 }
 
-export interface BuyerIntelRollupNote {
-  id: string
-  opportunityId: string
-  clientName: string
-  category: "pricing" | "payment" | "documents" | "testing" | "general"
-  rawNote: string
-  aiSummary: string | null
-  appliedToOpportunity: boolean
-  createdAt: string
-}
-
 interface Props {
   buyer: BuyerDetailData
   opportunities: BuyerOpportunity[]
   replies: BuyerReply[]
   clients: AssignableClient[]
   contacts: BuyerContact[]
-  buyerIntelNotes: BuyerIntelRollupNote[]
   locale: "vi" | "en"
   canWrite: boolean
   canViewPII: boolean
-  }
+}
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
 // without having to thread `t` through.
@@ -242,28 +234,6 @@ const INTENT_LABEL_EN: Record<string, string> = {
   general: "General",
 }
 
-const INTEL_CATEGORY_LABEL_VI: Record<string, string> = {
-  pricing: "Giá cả",
-  payment: "Thanh toán",
-  documents: "Hồ sơ",
-  testing: "Kiểm nghiệm",
-  general: "Chung",
-}
-const INTEL_CATEGORY_LABEL_EN: Record<string, string> = {
-  pricing: "Pricing",
-  payment: "Payment",
-  documents: "Documents",
-  testing: "Testing",
-  general: "General",
-}
-const INTEL_CATEGORY_ICON: Record<string, typeof DollarSign> = {
-  pricing: DollarSign,
-  payment: CreditCard,
-  documents: FileText,
-  testing: FlaskConical,
-  general: NotebookPen,
-}
-
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -274,7 +244,6 @@ export function BuyerDetailView({
   replies,
   clients,
   contacts,
-  buyerIntelNotes,
   locale,
   canWrite,
   canViewPII,
@@ -282,10 +251,10 @@ export function BuyerDetailView({
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
   const INTENT = locale === "vi" ? INTENT_LABEL_VI : INTENT_LABEL_EN
-  const INTEL_CAT = locale === "vi" ? INTEL_CATEGORY_LABEL_VI : INTEL_CATEGORY_LABEL_EN
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
   const [assignOpen, setAssignOpen] = useState(false)
+  const [assignMode, setAssignMode] = useState<"az" | "ai">("az")
 
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
 
@@ -338,10 +307,27 @@ export function BuyerDetailView({
           </div>
         </div>
         {canWrite && (
-          <Button onClick={() => setAssignOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            {locale === "vi" ? "Gán cho client" : "Assign to client"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssignMode("ai")
+                setAssignOpen(true)
+              }}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              AI Match
+            </Button>
+            <Button
+              onClick={() => {
+                setAssignMode("az")
+                setAssignOpen(true)
+              }}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              {locale === "vi" ? "Gán cho client" : "Assign to client"}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -658,72 +644,6 @@ export function BuyerDetailView({
                   )}
                 </CardContent>
               </Card>
-
-              {/* Buyer Intel Rollup — notes captured by AE across all deals */}
-              <Card className="border-border md:col-span-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <NotebookPen className="h-4 w-4 text-primary" />
-                    {locale === "vi" ? "Ghi nhận từ AE" : "AE field intel"}
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 font-mono text-[11px]">
-                      {buyerIntelNotes.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {buyerIntelNotes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {locale === "vi"
-                        ? "Chưa có ghi nhận nào từ AE cho buyer này. Thêm ghi chú trong tab 'Ghi nhận từ AE' ở từng cơ hội."
-                        : "No AE field notes yet for this buyer. Add notes from the 'AE field intel' tab on any deal."}
-                    </p>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {buyerIntelNotes.slice(0, 6).map((note) => {
-                        const CategoryIcon = INTEL_CATEGORY_ICON[note.category] ?? NotebookPen
-                        return (
-                          <div
-                            key={note.id}
-                            className="flex flex-col gap-1.5 rounded-md border border-border p-3"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className="gap-1 text-[11px] font-normal"
-                                >
-                                  <CategoryIcon className="h-3 w-3" />
-                                  {INTEL_CAT[note.category] ?? note.category}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground truncate">
-                                  {note.clientName}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {note.appliedToOpportunity && (
-                                  <Badge
-                                    variant="outline"
-                                    className="gap-1 border-chart-4/40 bg-chart-4/10 text-chart-4 text-[11px] font-normal"
-                                  >
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    {locale === "vi" ? "Đã áp dụng" : "Applied"}
-                                  </Badge>
-                                )}
-                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                  {formatRelative(note.createdAt, locale)}
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-sm text-foreground line-clamp-2">
-                              {note.aiSummary ?? note.rawNote}
-                            </p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
@@ -890,6 +810,7 @@ export function BuyerDetailView({
           buyerName={buyer.company_name ?? ""}
           clients={clients}
           locale={locale}
+          initialMode={assignMode}
           onAssigned={(opportunityId) => {
             setAssignOpen(false)
             router.push(`/admin/pipeline?oppId=${opportunityId}`)
@@ -1622,6 +1543,7 @@ function AssignBuyerDialog({
   buyerName,
   clients,
   locale,
+  initialMode = "az",
   onAssigned,
 }: {
   open: boolean
@@ -1630,11 +1552,27 @@ function AssignBuyerDialog({
   buyerName: string
   clients: AssignableClient[]
   locale: "vi" | "en"
+  initialMode?: "az" | "ai"
   onAssigned: (opportunityId: string) => void
 }) {
+  const [mode, setMode] = useState<"az" | "ai">(initialMode)
   const [clientId, setClientId] = useState<string>("")
   const [potentialValue, setPotentialValue] = useState<string>("")
   const [pending, startTransition] = useTransition()
+
+  // AI Match state
+  const [matches, setMatches] = useState<ClientMatchResult[] | null>(null)
+  const [matchesLoading, setMatchesLoading] = useState(false)
+  const [matchesError, setMatchesError] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Re-sync mode + reset transient state whenever the dialog opens.
+  useEffect(() => {
+    if (!open) return
+    setMode(initialMode)
+    setClientId("")
+    setPotentialValue("")
+  }, [open, initialMode])
 
   // Pre-compute each client's eligibility once so we can render a helpful
   // status next to every item instead of silently filtering them out.
@@ -1656,16 +1594,41 @@ function AssignBuyerDialog({
   )
 
   const selected = rows.find((r) => r.id === clientId) ?? null
+  const clientNameById = useMemo(() => new Map(rows.map((r) => [r.id, r.name])), [rows])
 
-  function handleSubmit() {
-    if (!selected?.eligible) return
+  const fetchMatches = useCallback(() => {
+    setMatchesLoading(true)
+    setMatchesError(null)
+    getAIMatchedClients(buyerId)
+      .then((res) => {
+        if (res.ok) {
+          setMatches(res.data)
+        } else {
+          setMatchesError(res.error)
+        }
+      })
+      .finally(() => setMatchesLoading(false))
+  }, [buyerId])
+
+  // Fetch matches once when switching into AI mode (or on first open in AI mode).
+  useEffect(() => {
+    if (open && mode === "ai" && matches === null && !matchesLoading) {
+      fetchMatches()
+    }
+  }, [open, mode, matches, matchesLoading, fetchMatches])
+
+  function handleSubmit(overrideClientId?: string) {
+    const targetId = overrideClientId ?? selected?.id
+    const targetRow = rows.find((r) => r.id === targetId)
+    if (!targetId || (targetRow && !targetRow.eligible)) return
     startTransition(async () => {
       const parsedValue = potentialValue ? Number.parseFloat(potentialValue) : null
       const res = await assignBuyerToClient({
         buyerId,
-        clientId: selected.id,
+        clientId: targetId,
         potentialValue: Number.isFinite(parsedValue as number) ? parsedValue : null,
       })
+      const targetName = targetRow?.name ?? clientNameById.get(targetId) ?? ""
       if (res.ok) {
         toast.success(
           res.data.alreadyExisted
@@ -1673,8 +1636,8 @@ function AssignBuyerDialog({
               ? "Cơ hội đã tồn tại — mở sẵn trên pipeline"
               : "Deal already existed — opening pipeline"
             : locale === "vi"
-              ? `Đã gán ${buyerName} cho ${selected.name}`
-              : `Assigned ${buyerName} to ${selected.name}`,
+              ? `Đã gán ${buyerName} cho ${targetName}`
+              : `Assigned ${buyerName} to ${targetName}`,
         )
         onAssigned(res.data.opportunityId)
       } else {
@@ -1699,7 +1662,7 @@ function AssignBuyerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {locale === "vi"
@@ -1707,120 +1670,344 @@ function AssignBuyerDialog({
               : `Assign "${buyerName}" to a client`}
           </DialogTitle>
           <DialogDescription>
-            {locale === "vi"
-              ? "Tạo một cơ hội mới nối buyer này với doanh nghiệp xuất khẩu Việt Nam. Chỉ client có FDA hợp lệ mới được gán."
-              : "Creates a new deal linking this buyer to a Vietnamese exporter. Only clients with a valid FDA registration can be assigned."}
+            {mode === "ai"
+              ? locale === "vi"
+                ? "Xếp hạng client theo mức độ phù hợp sản phẩm và độ uy tín. Bạn vẫn tự chọn client để gán — hệ thống không tự động gán."
+                : "Clients ranked by product fit and trust signals. You still choose who to assign — nothing is assigned automatically."
+              : locale === "vi"
+                ? "Tạo một cơ hội mới nối buyer này với doanh nghiệp xuất khẩu Việt Nam. Chỉ client có FDA hợp lệ mới được gán."
+                : "Creates a new deal linking this buyer to a Vietnamese exporter. Only clients with a valid FDA registration can be assigned."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <Field label={locale === "vi" ? "Chọn client" : "Select client"} required>
-            <Select value={clientId} onValueChange={setClientId}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    locale === "vi"
-                      ? "Chọn doanh nghiệp xuất khẩu Việt Nam..."
-                      : "Select a Vietnamese exporter..."
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {rows.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                    {locale === "vi" ? "Chưa có client nào" : "No clients yet"}
-                  </div>
-                ) : (
-                  rows.map((c) => (
-                    <SelectItem
-                      key={c.id}
-                      value={c.id}
-                      disabled={!c.eligible}
-                    >
-                      <div className="flex items-center gap-2">
-                        {c.eligible ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-chart-4 shrink-0" />
-                        ) : (
-                          <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />
-                        )}
-                        <span className="truncate">{c.name}</span>
-                        {c.alreadyAttached && (
-                          <span className="text-[10px] text-muted-foreground ml-1">
-                            {locale === "vi" ? "(đã gán)" : "(attached)"}
-                          </span>
-                        )}
-                        {!c.hasNumber && !c.alreadyAttached && (
-                          <span className="text-[10px] text-destructive ml-1">
-                            {locale === "vi" ? "(chưa có FDA)" : "(no FDA)"}
-                          </span>
-                        )}
-                        {c.hasNumber && c.expired && !c.alreadyAttached && (
-                          <span className="text-[10px] text-destructive ml-1">
-                            {locale === "vi" ? "(FDA hết hạn)" : "(FDA expired)"}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </Field>
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "az" | "ai")}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="ai" className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Match
+            </TabsTrigger>
+            <TabsTrigger value="az">
+              {locale === "vi" ? "Danh sách A-Z" : "A-Z list"}
+            </TabsTrigger>
+          </TabsList>
 
-          {selected && !selected.eligible && (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>
-                {selected.alreadyAttached
-                  ? locale === "vi"
-                    ? "Client này đã được gán với buyer. Mở pipeline để xem cơ hội hiện có."
-                    : "This client is already attached to the buyer. Open the pipeline to see the existing deal."
-                  : !selected.hasNumber
-                    ? locale === "vi"
-                      ? "Client chưa có số đăng ký FDA. Yêu cầu họ bổ sung FDA trước khi gán buyer."
-                      : "Client has no FDA registration. Ask them to add it before assigning buyers."
-                    : locale === "vi"
-                      ? "FDA của client đã hết hạn. Cần gia hạn trước khi gán buyer mới."
-                      : "Client FDA has expired. They must renew before new buyers can be assigned."}
-              </span>
-            </div>
-          )}
-
-          <Field label={locale === "vi" ? "Giá trị tiềm năng (USD)" : "Potential value (USD)"}>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="50000"
-              value={potentialValue}
-              onChange={(e) => setPotentialValue(e.target.value)}
+          {/* --- AI Match mode -------------------------------------------- */}
+          <TabsContent value="ai" className="mt-4">
+            <AIMatchList
+              locale={locale}
+              loading={matchesLoading}
+              error={matchesError}
+              matches={matches}
+              expandedId={expandedId}
+              onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+              onRetry={fetchMatches}
+              onAssign={(clientId) => handleSubmit(clientId)}
+              pending={pending}
             />
-          </Field>
-        </div>
+          </TabsContent>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {locale === "vi" ? "Huỷ" : "Cancel"}
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={pending || !selected?.eligible}
-          >
-            {pending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {locale === "vi" ? "Đang gán..." : "Assigning..."}
-              </>
-            ) : (
-              <>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {locale === "vi" ? "Gán và mở cơ hội" : "Assign and open deal"}
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+          {/* --- A-Z mode --------------------------------------------------- */}
+          <TabsContent value="az" className="mt-4">
+            <div className="flex flex-col gap-4">
+              <Field label={locale === "vi" ? "Chọn client" : "Select client"} required>
+                <Select value={clientId} onValueChange={setClientId}>
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        locale === "vi"
+                          ? "Chọn doanh nghiệp xuất khẩu Việt Nam..."
+                          : "Select a Vietnamese exporter..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rows.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                        {locale === "vi" ? "Chưa có client nào" : "No clients yet"}
+                      </div>
+                    ) : (
+                      rows.map((c) => (
+                        <SelectItem key={c.id} value={c.id} disabled={!c.eligible}>
+                          <div className="flex items-center gap-2">
+                            {c.eligible ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-chart-4 shrink-0" />
+                            ) : (
+                              <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />
+                            )}
+                            <span className="truncate">{c.name}</span>
+                            {c.alreadyAttached && (
+                              <span className="text-[10px] text-muted-foreground ml-1">
+                                {locale === "vi" ? "(đã gán)" : "(attached)"}
+                              </span>
+                            )}
+                            {!c.hasNumber && !c.alreadyAttached && (
+                              <span className="text-[10px] text-destructive ml-1">
+                                {locale === "vi" ? "(chưa có FDA)" : "(no FDA)"}
+                              </span>
+                            )}
+                            {c.hasNumber && c.expired && !c.alreadyAttached && (
+                              <span className="text-[10px] text-destructive ml-1">
+                                {locale === "vi" ? "(FDA hết hạn)" : "(FDA expired)"}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              {selected && !selected.eligible && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    {selected.alreadyAttached
+                      ? locale === "vi"
+                        ? "Client này đã được gán với buyer. Mở pipeline để xem cơ hội hiện có."
+                        : "This client is already attached to the buyer. Open the pipeline to see the existing deal."
+                      : !selected.hasNumber
+                        ? locale === "vi"
+                          ? "Client chưa có số đăng ký FDA. Yêu cầu họ bổ sung FDA trước khi gán buyer."
+                          : "Client has no FDA registration. Ask them to add it before assigning buyers."
+                        : locale === "vi"
+                          ? "FDA của client đã hết hạn. Cần gia hạn trước khi gán buyer mới."
+                          : "Client FDA has expired. They must renew before new buyers can be assigned."}
+                  </span>
+                </div>
+              )}
+
+              <Field label={locale === "vi" ? "Giá trị tiềm năng (USD)" : "Potential value (USD)"}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="50000"
+                  value={potentialValue}
+                  onChange={(e) => setPotentialValue(e.target.value)}
+                />
+              </Field>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {mode === "az" && (
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {locale === "vi" ? "Huỷ" : "Cancel"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={pending || !selected?.eligible}
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {locale === "vi" ? "Đang gán..." : "Assigning..."}
+                </>
+              ) : (
+                <>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {locale === "vi" ? "Gán và mở cơ hội" : "Assign and open deal"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AI Match — ranked client list with score breakdown
+// ---------------------------------------------------------------------------
+
+const TRUST_LABEL_STYLES: Record<TrustLabel, { icon: typeof ShieldCheck; className: string }> = {
+  verified: { icon: ShieldCheck, className: "text-chart-4 border-chart-4/30 bg-chart-4/10" },
+  factory_assessed: { icon: Factory, className: "text-primary border-primary/30 bg-primary/10" },
+  new_supplier: { icon: BadgeCheck, className: "text-muted-foreground border-border bg-muted" },
+}
+
+const TRUST_LABEL_TEXT: Record<TrustLabel, { vi: string; en: string }> = {
+  verified: { vi: "Đã xác minh KYC", en: "Verified" },
+  factory_assessed: { vi: "Đã kiểm định nhà máy", en: "Factory assessed" },
+  new_supplier: { vi: "Nhà cung cấp mới", en: "New supplier" },
+}
+
+const COMMERCIAL_FLAG_STYLES: Record<CommercialFlagLevel, string> = {
+  green: "bg-chart-4",
+  yellow: "bg-chart-3",
+  red: "bg-destructive",
+  unknown: "bg-muted-foreground/40",
+}
+
+const INELIGIBLE_TEXT: Record<
+  NonNullable<ClientMatchResult["ineligibleReason"]>,
+  { vi: string; en: string }
+> = {
+  already_attached: { vi: "Đã gán", en: "Already attached" },
+  fda_missing: { vi: "Chưa có FDA", en: "No FDA" },
+  fda_expired: { vi: "FDA hết hạn", en: "FDA expired" },
+}
+
+function AIMatchList({
+  locale,
+  loading,
+  error,
+  matches,
+  expandedId,
+  onToggleExpand,
+  onRetry,
+  onAssign,
+  pending,
+}: {
+  locale: "vi" | "en"
+  loading: boolean
+  error: string | null
+  matches: ClientMatchResult[] | null
+  expandedId: string | null
+  onToggleExpand: (id: string) => void
+  onRetry: () => void
+  onAssign: (clientId: string) => void
+  pending: boolean
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        {locale === "vi" ? "Đang phân tích dữ liệu client..." : "Analyzing client data..."}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <AlertTriangle className="h-5 w-5 text-destructive" />
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          {locale === "vi" ? "Thử lại" : "Retry"}
+        </Button>
+      </div>
+    )
+  }
+
+  if (!matches || matches.length === 0) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>
+            {locale === "vi" ? "Chưa có client phù hợp" : "No matching clients yet"}
+          </EmptyTitle>
+          <EmptyDescription>
+            {locale === "vi"
+              ? "Chưa có sản phẩm nào đủ dữ liệu (HS code, thông số) để so khớp với buyer này."
+              : "No client products have enough data (HS code, specs) to match against this buyer yet."}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+
+  return (
+    <div className="flex max-h-[26rem] flex-col gap-2 overflow-y-auto pr-1">
+      {matches.map((m, idx) => {
+        const trustStyle = TRUST_LABEL_STYLES[m.trustLabel]
+        const TrustIcon = trustStyle.icon
+        const isExpanded = expandedId === m.clientId
+        return (
+          <Collapsible
+            key={m.clientId}
+            open={isExpanded}
+            onOpenChange={() => onToggleExpand(m.clientId)}
+          >
+            <div className="rounded-lg border">
+              <div className="flex items-center gap-3 p-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                  {idx + 1}
+                </span>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{m.clientName}</span>
+                    <Badge variant="outline" className={`gap-1 text-[10px] ${trustStyle.className}`}>
+                      <TrustIcon className="h-3 w-3" />
+                      {TRUST_LABEL_TEXT[m.trustLabel][locale]}
+                    </Badge>
+                  </div>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {m.productName}
+                  </span>
+                  {m.commercialFlags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {m.commercialFlags.map((f) => (
+                        <span
+                          key={f.factor}
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                          title={f.note}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${COMMERCIAL_FLAG_STYLES[f.level]}`}
+                          />
+                          {f.factor}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-lg font-semibold leading-none tabular-nums">
+                    {m.matchScore}%
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {locale === "vi" ? "phù hợp" : "match"}
+                  </span>
+                </div>
+
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+
+              <CollapsibleContent>
+                <div className="flex flex-col gap-2 border-t bg-muted/30 px-3 py-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    {m.matchBreakdown.map((b) => (
+                      <div key={b.factor} className="flex items-center justify-between gap-2" title={b.details}>
+                        <span className="truncate text-muted-foreground">{b.factor}</span>
+                        <span className="shrink-0 font-medium tabular-nums">{b.rawScore}/100</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {locale === "vi" ? "Điểm uy tín" : "Trust score"}: {m.trustScore}/100
+                    </span>
+                    <Button
+                      size="sm"
+                      disabled={pending || !m.eligible}
+                      onClick={() => onAssign(m.clientId)}
+                    >
+                      {!m.eligible && m.ineligibleReason
+                        ? INELIGIBLE_TEXT[m.ineligibleReason][locale]
+                        : locale === "vi"
+                          ? "Chọn & gán"
+                          : "Select & assign"}
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        )
+      })}
+    </div>
   )
 }

@@ -13,6 +13,7 @@ import {
   MoreVertical,
   ChevronLeft,
   ChevronRight,
+  Star,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
@@ -53,6 +54,9 @@ export interface BuyerRow {
   website: string | null
   linkedin_url: string | null
   created_at: string
+  /** LR-set priority rating, 1-5 (5 = highest potential). Drives the
+   *  default row ordering below. */
+  priority_rating: number | null
   totalOpportunities: number
   openOpportunities: number
   wonOpportunities: number
@@ -132,7 +136,7 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return rows.filter((r) => {
+    const matches = rows.filter((r) => {
       if (countryFilter !== "all" && r.country !== countryFilter) return false
       if (industryFilter !== "all" && r.industry !== industryFilter) return false
       if (statusFilter === "has_open" && r.openOpportunities === 0) return false
@@ -147,6 +151,24 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
         r.industry?.toLowerCase().includes(q) ||
         false
       )
+    })
+
+    // Default row order: 1) buyers never assigned to any client come first,
+    // ranked by LR priority rating high -> low (unrated buyers sink to the
+    // bottom of that group); 2) buyers already assigned to at least one
+    // client are pushed below all of that, so LR/AE attention goes to the
+    // buyers that still need triage. Ties fall back to newest-first, which
+    // matches the original server order.
+    return [...matches].sort((a, b) => {
+      const aAssigned = a.totalOpportunities > 0
+      const bAssigned = b.totalOpportunities > 0
+      if (aAssigned !== bAssigned) return aAssigned ? 1 : -1
+
+      const aPriority = a.priority_rating ?? -1
+      const bPriority = b.priority_rating ?? -1
+      if (aPriority !== bPriority) return bPriority - aPriority
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
   }, [rows, search, countryFilter, industryFilter, statusFilter])
 
@@ -348,6 +370,19 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors inline-flex items-center gap-1">
                             {r.company_name ?? "—"}
+                            {r.priority_rating ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-sm bg-chart-5/10 px-1 py-0.5 text-[10px] font-normal text-chart-5"
+                                title={
+                                  locale === "vi"
+                                    ? `Mức độ ưu tiên LR: ${r.priority_rating}/5`
+                                    : `LR priority: ${r.priority_rating}/5`
+                                }
+                              >
+                                <Star className="h-2.5 w-2.5 fill-chart-5" />
+                                {r.priority_rating}
+                              </span>
+                            ) : null}
                             <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </span>
                           {r.contact_person ? (

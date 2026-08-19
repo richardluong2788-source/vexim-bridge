@@ -73,6 +73,7 @@ export default async function BuyersDirectoryPage() {
       website,
       linkedin_url,
       created_at,
+      priority_rating,
       opportunities:opportunities (
         id,
         stage,
@@ -151,6 +152,7 @@ export default async function BuyersDirectoryPage() {
       website: b.website,
       linkedin_url: b.linkedin_url,
       created_at: b.created_at,
+      priority_rating: b.priority_rating ?? null,
       totalOpportunities: opps.length,
       openOpportunities: openCount,
       wonOpportunities: wonCount,

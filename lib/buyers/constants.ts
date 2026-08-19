@@ -17,3 +17,12 @@ export const MAX_CLIENTS_PER_AE = 7
 // assigned to them until one of their existing opportunities moves to
 // won or lost. Enforced in app/admin/buyers/actions.ts (assignOneClient).
 export const MAX_ACTIVE_BUYERS_PER_CLIENT = 30
+
+// Vexim's shortlist rule: a single buyer should be introduced to a small
+// slate of competing clients (target 3-5) so the buyer has a real choice,
+// instead of being locked to whichever AE/client claims it first. This is
+// the hard ceiling on how many DISTINCT clients may have an active
+// opportunity for the same lead_id at once. Enforced in
+// lib/matching/orchestrator.ts (acceptInboxItem) and
+// app/admin/buyers/actions.ts (assignBuyerToClients).
+export const MAX_CLIENTS_PER_BUYER = 5

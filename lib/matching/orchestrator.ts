@@ -32,6 +32,7 @@ import type {
   MatchingThresholds,
 } from "./types"
 import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS, normalizeWeights } from "./types"
+import { MAX_CLIENTS_PER_BUYER } from "@/lib/buyers/constants"
 
 // ============================================================
 // Main Orchestrator Function
@@ -612,6 +613,39 @@ export async function acceptInboxItem(
     return { opportunityId: null, error: "Inbox item already processed" }
   }
 
+  // Vexim shortlist rule: a buyer must be introduced to a small slate of
+  // competing clients (target 3-5, hard cap MAX_CLIENTS_PER_BUYER) instead
+  // of being locked to whichever AE claims it first. Count how many
+  // DISTINCT clients already have a live opportunity for this buyer before
+  // adding another one.
+  const { data: existingOpps } = await supabase
+    .from("opportunities")
+    .select("client_id")
+    .eq("lead_id", inbox.lead_id)
+
+  const distinctClientIds = new Set(
+    (existingOpps || []).map((o) => o.client_id)
+  )
+
+  if (distinctClientIds.size >= MAX_CLIENTS_PER_BUYER) {
+    // Shortlist is already full — close this AE's pending copy so it stops
+    // showing as actionable, and surface a clear reason instead of a silent
+    // insert failure.
+    await supabase
+      .from("ae_match_inbox")
+      .update({
+        status: "expired",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: acceptedBy,
+      })
+      .eq("id", inboxItemId)
+
+    return {
+      opportunityId: null,
+      error: `Buyer already has the maximum of ${MAX_CLIENTS_PER_BUYER} clients introduced`,
+    }
+  }
+
   // Extract lead data for mapping to opportunity
   const lead = inbox.leads
 
@@ -636,7 +670,11 @@ export async function acceptInboxItem(
     return { opportunityId: null, error: oppError.message }
   }
 
-  // Update inbox item
+  // Update this inbox item only. Unlike the old exclusive-claim model,
+  // accepting a buyer does NOT expire other AEs' pending copies — the
+  // buyer stays visible to other AEs (up to the shortlist cap above) so
+  // multiple clients can be introduced to the same buyer, giving the
+  // buyer a real choice between competing suppliers.
   await supabase
     .from("ae_match_inbox")
     .update({
@@ -646,21 +684,21 @@ export async function acceptInboxItem(
     })
     .eq("id", inboxItemId)
 
-  // Close out sibling inbox copies for the same buyer (other AEs who also
-  // had this lead pending — normal multi-candidate inbox range, or the
-  // shared inbox when no AE matched the buyer's industry). Once one AE
-  // claims the buyer, it must disappear from everyone else's inbox so two
-  // AEs can't create competing opportunities for the same buyer.
-  await supabase
-    .from("ae_match_inbox")
-    .update({
-      status: "expired",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: acceptedBy,
-    })
-    .eq("lead_id", inbox.lead_id)
-    .eq("status", "pending")
-    .neq("id", inboxItemId)
+  // If this acceptance just filled the shortlist, close out any remaining
+  // pending copies for other AEs so the buyer stops appearing as
+  // actionable once it has enough competing clients.
+  if (distinctClientIds.size + 1 >= MAX_CLIENTS_PER_BUYER) {
+    await supabase
+      .from("ae_match_inbox")
+      .update({
+        status: "expired",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: acceptedBy,
+      })
+      .eq("lead_id", inbox.lead_id)
+      .eq("status", "pending")
+      .neq("id", inboxItemId)
+  }
 
   // Update match score
   await supabase

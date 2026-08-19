@@ -2067,16 +2067,19 @@ function AIMatchList({
                 </span>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium">{m.clientName}</span>
-                    <Badge variant="outline" className={`gap-1 text-[10px] ${trustStyle.className}`}>
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="max-w-full truncate text-sm font-medium">{m.clientName}</span>
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 gap-1 whitespace-nowrap text-[10px] ${trustStyle.className}`}
+                    >
                       <TrustIcon className="h-3 w-3" />
                       {TRUST_LABEL_TEXT[m.trustLabel][locale]}
                     </Badge>
                     {!m.eligible && m.ineligibleReason && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] text-destructive border-destructive/30 bg-destructive/10"
+                        className="shrink-0 whitespace-nowrap text-[10px] text-destructive border-destructive/30 bg-destructive/10"
                       >
                         {INELIGIBLE_TEXT[m.ineligibleReason][locale]}
                       </Badge>

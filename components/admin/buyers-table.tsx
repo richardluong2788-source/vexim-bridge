@@ -57,6 +57,10 @@ export interface BuyerRow {
   /** LR-set priority rating, 1-5 (5 = highest potential). Drives the
    *  default row ordering below. */
   priority_rating: number | null
+  /** Product this buyer is sourcing (e.g. "Roasted cashew nuts"). Searchable
+   *  alongside company/contact so LR/AE can find buyers by what they buy. */
+  main_product: string | null
+  hs_code: string | null
   totalOpportunities: number
   openOpportunities: number
   wonOpportunities: number
@@ -149,6 +153,8 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
         r.contact_email?.toLowerCase().includes(q) ||
         r.country?.toLowerCase().includes(q) ||
         r.industry?.toLowerCase().includes(q) ||
+        r.main_product?.toLowerCase().includes(q) ||
+        r.hs_code?.toLowerCase().includes(q) ||
         false
       )
     })
@@ -224,8 +230,8 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
               onChange={(e) => setSearch(e.target.value)}
               placeholder={
                 locale === "vi"
-                  ? "Tìm theo công ty, người liên hệ, email, quốc gia..."
-                  : "Search by company, contact, email, country..."
+                  ? "Tìm theo công ty, người liên hệ, email, quốc gia, sản phẩm, mã HS..."
+                  : "Search by company, contact, email, country, product, HS code..."
               }
               className="pl-9"
             />
@@ -391,6 +397,15 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                           {r.contact_person ? (
                             <span className="text-xs text-muted-foreground truncate max-w-[220px]">
                               {r.contact_person}
+                            </span>
+                          ) : null}
+                          {r.main_product ? (
+                            <span
+                              className="text-xs text-muted-foreground/80 truncate max-w-[220px]"
+                              title={r.hs_code ? `HS ${r.hs_code}` : undefined}
+                            >
+                              {locale === "vi" ? "SP: " : "Product: "}
+                              {r.main_product}
                             </span>
                           ) : null}
                         </div>

@@ -74,6 +74,8 @@ export default async function BuyersDirectoryPage() {
       linkedin_url,
       created_at,
       priority_rating,
+      main_product,
+      hs_code,
       opportunities:opportunities (
         id,
         stage,
@@ -153,6 +155,8 @@ export default async function BuyersDirectoryPage() {
       linkedin_url: b.linkedin_url,
       created_at: b.created_at,
       priority_rating: b.priority_rating ?? null,
+      main_product: b.main_product ?? null,
+      hs_code: b.hs_code ?? null,
       totalOpportunities: opps.length,
       openOpportunities: openCount,
       wonOpportunities: wonCount,

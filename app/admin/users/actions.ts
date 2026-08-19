@@ -133,9 +133,16 @@ export async function updateUserIndustry(
     return { ok: false, error: "invalid_role" }
   }
 
+  // The `profiles_sync_primary_industry` trigger (migration 018) keeps the
+  // singular `industry` column mirrored to `industries[1]` — and gives the
+  // array priority whenever it's non-empty. If we only set `industry` here,
+  // the trigger sees the *old* `industries` array still non-empty and
+  // overwrites our new value right back to the previous one (silent no-op:
+  // the query succeeds, no error, but nothing actually changes). AEs only
+  // ever have a single industry, so we replace the whole array to match.
   const { error } = await admin
     .from("profiles")
-    .update({ industry: normalized })
+    .update({ industry: normalized, industries: [normalized] })
     .eq("id", userId)
 
   if (error) {

@@ -5,10 +5,10 @@ import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { InboxList } from "./inbox-list"
 
-// Vexim shortlist rule: a buyer should be introduced to a handful of
-// competing clients (target 3-5), never locked to whichever AE/client
-// claims it first. Shown to AEs as "X/N client đã giới thiệu" so they know
-// whether there's still room on the shortlist before they accept.
+// Vexim shortlist rule: a buyer should be introduced to exactly 3
+// competing clients, never locked to whichever AE/client claims it first.
+// Shown to AEs as "X/N client đã giới thiệu" so they know whether there's
+// still room on the shortlist before they accept.
 
 export const dynamic = "force-dynamic"
 

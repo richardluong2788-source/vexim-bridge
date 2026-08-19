@@ -322,8 +322,8 @@ export function InboxList({
                         className="gap-1 text-muted-foreground"
                         title={
                           locale === "vi"
-                            ? "Số client đã được giới thiệu buyer này (mục tiêu 3-5)"
-                            : "Clients already introduced to this buyer (target 3-5)"
+                            ? "Số client đã được giới thiệu buyer này (tối đa 3)"
+                            : "Clients already introduced to this buyer (max 3)"
                         }
                       >
                         <Sparkles className="h-3 w-3" />

@@ -614,7 +614,7 @@ export async function acceptInboxItem(
   }
 
   // Vexim shortlist rule: a buyer must be introduced to a small slate of
-  // competing clients (target 3-5, hard cap MAX_CLIENTS_PER_BUYER) instead
+  // competing clients (hard cap MAX_CLIENTS_PER_BUYER = 3) instead
   // of being locked to whichever AE claims it first. Count how many
   // DISTINCT clients already have a live opportunity for this buyer before
   // adding another one.

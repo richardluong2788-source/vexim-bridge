@@ -219,9 +219,9 @@ async function assignOneClient(
   }
 
   // 2c) Enforce the buyer-side shortlist cap: a buyer should be introduced
-  // to a handful of competing clients (target 3-5), never an unbounded
-  // number. Count DISTINCT clients that already have a live opportunity
-  // for this buyer before adding one more.
+  // to exactly 3 competing clients, never an unbounded number. Count
+  // DISTINCT clients that already have a live opportunity for this buyer
+  // before adding one more.
   const { data: existingForBuyer, error: existingForBuyerErr } = await admin
     .from("opportunities")
     .select("client_id")

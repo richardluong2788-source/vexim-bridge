@@ -252,13 +252,29 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
   }
 
   const adminClient = createAdminClient()
-  const { error } = await adminClient
+  const { error, count } = await adminClient
     .from("profiles")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", clientId)
     .eq("role", "client")
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    // Postgres FK violation (23503) — most commonly caused by the
+    // `invoices.client_id ... ON DELETE RESTRICT` constraint, which
+    // intentionally blocks deleting a client that still has invoices
+    // (financial records must not disappear silently).
+    if (error.code === "23503") {
+      return { ok: false, error: "hasRelatedRecords" }
+    }
+    return { ok: false, error: error.message }
+  }
+
+  // The delete can "succeed" (no error) yet touch zero rows — e.g. the
+  // row was already deleted, or it doesn't have role = 'client'. Surface
+  // that instead of pretending it worked.
+  if (!count) {
+    return { ok: false, error: "notFound" }
+  }
 
   revalidatePath("/admin/clients")
   return { ok: true }

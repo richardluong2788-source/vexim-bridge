@@ -12,6 +12,10 @@ import {
   X,
   ChevronDown,
   AlertTriangle,
+  Loader2,
+  ArrowRight,
+  Package,
+  Tag,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -41,6 +45,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { acceptMatch, rejectMatch } from "@/app/admin/buyers/matching-actions"
+import { getAIMatchedClients } from "@/app/admin/buyers/actions"
+import type { ClientMatchResult } from "@/lib/matching/client-types"
 import type { Role } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -62,6 +68,10 @@ interface InboxItem {
     contact_person: string | null
     country: string | null
     industry: string | null
+    main_product: string | null
+    hs_code: string | null
+    hs_codes: string[] | null
+    product_keywords: string[] | null
   } | null
   profiles: {
     id: string
@@ -113,6 +123,49 @@ export function InboxList({
   const [selectedClients, setSelectedClients] = useState<
     Record<string, string>
   >({})
+
+  // AI-suggested clients per inbox item — reuses the same Buyer↔Client
+  // scoring engine as the admin/LR "AI Match" tool, scoped down to only
+  // the clients this AE is allowed to assign to.
+  const [aiSuggestions, setAiSuggestions] = useState<
+    Record<string, ClientMatchResult[]>
+  >({})
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({})
+  const [aiError, setAiError] = useState<Record<string, string | null>>({})
+
+  const assignableClientIds = new Set(clients.map((c) => c.id))
+
+  const handleFetchAISuggestions = async (item: InboxItem) => {
+    setAiLoading((prev) => ({ ...prev, [item.id]: true }))
+    setAiError((prev) => ({ ...prev, [item.id]: null }))
+
+    const result = await getAIMatchedClients(item.lead_id)
+
+    setAiLoading((prev) => ({ ...prev, [item.id]: false }))
+
+    if (!result.ok) {
+      setAiError((prev) => ({ ...prev, [item.id]: result.error }))
+      return
+    }
+
+    // Only surface clients this AE actually manages and that are eligible
+    // (valid FDA, not already attached to this buyer).
+    const scoped = result.data
+      .filter((m) => m.eligible && assignableClientIds.has(m.clientId))
+      .slice(0, 3)
+
+    setAiSuggestions((prev) => ({ ...prev, [item.id]: scoped }))
+
+    if (scoped.length === 0) {
+      setAiError((prev) => ({
+        ...prev,
+        [item.id]:
+          locale === "vi"
+            ? "Không có client nào trong danh mục của bạn đủ điều kiện cho buyer này."
+            : "None of your assigned clients are eligible for this buyer.",
+      }))
+    }
+  }
 
   // Lead Researcher has read-only access to monitor matching outcomes
   // for the buyers they sourced. Claim/accept/reject controls are hidden
@@ -280,6 +333,40 @@ export function InboxList({
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const productLabel =
+                        lead?.main_product ||
+                        lead?.product_keywords?.filter(Boolean).join(", ")
+                      const hsCodes = Array.from(
+                        new Set(
+                          [
+                            lead?.hs_code,
+                            ...(lead?.hs_codes || []),
+                          ].filter((code): code is string => Boolean(code))
+                        )
+                      )
+
+                      if (!productLabel && hsCodes.length === 0) return null
+
+                      return (
+                        <div className="flex flex-wrap items-start gap-3 text-sm text-muted-foreground">
+                          {productLabel && (
+                            <span className="flex items-start gap-1.5 max-w-md">
+                              <Package className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="text-pretty">{productLabel}</span>
+                            </span>
+                          )}
+                          {hsCodes.length > 0 && (
+                            <span className="flex items-start gap-1.5">
+                              <Tag className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="font-mono text-xs">
+                                {hsCodes.join(", ")}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {score ? (
@@ -393,55 +480,133 @@ export function InboxList({
                     </span>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <Select
-                      value={selectedClients[item.id] || ""}
-                      onValueChange={(v) =>
-                        setSelectedClients((prev) => ({ ...prev, [item.id]: v }))
-                      }
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue
-                          placeholder={
-                            locale === "vi" ? "Chọn client..." : "Select client..."
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground text-center">
+                  <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Select
+                        value={selectedClients[item.id] || ""}
+                        onValueChange={(v) =>
+                          setSelectedClients((prev) => ({ ...prev, [item.id]: v }))
+                        }
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue
+                            placeholder={
+                              locale === "vi" ? "Chọn client..." : "Select client..."
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground text-center">
+                              {locale === "vi"
+                                ? "Không có client FDA hợp lệ"
+                                : "No FDA-valid clients"}
+                            </div>
+                          ) : (
+                            clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.company_name || client.full_name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleFetchAISuggestions(item)}
+                        disabled={aiLoading[item.id] || clients.length === 0}
+                        className="gap-2"
+                      >
+                        {aiLoading[item.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        {locale === "vi" ? "Gợi ý AI chọn client" : "AI suggest client"}
+                      </Button>
+
+                      <Button
+                        onClick={() => handleAccept(item)}
+                        disabled={!selectedClients[item.id] || pending}
+                        className="gap-2"
+                      >
+                        <Check className="h-4 w-4" />
+                        {locale === "vi" ? "Chấp nhận" : "Accept"}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => handleReject(item)}
+                        disabled={pending}
+                        className="gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        {locale === "vi" ? "Từ chối" : "Reject"}
+                      </Button>
+                    </div>
+
+                    {/* AI-suggested best-fit clients, scoped to this AE's portfolio */}
+                    {(aiLoading[item.id] ||
+                      aiSuggestions[item.id] !== undefined) && (
+                      <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+                        <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          {locale === "vi"
+                            ? "Client phù hợp nhất theo AI (cùng thuật toán AI Match)"
+                            : "AI-ranked best-fit clients (same engine as AI Match)"}
+                        </div>
+
+                        {aiLoading[item.id] ? (
+                          <p className="text-xs text-muted-foreground">
                             {locale === "vi"
-                              ? "Không có client FDA hợp lệ"
-                              : "No FDA-valid clients"}
+                              ? "Đang phân tích sản phẩm & độ uy tín của client..."
+                              : "Analyzing client product fit & trust signals..."}
+                          </p>
+                        ) : aiSuggestions[item.id]?.length ? (
+                          <div className="flex flex-col gap-1.5">
+                            {aiSuggestions[item.id].map((m, idx) => (
+                              <div
+                                key={m.clientId}
+                                className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">
+                                    #{idx + 1}
+                                  </span>
+                                  <span className="truncate text-sm font-medium">
+                                    {m.clientName}
+                                  </span>
+                                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                                    {m.finalScore}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-7 shrink-0 gap-1"
+                                  onClick={() =>
+                                    setSelectedClients((prev) => ({
+                                      ...prev,
+                                      [item.id]: m.clientId,
+                                    }))
+                                  }
+                                >
+                                  {locale === "vi" ? "Dùng gợi ý" : "Use this"}
+                                  <ArrowRight className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         ) : (
-                          clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.company_name || client.full_name}
-                            </SelectItem>
-                          ))
+                          <p className="text-xs text-muted-foreground">
+                            {aiError[item.id]}
+                          </p>
                         )}
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      onClick={() => handleAccept(item)}
-                      disabled={!selectedClients[item.id] || pending}
-                      className="gap-2"
-                    >
-                      <Check className="h-4 w-4" />
-                      {locale === "vi" ? "Chấp nhận" : "Accept"}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => handleReject(item)}
-                      disabled={pending}
-                      className="gap-2"
-                    >
-                      <X className="h-4 w-4" />
-                      {locale === "vi" ? "Từ chối" : "Reject"}
-                    </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

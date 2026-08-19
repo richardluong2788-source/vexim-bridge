@@ -690,6 +690,8 @@ emailSectionHint:
       status: {
         published: "Published",
         draft: "Draft",
+        notSaved: "Not saved yet",
+        saveFirstHint: "Save the profile below before you can publish it.",
         publish: "Publish",
         unpublish: "Unpublish",
         copyUrl: "URL copied to clipboard",

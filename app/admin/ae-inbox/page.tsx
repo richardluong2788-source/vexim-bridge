@@ -43,7 +43,11 @@ export default async function AEInboxPage() {
         company_name,
         contact_person,
         country,
-        industry
+        industry,
+        main_product,
+        hs_code,
+        hs_codes,
+        product_keywords
       ),
       profiles:account_manager_id (
         id,

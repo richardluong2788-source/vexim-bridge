@@ -228,12 +228,12 @@ export function AdminProfileManager({
 
   return (
     <div className="space-y-6">
-      {/* Status bar */}
-      {existingProfile && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+      {/* Status bar — always visible so admins can see publish state / know to save first */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {existingProfile ? (
                 <Badge variant={isPublished ? "default" : "secondary"}>
                   {isPublished ? (
                     <>
@@ -247,51 +247,67 @@ export function AdminProfileManager({
                     </>
                   )}
                 </Badge>
-                {profileUrl && isPublished && (
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-muted px-2 py-1 rounded">
-                      /profile/{existingProfile.slug}
-                    </code>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copyUrl}>
-                      {copied ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                      <a href={profileUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTogglePublish}
-                  disabled={isPending}
-                >
-                  {isPublished ? (
-                    <>
-                      <EyeOff className="w-4 h-4 mr-1" />
-                      {trans?.status?.unpublish || "Unpublish"}
-                    </>
-                  ) : (
-                    <>
-                      <Globe className="w-4 h-4 mr-1" />
-                      {trans?.status?.publish || "Publish"}
-                    </>
-                  )}
-                </Button>
-              </div>
+              ) : (
+                <Badge variant="outline">
+                  <EyeOff className="w-3 h-3 mr-1" />
+                  {trans?.status?.notSaved || "Not saved yet"}
+                </Badge>
+              )}
+              {profileUrl && isPublished && (
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
+                    /profile/{existingProfile?.slug}
+                  </code>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copyUrl}>
+                    {copied ? (
+                      <Check className="w-3.5 h-3.5" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                    <a href={profileUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </Button>
+                </div>
+              )}
+              {!existingProfile && (
+                <p className="text-xs text-muted-foreground">
+                  {trans?.status?.saveFirstHint ||
+                    "Save the profile below before you can publish it."}
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTogglePublish}
+                disabled={isPending || !existingProfile}
+                title={
+                  !existingProfile
+                    ? trans?.status?.saveFirstHint || "Save the profile below before you can publish it."
+                    : undefined
+                }
+              >
+                {isPublished ? (
+                  <>
+                    <EyeOff className="w-4 h-4 mr-1" />
+                    {trans?.status?.unpublish || "Unpublish"}
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-4 h-4 mr-1" />
+                    {trans?.status?.publish || "Publish"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Basic Info */}
       <Card>

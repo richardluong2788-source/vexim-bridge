@@ -46,6 +46,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import {
@@ -71,7 +72,14 @@ import {
 import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import type { Stage, BuyerContact } from "@/lib/supabase/types"
-import { updateBuyer, assignBuyerToClient, getAIMatchedClients } from "@/app/admin/buyers/actions"
+import {
+  updateBuyer,
+  assignBuyerToClient,
+  assignBuyerToClients,
+  getAIMatchedClients,
+  MAX_BULK_ASSIGN_CLIENTS,
+  type AssignBuyerToClientsResultItem,
+} from "@/app/admin/buyers/actions"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 
@@ -815,6 +823,10 @@ export function BuyerDetailView({
             setAssignOpen(false)
             router.push(`/admin/pipeline?oppId=${opportunityId}`)
           }}
+          onAssignedMultiple={() => {
+            setAssignOpen(false)
+            router.push("/admin/pipeline")
+          }}
         />
       )}
     </div>
@@ -1545,6 +1557,7 @@ function AssignBuyerDialog({
   locale,
   initialMode = "az",
   onAssigned,
+  onAssignedMultiple,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -1554,17 +1567,20 @@ function AssignBuyerDialog({
   locale: "vi" | "en"
   initialMode?: "az" | "ai"
   onAssigned: (opportunityId: string) => void
+  onAssignedMultiple: (items: AssignBuyerToClientsResultItem[]) => void
 }) {
   const [mode, setMode] = useState<"az" | "ai">(initialMode)
   const [clientId, setClientId] = useState<string>("")
   const [potentialValue, setPotentialValue] = useState<string>("")
   const [pending, startTransition] = useTransition()
+  const [bulkPending, startBulkTransition] = useTransition()
 
   // AI Match state
   const [matches, setMatches] = useState<ClientMatchResult[] | null>(null)
   const [matchesLoading, setMatchesLoading] = useState(false)
   const [matchesError, setMatchesError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([])
 
   // Re-sync mode + reset transient state whenever the dialog opens.
   useEffect(() => {
@@ -1572,6 +1588,7 @@ function AssignBuyerDialog({
     setMode(initialMode)
     setClientId("")
     setPotentialValue("")
+    setSelectedClientIds([])
   }, [open, initialMode])
 
   // Pre-compute each client's eligibility once so we can render a helpful
@@ -1660,6 +1677,79 @@ function AssignBuyerDialog({
     })
   }
 
+  function toggleSelectClient(id: string, eligible: boolean) {
+    if (!eligible) return
+    setSelectedClientIds((cur) => {
+      if (cur.includes(id)) return cur.filter((x) => x !== id)
+      if (cur.length >= MAX_BULK_ASSIGN_CLIENTS) {
+        toast.error(
+          locale === "vi"
+            ? `Chỉ được chọn tối đa ${MAX_BULK_ASSIGN_CLIENTS} supplier`
+            : `You can select up to ${MAX_BULK_ASSIGN_CLIENTS} suppliers`,
+        )
+        return cur
+      }
+      return [...cur, id]
+    })
+  }
+
+  function handleSubmitMultiple() {
+    if (selectedClientIds.length === 0) return
+    startBulkTransition(async () => {
+      const parsedValue = potentialValue ? Number.parseFloat(potentialValue) : null
+      const res = await assignBuyerToClients({
+        buyerId,
+        clientIds: selectedClientIds,
+        potentialValue: Number.isFinite(parsedValue as number) ? parsedValue : null,
+      })
+      if (!res.ok) {
+        const msg =
+          res.error === "too_many_clients"
+            ? locale === "vi"
+              ? `Chỉ được chọn tối đa ${MAX_BULK_ASSIGN_CLIENTS} supplier`
+              : `You can select up to ${MAX_BULK_ASSIGN_CLIENTS} suppliers`
+            : res.error === "forbidden"
+              ? locale === "vi"
+                ? "Bạn không có quyền gán buyer"
+                : "You do not have permission to assign"
+              : res.error
+        toast.error(msg)
+        return
+      }
+
+      const succeeded = res.data.items.filter((i) => i.ok)
+      const failed = res.data.items.filter((i) => !i.ok)
+      const newlyCreated = succeeded.filter((i) => !i.alreadyExisted)
+
+      if (succeeded.length > 0) {
+        toast.success(
+          locale === "vi"
+            ? `Đã đưa ${succeeded.length} supplier vào pipeline cho ${buyerName}${
+                newlyCreated.length !== succeeded.length
+                  ? ` (${succeeded.length - newlyCreated.length} đã tồn tại từ trước)`
+                  : ""
+              }`
+            : `Added ${succeeded.length} suppliers to the pipeline for ${buyerName}${
+                newlyCreated.length !== succeeded.length
+                  ? ` (${succeeded.length - newlyCreated.length} already existed)`
+                  : ""
+              }`,
+        )
+      }
+      if (failed.length > 0) {
+        toast.error(
+          locale === "vi"
+            ? `${failed.length} supplier không thể gán (đã có FDA hết hạn hoặc thiếu FDA)`
+            : `${failed.length} suppliers could not be assigned (missing or expired FDA)`,
+        )
+      }
+      if (succeeded.length > 0) {
+        setSelectedClientIds([])
+        onAssignedMultiple(res.data.items)
+      }
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -1672,8 +1762,8 @@ function AssignBuyerDialog({
           <DialogDescription>
             {mode === "ai"
               ? locale === "vi"
-                ? "Xếp hạng client theo mức độ phù hợp sản phẩm và độ uy tín. Bạn vẫn tự chọn client để gán — hệ thống không tự động gán."
-                : "Clients ranked by product fit and trust signals. You still choose who to assign — nothing is assigned automatically."
+                ? `Xếp hạng client theo mức độ phù hợp sản phẩm và độ uy tín. Chọn tối đa ${MAX_BULK_ASSIGN_CLIENTS} supplier để đưa vào pipeline cùng lúc — hệ thống không tự động gán.`
+                : `Clients ranked by product fit and trust signals. Select up to ${MAX_BULK_ASSIGN_CLIENTS} suppliers to add to the pipeline at once — nothing is assigned automatically.`
               : locale === "vi"
                 ? "Tạo một cơ hội mới nối buyer này với doanh nghiệp xuất khẩu Việt Nam. Chỉ client có FDA hợp lệ mới được gán."
                 : "Creates a new deal linking this buyer to a Vietnamese exporter. Only clients with a valid FDA registration can be assigned."}
@@ -1701,8 +1791,9 @@ function AssignBuyerDialog({
               expandedId={expandedId}
               onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
               onRetry={fetchMatches}
-              onAssign={(clientId) => handleSubmit(clientId)}
-              pending={pending}
+              selectedIds={selectedClientIds}
+              onToggleSelect={toggleSelectClient}
+              maxSelectable={MAX_BULK_ASSIGN_CLIENTS}
             />
           </TabsContent>
 
@@ -1815,6 +1906,40 @@ function AssignBuyerDialog({
             </Button>
           </DialogFooter>
         )}
+
+        {mode === "ai" && matches && matches.length > 0 && (
+          <DialogFooter className="items-center sm:justify-between">
+            <span className="text-xs text-muted-foreground">
+              {locale === "vi"
+                ? `Đã chọn ${selectedClientIds.length}/${MAX_BULK_ASSIGN_CLIENTS} supplier`
+                : `Selected ${selectedClientIds.length}/${MAX_BULK_ASSIGN_CLIENTS} suppliers`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                {locale === "vi" ? "Huỷ" : "Cancel"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmitMultiple}
+                disabled={bulkPending || selectedClientIds.length === 0}
+              >
+                {bulkPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {locale === "vi" ? "Đang gán..." : "Assigning..."}
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {locale === "vi"
+                      ? `Thêm vào pipeline (${selectedClientIds.length})`
+                      : `Add to pipeline (${selectedClientIds.length})`}
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -1860,8 +1985,9 @@ function AIMatchList({
   expandedId,
   onToggleExpand,
   onRetry,
-  onAssign,
-  pending,
+  selectedIds,
+  onToggleSelect,
+  maxSelectable,
 }: {
   locale: "vi" | "en"
   loading: boolean
@@ -1870,8 +1996,9 @@ function AIMatchList({
   expandedId: string | null
   onToggleExpand: (id: string) => void
   onRetry: () => void
-  onAssign: (clientId: string) => void
-  pending: boolean
+  selectedIds: string[]
+  onToggleSelect: (clientId: string, eligible: boolean) => void
+  maxSelectable: number
 }) {
   if (loading) {
     return (
@@ -1917,14 +2044,24 @@ function AIMatchList({
         const trustStyle = TRUST_LABEL_STYLES[m.trustLabel]
         const TrustIcon = trustStyle.icon
         const isExpanded = expandedId === m.clientId
+        const isSelected = selectedIds.includes(m.clientId)
+        const selectionFull = !isSelected && selectedIds.length >= maxSelectable
         return (
           <Collapsible
             key={m.clientId}
             open={isExpanded}
             onOpenChange={() => onToggleExpand(m.clientId)}
           >
-            <div className="rounded-lg border">
+            <div className={`rounded-lg border ${isSelected ? "border-primary bg-primary/5" : ""}`}>
               <div className="flex items-center gap-3 p-3">
+                <Checkbox
+                  checked={isSelected}
+                  disabled={!m.eligible || selectionFull}
+                  onCheckedChange={() => onToggleSelect(m.clientId, m.eligible)}
+                  aria-label={
+                    locale === "vi" ? `Chọn ${m.clientName}` : `Select ${m.clientName}`
+                  }
+                />
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
                   {idx + 1}
                 </span>
@@ -1936,6 +2073,14 @@ function AIMatchList({
                       <TrustIcon className="h-3 w-3" />
                       {TRUST_LABEL_TEXT[m.trustLabel][locale]}
                     </Badge>
+                    {!m.eligible && m.ineligibleReason && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] text-destructive border-destructive/30 bg-destructive/10"
+                      >
+                        {INELIGIBLE_TEXT[m.ineligibleReason][locale]}
+                      </Badge>
+                    )}
                   </div>
                   <span className="truncate text-xs text-muted-foreground">
                     {m.productName}
@@ -1990,17 +2135,22 @@ function AIMatchList({
                     <span className="text-muted-foreground">
                       {locale === "vi" ? "Điểm uy tín" : "Trust score"}: {m.trustScore}/100
                     </span>
-                    <Button
-                      size="sm"
-                      disabled={pending || !m.eligible}
-                      onClick={() => onAssign(m.clientId)}
-                    >
-                      {!m.eligible && m.ineligibleReason
-                        ? INELIGIBLE_TEXT[m.ineligibleReason][locale]
-                        : locale === "vi"
-                          ? "Chọn & gán"
-                          : "Select & assign"}
-                    </Button>
+                    {m.eligible && (
+                      <Button
+                        size="sm"
+                        variant={isSelected ? "secondary" : "outline"}
+                        onClick={() => onToggleSelect(m.clientId, m.eligible)}
+                        disabled={selectionFull}
+                      >
+                        {isSelected
+                          ? locale === "vi"
+                            ? "Bỏ chọn"
+                            : "Deselect"
+                          : locale === "vi"
+                            ? "Chọn"
+                            : "Select"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CollapsibleContent>

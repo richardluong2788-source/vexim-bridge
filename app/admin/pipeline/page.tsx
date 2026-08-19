@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { KanbanBoard, type NeedsReplyItem } from "@/components/admin/kanban-board"
-import { PipelineRefSearch } from "@/components/admin/pipeline-ref-search"
 import { ScopeBanner } from "@/components/admin/scope-banner"
 import type { OpportunityWithClient } from "@/lib/supabase/types"
 import { getDictionary } from "@/lib/i18n/server"
@@ -117,7 +116,6 @@ export default async function AdminPipelinePage() {
           />
         )}
       </div>
-      <PipelineRefSearch />
       <KanbanBoard
         opportunities={(opportunities as OpportunityWithClient[]) ?? []}
         unreadReplyCountByOpp={unreadByOpp}

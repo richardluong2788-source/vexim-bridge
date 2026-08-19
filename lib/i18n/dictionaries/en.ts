@@ -47,7 +47,7 @@ export const en = {
         "Vexim Trade helps Vietnamese businesses connect with U.S. buyers professionally and effectively — from market research and buyer sourcing to supporting the entire deal-closing process.",
       heroFeatures: [
           "We thoroughly research each buyer — including purchase history, buying frequency, competitors, and seasonal trends — so you gain a complete market perspective.",
-  "Each buyer is exclusively matched with only one business. No overlap, no competition.",
+  "Each buyer is introduced to at most 3 businesses in the same industry — enough for the buyer to have real choice, without uncontrolled competition.",
   "Every partner is supported by a dedicated specialist who understands the industry and stays with you from the first step to closing the deal.",
   "The cost is comparable to hiring a local salesperson — but you gain an entire professional international sales team working alongside you.",
   "All activities are updated in real time, so you always know exactly where you stand.",

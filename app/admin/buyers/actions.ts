@@ -11,6 +11,7 @@ import type {
   ClientTrustInput,
   ClientMatchResult,
 } from "@/lib/matching/client-types"
+import { MAX_BULK_ASSIGN_CLIENTS } from "@/lib/buyers/constants"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -49,8 +50,6 @@ export interface AssignBuyerToClientsResultItem {
   alreadyExisted?: boolean
   error?: string
 }
-
-export const MAX_BULK_ASSIGN_CLIENTS = 7
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }

@@ -77,9 +77,9 @@ import {
   assignBuyerToClient,
   assignBuyerToClients,
   getAIMatchedClients,
-  MAX_BULK_ASSIGN_CLIENTS,
   type AssignBuyerToClientsResultItem,
 } from "@/app/admin/buyers/actions"
+import { MAX_BULK_ASSIGN_CLIENTS } from "@/lib/buyers/constants"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 

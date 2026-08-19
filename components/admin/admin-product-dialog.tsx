@@ -401,7 +401,7 @@ export function AdminProductDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Mô t��</Label>
+              <Label htmlFor="description">Mô tả</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -445,7 +445,7 @@ export function AdminProductDialog({
                 name="usp"
                 value={formData.usp}
                 onChange={handleInputChange}
-                placeholder="VD: Canh tác bền vững, truy xuất nguồn gốc trực tiếp từ nông trại, giá cạnh tranh so với thị trường"
+                placeholder="Điều gì làm sản phẩm của bạn khác biệt so với đối thủ (đặc biệt so với hàng Trung Quốc, Ấn Độ"
                 rows={2}
               />
             </div>
@@ -457,7 +457,7 @@ export function AdminProductDialog({
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="monthly_capacity">Năng lực hàng tháng</Label>
+                <Label htmlFor="monthly_capacity">Năng lực/tháng</Label>
                 <Input
                   id="monthly_capacity"
                   name="monthly_capacity_units"
@@ -592,7 +592,7 @@ export function AdminProductDialog({
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="moq_value">
-                  Số lượng đặt hàng t���i thiểu (MOQ) <span className="text-destructive">*</span>
+                  Số lượng đặt hàng tối thiểu (MOQ) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="moq_value"
@@ -605,7 +605,7 @@ export function AdminProductDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="moq_unit">Đơn vị MOQ</Label>
+                <Label htmlFor="moq_unit">Đơn vị đặt hàng tối thiểu MOQ</Label>
                 <Input
                   id="moq_unit"
                   name="moq_unit"

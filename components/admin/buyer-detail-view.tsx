@@ -184,6 +184,12 @@ interface Props {
   locale: "vi" | "en"
   canWrite: boolean
   canViewPII: boolean
+  // Gates the AI Match / bulk "Gán cho client" dialog, which creates
+  // opportunities DIRECTLY and bypasses the AE inbox accept flow. This is
+  // intentionally narrower than `canWrite` — account_executive holds
+  // BUYER_WRITE (to edit buyer info) but not BUYER_MANUAL_INTAKE, so they
+  // must use the AE inbox instead of self-assigning here.
+  canAssignDirectly: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -259,6 +265,7 @@ export function BuyerDetailView({
   locale,
   canWrite,
   canViewPII,
+  canAssignDirectly,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -318,7 +325,7 @@ export function BuyerDetailView({
             </div>
           </div>
         </div>
-        {canWrite && (
+        {canAssignDirectly && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -670,9 +677,13 @@ export function BuyerDetailView({
                         : "Buyer has not been assigned yet"}
                     </EmptyTitle>
                     <EmptyDescription>
-                      {locale === "vi"
-                        ? "Nhấn 'Gán cho client' ở trên để tạo cơ hội đầu tiên."
-                        : "Use 'Assign to client' above to create the first deal."}
+                      {canAssignDirectly
+                        ? locale === "vi"
+                          ? "Nhấn 'Gán cho client' ở trên để tạo cơ hội đầu tiên."
+                          : "Use 'Assign to client' above to create the first deal."
+                        : locale === "vi"
+                          ? "Buyer này sẽ xuất hiện trong Buyer của tôi nếu phù hợp với client bạn quản lý."
+                          : "This buyer will show up in your inbox once it matches a client you manage."}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -814,7 +825,7 @@ export function BuyerDetailView({
       </div>
 
       {/* --- Assign dialog ---------------------------------------------- */}
-      {canWrite && (
+      {canAssignDirectly && (
         <AssignBuyerDialog
           open={assignOpen}
           onOpenChange={setAssignOpen}

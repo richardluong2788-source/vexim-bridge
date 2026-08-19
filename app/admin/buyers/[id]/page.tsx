@@ -33,6 +33,12 @@ export default async function BuyerDetailPage({ params }: PageProps) {
   const { locale } = await getDictionary()
   const canWrite = can(current.role, CAPS.BUYER_WRITE)
   const canViewPII = can(current.role, CAPS.BUYER_PII_VIEW)
+  // AI Match / bulk "Gán cho client" creates opportunities DIRECTLY,
+  // bypassing the AE inbox accept flow. account_executive intentionally
+  // lacks BUYER_MANUAL_INTAKE (see permissions.ts) and must go through the
+  // inbox instead — so this dialog is hidden for AE even though they hold
+  // BUYER_WRITE for editing buyer info.
+  const canAssignDirectly = can(current.role, CAPS.BUYER_MANUAL_INTAKE)
 
   // --- 1) Buyer row -------------------------------------------------------
   const { data: buyer } = await current.admin
@@ -221,6 +227,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}
+        canAssignDirectly={canAssignDirectly}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

@@ -117,7 +117,12 @@ export async function updateBuyer(
 export async function assignBuyerToClient(
   input: AssignBuyerToClientInput,
 ): Promise<ActionResult<{ opportunityId: string; alreadyExisted: boolean }>> {
-  const guard = await requireCap(CAPS.BUYER_WRITE)
+  // Gated on BUYER_MANUAL_INTAKE, not BUYER_WRITE: this creates an
+  // opportunity DIRECTLY, bypassing AI matching / the AE inbox accept flow.
+  // Per the capability catalog, account_executive must go through the
+  // inbox instead — only super_admin / lead_researcher (and admin, via
+  // ALL_CAPS) can self-assign a buyer straight to a client here.
+  const guard = await requireCap(CAPS.BUYER_MANUAL_INTAKE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 
@@ -285,7 +290,10 @@ async function assignOneClient(
 export async function assignBuyerToClients(
   input: AssignBuyerToClientsInput,
 ): Promise<ActionResult<{ items: AssignBuyerToClientsResultItem[] }>> {
-  const guard = await requireCap(CAPS.BUYER_WRITE)
+  // Same reasoning as assignBuyerToClient above: bulk direct-assign bypasses
+  // the AE inbox entirely, so it requires BUYER_MANUAL_INTAKE, not the
+  // broader BUYER_WRITE that account_executive also holds.
+  const guard = await requireCap(CAPS.BUYER_MANUAL_INTAKE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 

@@ -13,12 +13,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Spinner } from '@/components/ui/spinner';
 import { addClientProductAction, updateClientProductAction } from '@/app/admin/clients/products-actions';
 import { toast } from 'sonner';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
-import { INCOTERMS, PAYMENT_TERMS_OPTIONS, COMPLIANCE_BADGES } from '@/lib/constants/product-options';
 
 interface ClientProductDialogProps {
   clientId: string;
@@ -87,27 +85,7 @@ export function ClientProductDialog({
     currency: product?.currency || 'USD',
     monthly_capacity_units: product?.monthly_capacity_units?.toString() || '',
     status: product?.status || 'active',
-    // Fields the AE<->Buyer matching engine (lib/matching/client-scorer.ts)
-    // actually scores on — previously missing from this client-facing form,
-    // so self-service products always fell back to neutral/zero scores for
-    // spec, MOQ, compliance, and logistics factors.
-    country_of_origin: product?.country_of_origin || '',
-    key_specifications: product?.key_specifications || '',
-    moq_value: product?.moq_value?.toString() || '',
-    moq_unit: product?.moq_unit || '',
-    lead_time: product?.lead_time || '',
-    incoterm: product?.incoterm || '',
-    payment_terms: product?.payment_terms || '',
   });
-  const [complianceBadges, setComplianceBadges] = useState<string[]>(
-    product?.compliance_badges || []
-  );
-
-  const handleComplianceToggle = (value: string, checked: boolean) => {
-    setComplianceBadges((prev) =>
-      checked ? [...prev, value] : prev.filter((v) => v !== value)
-    );
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,8 +99,6 @@ export function ClientProductDialog({
         monthly_capacity_units: formData.monthly_capacity_units
           ? parseInt(formData.monthly_capacity_units)
           : undefined,
-        moq_value: formData.moq_value ? parseFloat(formData.moq_value) : undefined,
-        compliance_badges: complianceBadges,
       };
 
       let result;
@@ -271,32 +247,6 @@ export function ClientProductDialog({
                 </Select>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="country_of_origin">Country of Origin</Label>
-                <Input
-                  id="country_of_origin"
-                  value={formData.country_of_origin}
-                  onChange={(e) => setFormData({ ...formData, country_of_origin: e.target.value })}
-                  placeholder="e.g., Vietnam"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="key_specifications">Key Specifications</Label>
-              <Textarea
-                id="key_specifications"
-                value={formData.key_specifications}
-                onChange={(e) => setFormData({ ...formData, key_specifications: e.target.value })}
-                placeholder="e.g., Moisture 12% max, Screen 16, Defect count <5%"
-                rows={2}
-              />
-              <p className="text-xs text-muted-foreground">
-                Buyers are matched against these specs — be as specific as possible.
-              </p>
-            </div>
           </div>
 
           {/* Pricing & Capacity */}
@@ -353,105 +303,6 @@ export function ClientProductDialog({
                   placeholder="e.g., 1000"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Order & Trade Terms */}
-          <div className="space-y-4">
-            <h3 className="font-medium">Order & Trade Terms</h3>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="moq_value">Minimum Order Quantity</Label>
-                <Input
-                  id="moq_value"
-                  type="number"
-                  step="0.01"
-                  value={formData.moq_value}
-                  onChange={(e) => setFormData({ ...formData, moq_value: e.target.value })}
-                  placeholder="e.g., 1000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="moq_unit">MOQ Unit</Label>
-                <Input
-                  id="moq_unit"
-                  value={formData.moq_unit}
-                  onChange={(e) => setFormData({ ...formData, moq_unit: e.target.value })}
-                  placeholder="e.g., kg, 20ft container"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lead_time">Lead Time</Label>
-                <Input
-                  id="lead_time"
-                  value={formData.lead_time}
-                  onChange={(e) => setFormData({ ...formData, lead_time: e.target.value })}
-                  placeholder="e.g., 15-20 days after deposit"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="incoterm">Incoterm</Label>
-                <Select
-                  value={formData.incoterm}
-                  onValueChange={(value) => setFormData({ ...formData, incoterm: value })}
-                >
-                  <SelectTrigger id="incoterm">
-                    <SelectValue placeholder="Select incoterm" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCOTERMS.map((term) => (
-                      <SelectItem key={term} value={term}>
-                        {term}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_terms">Payment Terms</Label>
-                <Select
-                  value={formData.payment_terms}
-                  onValueChange={(value) => setFormData({ ...formData, payment_terms: value })}
-                >
-                  <SelectTrigger id="payment_terms">
-                    <SelectValue placeholder="Select payment terms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_TERMS_OPTIONS.map((term) => (
-                      <SelectItem key={term.value} value={term.value}>
-                        {term.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Compliance */}
-          <div className="space-y-4">
-            <h3 className="font-medium">Certifications & Compliance</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {COMPLIANCE_BADGES.map((badge) => (
-                <div key={badge.value} className="flex items-start space-x-3">
-                  <Checkbox
-                    id={`badge-${badge.value}`}
-                    checked={complianceBadges.includes(badge.value)}
-                    onCheckedChange={(checked) => handleComplianceToggle(badge.value, checked === true)}
-                  />
-                  <label
-                    htmlFor={`badge-${badge.value}`}
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    {badge.label}
-                    <p className="text-xs text-muted-foreground mt-1">{badge.description}</p>
-                  </label>
-                </div>
-              ))}
             </div>
           </div>
 

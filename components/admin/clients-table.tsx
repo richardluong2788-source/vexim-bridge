@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useState, useTransition } from "react"
-import { toast } from "sonner"
 import type { Profile } from "@/lib/supabase/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -61,16 +60,7 @@ export function ClientsTable({
   function handleDeleteConfirm() {
     if (!pendingDeleteId) return
     startTransition(async () => {
-      const res = await deleteClient(pendingDeleteId)
-      if (!res.ok) {
-        toast.error("Không thể xóa khách hàng", {
-          description: describeDeleteError(res.error),
-        })
-        // Keep the dialog open on failure so the admin sees why nothing
-        // happened, instead of silently closing as if it worked.
-        return
-      }
-      toast.success("Đã xóa khách hàng")
+      await deleteClient(pendingDeleteId)
       setPendingDeleteId(null)
     })
   }
@@ -226,22 +216,6 @@ export function ClientsTable({
     </Card>
     </>
   )
-}
-
-/** Human-readable (Vietnamese) message for each `deleteClient` error code. */
-function describeDeleteError(code?: string): string {
-  switch (code) {
-    case "hasRelatedRecords":
-      return "Khách hàng này còn hóa đơn hoặc dữ liệu liên quan trong hệ thống nên không thể xóa. Vui lòng xử lý/xóa các hóa đơn trước."
-    case "forbidden":
-      return "Chỉ Super Admin mới có quyền xóa khách hàng."
-    case "unauthenticated":
-      return "Bạn cần đăng nhập lại để thực hiện hành động này."
-    case "notFound":
-      return "Không tìm thấy khách hàng này (có thể đã bị xóa trước đó)."
-    default:
-      return code ?? "Đã xảy ra lỗi không xác định."
-  }
 }
 
 /**

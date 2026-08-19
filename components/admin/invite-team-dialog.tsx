@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { UserPlus, Loader2, Mail, User, Shield, Briefcase } from "lucide-react"
+import { UserPlus, Loader2, Mail, User, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { inviteTeamMember } from "@/app/admin/users/actions"
-import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
 import type { Role } from "@/lib/supabase/types"
 
 interface Props {
@@ -67,10 +66,6 @@ const MESSAGES = {
     fullNamePlaceholder: "John Doe",
     role: "Role",
     rolePlaceholder: "Select a role",
-    industry: "Primary Industry",
-    industryPlaceholder: "Select an industry",
-    industryHint:
-      "AI matching only routes buyers to AEs whose industry matches — required for Account Executives.",
     cancel: "Cancel",
     invite: "Send Invitation",
     inviting: "Sending...",
@@ -79,7 +74,6 @@ const MESSAGES = {
       invalid_email: "Please enter a valid email address",
       full_name_required: "Full name is required",
       invalid_role: "Please select a valid role",
-      invalid_industry: "Please select an industry for this Account Executive",
       email_exists: "This email is already registered",
       super_admin_only: "Only Super Admin can invite Admin users",
       forbidden: "You don't have permission to invite users",
@@ -95,10 +89,6 @@ const MESSAGES = {
     fullNamePlaceholder: "Nguyen Van A",
     role: "Vai trò",
     rolePlaceholder: "Chọn vai trò",
-    industry: "Ngành hàng chính",
-    industryPlaceholder: "Chọn ngành hàng",
-    industryHint:
-      "AI chỉ đưa buyer vào inbox của AE cùng ngành hàng — bắt buộc đối với Account Executive.",
     cancel: "Hủy",
     invite: "Gửi lời mời",
     inviting: "Đang gửi...",
@@ -107,7 +97,6 @@ const MESSAGES = {
       invalid_email: "Vui lòng nhập địa chỉ email hợp lệ",
       full_name_required: "Họ tên là bắt buộc",
       invalid_role: "Vui lòng chọn vai trò hợp lệ",
-      invalid_industry: "Vui lòng chọn ngành hàng cho Account Executive này",
       email_exists: "Email này đã được đăng ký",
       super_admin_only: "Chỉ Super Admin mới có thể mời Admin",
       forbidden: "Bạn không có quyền mời người dùng",
@@ -124,11 +113,8 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
   const [role, setRole] = useState<Role | "">("")
-  const [industry, setIndustry] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-
-  const isAccountExecutive = role === "account_executive"
 
   // Filter roles based on current user's permissions
   const availableRoles = INTERNAL_ROLES.filter((r) => {
@@ -143,7 +129,6 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
     setEmail("")
     setFullName("")
     setRole("")
-    setIndustry("")
     setError(null)
     setSuccess(false)
   }
@@ -153,10 +138,6 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
       setError(t.errors.invalid_role)
       return
     }
-    if (isAccountExecutive && !industry) {
-      setError(t.errors.invalid_industry)
-      return
-    }
 
     setError(null)
     startTransition(async () => {
@@ -164,7 +145,6 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
         email,
         full_name: fullName,
         role: role as Role,
-        industry: isAccountExecutive ? industry : undefined,
       })
 
       if (result.ok) {
@@ -264,29 +244,6 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Industry — only relevant (and required) for Account Executives */}
-          {isAccountExecutive && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-industry" className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                {t.industry}
-              </Label>
-              <Select value={industry} onValueChange={setIndustry} disabled={isPending}>
-                <SelectTrigger id="invite-industry">
-                  <SelectValue placeholder={t.industryPlaceholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDUSTRIES.map((ind) => (
-                    <SelectItem key={ind} value={ind}>
-                      {locale === "vi" ? `${ind} · ${INDUSTRY_LABELS_VI[ind]}` : ind}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{t.industryHint}</p>
-            </div>
-          )}
 
           {/* Error message */}
           {error && (

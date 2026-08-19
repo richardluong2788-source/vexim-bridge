@@ -30,13 +30,27 @@ import {
   type ProductCategory,
 } from '@/app/admin/clients/categories-actions';
 import { AddProductCategoryDialog } from '@/components/admin/add-product-category-dialog';
-import {
-  PRODUCT_UNITS as UNITS,
-  PRODUCT_CURRENCIES as CURRENCIES,
-  INCOTERMS,
-  PAYMENT_TERMS_OPTIONS,
-  COMPLIANCE_BADGES,
-} from '@/lib/constants/product-options';
+
+const UNITS = [
+  { value: 'kg', label: 'kg' },
+  { value: 'ton', label: 'tấn' },
+  { value: 'liter', label: 'lít' },
+  { value: 'boxes', label: 'thùng' },
+  { value: 'bags', label: 'bao' },
+  { value: 'units', label: 'cái' },
+];
+const CURRENCIES = ['USD', 'EUR', 'VND', 'CNY', 'SGD', 'MYR'];
+
+const COMPLIANCE_BADGES = [
+  { value: 'fda', label: 'FDA Registered', description: 'FDA đã đăng ký' },
+  { value: 'coa', label: 'COA Available', description: 'Có chứng nhận phân tích' },
+  { value: 'organic', label: 'Organic Certified', description: 'Chứng nhận hữu cơ' },
+  { value: 'fsvp', label: 'FSVP Compliant', description: 'Tuân thủ FSVP' },
+  { value: 'halal', label: 'Halal Certified', description: 'Chứng nhận Halal' },
+  { value: 'kosher', label: 'Kosher Certified', description: 'Chứng nhận Kosher' },
+  { value: 'brcgs', label: 'BRCGS', description: 'BRCGS Food Safety' },
+  { value: 'haccp', label: 'HACCP', description: 'Chứng nhận HACCP' },
+];
 
 interface AdminProductDialogProps {
   clientId: string;
@@ -74,29 +88,9 @@ export function AdminProductDialog({
     min_unit_price: product?.min_unit_price?.toString() || '',
     max_unit_price: product?.max_unit_price?.toString() || '',
     currency: product?.currency || 'USD',
-    price_unit: product?.price_unit || '',
-    incoterm: product?.incoterm || '',
-    incoterm_place: product?.incoterm_place || '',
-    payment_terms: product?.payment_terms || '',
     hs_code: product?.hs_code || '',
     status: product?.status || 'active',
-    country_of_origin: product?.country_of_origin || '',
-    key_specifications: product?.key_specifications || '',
-    usp: product?.usp || '',
-    moq_value: product?.moq_value?.toString() || '',
-    moq_unit: product?.moq_unit || '',
-    lead_time: product?.lead_time || '',
-    sample_notes: product?.sample_notes || '',
-    packing: product?.packing || '',
-    package_size: product?.package_size || '',
-    shelf_life: product?.shelf_life || '',
-    storage_conditions: product?.storage_conditions || '',
-    private_label_notes: product?.private_label_notes || '',
   });
-  const [sampleAvailable, setSampleAvailable] = useState(product?.sample_available ?? false);
-  const [privateLabelAvailable, setPrivateLabelAvailable] = useState(
-    product?.private_label_available ?? false,
-  );
 
   const isEditing = !!product;
 
@@ -116,27 +110,9 @@ export function AdminProductDialog({
       min_unit_price: product?.min_unit_price?.toString() || '',
       max_unit_price: product?.max_unit_price?.toString() || '',
       currency: product?.currency || 'USD',
-      price_unit: product?.price_unit || '',
-      incoterm: product?.incoterm || '',
-      incoterm_place: product?.incoterm_place || '',
-      payment_terms: product?.payment_terms || '',
       hs_code: product?.hs_code || '',
       status: product?.status || 'active',
-      country_of_origin: product?.country_of_origin || '',
-      key_specifications: product?.key_specifications || '',
-      usp: product?.usp || '',
-      moq_value: product?.moq_value?.toString() || '',
-      moq_unit: product?.moq_unit || '',
-      lead_time: product?.lead_time || '',
-      sample_notes: product?.sample_notes || '',
-      packing: product?.packing || '',
-      package_size: product?.package_size || '',
-      shelf_life: product?.shelf_life || '',
-      storage_conditions: product?.storage_conditions || '',
-      private_label_notes: product?.private_label_notes || '',
     });
-    setSampleAvailable(product?.sample_available ?? false);
-    setPrivateLabelAvailable(product?.private_label_available ?? false);
     setFiles([]);
     setImageUrls(product?.image_urls || []);
     setComplianceBadges(product?.compliance_badges || []);
@@ -249,11 +225,8 @@ export function AdminProductDialog({
           : null,
         min_unit_price: formData.min_unit_price ? Number.parseFloat(formData.min_unit_price) : null,
         max_unit_price: formData.max_unit_price ? Number.parseFloat(formData.max_unit_price) : null,
-        moq_value: formData.moq_value ? Number.parseFloat(formData.moq_value) : null,
         image_urls: finalImageUrls,
         compliance_badges: complianceBadges,
-        sample_available: sampleAvailable,
-        private_label_available: privateLabelAvailable,
       };
 
       let result;
@@ -275,27 +248,9 @@ export function AdminProductDialog({
           min_unit_price: '',
           max_unit_price: '',
           currency: 'USD',
-          price_unit: '',
-          incoterm: '',
-          incoterm_place: '',
-          payment_terms: '',
           hs_code: '',
           status: 'active',
-          country_of_origin: '',
-          key_specifications: '',
-          usp: '',
-          moq_value: '',
-          moq_unit: '',
-          lead_time: '',
-          sample_notes: '',
-          packing: '',
-          package_size: '',
-          shelf_life: '',
-          storage_conditions: '',
-          private_label_notes: '',
         });
-        setSampleAvailable(false);
-        setPrivateLabelAvailable(false);
         setFiles([]);
         setImageUrls([]);
         setComplianceBadges([]);
@@ -411,44 +366,6 @@ export function AdminProductDialog({
                 rows={3}
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="country_of_origin">
-                  Xuất xứ <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="country_of_origin"
-                  name="country_of_origin"
-                  value={formData.country_of_origin}
-                  onChange={handleInputChange}
-                  placeholder="VD: Việt Nam"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="key_specifications">Thông số kỹ thuật chính</Label>
-                <Input
-                  id="key_specifications"
-                  name="key_specifications"
-                  value={formData.key_specifications}
-                  onChange={handleInputChange}
-                  placeholder="VD: Độ ẩm 12%, Screen 16+, Grade A"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="usp">Điểm bán hàng nổi bật (USP)</Label>
-              <Textarea
-                id="usp"
-                name="usp"
-                value={formData.usp}
-                onChange={handleInputChange}
-                placeholder="Điều gì làm sản phẩm của bạn khác biệt so với đối thủ (đặc biệt so với hàng Trung Quốc, Ấn Độ"
-                rows={2}
-              />
-            </div>
           </div>
 
           {/* Capacity & Pricing */}
@@ -499,7 +416,7 @@ export function AdminProductDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="min_price">Giá tối thiểu</Label>
                 <Input
@@ -524,214 +441,7 @@ export function AdminProductDialog({
                   placeholder="5.50"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="price_unit">Giá tính theo</Label>
-                <Input
-                  id="price_unit"
-                  name="price_unit"
-                  value={formData.price_unit}
-                  onChange={handleInputChange}
-                  placeholder="VD: per kg, per 20ft container"
-                />
-              </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="incoterm">
-                  Điều kiện giao hàng (Incoterm) <span className="text-destructive">*</span>
-                </Label>
-                <Select value={formData.incoterm} onValueChange={(v) => handleSelectChange('incoterm', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn Incoterm" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCOTERMS.map((term) => (
-                      <SelectItem key={term} value={term}>
-                        {term}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="incoterm_place">Cảng/Địa điểm giao hàng</Label>
-                <Input
-                  id="incoterm_place"
-                  name="incoterm_place"
-                  value={formData.incoterm_place}
-                  onChange={handleInputChange}
-                  placeholder="VD: Cảng Cát Lái, TP.HCM"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_terms">Điều khoản thanh toán</Label>
-                <Select
-                  value={formData.payment_terms}
-                  onValueChange={(v) => handleSelectChange('payment_terms', v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn điều khoản" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_TERMS_OPTIONS.map((term) => (
-                      <SelectItem key={term.value} value={term.value}>
-                        {term.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Order Terms */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">Điều kiện đặt hàng</h3>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="moq_value">
-                  Số lượng đặt hàng tối thiểu (MOQ) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="moq_value"
-                  name="moq_value"
-                  type="number"
-                  step="0.01"
-                  value={formData.moq_value}
-                  onChange={handleInputChange}
-                  placeholder="VD: 1000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="moq_unit">Đơn vị đặt hàng tối thiểu MOQ</Label>
-                <Input
-                  id="moq_unit"
-                  name="moq_unit"
-                  value={formData.moq_unit}
-                  onChange={handleInputChange}
-                  placeholder="VD: kg, container 20ft"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lead_time">
-                  Thời gian giao hàng <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="lead_time"
-                  name="lead_time"
-                  value={formData.lead_time}
-                  onChange={handleInputChange}
-                  placeholder="VD: 15-20 ngày sau đặt cọc"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="sample_available"
-                checked={sampleAvailable}
-                onCheckedChange={(checked) => setSampleAvailable(checked === true)}
-              />
-              <label htmlFor="sample_available" className="text-sm font-medium leading-none cursor-pointer">
-                Có sẵn hàng mẫu
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cho biết người mua có thể yêu cầu mẫu trước khi đặt hàng
-                </p>
-              </label>
-            </div>
-
-            {sampleAvailable && (
-              <div className="space-y-2">
-                <Label htmlFor="sample_notes">Chi tiết hàng mẫu</Label>
-                <Input
-                  id="sample_notes"
-                  name="sample_notes"
-                  value={formData.sample_notes}
-                  onChange={handleInputChange}
-                  placeholder="VD: Mẫu miễn phí, người mua trả phí vận chuyển"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Packing & Storage */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">Đóng gói & Bảo quản</h3>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="packing">Quy cách đóng gói</Label>
-                <Input
-                  id="packing"
-                  name="packing"
-                  value={formData.packing}
-                  onChange={handleInputChange}
-                  placeholder="VD: Bao PP 25kg, đóng trong container"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="package_size">Kích thước đóng gói</Label>
-                <Input
-                  id="package_size"
-                  name="package_size"
-                  value={formData.package_size}
-                  onChange={handleInputChange}
-                  placeholder="VD: 60x40x20 cm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="shelf_life">Hạn sử dụng</Label>
-                <Input
-                  id="shelf_life"
-                  name="shelf_life"
-                  value={formData.shelf_life}
-                  onChange={handleInputChange}
-                  placeholder="VD: 12 tháng kể từ ngày sản xuất"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="storage_conditions">Điều kiện bảo quản</Label>
-                <Input
-                  id="storage_conditions"
-                  name="storage_conditions"
-                  value={formData.storage_conditions}
-                  onChange={handleInputChange}
-                  placeholder="VD: Nơi khô, mát, tránh ánh nắng trực tiếp"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="private_label_available"
-                checked={privateLabelAvailable}
-                onCheckedChange={(checked) => setPrivateLabelAvailable(checked === true)}
-              />
-              <label htmlFor="private_label_available" className="text-sm font-medium leading-none cursor-pointer">
-                Hỗ trợ gia công nhãn riêng (Private Label/OEM)
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cho biết nhà cung cấp có thể đóng gói theo thương hiệu của người mua
-                </p>
-              </label>
-            </div>
-
-            {privateLabelAvailable && (
-              <div className="space-y-2">
-                <Label htmlFor="private_label_notes">Chi tiết Private Label</Label>
-                <Input
-                  id="private_label_notes"
-                  name="private_label_notes"
-                  value={formData.private_label_notes}
-                  onChange={handleInputChange}
-                  placeholder="VD: MOQ riêng cho Private Label là 5000 đơn vị"
-                />
-              </div>
-            )}
           </div>
 
           {/* Compliance & Status */}
@@ -796,7 +506,7 @@ export function AdminProductDialog({
           <div className="space-y-4">
             <h3 className="font-semibold">Ảnh sản phẩm</h3>
             <p className="text-sm text-muted-foreground">
-              Tải lên hình ảnh sản phẩm (tối đa 10 ảnh, mỗi ảnh 10MB)
+              Tải lên hình ảnh sản phẩm (tối đa 10 ảnh, mỗi ảnh 5MB)
             </p>
 
             {/* Existing Images */}
@@ -873,7 +583,7 @@ export function AdminProductDialog({
                 <Label htmlFor="product-images" className="cursor-pointer">
                   <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                   <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
-                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF - Tối đa 10MB/ảnh</p>
+                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF - Tối đa 5MB/ảnh</p>
                 </Label>
               </div>
             )}

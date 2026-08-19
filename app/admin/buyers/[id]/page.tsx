@@ -11,6 +11,7 @@ import {
   type BuyerOpportunity,
   type BuyerReply,
   type AssignableClient,
+  type BuyerIntelRollupNote,
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
@@ -100,6 +101,9 @@ export default async function BuyerDetailPage({ params }: PageProps) {
 
   // --- 3) Buyer replies across all those opportunities -------------------
   const oppIds = oppRows.map((o) => o.id)
+  const oppToClient = new Map(
+    oppRows.map((o) => [o.id, o.client?.name ?? "—"]),
+  )
   let replies: BuyerReply[] = []
   if (oppIds.length > 0) {
     const { data: rawReplies } = await current.admin
@@ -120,9 +124,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       .order("received_at", { ascending: false })
       .limit(50)
 
-    const oppToClient = new Map(
-      oppRows.map((o) => [o.id, o.client?.name ?? "—"]),
-    )
     replies = (rawReplies ?? []).map((r: any) => ({
       id: r.id,
       opportunityId: r.opportunity_id,
@@ -133,6 +134,29 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       confidence: r.ai_confidence,
       translatedVi: r.translated_vi,
       rawContent: r.raw_content,
+    }))
+  }
+
+  // --- 3b) Buyer intel notes (thông tin AE thu được sau khi liên lạc buyer,
+  //         gộp từ mọi opportunity của buyer này) -------------------------
+  let buyerIntelNotes: BuyerIntelRollupNote[] = []
+  if (oppIds.length > 0) {
+    const { data: rawIntel } = await current.admin
+      .from("buyer_intel_notes")
+      .select("id, opportunity_id, category, raw_note, ai_summary, applied_to_opportunity, created_at")
+      .in("opportunity_id", oppIds)
+      .order("created_at", { ascending: false })
+      .limit(20)
+
+    buyerIntelNotes = (rawIntel ?? []).map((n: any) => ({
+      id: n.id,
+      opportunityId: n.opportunity_id,
+      clientName: oppToClient.get(n.opportunity_id) ?? "—",
+      category: n.category,
+      rawNote: n.raw_note,
+      aiSummary: n.ai_summary,
+      appliedToOpportunity: n.applied_to_opportunity,
+      createdAt: n.created_at,
     }))
   }
 
@@ -183,6 +207,8 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     avg_teu_per_month: buyer.avg_teu_per_month ?? null,
     top_peak_months: buyer.top_peak_months ?? null,
     top_low_months: buyer.top_low_months ?? null,
+    peak_months_data_year: buyer.peak_months_data_year ?? null,
+    import_trend: buyer.import_trend ?? null,
     // Section 3: MA HS & SAN PHAM
     hs_code: buyer.hs_code ?? null,
     main_product: buyer.main_product ?? null,
@@ -218,6 +244,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         replies={replies}
         clients={clients}
         contacts={contacts}
+        buyerIntelNotes={buyerIntelNotes}
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}

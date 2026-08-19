@@ -342,21 +342,13 @@ function calculateHSCodeMatch(buyer: BuyerContext, ae: AEContext): number {
   const buyerHSCodes = buyer.hsCodesNormalized
   if (buyerHSCodes.length === 0) return 30 // Neutral if no HS codes
 
-  // Collect real HS codes from AE's clients' products (client_products.hs_code,
-  // aggregated by the ae_client_products view). Fall back to mining digit
-  // sequences out of the free-text category only for clients that have no
-  // hs_code on file yet, so legacy/incomplete product data still contributes.
+  // Collect all HS codes from AE's clients
   const aeHSCodes = new Set<string>()
   for (const client of ae.clientProducts) {
-    for (const hsCode of client.product_hs_codes) {
-      const normalized = hsCode.replace(/\D/g, "")
-      if (normalized) aeHSCodes.add(normalized)
-    }
-    if (client.product_hs_codes.length === 0) {
-      for (const cat of client.product_categories) {
-        const hsMatch = cat.match(/\d{4,6}/)
-        if (hsMatch) aeHSCodes.add(hsMatch[0])
-      }
+    for (const cat of client.product_categories) {
+      // Extract HS-like patterns from categories
+      const hsMatch = cat.match(/\d{4,6}/)
+      if (hsMatch) aeHSCodes.add(hsMatch[0])
     }
   }
 
@@ -656,12 +648,11 @@ function getHSCodeMatchDetails(buyer: BuyerContext, ae: AEContext): string {
   const hsCount = buyer.hsCodesNormalized.length
   const clientCount = ae.clientProducts.length
   const mainHS = buyer.lead.hs_code || "N/A"
-  const aeHSCount = ae.clientProducts.reduce((n, c) => n + c.product_hs_codes.length, 0)
 
   if (clientCount === 0) return "No clients assigned to this AE"
   if (hsCount === 0) return "No HS codes for buyer"
 
-  return `Buyer HS: ${mainHS} (${hsCount} total). AE manages ${clientCount} clients with ${aeHSCount} HS codes on file.`
+  return `Buyer HS: ${mainHS} (${hsCount} total). AE manages ${clientCount} clients.`
 }
 
 function getProductMatchDetails(buyer: BuyerContext, ae: AEContext): string {
@@ -678,11 +669,7 @@ function getProductMatchDetails(buyer: BuyerContext, ae: AEContext): string {
 function getCountryMatchDetails(buyer: BuyerContext, ae: AEContext): string {
   const country = buyer.lead.country || "Unknown"
   const importCountries = buyer.lead.main_import_countries || "N/A"
-  const aeCountries = new Set<string>()
-  for (const client of ae.clientProducts) {
-    if (client.client_country) aeCountries.add(client.client_country)
-  }
-  return `Buyer: ${country}. Import from: ${importCountries}. AE's clients based in: ${[...aeCountries].join(", ") || "None on file"}`
+  return `Buyer: ${country}. Import from: ${importCountries}`
 }
 
 function getLogisticsMatchDetails(buyer: BuyerContext, ae: AEContext): string {

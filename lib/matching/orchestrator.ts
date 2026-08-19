@@ -13,7 +13,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
-import { normalizeIndustry } from "@/lib/constants/industries"
 import type { Lead, Profile } from "@/lib/supabase/types"
 import {
   calculateScoresForBuyer,
@@ -66,29 +65,11 @@ export async function runMatchingPipeline(
     }
   }
 
-  // 3b. Hard filter: only AEs whose primary industry matches the buyer's
-  // industry are eligible to be scored. This is a hard gate, not a scoring
-  // factor — an AE in a different industry must never be assigned a buyer,
-  // regardless of how well HS code / product / country line up.
-  //
-  // If the buyer has no industry, or no AE currently covers that industry,
-  // there is no eligible candidate to score. Rather than silently fall back
-  // to scoring every AE (which would defeat the gate), the buyer is routed
-  // to a shared inbox visible to every AE — first to claim it wins.
-  const buyerIndustry = normalizeIndustry(buyer.lead.industry)
-  const eligibleAes = buyerIndustry
-    ? aes.filter((ae) => normalizeIndustry(ae.profile.industry) === buyerIndustry)
-    : []
-
-  if (eligibleAes.length === 0) {
-    return await routeToSharedInbox(supabase, leadId, buyer, aes, triggeredBy)
-  }
-
   // 4. Calculate scores for all AEs using HYBRID scoring (semantic + rules)
   // This is the key change - using semantic embeddings when available
   const scores = await calculateHybridScoresForBuyer(
     buyer,
-    eligibleAes,
+    aes,
     config.weights,
     config.thresholds
   )
@@ -414,85 +395,6 @@ async function processResults(
   }
 }
 
-// ============================================================
-// Shared Inbox (no AE covers the buyer's industry)
-// ============================================================
-
-/**
- * Called when the industry hard-filter finds zero eligible AEs — either the
- * buyer has no industry set, or no active AE currently covers it. The buyer
- * is never auto-assigned or scored in this path; it is placed as a pending
- * inbox item for *every* AE (one row each, same UNIQUE(lead_id, account_manager_id)
- * as the normal inbox), so any AE can claim it first-come-first-served.
- * Accepting one copy expires the sibling copies for the other AEs.
- */
-async function routeToSharedInbox(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  leadId: string,
-  buyer: BuyerContext,
-  aes: AEContext[],
-  triggeredBy: string
-): Promise<MatchingResult> {
-  // Clear any stale scores/inbox rows from a previous run of this pipeline.
-  await supabase.from("ae_match_scores").delete().eq("lead_id", leadId)
-  await supabase.from("ae_match_inbox").delete().eq("lead_id", leadId)
-
-  const buyerName = buyer.lead.company_name || buyer.lead.contact_person || "Unknown Buyer"
-  const inboxItems: { accountManagerId: string; priority: "high" | "medium" | "low" }[] = []
-
-  await supabase.from("activities").insert({
-    action_type: "ai_matching_shared_inbox",
-    description: `AI Matching: no AE covers industry "${buyer.lead.industry ?? "unknown"}" for ${buyerName} — routed to shared inbox for ${aes.length} AE(s)`,
-    performed_by: triggeredBy,
-  })
-
-  for (const ae of aes) {
-    const { error } = await supabase.from("ae_match_inbox").insert({
-      lead_id: leadId,
-      account_manager_id: ae.profile.id,
-      match_score_id: null,
-      priority: "medium",
-      status: "pending",
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    })
-
-    if (!error) {
-      inboxItems.push({ accountManagerId: ae.profile.id, priority: "medium" })
-
-      dispatchNotification({
-        userId: ae.profile.id,
-        category: "action_required",
-        linkPath: `/admin/ae-inbox`,
-        dedupKey: `ai_shared_inbox:${leadId}:${ae.profile.id}`,
-        title: {
-          vi: "Buyer chưa có AE chuyên ngành phù hợp",
-          en: "Buyer has no matching industry AE",
-        },
-        body: {
-          vi: `${buyerName} - Không có AE nào đang phụ trách ngành hàng này. Buyer được mở cho mọi AE, ai chọn client trước sẽ nhận buyer.`,
-          en: `${buyerName} - No AE currently covers this industry. This buyer is open to every AE — first to pick a client wins it.`,
-        },
-        ctaLabel: {
-          vi: "Xem inbox",
-          en: "View inbox",
-        },
-      }).catch((err) => {
-        console.error("[matching] notification dispatch failed for shared inbox item", err)
-      })
-    }
-  }
-
-  return {
-    leadId,
-    scores: [],
-    topCandidate: null,
-    autoAssigned: false,
-    assignedTo: null,
-    inboxItems,
-    timestamp: new Date().toISOString(),
-  }
-}
-
 function determinePriority(
   score: number,
   thresholds: MatchingThresholds
@@ -645,22 +547,6 @@ export async function acceptInboxItem(
       reviewed_by: acceptedBy,
     })
     .eq("id", inboxItemId)
-
-  // Close out sibling inbox copies for the same buyer (other AEs who also
-  // had this lead pending — normal multi-candidate inbox range, or the
-  // shared inbox when no AE matched the buyer's industry). Once one AE
-  // claims the buyer, it must disappear from everyone else's inbox so two
-  // AEs can't create competing opportunities for the same buyer.
-  await supabase
-    .from("ae_match_inbox")
-    .update({
-      status: "expired",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: acceptedBy,
-    })
-    .eq("lead_id", inbox.lead_id)
-    .eq("status", "pending")
-    .neq("id", inboxItemId)
 
   // Update match score
   await supabase

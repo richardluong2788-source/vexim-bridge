@@ -23,24 +23,6 @@ export interface ClientProduct {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  country_of_origin: string | null;
-  key_specifications: string | null;
-  usp: string | null;
-  moq_value: number | null;
-  moq_unit: string | null;
-  lead_time: string | null;
-  sample_available: boolean;
-  sample_notes: string | null;
-  price_unit: string | null;
-  incoterm: string | null;
-  incoterm_place: string | null;
-  payment_terms: string | null;
-  packing: string | null;
-  package_size: string | null;
-  shelf_life: string | null;
-  storage_conditions: string | null;
-  private_label_available: boolean;
-  private_label_notes: string | null;
 }
 
 // Add a new client product
@@ -54,31 +36,13 @@ export async function addClientProductAction(
     description?: string;
     hs_code?: string;
     unit_of_measure?: string;
-    min_unit_price?: number | null;
-    max_unit_price?: number | null;
+    min_unit_price?: number;
+    max_unit_price?: number;
     currency?: string;
-    monthly_capacity_units?: number | null;
+    monthly_capacity_units?: number;
     status?: 'active' | 'inactive' | 'suspended';
     image_urls?: string[];
     compliance_badges?: string[];
-    country_of_origin?: string;
-    key_specifications?: string;
-    usp?: string;
-    moq_value?: number | null;
-    moq_unit?: string;
-    lead_time?: string;
-    sample_available?: boolean;
-    sample_notes?: string;
-    price_unit?: string;
-    incoterm?: string;
-    incoterm_place?: string;
-    payment_terms?: string;
-    packing?: string;
-    package_size?: string;
-    shelf_life?: string;
-    storage_conditions?: string;
-    private_label_available?: boolean;
-    private_label_notes?: string;
   }
 ) {
   const supabase = await createClient();
@@ -127,24 +91,6 @@ export async function addClientProductAction(
         status: data.status || 'active',
         image_urls: data.image_urls || [],
         compliance_badges: data.compliance_badges || [],
-        country_of_origin: data.country_of_origin || null,
-        key_specifications: data.key_specifications || null,
-        usp: data.usp || null,
-        moq_value: data.moq_value || null,
-        moq_unit: data.moq_unit || null,
-        lead_time: data.lead_time || null,
-        sample_available: data.sample_available ?? false,
-        sample_notes: data.sample_notes || null,
-        price_unit: data.price_unit || null,
-        incoterm: data.incoterm || null,
-        incoterm_place: data.incoterm_place || null,
-        payment_terms: data.payment_terms || null,
-        packing: data.packing || null,
-        package_size: data.package_size || null,
-        shelf_life: data.shelf_life || null,
-        storage_conditions: data.storage_conditions || null,
-        private_label_available: data.private_label_available ?? false,
-        private_label_notes: data.private_label_notes || null,
         created_by: user.id,
       },
     ])
@@ -179,31 +125,13 @@ export async function updateClientProductAction(
     description: string;
     hs_code: string;
     unit_of_measure: string;
-    min_unit_price: number | null;
-    max_unit_price: number | null;
+    min_unit_price: number;
+    max_unit_price: number;
     currency: string;
-    monthly_capacity_units: number | null;
+    monthly_capacity_units: number;
     status: 'active' | 'inactive' | 'suspended';
     image_urls: string[];
     compliance_badges: string[];
-    country_of_origin: string;
-    key_specifications: string;
-    usp: string;
-    moq_value: number | null;
-    moq_unit: string;
-    lead_time: string;
-    sample_available: boolean;
-    sample_notes: string;
-    price_unit: string;
-    incoterm: string;
-    incoterm_place: string;
-    payment_terms: string;
-    packing: string;
-    package_size: string;
-    shelf_life: string;
-    storage_conditions: string;
-    private_label_available: boolean;
-    private_label_notes: string;
   }>
 ) {
   const supabase = await createClient();

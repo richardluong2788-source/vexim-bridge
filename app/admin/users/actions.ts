@@ -20,7 +20,6 @@ import { requireCap } from "@/lib/auth/guard"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
-import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
 import type { Role } from "@/lib/supabase/types"
 
 // Assignable roles surfaced in the UI. `staff` is legacy — left out on
@@ -95,58 +94,6 @@ export async function updateUserRole(
 }
 
 // ============================================================================
-// Update AE Industry
-// ============================================================================
-
-export interface UpdateIndustryResult {
-  ok: boolean
-  error?: string
-}
-
-/**
- * Update an Account Executive's primary industry.
- *
- * The AI matching hard-filter only scores AEs whose industry matches the
- * buyer's industry, so this is the lever admins use to decide which AE
- * covers which vertical. Restricted to account_executive targets only.
- */
-export async function updateUserIndustry(
-  userId: string,
-  industry: string,
-): Promise<UpdateIndustryResult> {
-  const normalized = normalizeIndustry(industry)
-  if (!normalized) {
-    return { ok: false, error: "invalid_industry" }
-  }
-
-  const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
-  if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin } = guard
-
-  const { data: target } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .single<{ role: string | null }>()
-
-  if (normaliseRole(target?.role) !== "account_executive") {
-    return { ok: false, error: "invalid_role" }
-  }
-
-  const { error } = await admin
-    .from("profiles")
-    .update({ industry: normalized })
-    .eq("id", userId)
-
-  if (error) {
-    return { ok: false, error: error.message }
-  }
-
-  revalidatePath("/admin/users")
-  return { ok: true }
-}
-
-// ============================================================================
 // Invite Team Member
 // ============================================================================
 
@@ -162,13 +109,6 @@ export interface InviteTeamMemberInput {
   email: string
   full_name: string
   role: Role
-  /**
-   * Primary industry the AE will cover. Required for account_executive —
-   * the AI matching hard-filter only ever scores AEs whose industry
-   * matches the buyer's, so an AE invited without one would never receive
-   * any buyer via matching.
-   */
-  industry?: string
 }
 
 export interface InviteTeamMemberResult {
@@ -209,13 +149,6 @@ export async function inviteTeamMember(
     return { ok: false, error: "invalid_role" }
   }
 
-  // Account Executives are hard-gated by industry in AI matching — an AE
-  // with no industry would never be scored for any buyer, so require one.
-  const industry = role === "account_executive" ? normalizeIndustry(input.industry) : null
-  if (role === "account_executive" && !industry) {
-    return { ok: false, error: "invalid_industry" }
-  }
-
   // ---- 2. Check caller permissions ------------------------------------------
   const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
   if (!guard.ok) return { ok: false, error: guard.error }
@@ -253,7 +186,6 @@ export async function inviteTeamMember(
         role,
         email,
         full_name: fullName,
-        industry,
       },
       { onConflict: "id" },
     )
@@ -274,7 +206,6 @@ export async function inviteTeamMember(
       email,
       full_name: fullName,
       role,
-      industry,
       invited_by_role: callerRole,
     },
   })

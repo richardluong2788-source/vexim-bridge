@@ -118,7 +118,7 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
                       <span className="font-medium">Price Range</span>
                       <p className="text-muted-foreground">
                         {product.currency} {product.min_unit_price || '—'} - {product.max_unit_price || '—'}
-                        {product.price_unit ? ` (${product.price_unit})` : product.unit_of_measure ? `/${product.unit_of_measure}` : ''}
+                        {product.unit_of_measure && `/${product.unit_of_measure}`}
                       </p>
                     </div>
                   )}
@@ -127,39 +127,6 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
                     <div>
                       <span className="font-medium">HS Code</span>
                       <p className="text-muted-foreground">{product.hs_code}</p>
-                    </div>
-                  )}
-
-                  {product.country_of_origin && (
-                    <div>
-                      <span className="font-medium">Country of Origin</span>
-                      <p className="text-muted-foreground">{product.country_of_origin}</p>
-                    </div>
-                  )}
-
-                  {(product.moq_value || product.moq_unit) && (
-                    <div>
-                      <span className="font-medium">MOQ</span>
-                      <p className="text-muted-foreground">
-                        {product.moq_value || '—'} {product.moq_unit || ''}
-                      </p>
-                    </div>
-                  )}
-
-                  {product.lead_time && (
-                    <div>
-                      <span className="font-medium">Lead Time</span>
-                      <p className="text-muted-foreground">{product.lead_time}</p>
-                    </div>
-                  )}
-
-                  {product.incoterm && (
-                    <div>
-                      <span className="font-medium">Incoterm</span>
-                      <p className="text-muted-foreground">
-                        {product.incoterm}
-                        {product.incoterm_place ? ` — ${product.incoterm_place}` : ''}
-                      </p>
                     </div>
                   )}
 

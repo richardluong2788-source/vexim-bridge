@@ -21,7 +21,6 @@ import {
   INDUSTRY_LABELS_VI,
   type Industry,
 } from "@/lib/constants/industries"
-import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { createClientAccount } from "@/app/admin/clients/new/actions"
 
 type Locale = "vi" | "en"
@@ -45,7 +44,6 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   // Ordered list; industries[0] is the primary industry used by AI.
   const [selectedIndustries, setSelectedIndustries] = useState<Industry[]>([])
   const [phone, setPhone] = useState("")
-  const [country, setCountry] = useState("")
   const [fdaNumber, setFdaNumber] = useState("")
   const [fdaExpiresAt, setFdaExpiresAt] = useState("")
 
@@ -111,7 +109,6 @@ export function NewClientForm({ locale }: NewClientFormProps) {
         company_name: companyName,
         industries: selectedIndustries,
         phone: phone || null,
-        country: country || null,
         fda_registration_number: fdaNumber || null,
         fda_expires_at: fdaExpiresAt || null,
       })
@@ -128,7 +125,6 @@ export function NewClientForm({ locale }: NewClientFormProps) {
       setCompanyName("")
       setSelectedIndustries([])
       setPhone("")
-      setCountry("")
       setFdaNumber("")
       setFdaExpiresAt("")
       router.refresh()
@@ -354,34 +350,6 @@ export function NewClientForm({ locale }: NewClientFormProps) {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+84 90 123 4567"
             />
-          </div>
-
-          {/* Country (optional) */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="country">
-              {tr("Quốc gia", "Country")}{" "}
-              <span className="text-xs text-muted-foreground">
-                ({tr("tùy chọn", "optional")})
-              </span>
-            </Label>
-            <Input
-              id="country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder={tr("Ví dụ: Vietnam", "e.g. Vietnam")}
-              list="new-client-country-suggestions"
-            />
-            <datalist id="new-client-country-suggestions">
-              {COUNTRY_SUGGESTIONS.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-            <p className="text-xs text-muted-foreground">
-              {tr(
-                "Dùng để AI so khớp khách hàng này với buyer cùng quốc gia.",
-                "Used by AI to match this client against buyers from the same country.",
-              )}
-            </p>
           </div>
 
           {/* FDA section */}

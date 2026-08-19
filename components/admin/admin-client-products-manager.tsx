@@ -211,47 +211,6 @@ export function AdminClientProductsManager({
                     </div>
                   )}
 
-                  {product.country_of_origin && (
-                    <div>
-                      <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        Xuất xứ
-                      </span>
-                      <p className="font-semibold">{product.country_of_origin}</p>
-                    </div>
-                  )}
-
-                  {(product.moq_value || product.moq_unit) && (
-                    <div>
-                      <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        MOQ
-                      </span>
-                      <p className="font-semibold">
-                        {product.moq_value || '—'} {product.moq_unit || ''}
-                      </p>
-                    </div>
-                  )}
-
-                  {product.lead_time && (
-                    <div>
-                      <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        Thời gian giao hàng
-                      </span>
-                      <p className="font-semibold">{product.lead_time}</p>
-                    </div>
-                  )}
-
-                  {product.incoterm && (
-                    <div>
-                      <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
-                        Incoterm
-                      </span>
-                      <p className="font-semibold">
-                        {product.incoterm}
-                        {product.incoterm_place ? ` — ${product.incoterm_place}` : ''}
-                      </p>
-                    </div>
-                  )}
-
                   <div>
                     <span className="font-medium block text-xs uppercase text-muted-foreground mb-1">
                       Cập nhật

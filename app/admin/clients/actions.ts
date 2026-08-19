@@ -141,85 +141,6 @@ export async function updateFdaRegistration(
 }
 
 // ---------------------------------------------------------------------------
-// Update client country
-// ---------------------------------------------------------------------------
-
-export interface UpdateClientCountryResult {
-  ok: boolean
-  error?: string
-}
-
-/**
- * Update the client's (supplier's) own country.
- *
- * This powers calculateCountryMatch() in lib/matching/scorer.ts — the AE
- * auto-assignment engine checks whether an AE already manages a client
- * based in the buyer's country. Free text, same convention as
- * `leads.country` (see 007_sprint_a_risk_swift.sql).
- */
-export async function updateClientCountry(
-  clientId: string,
-  country: string | null,
-): Promise<UpdateClientCountryResult> {
-  const normalized = typeof country === "string" ? country.trim() || null : null
-
-  // --- AuthZ --------------------------------------------------------------
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "notAuthenticated" }
-
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (
-    !callerProfile ||
-    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
-      callerProfile.role,
-    )
-  ) {
-    return { ok: false, error: "forbidden" }
-  }
-
-  const admin = createAdminClient()
-  const { data: target, error: targetErr } = await admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", clientId)
-    .single()
-
-  if (targetErr || !target) return { ok: false, error: "notFound" }
-  if (target.role !== "client") return { ok: false, error: "notAClient" }
-
-  // Ownership gate — scoped users can only edit clients they manage.
-  {
-    const role = normaliseRole(callerProfile.role)
-    if (role) {
-      const scope = ownershipScopeFor(role, user.id)
-      const own = await assertClientOwned(scope, admin, clientId)
-      if (!own.ok) return { ok: false, error: own.error }
-    }
-  }
-
-  const { error: updateErr } = await admin
-    .from("profiles")
-    .update({ country: normalized })
-    .eq("id", clientId)
-
-  if (updateErr) {
-    return { ok: false, error: updateErr.message }
-  }
-
-  revalidatePath("/admin/clients")
-  revalidatePath(`/admin/clients/${clientId}`)
-  return { ok: true }
-}
-
-// ---------------------------------------------------------------------------
 // Delete client
 // ---------------------------------------------------------------------------
 
@@ -252,29 +173,13 @@ export async function deleteClient(clientId: string): Promise<DeleteClientResult
   }
 
   const adminClient = createAdminClient()
-  const { error, count } = await adminClient
+  const { error } = await adminClient
     .from("profiles")
-    .delete({ count: "exact" })
+    .delete()
     .eq("id", clientId)
     .eq("role", "client")
 
-  if (error) {
-    // Postgres FK violation (23503) — most commonly caused by the
-    // `invoices.client_id ... ON DELETE RESTRICT` constraint, which
-    // intentionally blocks deleting a client that still has invoices
-    // (financial records must not disappear silently).
-    if (error.code === "23503") {
-      return { ok: false, error: "hasRelatedRecords" }
-    }
-    return { ok: false, error: error.message }
-  }
-
-  // The delete can "succeed" (no error) yet touch zero rows — e.g. the
-  // row was already deleted, or it doesn't have role = 'client'. Surface
-  // that instead of pretending it worked.
-  if (!count) {
-    return { ok: false, error: "notFound" }
-  }
+  if (error) return { ok: false, error: error.message }
 
   revalidatePath("/admin/clients")
   return { ok: true }

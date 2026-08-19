@@ -546,6 +546,15 @@ emailSectionHint:
       showTranslation: "Show Vietnamese translation",
       originalEn: "Original",
       vietnameseVi: "Vietnamese",
+      needsConfirmationTitle: "Confirmation needed: this buyer has multiple competing clients",
+      needsConfirmationBody:
+        "The buyer replied without keeping the original thread, so we can't be sure this reply is for you or another AE sharing this buyer. If you recognize this as your buyer, please confirm.",
+      confirmMine: "Confirm this is mine",
+      confirming: "Confirming...",
+      confirmSuccess: "Confirmed — this reply now belongs to you.",
+      confirmErrorNotCandidate: "This reply isn't linked to this opportunity's buyer.",
+      confirmErrorNotYours: "You don't own this opportunity.",
+      confirmErrorGeneric: "Could not confirm. Please try again.",
       intents: {
         price_request: "Price request",
         sample_request: "Sample request",

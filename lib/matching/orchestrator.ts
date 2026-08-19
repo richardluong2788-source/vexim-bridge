@@ -293,8 +293,15 @@ async function processResults(
   triggeredBy: string
 ): Promise<MatchingResult> {
   const topCandidate = scores[0] || null
-  let autoAssigned = false
-  let assignedTo: string | null = null
+  // Auto-assign is intentionally disabled: Vexim's shortlist rule requires
+  // every buyer to be introduced to a slate of competing clients (see
+  // MAX_CLIENTS_PER_BUYER), so no buyer may ever be routed to a single AE
+  // directly. `recommendation` from the scorer (auto_assign/inbox/skip) is
+  // still stored for display/debugging, but it no longer changes behavior
+  // here — every candidate meeting inbox_min goes into the shared inbox,
+  // regardless of whether the scorer labeled it "auto_assign".
+  const autoAssigned = false
+  const assignedTo: string | null = null
   const inboxItems: { accountManagerId: string; priority: "high" | "medium" | "low" }[] = []
 
   // Clear existing inbox items for this lead
@@ -304,102 +311,55 @@ async function processResults(
   const buyerName = buyer.lead.company_name || buyer.lead.contact_person || "Unknown Buyer"
 
   if (topCandidate) {
-    if (topCandidate.recommendation === "auto_assign") {
-      // Auto-assign: Mark the score as assigned
-      const { error: assignError } = await supabase
-        .from("ae_match_scores")
-        .update({
-          assignment_source: "auto",
-          assigned_at: new Date().toISOString(),
-          assigned_by: triggeredBy,
+    // Add inbox items for every candidate meeting the minimum threshold —
+    // including candidates that scored high enough for the old "auto_assign"
+    // label. This is what feeds the "Buyer của tôi" shortlist screen where
+    // up to MAX_CLIENTS_PER_BUYER AEs/clients can compete for the buyer.
+    const inboxCandidates = scores.filter(
+      (s) => s.totalScore >= thresholds.inbox_min
+    )
+
+    for (const candidate of inboxCandidates) {
+      const priority = determinePriority(candidate.totalScore, thresholds)
+
+      const { error } = await supabase.from("ae_match_inbox").insert({
+        lead_id: leadId,
+        account_manager_id: candidate.accountManagerId,
+        match_score_id: null, // Will be linked via a separate query if needed
+        priority,
+        status: "pending",
+        expires_at: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000
+        ).toISOString(), // 7 days
+      })
+
+      if (!error) {
+        inboxItems.push({
+          accountManagerId: candidate.accountManagerId,
+          priority,
         })
-        .eq("lead_id", leadId)
-        .eq("account_manager_id", topCandidate.accountManagerId)
 
-      if (!assignError) {
-        autoAssigned = true
-        assignedTo = topCandidate.accountManagerId
-
-        // Notify the auto-assigned AE
+        // Notify the AE about new inbox item
         dispatchNotification({
-          userId: topCandidate.accountManagerId,
-          category: "new_assignment",
-          linkPath: `/admin/buyers/${leadId}`,
-          dedupKey: `ai_auto_assigned:${leadId}:${topCandidate.accountManagerId}`,
+          userId: candidate.accountManagerId,
+          category: "action_required",
+          linkPath: `/admin/ae-inbox`,
+          dedupKey: `ai_inbox_item:${leadId}:${candidate.accountManagerId}`,
           title: {
-            vi: "Buyer mới được AI gán tự động",
-            en: "New Buyer Auto-Assigned by AI",
+            vi: `Buyer mới trong inbox (${priority === "high" ? "Ưu tiên cao" : priority === "medium" ? "Trung bình" : "Thấp"})`,
+            en: `New Buyer in Inbox (${priority.charAt(0).toUpperCase() + priority.slice(1)} Priority)`,
           },
           body: {
-            vi: `${buyerName} đã được AI matching gán cho bạn với điểm ${topCandidate.totalScore.toFixed(0)}`,
-            en: `${buyerName} has been auto-assigned to you with score ${topCandidate.totalScore.toFixed(0)}`,
+            vi: `${buyerName} - Điểm matching: ${candidate.totalScore.toFixed(0)}. Xem và chọn client phù hợp.`,
+            en: `${buyerName} - Match score: ${candidate.totalScore.toFixed(0)}. Review and select a suitable client.`,
           },
           ctaLabel: {
-            vi: "Xem chi tiết",
-            en: "View details",
+            vi: "Xem inbox",
+            en: "View inbox",
           },
         }).catch((err) => {
-          console.error("[matching] notification dispatch failed", err)
+          console.error("[matching] notification dispatch failed for inbox item", err)
         })
-
-        // Log activity
-        await logMatchingActivity(
-          supabase,
-          leadId,
-          topCandidate.accountManagerId,
-          "auto_assigned",
-          triggeredBy,
-          topCandidate.totalScore
-        )
-      }
-    } else {
-      // Add inbox items for candidates meeting minimum threshold
-      const inboxCandidates = scores.filter(
-        (s) => s.totalScore >= thresholds.inbox_min
-      )
-
-      for (const candidate of inboxCandidates) {
-        const priority = determinePriority(candidate.totalScore, thresholds)
-
-        const { error } = await supabase.from("ae_match_inbox").insert({
-          lead_id: leadId,
-          account_manager_id: candidate.accountManagerId,
-          match_score_id: null, // Will be linked via a separate query if needed
-          priority,
-          status: "pending",
-          expires_at: new Date(
-            Date.now() + 7 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 7 days
-        })
-
-        if (!error) {
-          inboxItems.push({
-            accountManagerId: candidate.accountManagerId,
-            priority,
-          })
-
-          // Notify the AE about new inbox item
-          dispatchNotification({
-            userId: candidate.accountManagerId,
-            category: "action_required",
-            linkPath: `/admin/ae-inbox`,
-            dedupKey: `ai_inbox_item:${leadId}:${candidate.accountManagerId}`,
-            title: {
-              vi: `Buyer mới trong inbox (${priority === "high" ? "Ưu tiên cao" : priority === "medium" ? "Trung bình" : "Thấp"})`,
-              en: `New Buyer in Inbox (${priority.charAt(0).toUpperCase() + priority.slice(1)} Priority)`,
-            },
-            body: {
-              vi: `${buyerName} - Điểm matching: ${candidate.totalScore.toFixed(0)}. Xem và chọn client phù hợp.`,
-              en: `${buyerName} - Match score: ${candidate.totalScore.toFixed(0)}. Review and select a suitable client.`,
-            },
-            ctaLabel: {
-              vi: "Xem inbox",
-              en: "View inbox",
-            },
-          }).catch((err) => {
-            console.error("[matching] notification dispatch failed for inbox item", err)
-          })
-        }
       }
     }
   }

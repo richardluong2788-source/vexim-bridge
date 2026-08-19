@@ -170,10 +170,15 @@ export function RunAIMatchButton({
                                   : "bg-slate-500/10 text-slate-700 border-slate-500/20"
                             }
                           >
+                            {/* "auto_assign" here only reflects a high raw
+                                score (>= auto_assign threshold) — the buyer
+                                still lands in every qualifying AE's inbox
+                                for the shortlist, it is never actually
+                                auto-assigned to a single AE. */}
                             {score.recommendation === "auto_assign"
                               ? locale === "vi"
-                                ? "Tự động"
-                                : "Auto"
+                                ? "Đề xuất mạnh"
+                                : "Top pick"
                               : score.recommendation === "inbox"
                                 ? locale === "vi"
                                   ? "Inbox"

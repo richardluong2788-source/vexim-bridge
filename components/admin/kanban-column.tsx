@@ -19,6 +19,10 @@ interface KanbanColumnProps {
   droppableId: string
   /** True when the currently dragged card cannot land here (e.g. FDA missing). */
   isBlocked?: boolean
+  /** Overrides the empty-state text (e.g. when a search/client filter is
+   *  active) so an AE can tell "no matches" apart from "genuinely empty
+   *  column, drop here". */
+  emptyMessage?: string
   children: React.ReactNode
 }
 
@@ -27,6 +31,7 @@ export function KanbanColumn({
   count,
   droppableId,
   isBlocked = false,
+  emptyMessage,
   children,
 }: KanbanColumnProps) {
   const { t } = useTranslation()
@@ -75,7 +80,7 @@ export function KanbanColumn({
         {children}
         {count === 0 && (
           <div className="flex flex-col items-center justify-center h-24 rounded-md border border-dashed border-border/50 mt-1">
-            <p className="text-xs text-muted-foreground">{t.kanban.dropZone}</p>
+            <p className="text-xs text-muted-foreground">{emptyMessage ?? t.kanban.dropZone}</p>
           </div>
         )}
       </div>

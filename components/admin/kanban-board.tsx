@@ -13,8 +13,16 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { toast } from "sonner"
-import { ShieldAlert, Mail } from "lucide-react"
+import { ShieldAlert, Mail, Search, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   COMPLIANCE_REQUIRED_STAGES,
   type OpportunityWithClient,
@@ -26,6 +34,19 @@ import { KanbanCard } from "@/components/admin/kanban-card"
 import { OpportunityDetailSheet } from "@/components/admin/opportunity-detail-sheet"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { createClient } from "@/lib/supabase/client"
+
+const ALL_CLIENTS_VALUE = "__all__"
+
+// Same fallback order the card uses for a client's display name (see
+// KanbanCard row 2): the client_profiles view name wins, then company_name,
+// then full_name. Kept in sync here so the filter dropdown and search match
+// exactly what an AE sees printed on the card.
+function getClientDisplayName(profiles: OpportunityWithClient["profiles"]): string {
+  const viaClientProfiles = (
+    profiles?.client_profiles as Array<{ display_name: string | null }> | undefined
+  )?.[0]?.display_name
+  return viaClientProfiles ?? profiles?.company_name ?? profiles?.full_name ?? "—"
+}
 
 // Compact "X phút trước" style label for the "Cần phản hồi" strip - keeps
 // each item scannable without a full timestamp taking up card width.
@@ -105,6 +126,13 @@ export function KanbanBoard({
   const [opportunities, setOpportunities] = useState(initialOpportunities)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Board-level search + client filter. Purely client-side: the AE's
+  // client portfolio is capped (MAX_CLIENTS_PER_AE) and each client's
+  // active-buyer count is capped (MAX_ACTIVE_BUYERS_PER_CLIENT), so the
+  // total opportunities an AE ever has loaded here stays small enough
+  // that filtering in the browser (no extra round-trip) is fine.
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState(ALL_CLIENTS_VALUE)
   // "status" when opened via the pencil icon on a card, "replies" when
   // opened by clicking an item in the "Cần phản hồi" triage strip — so
   // the sheet lands directly on the buyer conversation, not the status tab.
@@ -166,6 +194,35 @@ export function KanbanBoard({
       })),
     [t],
   )
+
+  // Clients present on this AE's board — since MAX_CLIENTS_PER_AE caps this
+  // at 7, the dropdown always stays short and doesn't need its own search.
+  const clientOptions = useMemo(() => {
+    const byId = new Map<string, string>()
+    for (const o of opportunities) {
+      if (!byId.has(o.client_id)) {
+        byId.set(o.client_id, getClientDisplayName(o.profiles))
+      }
+    }
+    return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
+  }, [opportunities])
+
+  const isFiltering = searchQuery.trim().length > 0 || selectedClientId !== ALL_CLIENTS_VALUE
+
+  const filteredOpportunities = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return opportunities.filter((o) => {
+      if (selectedClientId !== ALL_CLIENTS_VALUE && o.client_id !== selectedClientId) {
+        return false
+      }
+      if (!query) return true
+      const buyerName = o.leads?.company_name?.toLowerCase() ?? ""
+      const clientName = getClientDisplayName(o.profiles).toLowerCase()
+      return buyerName.includes(query) || clientName.includes(query)
+    })
+  }, [opportunities, searchQuery, selectedClientId])
 
   // While a non-compliant card is being dragged, visually mark the columns
   // that would reject the drop so the admin gets instant feedback.
@@ -310,10 +367,45 @@ export function KanbanBoard({
         </div>
       )}
 
+    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="relative flex-1 sm:max-w-xs">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Tìm theo tên buyer hoặc công ty..."
+          className="pl-8 pr-8"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            aria-label="Xóa tìm kiếm"
+            className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+        <SelectTrigger className="w-full sm:w-56">
+          <SelectValue placeholder="Tất cả công ty" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_CLIENTS_VALUE}>Tất cả công ty ({clientOptions.length})</SelectItem>
+          {clientOptions.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex items-start gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
-          const cards = opportunities.filter((o) => o.stage === stage.id)
+          const cards = filteredOpportunities.filter((o) => o.stage === stage.id)
           const isBlocked =
             activeIsBlockedFromCompliance &&
             COMPLIANCE_REQUIRED_STAGES.includes(stage.id)
@@ -329,6 +421,7 @@ export function KanbanBoard({
                 count={cards.length}
                 droppableId={stage.id}
                 isBlocked={isBlocked}
+                emptyMessage={isFiltering ? "Không có kết quả phù hợp" : undefined}
               >
                 {cards.map((opp) => (
                   <KanbanCard

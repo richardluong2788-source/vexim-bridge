@@ -26,8 +26,17 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { setAccountManager } from "@/app/admin/clients/account-manager-actions"
+import { MAX_CLIENTS_PER_AE } from "@/lib/buyers/constants"
 
 const NONE = "__none__"
+
+const ERROR_LABELS: Record<string, string> = {
+  managerAtCapacity: `AE này đã quản lý đủ ${MAX_CLIENTS_PER_AE} công ty. Vui lòng bỏ gán 1 công ty khác trước.`,
+  managerNotStaff: "Người được chọn không phải nhân sự nội bộ.",
+  managerNotFound: "Không tìm thấy account manager.",
+  notAClient: "Hàng này không phải client.",
+  notFound: "Không tìm thấy client.",
+}
 
 export interface ManagerOption {
   id: string
@@ -78,7 +87,8 @@ export function AccountManagerSelect({
       )
       if (!result.ok) {
         setValue(previous)
-        toast.error(`Không thể gán account manager: ${result.error ?? "lỗi"}`)
+        const message = result.error ? ERROR_LABELS[result.error] ?? result.error : "lỗi"
+        toast.error(`Không thể gán account manager: ${message}`)
         return
       }
       const newLabel =

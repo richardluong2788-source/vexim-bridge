@@ -28,6 +28,7 @@ import { revalidatePath } from "next/cache"
 import { requireAllCaps } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import type { Role } from "@/lib/supabase/types"
+import { MAX_CLIENTS_PER_AE } from "@/lib/buyers/constants"
 
 export interface SetAccountManagerResult {
   ok: boolean
@@ -84,6 +85,22 @@ export async function setAccountManager(
     if (mgrErr || !manager) return { ok: false, error: "managerNotFound" }
     if (!STAFF_ROLES.includes(manager.role as Role)) {
       return { ok: false, error: "managerNotStaff" }
+    }
+
+    // Enforce the per-AE client portfolio cap. Only count clients OTHER than
+    // this one — reassigning the same client to the same manager (a no-op)
+    // or moving it between managers must not be blocked by its own row, and
+    // if it's already assigned to this manager we don't want to double count.
+    const { count: currentClientCount, error: countErr } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("account_manager_id", managerId)
+      .eq("role", "client")
+      .neq("id", clientId)
+
+    if (countErr) return { ok: false, error: countErr.message }
+    if ((currentClientCount ?? 0) >= MAX_CLIENTS_PER_AE) {
+      return { ok: false, error: "managerAtCapacity" }
     }
   }
 

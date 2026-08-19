@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { rankClientsForBuyer } from "@/lib/matching/client-scorer"
 import type {
   BuyerMatchInput,
@@ -10,6 +11,7 @@ import type {
   ClientTrustInput,
   ClientMatchResult,
 } from "@/lib/matching/client-types"
+import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -32,6 +34,21 @@ export interface AssignBuyerToClientInput {
   buyerId: string
   clientId: string
   potentialValue: number | null
+}
+
+export interface AssignBuyerToClientsInput {
+  buyerId: string
+  clientIds: string[]
+  potentialValue: number | null
+}
+
+export interface AssignBuyerToClientsResultItem {
+  clientId: string
+  clientName: string | null
+  ok: boolean
+  opportunityId?: string
+  alreadyExisted?: boolean
+  error?: string
 }
 
 export type ActionResult<T = unknown> =
@@ -110,71 +127,171 @@ export async function assignBuyerToClient(
     return { ok: false, error: "buyer_not_found" }
   }
 
-  // 2) Load client + FDA status
-  const { data: client, error: clientErr } = await admin
-    .from("profiles")
-    .select("id, role, full_name, company_name, fda_registration_number, fda_expires_at")
-    .eq("id", input.clientId)
-    .single()
-  if (clientErr || !client) {
-    return { ok: false, error: "client_not_found" }
-  }
-  if (client.role !== "client") {
-    return { ok: false, error: "not_a_client" }
-  }
-  if (!client.fda_registration_number || !client.fda_registration_number.trim()) {
-    return { ok: false, error: "fda_missing" }
-  }
-  if (client.fda_expires_at) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (new Date(client.fda_expires_at) < today) {
-      return { ok: false, error: "fda_expired" }
-    }
-  }
-
-  // 3) Short-circuit if an opportunity already exists — avoids UNIQUE
-  //    constraint violation and gives the UI a jump target.
-  const { data: existing } = await admin
-    .from("opportunities")
-    .select("id")
-    .eq("client_id", input.clientId)
-    .eq("lead_id", input.buyerId)
-    .maybeSingle()
-  if (existing?.id) {
-    return { ok: true, data: { opportunityId: existing.id, alreadyExisted: true } }
-  }
-
-  // 4) Create the opportunity with account_manager_id for ownership tracking
-  const { data: opp, error: oppErr } = await admin
-    .from("opportunities")
-    .insert({
-      client_id: input.clientId,
-      lead_id: input.buyerId,
-      stage: "new",
-      potential_value: input.potentialValue,
-      account_manager_id: userId,
-    })
-    .select("id")
-    .single()
-  if (oppErr || !opp) {
-    return { ok: false, error: oppErr?.message ?? "insert_failed" }
-  }
-
-  // 5) Audit trail — best-effort
-  const clientLabel = client.company_name ?? client.full_name ?? "client"
-  await admin.from("activities").insert({
-    opportunity_id: opp.id,
-    action_type: "opportunity_created",
-    description: `${buyer.company_name} → ${clientLabel}`,
-    performed_by: userId,
-  })
+  const result = await assignOneClient(admin, userId, buyer, input.clientId, input.potentialValue)
+  if (!result.ok) return { ok: false, error: result.error ?? "insert_failed" }
 
   revalidatePath("/admin/buyers")
   revalidatePath(`/admin/buyers/${input.buyerId}`)
   revalidatePath("/admin/pipeline")
 
-  return { ok: true, data: { opportunityId: opp.id, alreadyExisted: false } }
+  return {
+    ok: true,
+    data: { opportunityId: result.opportunityId!, alreadyExisted: !!result.alreadyExisted },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared single-client assignment logic (used by both the single and bulk
+// assign actions). Does NOT revalidate paths or check the write capability —
+// callers are responsible for both, so the bulk action only pays those
+// costs once instead of once per client.
+// ---------------------------------------------------------------------------
+async function assignOneClient(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  buyer: { id: string; company_name: string | null },
+  clientId: string,
+  potentialValue: number | null,
+): Promise<AssignBuyerToClientsResultItem> {
+  // 1) Load client + FDA status
+  const { data: client, error: clientErr } = await admin
+    .from("profiles")
+    .select("id, role, full_name, company_name, fda_registration_number, fda_expires_at")
+    .eq("id", clientId)
+    .single()
+  if (clientErr || !client) {
+    return { clientId, clientName: null, ok: false, error: "client_not_found" }
+  }
+  const clientLabel = client.company_name ?? client.full_name ?? null
+  if (client.role !== "client") {
+    return { clientId, clientName: clientLabel, ok: false, error: "not_a_client" }
+  }
+  if (!client.fda_registration_number || !client.fda_registration_number.trim()) {
+    return { clientId, clientName: clientLabel, ok: false, error: "fda_missing" }
+  }
+  if (client.fda_expires_at) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (new Date(client.fda_expires_at) < today) {
+      return { clientId, clientName: clientLabel, ok: false, error: "fda_expired" }
+    }
+  }
+
+  // 2) Short-circuit if an opportunity already exists — avoids UNIQUE
+  //    constraint violation and gives the UI a jump target.
+  const { data: existing } = await admin
+    .from("opportunities")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("lead_id", buyer.id)
+    .maybeSingle()
+  if (existing?.id) {
+    return {
+      clientId,
+      clientName: clientLabel,
+      ok: true,
+      opportunityId: existing.id,
+      alreadyExisted: true,
+    }
+  }
+
+  // 2b) Enforce the per-client active-buyer cap. "Active" = anything not
+  // yet won/lost. Once a client has MAX_ACTIVE_BUYERS_PER_CLIENT open
+  // opportunities, no new buyer can be assigned until one of them closes
+  // out (won or lost) — this is what keeps a single client's column from
+  // growing without bound as the buyer base scales into the hundreds.
+  const { count: activeCount, error: activeCountErr } = await admin
+    .from("opportunities")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .not("stage", "in", "(won,lost)")
+  if (activeCountErr) {
+    return { clientId, clientName: clientLabel, ok: false, error: activeCountErr.message }
+  }
+  if ((activeCount ?? 0) >= MAX_ACTIVE_BUYERS_PER_CLIENT) {
+    return { clientId, clientName: clientLabel, ok: false, error: "client_at_capacity" }
+  }
+
+  // 3) Create the opportunity with account_manager_id for ownership tracking
+  const { data: opp, error: oppErr } = await admin
+    .from("opportunities")
+    .insert({
+      client_id: clientId,
+      lead_id: buyer.id,
+      stage: "new",
+      potential_value: potentialValue,
+      account_manager_id: userId,
+    })
+    .select("id")
+    .single()
+  if (oppErr || !opp) {
+    return { clientId, clientName: clientLabel, ok: false, error: oppErr?.message ?? "insert_failed" }
+  }
+
+  // 4) Audit trail — best-effort
+  await admin.from("activities").insert({
+    opportunity_id: opp.id,
+    action_type: "opportunity_created",
+    description: `${buyer.company_name} → ${clientLabel ?? "client"}`,
+    performed_by: userId,
+  })
+
+  return {
+    clientId,
+    clientName: clientLabel,
+    ok: true,
+    opportunityId: opp.id,
+    alreadyExisted: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Assign an existing buyer to MULTIPLE Vietnamese clients at once
+// ---------------------------------------------------------------------------
+//
+// Lets an AE select several AI-matched suppliers (up to MAX_BULK_ASSIGN_CLIENTS)
+// for the same buyer in one action, since in practice a buyer often wants to
+// evaluate a handful of suppliers before narrowing down to one. Each client
+// is validated and inserted independently — one ineligible/failed client does
+// not block the others, and the caller gets a per-client result so the UI can
+// report a clear success/failure summary.
+//
+export async function assignBuyerToClients(
+  input: AssignBuyerToClientsInput,
+): Promise<ActionResult<{ items: AssignBuyerToClientsResultItem[] }>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId } = guard
+
+  const clientIds = Array.from(new Set(input.clientIds)).filter(Boolean)
+  if (clientIds.length === 0) {
+    return { ok: false, error: "no_clients_selected" }
+  }
+  if (clientIds.length > MAX_BULK_ASSIGN_CLIENTS) {
+    return { ok: false, error: "too_many_clients" }
+  }
+
+  // Load buyer once
+  const { data: buyer, error: buyerErr } = await admin
+    .from("leads")
+    .select("id, company_name")
+    .eq("id", input.buyerId)
+    .single()
+  if (buyerErr || !buyer) {
+    return { ok: false, error: "buyer_not_found" }
+  }
+
+  const items: AssignBuyerToClientsResultItem[] = []
+  for (const clientId of clientIds) {
+    const item = await assignOneClient(admin, userId, buyer, clientId, input.potentialValue)
+    items.push(item)
+  }
+
+  revalidatePath("/admin/buyers")
+  revalidatePath(`/admin/buyers/${input.buyerId}`)
+  revalidatePath("/admin/pipeline")
+
+  return { ok: true, data: { items } }
 }
 
 // ---------------------------------------------------------------------------

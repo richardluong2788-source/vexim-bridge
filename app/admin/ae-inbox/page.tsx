@@ -5,11 +5,6 @@ import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { InboxList } from "./inbox-list"
 
-// Vexim shortlist rule: a buyer should be introduced to exactly 3
-// competing clients, never locked to whichever AE/client claims it first.
-// Shown to AEs as "X/N client đã giới thiệu" so they know whether there's
-// still room on the shortlist before they accept.
-
 export const dynamic = "force-dynamic"
 
 export default async function AEInboxPage() {
@@ -83,29 +78,6 @@ export default async function AEInboxPage() {
 
   const { data: inboxItems } = await inboxQuery
 
-  // Count how many DISTINCT clients already have an opportunity per buyer
-  // in this inbox batch, so the card can show "X/N client đã giới thiệu".
-  const leadIds = Array.from(
-    new Set((inboxItems || []).map((i) => i.lead_id).filter(Boolean))
-  )
-  const shortlistCountByLead: Record<string, number> = {}
-  if (leadIds.length > 0) {
-    const { data: existingOpps } = await supabase
-      .from("opportunities")
-      .select("lead_id, client_id")
-      .in("lead_id", leadIds)
-
-    const distinctByLead = new Map<string, Set<string>>()
-    for (const o of existingOpps || []) {
-      const set = distinctByLead.get(o.lead_id) ?? new Set<string>()
-      set.add(o.client_id)
-      distinctByLead.set(o.lead_id, set)
-    }
-    for (const [leadId, set] of distinctByLead) {
-      shortlistCountByLead[leadId] = set.size
-    }
-  }
-
   // Fetch clients for assignment (only those managed by this AE or all for admins)
   let clientsQuery = supabase
     .from("profiles")
@@ -156,7 +128,6 @@ export default async function AEInboxPage() {
         clients={validClients}
         locale={locale}
         currentRole={current.role}
-        shortlistCountByLead={shortlistCountByLead}
       />
     </div>
   )

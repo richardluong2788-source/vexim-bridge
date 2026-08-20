@@ -47,7 +47,7 @@ export const en = {
         "Vexim Trade helps Vietnamese businesses connect with U.S. buyers professionally and effectively — from market research and buyer sourcing to supporting the entire deal-closing process.",
       heroFeatures: [
           "We thoroughly research each buyer — including purchase history, buying frequency, competitors, and seasonal trends — so you gain a complete market perspective.",
-  "Each buyer is introduced to at most 3 businesses in the same industry — enough for the buyer to have real choice, without uncontrolled competition.",
+  "Each buyer is exclusively matched with only one business. No overlap, no competition.",
   "Every partner is supported by a dedicated specialist who understands the industry and stays with you from the first step to closing the deal.",
   "The cost is comparable to hiring a local salesperson — but you gain an entire professional international sales team working alongside you.",
   "All activities are updated in real time, so you always know exactly where you stand.",
@@ -546,15 +546,6 @@ emailSectionHint:
       showTranslation: "Show Vietnamese translation",
       originalEn: "Original",
       vietnameseVi: "Vietnamese",
-      needsConfirmationTitle: "Confirmation needed: this buyer has multiple competing clients",
-      needsConfirmationBody:
-        "The buyer replied without keeping the original thread, so we can't be sure this reply is for you or another AE sharing this buyer. If you recognize this as your buyer, please confirm.",
-      confirmMine: "Confirm this is mine",
-      confirming: "Confirming...",
-      confirmSuccess: "Confirmed — this reply now belongs to you.",
-      confirmErrorNotCandidate: "This reply isn't linked to this opportunity's buyer.",
-      confirmErrorNotYours: "You don't own this opportunity.",
-      confirmErrorGeneric: "Could not confirm. Please try again.",
       intents: {
         price_request: "Price request",
         sample_request: "Sample request",

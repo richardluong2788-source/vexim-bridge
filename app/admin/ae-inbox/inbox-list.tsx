@@ -48,7 +48,6 @@ import { acceptMatch, rejectMatch } from "@/app/admin/buyers/matching-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 import type { Role } from "@/lib/supabase/types"
-import { MAX_CLIENTS_PER_BUYER } from "@/lib/buyers/constants"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,9 +103,6 @@ interface InboxListProps {
   clients: Client[]
   locale: "vi" | "en"
   currentRole: Role
-  /** Count of DISTINCT clients already introduced per buyer (lead_id), for
-   *  the "X/N client đã giới thiệu" shortlist indicator. */
-  shortlistCountByLead?: Record<string, number>
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +114,6 @@ export function InboxList({
   clients,
   locale,
   currentRole,
-  shortlistCountByLead = {},
 }: InboxListProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -316,20 +311,6 @@ export function InboxList({
                             : locale === "vi"
                               ? "Thấp"
                               : "Low"}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="gap-1 text-muted-foreground"
-                        title={
-                          locale === "vi"
-                            ? "Số client đã được giới thiệu buyer này (tối đa 3)"
-                            : "Clients already introduced to this buyer (max 3)"
-                        }
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        {(shortlistCountByLead[item.lead_id] ?? 0)}/
-                        {MAX_CLIENTS_PER_BUYER}{" "}
-                        {locale === "vi" ? "client đã giới thiệu" : "clients introduced"}
                       </Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

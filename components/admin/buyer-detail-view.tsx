@@ -79,11 +79,7 @@ import {
   getAIMatchedClients,
   type AssignBuyerToClientsResultItem,
 } from "@/app/admin/buyers/actions"
-import {
-  MAX_BULK_ASSIGN_CLIENTS,
-  MAX_ACTIVE_BUYERS_PER_CLIENT,
-  MAX_CLIENTS_PER_BUYER,
-} from "@/lib/buyers/constants"
+import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 
@@ -184,12 +180,6 @@ interface Props {
   locale: "vi" | "en"
   canWrite: boolean
   canViewPII: boolean
-  // Gates the AI Match / bulk "Gán cho client" dialog, which creates
-  // opportunities DIRECTLY and bypasses the AE inbox accept flow. This is
-  // intentionally narrower than `canWrite` — account_executive holds
-  // BUYER_WRITE (to edit buyer info) but not BUYER_MANUAL_INTAKE, so they
-  // must use the AE inbox instead of self-assigning here.
-  canAssignDirectly: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -265,7 +255,6 @@ export function BuyerDetailView({
   locale,
   canWrite,
   canViewPII,
-  canAssignDirectly,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -325,7 +314,7 @@ export function BuyerDetailView({
             </div>
           </div>
         </div>
-        {canAssignDirectly && (
+        {canWrite && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -677,13 +666,9 @@ export function BuyerDetailView({
                         : "Buyer has not been assigned yet"}
                     </EmptyTitle>
                     <EmptyDescription>
-                      {canAssignDirectly
-                        ? locale === "vi"
-                          ? "Nhấn 'Gán cho client' ở trên để tạo cơ hội đầu tiên."
-                          : "Use 'Assign to client' above to create the first deal."
-                        : locale === "vi"
-                          ? "Buyer này sẽ xuất hiện trong Buyer của tôi nếu phù hợp với client bạn quản lý."
-                          : "This buyer will show up in your inbox once it matches a client you manage."}
+                      {locale === "vi"
+                        ? "Nhấn 'Gán cho client' ở trên để tạo cơ hội đầu tiên."
+                        : "Use 'Assign to client' above to create the first deal."}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -825,7 +810,7 @@ export function BuyerDetailView({
       </div>
 
       {/* --- Assign dialog ---------------------------------------------- */}
-      {canAssignDirectly && (
+      {canWrite && (
         <AssignBuyerDialog
           open={assignOpen}
           onOpenChange={setAssignOpen}
@@ -1668,7 +1653,7 @@ function AssignBuyerDialog({
               ? "Cơ hội đã tồn tại — mở sẵn trên pipeline"
               : "Deal already existed — opening pipeline"
             : locale === "vi"
-              ? `Đ�� gán ${buyerName} cho ${targetName}`
+              ? `Đã gán ${buyerName} cho ${targetName}`
               : `Assigned ${buyerName} to ${targetName}`,
         )
         onAssigned(res.data.opportunityId)
@@ -1686,15 +1671,11 @@ function AssignBuyerDialog({
                 ? locale === "vi"
                   ? `Client đã có ${MAX_ACTIVE_BUYERS_PER_CLIENT} buyer đang hoạt động — cần đóng (won/lost) 1 buyer trước khi gán thêm`
                   : `Client already has ${MAX_ACTIVE_BUYERS_PER_CLIENT} active buyers — close one (won/lost) before assigning another`
-                : res.error === "buyer_shortlist_full"
+                : res.error === "forbidden"
                   ? locale === "vi"
-                    ? `Buyer này đã được giới thiệu cho ${MAX_CLIENTS_PER_BUYER} client — đã đủ shortlist`
-                    : `This buyer already has ${MAX_CLIENTS_PER_BUYER} clients introduced — shortlist is full`
-                  : res.error === "forbidden"
-                    ? locale === "vi"
-                      ? "Bạn không có quyền gán buyer"
-                      : "You do not have permission to assign"
-                    : res.error
+                    ? "Bạn không có quyền gán buyer"
+                    : "You do not have permission to assign"
+                  : res.error
         toast.error(msg)
       }
     })
@@ -1998,7 +1979,6 @@ const INELIGIBLE_TEXT: Record<
   already_attached: { vi: "Đã gán", en: "Already attached" },
   fda_missing: { vi: "Chưa có FDA", en: "No FDA" },
   fda_expired: { vi: "FDA hết hạn", en: "FDA expired" },
-  buyer_shortlist_full: { vi: "Buyer đã đủ shortlist", en: "Buyer shortlist full" },
 }
 
 function AIMatchList({

@@ -12,8 +12,6 @@ import {
   X,
   ChevronDown,
   AlertTriangle,
-  Loader2,
-  ArrowRight,
   Package,
   Tag,
 } from "lucide-react"
@@ -22,13 +20,6 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -44,9 +35,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { acceptMatch, rejectMatch } from "@/app/admin/buyers/matching-actions"
-import { getAIMatchedClients } from "@/app/admin/buyers/actions"
-import type { ClientMatchResult } from "@/lib/matching/client-types"
+import { rejectMatch } from "@/app/admin/buyers/matching-actions"
+import { claimBuyer } from "@/app/admin/ae-inbox/engagement-actions"
 import type { Role } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -120,52 +110,6 @@ export function InboxList({
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null)
   const [rejectReason, setRejectReason] = useState("")
-  const [selectedClients, setSelectedClients] = useState<
-    Record<string, string>
-  >({})
-
-  // AI-suggested clients per inbox item — reuses the same Buyer↔Client
-  // scoring engine as the admin/LR "AI Match" tool, scoped down to only
-  // the clients this AE is allowed to assign to.
-  const [aiSuggestions, setAiSuggestions] = useState<
-    Record<string, ClientMatchResult[]>
-  >({})
-  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({})
-  const [aiError, setAiError] = useState<Record<string, string | null>>({})
-
-  const assignableClientIds = new Set(clients.map((c) => c.id))
-
-  const handleFetchAISuggestions = async (item: InboxItem) => {
-    setAiLoading((prev) => ({ ...prev, [item.id]: true }))
-    setAiError((prev) => ({ ...prev, [item.id]: null }))
-
-    const result = await getAIMatchedClients(item.lead_id)
-
-    setAiLoading((prev) => ({ ...prev, [item.id]: false }))
-
-    if (!result.ok) {
-      setAiError((prev) => ({ ...prev, [item.id]: result.error }))
-      return
-    }
-
-    // Only surface clients this AE actually manages and that are eligible
-    // (valid FDA, not already attached to this buyer).
-    const scoped = result.data
-      .filter((m) => m.eligible && assignableClientIds.has(m.clientId))
-      .slice(0, 3)
-
-    setAiSuggestions((prev) => ({ ...prev, [item.id]: scoped }))
-
-    if (scoped.length === 0) {
-      setAiError((prev) => ({
-        ...prev,
-        [item.id]:
-          locale === "vi"
-            ? "Không có client nào trong danh mục của bạn đủ điều kiện cho buyer này."
-            : "None of your assigned clients are eligible for this buyer.",
-      }))
-    }
-  }
 
   // Lead Researcher has read-only access to monitor matching outcomes
   // for the buyers they sourced. Claim/accept/reject controls are hidden
@@ -190,28 +134,15 @@ export function InboxList({
     )
   }
 
-  const handleAccept = (item: InboxItem) => {
-    const clientId = selectedClients[item.id]
-    if (!clientId) {
-      toast.error(
-        locale === "vi"
-          ? "Vui lòng chọn client trước"
-          : "Please select a client first"
-      )
-      return
-    }
-
+  const handleClaim = (item: InboxItem) => {
     startTransition(async () => {
-      const result = await acceptMatch({
-        inboxItemId: item.id,
-        clientId,
-      })
+      const result = await claimBuyer(item.id)
 
       if (result.ok) {
         toast.success(
           locale === "vi"
-            ? "Đã tạo opportunity thành công"
-            : "Opportunity created successfully"
+            ? "Đã nhận buyer — hãy hỏi nhu cầu ở khu vực Đang xử lý"
+            : "Buyer claimed — gather requirements in the In-progress section"
         )
         router.refresh()
       } else {
@@ -480,133 +411,31 @@ export function InboxList({
                     </span>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3 pt-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Select
-                        value={selectedClients[item.id] || ""}
-                        onValueChange={(v) =>
-                          setSelectedClients((prev) => ({ ...prev, [item.id]: v }))
-                        }
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue
-                            placeholder={
-                              locale === "vi" ? "Chọn client..." : "Select client..."
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clients.length === 0 ? (
-                            <div className="p-2 text-sm text-muted-foreground text-center">
-                              {locale === "vi"
-                                ? "Không có client FDA hợp lệ"
-                                : "No FDA-valid clients"}
-                            </div>
-                          ) : (
-                            clients.map((client) => (
-                              <SelectItem key={client.id} value={client.id}>
-                                {client.company_name || client.full_name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <Button
+                      onClick={() => handleClaim(item)}
+                      disabled={pending}
+                      className="gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      {locale === "vi" ? "Nhận buyer" : "Claim buyer"}
+                    </Button>
 
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => handleFetchAISuggestions(item)}
-                        disabled={aiLoading[item.id] || clients.length === 0}
-                        className="gap-2"
-                      >
-                        {aiLoading[item.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                        {locale === "vi" ? "Gợi ý AI chọn client" : "AI suggest client"}
-                      </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleReject(item)}
+                      disabled={pending}
+                      className="gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      {locale === "vi" ? "Từ chối" : "Reject"}
+                    </Button>
 
-                      <Button
-                        onClick={() => handleAccept(item)}
-                        disabled={!selectedClients[item.id] || pending}
-                        className="gap-2"
-                      >
-                        <Check className="h-4 w-4" />
-                        {locale === "vi" ? "Chấp nhận" : "Accept"}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => handleReject(item)}
-                        disabled={pending}
-                        className="gap-2"
-                      >
-                        <X className="h-4 w-4" />
-                        {locale === "vi" ? "Từ chối" : "Reject"}
-                      </Button>
-                    </div>
-
-                    {/* AI-suggested best-fit clients, scoped to this AE's portfolio */}
-                    {(aiLoading[item.id] ||
-                      aiSuggestions[item.id] !== undefined) && (
-                      <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
-                        <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          {locale === "vi"
-                            ? "Client phù hợp nhất theo AI (cùng thuật toán AI Match)"
-                            : "AI-ranked best-fit clients (same engine as AI Match)"}
-                        </div>
-
-                        {aiLoading[item.id] ? (
-                          <p className="text-xs text-muted-foreground">
-                            {locale === "vi"
-                              ? "Đang phân tích sản phẩm & độ uy tín của client..."
-                              : "Analyzing client product fit & trust signals..."}
-                          </p>
-                        ) : aiSuggestions[item.id]?.length ? (
-                          <div className="flex flex-col gap-1.5">
-                            {aiSuggestions[item.id].map((m, idx) => (
-                              <div
-                                key={m.clientId}
-                                className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5"
-                              >
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">
-                                    #{idx + 1}
-                                  </span>
-                                  <span className="truncate text-sm font-medium">
-                                    {m.clientName}
-                                  </span>
-                                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                                    {m.finalScore}
-                                  </Badge>
-                                </div>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  className="h-7 shrink-0 gap-1"
-                                  onClick={() =>
-                                    setSelectedClients((prev) => ({
-                                      ...prev,
-                                      [item.id]: m.clientId,
-                                    }))
-                                  }
-                                >
-                                  {locale === "vi" ? "Dùng gợi ý" : "Use this"}
-                                  <ArrowRight className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            {aiError[item.id]}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {locale === "vi"
+                        ? "Sau khi nhận, hãy hỏi nhu cầu buyer ở khu vực \"Đang xử lý\" trước khi chọn client."
+                        : 'After claiming, gather requirements in the "In progress" section before assigning a client.'}
+                    </p>
                   </div>
                 )}
               </CardContent>

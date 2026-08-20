@@ -4,6 +4,8 @@ import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { InboxList } from "./inbox-list"
+import { EngagementList } from "./engagement-list"
+import { getMyEngagements } from "./engagement-actions"
 
 export const dynamic = "force-dynamic"
 
@@ -97,6 +99,9 @@ export default async function AEInboxPage() {
     return new Date(c.fda_expires_at) > new Date()
   })
 
+  const engagementsResult = await getMyEngagements()
+  const engagements = engagementsResult.ok ? engagementsResult.data : []
+
   return (
     <div className="flex flex-col gap-6 p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -109,8 +114,8 @@ export default async function AEInboxPage() {
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl text-pretty">
             {locale === "vi"
-              ? "Danh sách buyer được AI phân bổ cho bạn dựa trên sản phẩm, ngành hàng, và lịch sử thắng. Chọn client để tạo cơ hội mới hoặc từ chối nếu không phù hợp."
-              : "Buyers assigned to you by AI based on product fit, industry, and win history. Select a client to create an opportunity or reject if not a good fit."}
+              ? "Danh sách buyer được AI phân bổ cho bạn dựa trên sản phẩm, ngành hàng, và lịch sử thắng. Nhận buyer để hỏi nhu cầu, gửi shortlist supplier, rồi gán client khi buyer đã phản hồi."
+              : "Buyers assigned to you by AI based on product fit, industry, and win history. Claim a buyer to gather requirements, send a supplier shortlist, then assign a client once the buyer responds."}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -122,6 +127,14 @@ export default async function AEInboxPage() {
           </span>
         </div>
       </div>
+
+      {engagements.length > 0 && current.role !== "lead_researcher" && (
+        <EngagementList
+          engagements={engagements as any}
+          clients={validClients}
+          locale={locale}
+        />
+      )}
 
       <InboxList
         items={inboxItems || []}

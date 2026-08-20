@@ -43,9 +43,14 @@ const outputSchema = z.object({
     .describe("Faithful Vietnamese translation of the English email so the Vietnamese AE can verify intent before sending."),
 })
 
+export type EngagementEmailType = "requirement_inquiry" | "shortlist_delivery"
+
 export type GenerateRequirementEmailInput = {
   engagementId: string
   viPrompt: string
+  emailType?: EngagementEmailType
+  /** Required when emailType === "shortlist_delivery" — the public link the buyer opens. */
+  shortlistUrl?: string
   isManual?: boolean
   manualSubject?: string
   manualContent?: string
@@ -80,7 +85,9 @@ export async function generateRequirementInquiryEmail(
 
   const { data: engagement, error: engErr } = await supabase
     .from("buyer_engagements")
-    .select("id, lead_id, leads (*)")
+    .select(
+      "id, lead_id, requested_products, target_price_range, moq, payment_terms, packaging_requirements, other_requirements, leads (*)",
+    )
     .eq("id", input.engagementId)
     .single()
   if (engErr || !engagement) {
@@ -92,6 +99,11 @@ export async function generateRequirementInquiryEmail(
   if (!lead) throw new Error("Engagement has no associated lead")
 
   const recipient = (lead["contact_email"] as string | null) ?? null
+  const emailType: EngagementEmailType = input.emailType ?? "requirement_inquiry"
+
+  if (emailType === "shortlist_delivery" && !input.shortlistUrl) {
+    throw new Error("shortlistUrl is required for shortlist_delivery emails")
+  }
 
   // ------------------------------------------------------------
   // Manual mode — skip AI generation entirely.
@@ -102,7 +114,7 @@ export async function generateRequirementInquiryEmail(
       .insert({
         lead_id: engagement.lead_id,
         engagement_id: input.engagementId,
-        email_type: "requirement_inquiry",
+        email_type: emailType,
         ai_prompt: "[MANUAL]",
         generated_subject: input.manualSubject,
         generated_content_en: input.manualContent,
@@ -135,27 +147,50 @@ export async function generateRequirementInquiryEmail(
       sender_name: profile.full_name,
       exporter_company: profile.company_name ?? "Vexim Trade",
       sender_email: profile.email,
+      ...(emailType === "shortlist_delivery"
+        ? {
+            requested_products: (engagement as any).requested_products,
+            target_price_range: (engagement as any).target_price_range,
+            moq: (engagement as any).moq,
+            shortlist_url: input.shortlistUrl,
+          }
+        : {}),
     },
     null,
     2,
   )
 
-  const system = [
-    "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
-    "Goal of THIS email: ask the buyer to share their sourcing requirements so the team can",
-    "shortlist the right manufacturers for them. Do NOT pitch any specific supplier yet — no",
-    "supplier has been chosen. Ask specifically about: 1) product/spec, 2) target price range,",
-    "3) MOQ, 4) payment terms, 5) packaging requirements, 6) anything else important to them.",
-    "Frame it as helping them get matched with the RIGHT supplier faster, not a sales pitch.",
-    "Never invent facts not present in context. No emoji. No excessive punctuation.",
-  ].join("\n")
+  const system =
+    emailType === "shortlist_delivery"
+      ? [
+          "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
+          "Goal of THIS email: tell the buyer their sourcing requirements have been reviewed and a",
+          "shortlist of pre-vetted suppliers has been prepared for them. Ask them to open the link",
+          "(shortlist_url in context) to view each supplier's profile, and to mark which one(s) they",
+          "are interested in. Do not list supplier names in the email body — only the link.",
+          "Keep it short (80-140 words), confident, and action-oriented. End with a complete",
+          "signature using sender_name / exporter_company / sender_email from context — never use",
+          "placeholders. Never invent facts not present in context. No emoji.",
+        ].join("\n")
+      : [
+          "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
+          "Goal of THIS email: ask the buyer to share their sourcing requirements so the team can",
+          "shortlist the right manufacturers for them. Do NOT pitch any specific supplier yet — no",
+          "supplier has been chosen. Ask specifically about: 1) product/spec, 2) target price range,",
+          "3) MOQ, 4) payment terms, 5) packaging requirements, 6) anything else important to them.",
+          "Frame it as helping them get matched with the RIGHT supplier faster, not a sales pitch.",
+          "Never invent facts not present in context. No emoji. No excessive punctuation.",
+        ].join("\n")
 
   const userPrompt = [
     "Buyer context (JSON):",
     contextBlock,
     "",
     "AE instruction (Vietnamese):",
-    input.viPrompt || "Hỏi buyer về nhu cầu sản phẩm, MOQ, khoảng giá mục tiêu, điều kiện thanh toán và bao bì.",
+    input.viPrompt ||
+      (emailType === "shortlist_delivery"
+        ? "Thông báo cho buyer là đã có shortlist supplier phù hợp, mời họ bấm link xem profile và chọn supplier quan tâm."
+        : "Hỏi buyer về nhu cầu sản phẩm, MOQ, khoảng giá mục tiêu, điều kiện thanh toán và bao bì."),
   ].join("\n")
 
   const { experimental_output: generated } = await generateText({
@@ -170,7 +205,7 @@ export async function generateRequirementInquiryEmail(
     .insert({
       lead_id: engagement.lead_id,
       engagement_id: input.engagementId,
-      email_type: "requirement_inquiry",
+      email_type: emailType,
       ai_prompt: input.viPrompt,
       generated_subject: generated.subject_en,
       generated_content_en: generated.content_en,

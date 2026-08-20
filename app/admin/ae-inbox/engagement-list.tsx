@@ -38,10 +38,12 @@ import {
 import {
   saveBuyerRequirements,
   buildShortlist,
-  createShortlistLink,
-  convertEngagementToClients,
+  approveAndSendShortlist,
+  createNewShortlistVersion,
+  convertEngagementToOpportunities,
   dropEngagement,
   type SaveRequirementsInput,
+  type ConvertRoleAssignment,
 } from "@/app/admin/ae-inbox/engagement-actions"
 import {
   generateRequirementInquiryEmailAction,
@@ -55,18 +57,41 @@ import type { ClientMatchResult } from "@/lib/matching/client-types"
 // Types
 // ---------------------------------------------------------------------------
 
-interface ShortlistRow {
+export type BuyerActionValue =
+  | "viewed_only"
+  | "interested_no_details"
+  | "requested_info"
+  | "requested_sample"
+  | "requested_meeting"
+  | "selected_primary"
+  | "sent_price_volume"
+  | "sent_po"
+
+interface ShortlistItemRow {
   id: string
   client_id: string
   position: number
   match_score: number | null
   buyer_interested: boolean | null
+  buyer_action: BuyerActionValue | null
   buyer_responded_at: string | null
   profiles: { id: string; company_name: string | null; full_name: string | null } | null
 }
 
+interface ShortlistVersionRow {
+  id: string
+  version_number: number
+  status: "draft" | "sent" | "superseded"
+  scoring_engine_version: string
+  created_at: string
+  sent_at: string | null
+  superseded_at: string | null
+  buyer_engagement_shortlist_items: ShortlistItemRow[]
+}
+
 interface ShareLinkRow {
   token: string
+  version_id: string | null
   view_count: number
   last_viewed_at: string | null
   revoked_at: string | null
@@ -94,7 +119,7 @@ export interface Engagement {
     industry: string | null
     main_product: string | null
   } | null
-  buyer_engagement_shortlist: ShortlistRow[]
+  buyer_engagement_shortlist_versions: ShortlistVersionRow[]
   shortlist_share_links: ShareLinkRow[]
 }
 
@@ -118,6 +143,18 @@ const STAGE_LABELS: Record<string, { vi: string; en: string; tone: string }> = {
   shortlist_sent: { vi: "Đã gửi shortlist cho buyer", en: "Shortlist sent to buyer", tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
   buyer_viewed: { vi: "Buyer đã xem shortlist", en: "Buyer viewed shortlist", tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
   buyer_responded: { vi: "Buyer đã phản hồi", en: "Buyer responded", tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+  qualified_interest: { vi: "Buyer quan tâm — cần quyết định", en: "Qualified interest — needs decision", tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+}
+
+const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> = {
+  viewed_only: { vi: "Chỉ xem", en: "Viewed only" },
+  interested_no_details: { vi: "Quan tâm (chưa chi tiết)", en: "Interested (no details)" },
+  requested_info: { vi: "Hỏi thêm thông tin", en: "Requested info" },
+  requested_sample: { vi: "Yêu cầu mẫu", en: "Requested sample" },
+  requested_meeting: { vi: "Yêu cầu họp", en: "Requested meeting" },
+  selected_primary: { vi: "Chọn làm supplier chính", en: "Selected as primary" },
+  sent_price_volume: { vi: "Gửi giá & số lượng", en: "Sent price & volume" },
+  sent_po: { vi: "Đã gửi PO", en: "Sent PO" },
 }
 
 export function EngagementList({ engagements, clients, locale }: EngagementListProps) {
@@ -151,8 +188,21 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
         {engagements.map((eng) => {
           const lead = eng.leads
           const stageInfo = STAGE_LABELS[eng.stage] ?? STAGE_LABELS.claimed
-          const shortlist = [...eng.buyer_engagement_shortlist].sort((a, b) => a.position - b.position)
-          const shareLink = eng.shortlist_share_links?.[0]
+          const versions = [...eng.buyer_engagement_shortlist_versions].sort(
+            (a, b) => b.version_number - a.version_number,
+          )
+          const sentVersion = versions.find((v) => v.status === "sent") ?? null
+          const draftVersion = versions.find((v) => v.status === "draft") ?? null
+          // Prefer showing the sent (live, immutable) version to reflect
+          // what the buyer actually saw; fall back to the newest draft
+          // while nothing has been sent yet.
+          const displayVersion = sentVersion ?? draftVersion ?? versions[0] ?? null
+          const shortlist = displayVersion
+            ? [...displayVersion.buyer_engagement_shortlist_items].sort((a, b) => a.position - b.position)
+            : []
+          const shareLink = sentVersion
+            ? eng.shortlist_share_links.find((l) => l.version_id === sentVersion.id) ?? null
+            : null
           const interestedCount = shortlist.filter((s) => s.buyer_interested === true).length
 
           return (
@@ -245,10 +295,18 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                 )}
 
                 {/* Shortlist */}
-                {shortlist.length > 0 && (
+                {shortlist.length > 0 && displayVersion && (
                   <div className="rounded-md border p-3 space-y-2">
                     <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-                      <span>{t(`Shortlist (${shortlist.length} supplier)`, `Shortlist (${shortlist.length} suppliers)`)}</span>
+                      <span>
+                        {t(
+                          `Shortlist v${displayVersion.version_number} (${shortlist.length} supplier)`,
+                          `Shortlist v${displayVersion.version_number} (${shortlist.length} suppliers)`,
+                        )}
+                        {displayVersion.status === "draft" && (
+                          <span className="ml-1.5 text-amber-600">{t("— chưa gửi", "— not sent yet")}</span>
+                        )}
+                      </span>
                       {shareLink && (
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
@@ -265,16 +323,15 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                           <span className="truncate font-medium">
                             {s.profiles?.company_name || s.profiles?.full_name || "—"}
                           </span>
-                          {s.buyer_interested === true && (
+                          {s.buyer_action ? (
                             <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20" variant="outline">
-                              {t("Buyer quan tâm", "Interested")}
+                              {t(BUYER_ACTION_LABELS[s.buyer_action].vi, BUYER_ACTION_LABELS[s.buyer_action].en)}
                             </Badge>
-                          )}
-                          {s.buyer_interested === false && (
+                          ) : s.buyer_interested === false ? (
                             <Badge variant="outline" className="text-muted-foreground">
                               {t("Không quan tâm", "Passed")}
                             </Badge>
-                          )}
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -298,31 +355,41 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                       {t("Ghi nhận nhu cầu buyer", "Record buyer requirements")}
                     </Button>
                   )}
-                  {(eng.stage === "requirements_received" || eng.stage === "shortlist_ready") && (
+                  {(eng.stage === "requirements_received" ||
+                    (eng.stage === "shortlist_ready" && !!draftVersion)) && (
                     <Button size="sm" variant="secondary" className="gap-2" onClick={() => setShortlistDialogFor(eng)}>
                       <Sparkles className="h-4 w-4" />
-                      {t("Chọn supplier (AI gợi ý)", "Pick suppliers (AI-assisted)")}
-                    </Button>
-                  )}
-                  {eng.stage === "shortlist_ready" && shortlist.length > 0 && (
-                    <Button size="sm" className="gap-2" onClick={() => setSendShortlistDialogFor(eng)}>
-                      <Link2 className="h-4 w-4" />
-                      {t("Tạo link & gửi shortlist", "Create link & send shortlist")}
-                    </Button>
-                  )}
-                  {["shortlist_sent", "buyer_viewed", "buyer_responded"].includes(eng.stage) && (
-                    <Button
-                      size="sm"
-                      className="gap-2"
-                      variant={eng.stage === "buyer_responded" ? "default" : "outline"}
-                      onClick={() => setConvertDialogFor(eng)}
-                    >
-                      <ArrowRight className="h-4 w-4" />
                       {t(
-                        `Gán client & tạo Opportunity${interestedCount ? ` (${interestedCount} quan tâm)` : ""}`,
-                        `Assign client & create Opportunity${interestedCount ? ` (${interestedCount} interested)` : ""}`,
+                        draftVersion ? "Chỉnh sửa shortlist (nháp)" : "Chọn supplier (AI gợi ý)",
+                        draftVersion ? "Edit shortlist (draft)" : "Pick suppliers (AI-assisted)",
                       )}
                     </Button>
+                  )}
+                  {eng.stage === "shortlist_ready" && draftVersion && shortlist.length > 0 && (
+                    <Button size="sm" className="gap-2" onClick={() => setSendShortlistDialogFor(eng)}>
+                      <Link2 className="h-4 w-4" />
+                      {t("Duyệt & gửi shortlist", "Approve & send shortlist")}
+                    </Button>
+                  )}
+                  {["shortlist_sent", "buyer_viewed", "buyer_responded", "qualified_interest"].includes(eng.stage) && (
+                    <>
+                      <Button size="sm" variant="outline" className="gap-2" onClick={() => setShortlistDialogFor(eng)}>
+                        <Sparkles className="h-4 w-4" />
+                        {t("Tạo phiên bản shortlist mới", "Create new shortlist version")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        variant={eng.stage === "qualified_interest" ? "default" : "outline"}
+                        onClick={() => setConvertDialogFor(eng)}
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                        {t(
+                          `Gán client & tạo Opportunity${interestedCount ? ` (${interestedCount} quan tâm)` : ""}`,
+                          `Assign client & create Opportunity${interestedCount ? ` (${interestedCount} interested)` : ""}`,
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -699,8 +766,9 @@ function ShortlistBuilderDialog({
   const [loaded, setLoaded] = useState(false)
   const [matches, setMatches] = useState<ClientMatchResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
   const [selected, setSelected] = useState<Set<string>>(
-    new Set(engagement.buyer_engagement_shortlist.map((s) => s.client_id)),
+    new Set((draftVersion?.buyer_engagement_shortlist_items ?? []).map((s) => s.client_id)),
   )
   const [saving, setSaving] = useState(false)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -836,10 +904,15 @@ function SendShortlistDialog({
     recipient_email: string | null
   } | null>(null)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
 
   const handleCreateLink = async () => {
+    if (!draftVersion) {
+      toast.error(t("Không tìm thấy bản nháp shortlist", "No draft shortlist version found"))
+      return
+    }
     setCreating(true)
-    const result = await createShortlistLink(engagement.id)
+    const result = await approveAndSendShortlist(draftVersion.id)
     setCreating(false)
     if (!result.ok) {
       toast.error(result.error)

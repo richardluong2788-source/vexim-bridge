@@ -103,17 +103,17 @@ export async function getMatchScores(
 export async function getAEInbox(): Promise<
   ActionResult<Awaited<ReturnType<typeof getInboxItemsForAE>>>
 > {
-  const current = await getCurrentRole()
-  if (!current) return { ok: false, error: "unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs see their own inbox, admins see all
   const supabase = await createClient()
 
   try {
     if (
-      current.role === "admin" ||
-      current.role === "super_admin" ||
-      current.role === "lead_researcher"
+      user.role === "admin" ||
+      user.role === "super_admin" ||
+      user.role === "lead_researcher"
     ) {
       // Admins/LRs see all pending inbox items
       const { data, error } = await supabase
@@ -136,9 +136,9 @@ export async function getAEInbox(): Promise<
 
       if (error) throw error
       return { ok: true, data: data || [] }
-    } else if (current.role === "account_executive") {
+    } else if (user.role === "account_executive") {
       // AEs see only their own inbox
-      const items = await getInboxItemsForAE(current.userId)
+      const items = await getInboxItemsForAE(user.id)
       return { ok: true, data: items }
     } else {
       return { ok: false, error: "forbidden" }
@@ -164,8 +164,8 @@ export interface AcceptMatchInput {
 export async function acceptMatch(
   input: AcceptMatchInput
 ): Promise<ActionResult<{ opportunityId: string }>> {
-  const current = await getCurrentRole()
-  if (!current) return { ok: false, error: "unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs can accept their own matches; admins can accept any.
   // Lead Researcher has read-only access to the inbox (monitoring) and
@@ -173,7 +173,7 @@ export async function acceptMatch(
   // and would bypass the AI-driven assignment workflow.
   const supabase = await createClient()
 
-  if (current.role === "account_executive") {
+  if (user.role === "account_executive") {
     // Verify the AE owns the inbox item.
     const { data: inbox } = await supabase
       .from("ae_match_inbox")
@@ -181,10 +181,10 @@ export async function acceptMatch(
       .eq("id", input.inboxItemId)
       .single()
 
-    if (!inbox || inbox.account_manager_id !== current.userId) {
+    if (!inbox || inbox.account_manager_id !== user.id) {
       return { ok: false, error: "not_your_inbox_item" }
     }
-  } else if (current.role !== "admin" && current.role !== "super_admin") {
+  } else if (user.role !== "admin" && user.role !== "super_admin") {
     return { ok: false, error: "forbidden" }
   }
 
@@ -192,7 +192,7 @@ export async function acceptMatch(
     const result = await acceptInboxItem(
       input.inboxItemId,
       input.clientId,
-      current.userId
+      user.id
     )
 
     if (result.error) {
@@ -225,32 +225,32 @@ export interface RejectMatchInput {
 export async function rejectMatch(
   input: RejectMatchInput
 ): Promise<ActionResult<{ success: boolean }>> {
-  const current = await getCurrentRole()
-  if (!current) return { ok: false, error: "unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs can reject their own matches; admins can reject any.
   // Lead Researcher is read-only on the inbox: rejecting matches would
   // skew AI feedback signal since LR has no context on the AE/client fit.
   const supabase = await createClient()
 
-  if (current.role === "account_executive") {
+  if (user.role === "account_executive") {
     const { data: inbox } = await supabase
       .from("ae_match_inbox")
       .select("account_manager_id")
       .eq("id", input.inboxItemId)
       .single()
 
-    if (!inbox || inbox.account_manager_id !== current.userId) {
+    if (!inbox || inbox.account_manager_id !== user.id) {
       return { ok: false, error: "not_your_inbox_item" }
     }
-  } else if (current.role !== "admin" && current.role !== "super_admin") {
+  } else if (user.role !== "admin" && user.role !== "super_admin") {
     return { ok: false, error: "forbidden" }
   }
 
   try {
     const result = await rejectInboxItem(
       input.inboxItemId,
-      current.userId,
+      user.id,
       input.reason
     )
 

@@ -84,34 +84,16 @@ CRITICAL RULES:
 - NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
 - Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
 - Do NOT offer factory video, COA, or certifications in this email — save concrete proof for the follow-up.
-- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Each AE
-  represents ONE specific Vietnamese manufacturer (see supplier_company) — NEVER imply Vexim is
-  shopping the buyer's spec around a portfolio/list of "manufacturers" (plural). Prefer: "Rather
-  than sending you a general supplier list, we'd be happy to understand your current specifications
-  and volumes and see whether there's a potential fit [with the manufacturer we represent]" over
-  "we can shortlist manufacturers based on your requirements" or "we work with a few Vietnamese
-  manufacturers that may fit your needs" (both wrongly imply a multi-supplier portfolio).
+- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Prefer:
+  "Rather than sending you a general supplier list, we can shortlist manufacturers based on your
+  current specification, volume and compliance requirements" over "we work with a few Vietnamese
+  manufacturers that may fit your needs."
 
 STRUCTURE:
 1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
-2. HOOK (1 sentence): One light, natural discovery question — do NOT assert a specific pain point
-   you can't actually prove from the data ("Are rising costs squeezing your margins?" assumes
-   something you don't know and reads as presumptuous, even slightly surveillance-like). Prefer a
-   simple, open question that just starts the conversation: "Are you currently exploring additional
-   sourcing options for [main_product] from Vietnam?" or "Are you currently looking at ways to
-   strengthen your [main_product] supply chain?"
-3. BUYER RELEVANCE (1 sentence — this is the scenario-specific OPENING line below, do not add a
-   SECOND sentence restating the buyer's sourcing activity on top of it): Show you understand
-   THEIR sourcing profile using real data (product, current origins) — this IS the credibility
-   signal for a first email, not supplier proof. Keep it general and brief; do NOT write a
-   report-style sentence that recites specifics back at the buyer (e.g. avoid "We understand that
-   [buyer_company] has been regularly purchasing [product] and other ingredients from Vietnam" —
-   that reads like a surveillance report, not an email from a person). See the funnel-stage
-   guidance below for exactly how specific to be with sourcing-history references.
-4. PARTNER POSITIONING (1 sentence): Frame Vexim as a partner checking fit with the ONE specific
-   manufacturer it represents for this deal — never implying a portfolio/list to pick from.
-   "Rather than sending you a general supplier list, we'd be happy to understand your current
-   specifications and volumes and see whether there's a potential fit."
+2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
+3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
+4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
 5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
 
 TONE: Peer-to-peer, consultative, curious about THEIR business. Confident without overselling.
@@ -183,26 +165,19 @@ If the supplier has NO proven U.S. export history, NEVER fabricate case studies 
 references. U.S. buyers can easily verify via ImportYeti or customs data. One lie = total
 credibility destruction.
 
-⚠️ ENTITY REMINDER: Vexim does NOT own the factory. Always speak of it as "our partner
-facility" / "the manufacturing partner we represent" / "the manufacturer we work with" —
-NEVER "our factory" or "our production line" as if Vexim itself manufactures.
-
 PILLAR 1 - "Who are they?" (Production Capability)
 → Offer to send factory video/photos showing production line, lab, packaging area.
-→ "I'd be happy to send a short video walkthrough of our partner facility..."
+→ "I'd be happy to send a short video walkthrough of our facility..."
 
 PILLAR 2 - "How do they make it?" (Quality Control)
 → Offer real COA (Certificate of Analysis) from a recent batch - doesn't need to be a US shipment.
-→ "I can share a recent COA from our manufacturing partner showing quality specs: moisture,
-screen size, defect count..."
+→ "I can share a recent COA showing our quality specs: moisture, screen size, defect count..."
 
 PILLAR 3 - "Are they trustworthy?" (Compliance)
 → Highlight REAL certifications: FDA-registered, HACCP, ISO 22000, Organic, etc.
-→ "The manufacturer we represent is FDA-registered and [other certs], so they're fully ready
-for U.S. import..."
+→ "Our facility is FDA-registered and [other certs], so we're fully ready for U.S. import..."
 
-KEY PHRASE TO USE: "We may be new to the U.S. market, but the manufacturer we work with is not
-new to quality."
+KEY PHRASE TO USE: "We may be new to the U.S. market, but we are not new to quality."
 This transforms the "weakness" into a strength of honesty and professionalism.
 ═══════════════════════════════════════════════════════════════════════════════
 `
@@ -218,25 +193,6 @@ This transforms the "weakness" into a strength of honesty and professionalism.
  *   full "3 Pillars of Trust" proof content (used for the follow_up credibility stage).
  */
 function buildScenarioIntelligenceBlock(isFirstContact: boolean, includePillars: boolean): string {
-  const scenarioA = isFirstContact
-    ? `SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
-- ⚠️ SOFT VERSION ONLY - this is a cold first-contact email. Do NOT name the exact current Vietnam
-  supplier (vietnam_supplier_names) — even naming a supplier the buyer is currently, actively using
-  reads as "we're watching exactly who you buy from," which is off-putting on a first email, not
-  reassuring. Keep it general.
-- OPENING: "Given your established sourcing activity in Vietnam, we believe there may be an
-  opportunity to strengthen your supply options through a qualified Vietnamese manufacturer we
-  represent." Use singular "a ... manufacturer we represent" — NEVER plural "manufacturers" or
-  "some manufacturers", which wrongly implies Vexim is sourcing from a portfolio/list on the
-  buyer's behalf. Each AE represents exactly one specific supplier for this deal.
-- ANGLE: Additional/complementary supplier, diversification, competitive pricing.`
-    : `SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
-- ⚠️ HIGH-CONFIDENCE VERSION - the buyer is already engaged with us, so naming their existing
-  Vietnam supplier now reads as informed partnership, not surveillance.
-- OPENING: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a
-  complementary Vietnam source..."
-- ANGLE: Additional supplier, diversification, competitive pricing.`
-
   const scenarioB = isFirstContact
     ? `SCENARIO B: Previously sourced from Vietnam but switched away
 - ⚠️ SOFT VERSION ONLY - this is a cold first-contact email. Do NOT name the exact former
@@ -280,10 +236,9 @@ function buildScenarioIntelligenceBlock(isFirstContact: boolean, includePillars:
 - End with a QUALIFYING question about THEIR needs rather than a proof offer, e.g. "Would
   you be open to sharing your current specification so we can see if there's a fit?"`
     : `BODY for SCENARIO C:
-- Emphasize TRIAL/SAMPLE approach: "We'd welcome the opportunity to send samples from our
-  manufacturing partner so you can evaluate the quality firsthand."
-- Highlight competitive advantages: FDA-registered, consistent quality, competitive pricing —
-  attributed to the manufacturer we represent, not to Vexim itself.
+- Emphasize TRIAL/SAMPLE approach: "We'd welcome the opportunity to send samples so you can
+  evaluate our quality firsthand."
+- Highlight competitive advantages: FDA-registered, consistent quality, competitive pricing.
 - Mention specific product using HS code and product name to show expertise.`
 
   return `
@@ -302,7 +257,9 @@ factory video, COA, or certifications yet; that comes in the follow-up once the 
 personalization (naming past suppliers, years, volumes) is now appropriate.`
 }
 
-${scenarioA}
+SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
+- Opening: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a complementary Vietnam source..."
+- Angle: Additional supplier, diversification, competitive pricing
 
 ${scenarioB}
 
@@ -316,11 +273,7 @@ Option C1 - If they source from expensive origins (Chile, Brazil, USA, Europe):
 "As [buyer_company] evaluates alternatives to [main_import_countries] for your [main_product] needs, Vietnam offers a compelling combination of quality and landed cost savings."
 
 Option C2 - If high volume buyer (total_shipments > 50 or avg_teu_per_month > 2):
-"Given the scale of [buyer_company]'s [main_product] sourcing, diversifying your supply chain to
-include Vietnam could offer meaningful cost advantages and supply security." Use total_shipments /
-avg_teu_per_month only internally to DECIDE this is a high-volume buyer worth this angle — do NOT
-recite the literal number back to them; reading their own shipment count back to them feels like
-being handed a surveillance report, not a thoughtful email.
+"With [buyer_company]'s substantial [main_product] volume — [total_shipments] shipments — diversifying your supply chain to include Vietnam could offer meaningful cost advantages and supply security."
 
 Option C3 - If they have specific suppliers you can name from top_suppliers:
 "I noticed [buyer_company] sources [main_product] from [top_suppliers]. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to [main_import_countries] at significantly more competitive landed costs."
@@ -350,7 +303,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT:\n\nBest regards,\n\n[SENDER_NAME]\n[SENDER_TITLE]\nVexim Trade\n\nOnly sender_name, sender_title, and 'Vexim Trade' belong in the signature. NEVER put the supplier's company name, and NEVER include sender_email or sender_phone (personal AE contact info is intentionally withheld from buyers). NEVER use placeholders like '[Your Name]', '[Your Contact]', etc. — use the actual sender_name/sender_title from context. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT:\n\nBest regards,\n\n[SENDER_FULL_NAME]\n[EXPORTER_COMPANY_NAME]\n[SENDER_EMAIL]\n[SENDER_PHONE]\n\nNEVER use placeholders like '[Your Name]', '[Your Contact]', etc. Use the actual names and contacts provided in the context. If any info is missing, use only what's available. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -459,10 +412,7 @@ export async function generateEmailDraft(
   }
 
   const lead = (opportunity as { leads: Record<string, unknown> | null }).leads
-  // "supplier" = the Vietnamese manufacturer/supplier that is Vexim's PAYING CLIENT
-  // (opportunities.client_id). Vexim represents this supplier to the US buyer — Vexim
-  // is neither the buyer nor the supplier itself, just the intermediary/broker-partner.
-  const supplier = (opportunity as { profiles: Record<string, unknown> | null }).profiles
+  const exporter = (opportunity as { profiles: Record<string, unknown> | null }).profiles
 
   if (!lead) {
     throw new Error("Opportunity has no associated lead")
@@ -508,7 +458,7 @@ export async function generateEmailDraft(
   const contextBlock = JSON.stringify(
     {
       // === BUYER BASIC INFO ===
-      // buyer_contact/buyer_email ưu tiên liên hệ AE vừa chọn ở c���t "Email
+      // buyer_contact/buyer_email ưu tiên liên hệ AE vừa chọn ở cột "Email
       // chính" (danh bạ đa liên hệ), chỉ fallback về contact_person/
       // contact_email của lead khi AE không chọn ai cụ thể.
       buyer_company: lead["company_name"],
@@ -553,12 +503,11 @@ export async function generateEmailDraft(
       // === PRIORITY & QUALIFICATION ===
       priority_rating: lead["priority_rating"], // 1-5 priority score
       
-      // === SUPPLIER (Vexim's paying client — the Vietnamese manufacturer/exporter
-      // Vexim represents to the buyer, NOT the buyer, NOT Vexim itself) INFO ===
-      supplier_company: supplier?.["company_name"] ?? null,
-      supplier_industry: supplier?.["industry"] ?? null,
-      supplier_email: supplier?.["email"] ?? null,
-      supplier_phone: supplier?.["phone"] ?? null,
+      // === EXPORTER (Our client) INFO ===
+      exporter_company: exporter?.["company_name"] ?? null,
+      exporter_industry: exporter?.["industry"] ?? null,
+      exporter_email: exporter?.["email"] ?? null,
+      exporter_phone: exporter?.["phone"] ?? null,
       
       // === SENDER (AE) INFO - Use for email signature ===
       // NOTE: Only name, title, and company are included.
@@ -582,14 +531,14 @@ export async function generateEmailDraft(
     2,
   )
 
-  // Personalize the system prompt with the supplier's industry so the AI
+  // Personalize the system prompt with the exporter's industry so the AI
   // uses the right terminology, certifications, and distribution channels.
   // A client selling cosmetics should NOT receive food-export phrasing.
-  const supplierIndustry =
-    (supplier?.["industry"] as string | null | undefined) ?? null
-  const industryLine = supplierIndustry
-    ? `Vexim Trade is writing on behalf of the Vietnamese ${supplierIndustry.toLowerCase()} manufacturer/supplier it represents (see supplier_company), reaching out to US buyers. Use terminology, certifications, and sales language appropriate for the ${supplierIndustry} industry.`
-    : "Vexim Trade is writing on behalf of the Vietnamese manufacturer/supplier it represents (see supplier_company), reaching out to US buyers. Adapt tone and terminology to the supplier's industry indicated in the context."
+  const exporterIndustry =
+    (exporter?.["industry"] as string | null | undefined) ?? null
+  const industryLine = exporterIndustry
+    ? `You are writing on behalf of a Vietnamese ${exporterIndustry.toLowerCase()} exporter reaching out to US buyers. Use terminology, certifications, and sales language appropriate for the ${exporterIndustry} industry.`
+    : "You are writing on behalf of a Vietnamese exporter reaching out to US buyers. Adapt tone and terminology to the exporter's industry indicated in the context."
 
   // Funnel stage flags gating the buyer-intelligence playbook:
   // Buyer relevance (introduction) → Supplier credibility (follow_up) → Commercial offer (quotation).
@@ -603,79 +552,24 @@ export async function generateEmailDraft(
     `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
     `
-NATURAL AMERICAN BUSINESS TONE - WRITE LIKE A REAL PERSON, NOT AN AI:
-This email must read like it was written by an actual US-based account executive typing a quick,
-thoughtful email between calls — not like a marketing bot or a generated report. Buyers can smell
-"AI-written" outreach from a mile away, and it kills trust instantly.
-- AVOID "AI smell" patterns: perfectly symmetric sentences, triple-stacked adjectives ("innovative,
-  reliable, cost-effective"), overly formal transitions ("Furthermore," "In today's competitive
-  landscape," "We understand that..."), and corporate buzzwords ("synergy," "leverage," "optimize,"
-  "streamline," "robust solution").
-- AVOID sounding like a data/intelligence report reciting facts back at the buyer ("Your total
-  shipments reaching 56...", "We've identified that you source from..."). A real AE doesn't open
-  with "here's what I know about you" — they open with a genuine, low-key question or observation,
-  the way you'd start a note to a professional peer you haven't met yet.
-- Contractions are fine and often more natural ("we'd", "you're", "it's") — this isn't a legal
-  document.
-- Vary sentence length. Real people don't write every sentence the same length. A short sentence
-  after a longer one reads more human.
-- Prefer plain, concrete words over "business-speak": say "a good fit" not "a strategic alignment
-  opportunity"; say "worth comparing" not "a compelling value proposition."
-- The email should sound like it was written specifically for THIS buyer in THIS moment, not like a
-  template with fields swapped in. If a sentence could be sent unchanged to any buyer in any
-  industry, rewrite it to be more specific and less generic.
-- When in doubt, ask: "Would a busy, skeptical US buyer read this and think 'a person wrote this
-  because they actually looked at my business,' or 'this is a mass email with my name inserted'?"
-  Always aim for the former.`,
-    `
 VEXIM POSITIONING - WHO WE ARE (never contradict this):
-Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese
-manufacturers — NOT a broker blasting out a generic supplier list. IMPORTANT: for THIS specific
-email, the AE represents exactly ONE Vietnamese manufacturer (see supplier_company) — NEVER speak
-as if Vexim is matching the buyer against a portfolio or shortlist of multiple manufacturers.
-Every "manufacturer(s)" reference in this email must be either singular ("a qualified Vietnamese
-manufacturer we represent" / "the manufacturer we represent") or refer to the specific one
-supplier — never plural like "manufacturers", "some manufacturers", or "a few Vietnamese
-manufacturers".
+Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese manufacturers
+matched to their specific requirements — NOT a broker blasting out a generic supplier list.
 - Prefer partner language over broker language. Instead of "we work with a few Vietnamese
-  manufacturers that may fit your sourcing requirements" or "we can shortlist manufacturers based
-  on your spec" (both wrongly imply a multi-supplier portfolio), write: "Rather than sending you a
-  general supplier list, we'd be happy to understand your current specifications and volumes and
-  see whether there's a potential fit."
-- Vexim's value is in understanding the buyer's sourcing profile FIRST, then checking fit with the
-  ONE manufacturer this AE represents — never in pushing that supplier before the buyer's needs
-  are understood, and never in implying there's a wider list to choose from.`,
+  manufacturers that may fit your sourcing requirements," write: "Rather than sending you a general
+  supplier list, we can shortlist manufacturers based on your current specification, volume and
+  compliance requirements."
+- Vexim's value is in understanding the buyer's sourcing profile FIRST, then matching the right
+  manufacturer — never in pushing a specific supplier before the buyer's needs are understood.`,
     `
-THE 4 ENTITIES - NEVER CONFUSE THESE (this is the #1 source of email-writing mistakes):
-1. BUYER — the US company/person receiving this email (see buyer_company, buyer_contact,
-   buyer_industry). This is WHO the email is addressed to.
-2. SUPPLIER — the Vietnamese manufacturer/factory that Vexim represents in this deal (see
-   supplier_company, supplier_industry). This is Vexim's PAYING CLIENT, NOT the buyer, and
-   NOT Vexim itself. The supplier's real company name is confidential — NEVER put it in the
-   email body or signature; refer to it only as "the manufacturer we represent" / "our
-   partner facility" / "our manufacturing partner", never by its real name.
-3. VEXIM TRADE — the sourcing/export intermediary sending this email (see sender_company =
-   "Vexim Trade"). Vexim is neither the buyer nor the supplier. Vexim does NOT own any
-   factory — never write "our factory" / "our production line" as if Vexim manufactures.
-4. AE (Account Executive) — the specific Vexim staff member sending this particular email
-   (see sender_name, sender_title). Different AEs handle different opportunities for the
-   SAME buyer, so never assume the buyer has only ever heard from this one AE.
-
 CONTEXT DATA - Do NOT get confused:
-- "supplier_company" = the SUPPLIER's (Vexim's client's) company name (e.g., "Công Ty Long An").
-  This is CONFIDENTIAL — it is NOT for the signature and NOT to be revealed to the buyer by name.
-- "buyer_company" / "buyer_contact" = the BUYER's company/contact — who this email is TO.
-- "sender_name", "sender_title", "sender_company" = the AE's info from VEXIM TRADE. ONLY these
-  three go in the signature (see the SIGNATURE rule below) — never sender_email/sender_phone,
-  and never supplier_company.
+- "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
+- "sender_name", "sender_title", "sender_company", "sender_email", "sender_phone" = The AE's info from VEXIM TRADE. These go in the signature.
 
 Example to avoid confusion:
-- Supplier company: "Công Ty Long An" (Vexim's client — the Vietnamese manufacturer being
-  represented. NEVER named to the buyer.)
-- Buyer: "Nodom Foods" / contact "Richard Smith" (this is who the email is addressed TO)
-- Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (this is the AE sending the email)
-- The email is FROM Luong Van Hoc (Vexim Trade), on behalf of the supplier "Công Ty Long An",
-  TO the buyer "Richard Smith" at Nodom Foods.`,
+- Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
+- Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (This is the AE sending the email)
+- The email is FROM Luong Van Hoc (Vexim Trade) TO the buyer at Công Ty Long An.`,
     `
 GREETING & SUBJECT PERSONALIZATION:
 - "buyer_contact" is the EXACT person this email is addressed to (the AE explicitly selected them as the main recipient). ALWAYS greet them by this name: "Dear [buyer_contact]," or "Hi [first name],". Never use a generic greeting like "Dear Sir/Madam" or "Dear Team" when buyer_contact is provided.
@@ -703,8 +597,7 @@ GREETING & SUBJECT PERSONALIZATION:
    ⚠️ NEVER include personal email addresses (like hocluongvan88@gmail.com) in the signature.
    ⚠️ NEVER include personal phone numbers in the signature.
    ⚠️ NEVER use placeholder text like "[Your Name]" or "[Your Title]".
-   ⚠️ NEVER use the buyer's or supplier's company name in the signature — only sender_name,
-     sender_title, and "Vexim Trade" belong there.
+   ⚠️ NEVER use the buyer/exporter name in the signature.
    
    The signature should be minimal and professional. Buyers will reply to the email directly - no need for additional contact info.
 `,
@@ -754,21 +647,12 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
    replied and is engaged (follow_up credibility stage), naming the exact extracted
    supplier/year/volume is the high-impact move.
    
-   - If has_vietnam_supplier=true and still active: on a COLD first email, keep this general —
-     "Given your sourcing activity in Vietnam, we believe there may be an opportunity to strengthen
-     your supply options..." — do NOT name [EXACT_vietnam_supplier_name] yet, even though the
-     relationship is ongoing (not a switch); naming their current, active supplier still reads as
-     "we're watching who you buy from." Once the buyer has engaged (follow_up stage), naming it
-     directly ("Building on your relationship with [EXACT_vietnam_supplier_name]...") is fine and
-     reads as informed partnership.
+   - If has_vietnam_supplier=true and still active: "Building on your experience with [EXACT_vietnam_supplier_name], we offer a complementary source..." (this framing is fine even on a first email, since it is not surfacing a SWITCH, just an ongoing relationship)
    - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
 
 3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
    - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
    - Lower volume: Emphasize flexibility, MOQ accommodation, sample programs
-   - ⚠️ Use these numbers to DECIDE your angle and tone only — do NOT quote the literal shipment
-     count or TEU figure back to the buyer in the email. Reading their own volume stats back to
-     them feels like reciting a surveillance report, not writing them a thoughtful note.
 
 4. TIMING INTELLIGENCE (peak_months, top_low_months, last_shipment_date):
    - If approaching peak_months: "With your Q[X] season approaching..."
@@ -801,7 +685,7 @@ STRICT RULES:
 - Never use emoji or excessive punctuation (!!!, ???).
 - If context is thin, write a shorter, tighter email rather than padding with fluff.
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
-  - SIGNATURE: Always end with a COMPLETE signature using ONLY sender_name, sender_title, and "Vexim Trade" from context (see the detailed SIGNATURE rule above). NEVER include supplier_company, sender_email, or sender_phone in the signature. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- SIGNATURE: Always end with a COMPLETE signature using sender_name, exporter_company, sender_email, sender_phone from context. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
 `,
     buildScenarioIntelligenceBlock(isFirstContact, includeThreePillars),
   ].join("\n")

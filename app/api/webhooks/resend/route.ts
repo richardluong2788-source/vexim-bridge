@@ -154,15 +154,6 @@ async function findOpportunityByEmail(
   matchConfidence: number
   matchedContactId: string | null
   isUnrecognizedSender: boolean
-  /**
-   * All open opportunity ids that could plausibly own this reply. Length 1
-   * when there's a single unambiguous match (the common case). Length 2+
-   * means the shortlist has multiple competing clients/AEs with an open
-   * opportunity for this same buyer, and we picked opportunityId as only a
-   * provisional guess (most recently updated) — the webhook caller MUST
-   * notify every owner in this list and flag needs_ae_confirmation.
-   */
-  candidateOpportunityIds: string[]
 } | null> {
   const admin = createAdminClient()
 
@@ -212,10 +203,6 @@ async function findOpportunityByEmail(
           // Thread matched, but this specific person isn't in our directory
           // yet — likely introduced/referred by the original contact.
           isUnrecognizedSender: !matchedContact,
-          // In-Reply-To pinpoints the exact opportunity the buyer's email
-          // client actually replied to — never ambiguous, regardless of how
-          // many other open opportunities this buyer also has.
-          candidateOpportunityIds: [opp.id],
         }
       }
     }
@@ -224,14 +211,6 @@ async function findOpportunityByEmail(
   // Method 2: Match by sender email against ANY contact in buyer_contacts
   // (medium confidence) — supports multi-contact companies where different
   // departments/market reps email in independently, not just the primary.
-  //
-  // IMPORTANT: under the shortlist model a buyer can have up to
-  // MAX_CLIENTS_PER_BUYER (currently 3) open opportunities at once — one per
-  // competing client/AE. Without a thread header we CANNOT know which one
-  // the buyer actually meant to reply to, so we collect every open
-  // opportunity across every matching contact instead of guessing with
-  // `.limit(1)`. The caller decides how to handle 2+ candidates (flag for
-  // AE confirmation) vs exactly 1 (confident match, same behavior as before).
   const { data: matchingContacts } = await admin
     .from("buyer_contacts")
     .select("id, lead_id")
@@ -240,73 +219,33 @@ async function findOpportunityByEmail(
 
   const contactMatches = (matchingContacts ?? []) as { id: string; lead_id: string }[]
 
-  type OpenOppMatch = {
-    id: string
-    stage: string | null
-    lead_id: string | null
-    company_name: string | null
-    industry: string | null
-    last_updated: string | null
-    contactId: string
-  }
-  const allOpenOpps: OpenOppMatch[] = []
-
   for (const contactMatch of contactMatches) {
-    const { data: opps } = await admin
+    const { data: opp } = await admin
       .from("opportunities")
-      .select(
-        "id, stage, lead_id, last_updated, leads:lead_id ( company_name, industry )",
-      )
+      .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
       .eq("lead_id", contactMatch.lead_id)
       .not("stage", "in", '("won","lost")')
       .order("last_updated", { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    for (const opp of opps ?? []) {
+    if (opp) {
       const lead = opp.leads as { company_name?: string; industry?: string } | null
-      allOpenOpps.push({
-        id: opp.id,
-        stage: opp.stage,
-        lead_id: (opp as { lead_id: string | null }).lead_id,
-        company_name: lead?.company_name ?? null,
-        industry: lead?.industry ?? null,
-        last_updated: (opp as { last_updated: string | null }).last_updated,
-        contactId: contactMatch.id,
-      })
+      return {
+        opportunityId: opp.id,
+        leadId: contactMatch.lead_id,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        oppStage: opp.stage,
+        matchSource: "sender_email",
+        matchConfidence: 0.75,
+        matchedContactId: contactMatch.id,
+        isUnrecognizedSender: false,
+      }
     }
   }
 
-  // De-dupe (a buyer with multiple matching contacts on the SAME
-  // opportunity should not count as 2 candidates).
-  const seen = new Set<string>()
-  const uniqueOpenOpps = allOpenOpps.filter((o) => {
-    if (seen.has(o.id)) return false
-    seen.add(o.id)
-    return true
-  })
-
-  if (uniqueOpenOpps.length === 0) return null
-
-  // Most-recently-updated first — used as the provisional pick when
-  // ambiguous, and as THE pick when there's only one candidate.
-  uniqueOpenOpps.sort((a, b) => {
-    const at = a.last_updated ? new Date(a.last_updated).getTime() : 0
-    const bt = b.last_updated ? new Date(b.last_updated).getTime() : 0
-    return bt - at
-  })
-
-  const primary = uniqueOpenOpps[0]
-  return {
-    opportunityId: primary.id,
-    leadId: primary.lead_id,
-    leadCompany: primary.company_name,
-    leadIndustry: primary.industry,
-    oppStage: primary.stage,
-    matchSource: "sender_email",
-    matchConfidence: uniqueOpenOpps.length > 1 ? 0.5 : 0.75,
-    matchedContactId: primary.contactId,
-    isUnrecognizedSender: false,
-    candidateOpportunityIds: uniqueOpenOpps.map((o) => o.id),
-  }
+  return null
 }
 
 /**
@@ -441,12 +380,6 @@ export async function POST(req: NextRequest) {
       // Continue without AI - still save the raw reply
     }
 
-    // Shortlist model: a buyer can have several open opportunities at once
-    // (one per competing client/AE). If the sender-email fallback found 2+
-    // plausible candidates, we can't trust the provisional pick — flag it so
-    // every candidate AE gets notified and one of them must confirm.
-    const isAmbiguous = match.candidateOpportunityIds.length > 1
-
     // Insert buyer reply
     const admin = createAdminClient()
     const { data: reply, error: insertErr } = await admin
@@ -469,8 +402,6 @@ export async function POST(req: NextRequest) {
         match_confidence: match.matchConfidence,
         matched_contact_id: match.matchedContactId,
         is_unrecognized_sender: match.isUnrecognizedSender,
-        needs_ae_confirmation: isAmbiguous,
-        candidate_opportunity_ids: match.candidateOpportunityIds,
         received_at: data.created_at,
         created_by: null, // System-created, not by a user
       })
@@ -484,78 +415,45 @@ export async function POST(req: NextRequest) {
 
     console.log("[v0] Buyer reply saved with ID:", reply?.id)
 
-    // Dispatch notification(s). Normally just the single opportunity owner.
-    // When ambiguous (2+ candidate opportunities for this buyer), we do NOT
-    // silently trust the provisional pick — every candidate AE gets notified
-    // and asked to confirm/claim the reply, so it never goes unnoticed by
-    // the AE the buyer actually meant to reach.
+    // Dispatch notification to opportunity owner
     try {
       const admin = createAdminClient()
-      const { data: candidateOpps } = await admin
+      const { data: opp, error: oppErr } = await admin
         .from("opportunities")
-        .select("id, owner_id")
-        .in("id", match.candidateOpportunityIds)
+        .select("owner_id, lead_id")
+        .eq("id", match.opportunityId)
+        .single()
 
-      const owners = (candidateOpps ?? []) as { id: string; owner_id: string | null }[]
-
-      if (isAmbiguous) {
-        for (const owner of owners) {
-          if (!owner.owner_id) continue
-          await dispatchNotification({
-            userId: owner.owner_id,
-            category: "action_required",
-            opportunityId: owner.id,
-            linkPath: `/admin/opportunities/${owner.id}?tab=replies`,
-            // Dedup per (owner's opportunity, reply) so EVERY candidate AE
-            // gets their own notification for the same reply.
-            dedupKey: `buyer_reply_ambiguous:${reply?.id}:${owner.id}`,
-            title: {
-              vi: `Cần xác nhận: phản hồi từ ${fromEmail} (buyer đang có ${owners.length} client cạnh tranh)`,
-              en: `Please confirm: reply from ${fromEmail} (buyer has ${owners.length} competing clients)`,
-            },
-            body: {
-              vi: `Buyer trả lời nhưng không giữ được thread gốc, nên hệ thống không thể biết chắc reply này dành cho bạn hay cho AE khác đang có buyer này. Vào xem và bấm "Xác nhận đây là của tôi" nếu đúng. ${data.subject.slice(0, 60)}...`,
-              en: `The buyer replied without keeping the original thread, so we can't be sure this reply is for you or another AE sharing this buyer. Open it and click "Confirm this is mine" if it's yours. ${data.subject.slice(0, 60)}...`,
-            },
-            ctaLabel: {
-              vi: "Xem & xác nhận",
-              en: "View & confirm",
-            },
-          })
-        }
-      } else {
-        const owner = owners.find((o) => o.id === match.opportunityId)
-        if (owner?.owner_id) {
-          await dispatchNotification({
-            userId: owner.owner_id,
-            category: "action_required",
-            opportunityId: match.opportunityId,
-            linkPath: `/admin/opportunities/${match.opportunityId}?tab=replies`,
-            dedupKey: `buyer_reply:${reply?.id}`,
-            title: match.isUnrecognizedSender
-              ? {
-                  vi: `Người lạ trả lời (chưa có trong danh bạ): ${fromEmail}`,
-                  en: `Unrecognized sender replied (not in contact directory): ${fromEmail}`,
-                }
-              : {
-                  vi: `Có phản hồi từ ${fromEmail}`,
-                  en: `New reply from ${fromEmail}`,
-                },
-            body: match.isUnrecognizedSender
-              ? {
-                  vi: `Có thể buyer đã giới thiệu sang người khác. Hãy vào Danh bạ để thêm liên hệ mới. ${data.subject.slice(0, 60)}...`,
-                  en: `Buyer may have introduced a different contact. Add them to the contact directory. ${data.subject.slice(0, 60)}...`,
-                }
-              : {
-                  vi: `${data.subject.slice(0, 60)}...`,
-                  en: `${data.subject.slice(0, 60)}...`,
-                },
-            ctaLabel: {
-              vi: "Xem phản hồi",
-              en: "View reply",
-            },
-          })
-        }
+      if (!oppErr && opp?.owner_id) {
+        await dispatchNotification({
+          userId: opp.owner_id,
+          category: "action_required",
+          opportunityId: match.opportunityId,
+          linkPath: `/admin/opportunities/${match.opportunityId}?tab=replies`,
+          dedupKey: `buyer_reply:${reply?.id}`,
+          title: match.isUnrecognizedSender
+            ? {
+                vi: `Người lạ trả lời (chưa có trong danh bạ): ${fromEmail}`,
+                en: `Unrecognized sender replied (not in contact directory): ${fromEmail}`,
+              }
+            : {
+                vi: `Có phản hồi từ ${fromEmail}`,
+                en: `New reply from ${fromEmail}`,
+              },
+          body: match.isUnrecognizedSender
+            ? {
+                vi: `Có thể buyer đã giới thiệu sang người khác. Hãy vào Danh bạ để thêm liên hệ mới. ${data.subject.slice(0, 60)}...`,
+                en: `Buyer may have introduced a different contact. Add them to the contact directory. ${data.subject.slice(0, 60)}...`,
+              }
+            : {
+                vi: `${data.subject.slice(0, 60)}...`,
+                en: `${data.subject.slice(0, 60)}...`,
+              },
+          ctaLabel: {
+            vi: "Xem phản hồi",
+            en: "View reply",
+          },
+        })
       }
     } catch (err) {
       console.error("[v0] Failed to dispatch notification:", err)

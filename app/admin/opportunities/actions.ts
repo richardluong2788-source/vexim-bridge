@@ -691,14 +691,17 @@ export async function suggestClientAction(
     fda_registration_number: string | null
   } | null
 
+  // "supplier" here = the Vietnamese manufacturer/supplier that is Vexim's paying client
+  // for this opportunity (client_id), i.e. the party this advisor is prepping — NOT the
+  // US buyer, and NOT Vexim itself.
   const context = {
     stage: opp.stage,
     potential_value_usd: opp.potential_value,
     target_close_date: opp.target_close_date,
     buyer_industry: lead?.industry ?? null,
-    exporter_company: client?.company_name ?? null,
-    exporter_industry: client?.industry ?? null,
-    exporter_has_fda: Boolean(client?.fda_registration_number),
+    supplier_company: client?.company_name ?? null,
+    supplier_industry: client?.industry ?? null,
+    supplier_has_fda: Boolean(client?.fda_registration_number),
     products: input.productsInterested ?? null,
     incoterms: input.incoterms ?? null,
     payment_terms: input.paymentTerms ?? null,
@@ -707,12 +710,12 @@ export async function suggestClientAction(
   }
 
   const system = [
-    "You are a senior export-sales advisor helping a Vietnamese exporter prepare for the next step in a US buyer deal.",
+    "You are a senior export-sales advisor helping a Vietnamese supplier/manufacturer (Vexim Trade's client, see supplier_company) prepare for the next step in a US buyer deal.",
     "Write in Vietnamese. Be concrete, actionable, and concise.",
     "Output must be 1 to 3 bullet points separated by line breaks, each starting with '- '. Max ~200 characters total.",
     "Base suggestions on the deal stage, commercial terms, and what the admin has just said they are doing next.",
-    "If the exporter is missing an FDA registration and the stage requires it (e.g. negotiation or later), remind them to complete FDA registration first.",
-    "Never invent facts. If essential context is missing, suggest the exporter confirm it with the admin.",
+    "If the supplier is missing an FDA registration and the stage requires it (e.g. negotiation or later), remind them to complete FDA registration first.",
+    "Never invent facts. If essential context is missing, suggest the admin confirm it with the supplier.",
     "Do not greet. Do not use emojis.",
   ].join("\n\n")
 
@@ -720,7 +723,7 @@ export async function suggestClientAction(
     "Deal context (JSON):",
     JSON.stringify(context, null, 2),
     "",
-    "Task: Suggest what the Vietnamese exporter should prepare next, in Vietnamese.",
+    "Task: Suggest what the Vietnamese supplier should prepare next, in Vietnamese.",
   ].join("\n")
 
   try {

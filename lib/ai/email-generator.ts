@@ -84,10 +84,13 @@ CRITICAL RULES:
 - NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
 - Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
 - Do NOT offer factory video, COA, or certifications in this email — save concrete proof for the follow-up.
-- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Prefer:
-  "Rather than sending you a general supplier list, we can shortlist manufacturers based on your
-  current specification, volume and compliance requirements" over "we work with a few Vietnamese
-  manufacturers that may fit your needs."
+- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Each AE
+  represents ONE specific Vietnamese manufacturer (see supplier_company) — NEVER imply Vexim is
+  shopping the buyer's spec around a portfolio/list of "manufacturers" (plural). Prefer: "Rather
+  than sending you a general supplier list, we'd be happy to understand your current specifications
+  and volumes and see whether there's a potential fit [with the manufacturer we represent]" over
+  "we can shortlist manufacturers based on your requirements" or "we work with a few Vietnamese
+  manufacturers that may fit your needs" (both wrongly imply a multi-supplier portfolio).
 
 STRUCTURE:
 1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
@@ -97,8 +100,18 @@ STRUCTURE:
    simple, open question that just starts the conversation: "Are you currently exploring additional
    sourcing options for [main_product] from Vietnam?" or "Are you currently looking at ways to
    strengthen your [main_product] supply chain?"
-3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
-4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
+3. BUYER RELEVANCE (1 sentence — this is the scenario-specific OPENING line below, do not add a
+   SECOND sentence restating the buyer's sourcing activity on top of it): Show you understand
+   THEIR sourcing profile using real data (product, current origins) — this IS the credibility
+   signal for a first email, not supplier proof. Keep it general and brief; do NOT write a
+   report-style sentence that recites specifics back at the buyer (e.g. avoid "We understand that
+   [buyer_company] has been regularly purchasing [product] and other ingredients from Vietnam" —
+   that reads like a surveillance report, not an email from a person). See the funnel-stage
+   guidance below for exactly how specific to be with sourcing-history references.
+4. PARTNER POSITIONING (1 sentence): Frame Vexim as a partner checking fit with the ONE specific
+   manufacturer it represents for this deal — never implying a portfolio/list to pick from.
+   "Rather than sending you a general supplier list, we'd be happy to understand your current
+   specifications and volumes and see whether there's a potential fit."
 5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
 
 TONE: Peer-to-peer, consultative, curious about THEIR business. Confident without overselling.
@@ -211,8 +224,11 @@ function buildScenarioIntelligenceBlock(isFirstContact: boolean, includePillars:
   supplier (vietnam_supplier_names) — even naming a supplier the buyer is currently, actively using
   reads as "we're watching exactly who you buy from," which is off-putting on a first email, not
   reassuring. Keep it general.
-- OPENING: "Given your sourcing activity in Vietnam, we believe there may be an opportunity to
-  strengthen your supply options through additional qualified Vietnamese manufacturers."
+- OPENING: "Given your established sourcing activity in Vietnam, we believe there may be an
+  opportunity to strengthen your supply options through a qualified Vietnamese manufacturer we
+  represent." Use singular "a ... manufacturer we represent" — NEVER plural "manufacturers" or
+  "some manufacturers", which wrongly implies Vexim is sourcing from a portfolio/list on the
+  buyer's behalf. Each AE represents exactly one specific supplier for this deal.
 - ANGLE: Additional/complementary supplier, diversification, competitive pricing.`
     : `SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
 - ⚠️ HIGH-CONFIDENCE VERSION - the buyer is already engaged with us, so naming their existing
@@ -613,14 +629,22 @@ thoughtful email between calls — not like a marketing bot or a generated repor
   Always aim for the former.`,
     `
 VEXIM POSITIONING - WHO WE ARE (never contradict this):
-Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese manufacturers
-matched to their specific requirements — NOT a broker blasting out a generic supplier list.
+Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese
+manufacturers — NOT a broker blasting out a generic supplier list. IMPORTANT: for THIS specific
+email, the AE represents exactly ONE Vietnamese manufacturer (see supplier_company) — NEVER speak
+as if Vexim is matching the buyer against a portfolio or shortlist of multiple manufacturers.
+Every "manufacturer(s)" reference in this email must be either singular ("a qualified Vietnamese
+manufacturer we represent" / "the manufacturer we represent") or refer to the specific one
+supplier — never plural like "manufacturers", "some manufacturers", or "a few Vietnamese
+manufacturers".
 - Prefer partner language over broker language. Instead of "we work with a few Vietnamese
-  manufacturers that may fit your sourcing requirements," write: "Rather than sending you a general
-  supplier list, we can shortlist manufacturers based on your current specification, volume and
-  compliance requirements."
-- Vexim's value is in understanding the buyer's sourcing profile FIRST, then matching the right
-  manufacturer — never in pushing a specific supplier before the buyer's needs are understood.`,
+  manufacturers that may fit your sourcing requirements" or "we can shortlist manufacturers based
+  on your spec" (both wrongly imply a multi-supplier portfolio), write: "Rather than sending you a
+  general supplier list, we'd be happy to understand your current specifications and volumes and
+  see whether there's a potential fit."
+- Vexim's value is in understanding the buyer's sourcing profile FIRST, then checking fit with the
+  ONE manufacturer this AE represents — never in pushing that supplier before the buyer's needs
+  are understood, and never in implying there's a wider list to choose from.`,
     `
 THE 4 ENTITIES - NEVER CONFUSE THESE (this is the #1 source of email-writing mistakes):
 1. BUYER — the US company/person receiving this email (see buyer_company, buyer_contact,

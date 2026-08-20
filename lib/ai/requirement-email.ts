@@ -1,5 +1,3 @@
-"use server"
-
 /**
  * AI generator for the "requirement inquiry" email — sent to a buyer
  * BEFORE any client/supplier has been picked, to collect their sourcing

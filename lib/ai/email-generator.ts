@@ -91,7 +91,12 @@ CRITICAL RULES:
 
 STRUCTURE:
 1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
-2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
+2. HOOK (1 sentence): One light, natural discovery question — do NOT assert a specific pain point
+   you can't actually prove from the data ("Are rising costs squeezing your margins?" assumes
+   something you don't know and reads as presumptuous, even slightly surveillance-like). Prefer a
+   simple, open question that just starts the conversation: "Are you currently exploring additional
+   sourcing options for [main_product] from Vietnam?" or "Are you currently looking at ways to
+   strengthen your [main_product] supply chain?"
 3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
 4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
 5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
@@ -200,6 +205,22 @@ This transforms the "weakness" into a strength of honesty and professionalism.
  *   full "3 Pillars of Trust" proof content (used for the follow_up credibility stage).
  */
 function buildScenarioIntelligenceBlock(isFirstContact: boolean, includePillars: boolean): string {
+  const scenarioA = isFirstContact
+    ? `SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
+- ⚠️ SOFT VERSION ONLY - this is a cold first-contact email. Do NOT name the exact current Vietnam
+  supplier (vietnam_supplier_names) — even naming a supplier the buyer is currently, actively using
+  reads as "we're watching exactly who you buy from," which is off-putting on a first email, not
+  reassuring. Keep it general.
+- OPENING: "Given your sourcing activity in Vietnam, we believe there may be an opportunity to
+  strengthen your supply options through additional qualified Vietnamese manufacturers."
+- ANGLE: Additional/complementary supplier, diversification, competitive pricing.`
+    : `SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
+- ⚠️ HIGH-CONFIDENCE VERSION - the buyer is already engaged with us, so naming their existing
+  Vietnam supplier now reads as informed partnership, not surveillance.
+- OPENING: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a
+  complementary Vietnam source..."
+- ANGLE: Additional supplier, diversification, competitive pricing.`
+
   const scenarioB = isFirstContact
     ? `SCENARIO B: Previously sourced from Vietnam but switched away
 - ⚠️ SOFT VERSION ONLY - this is a cold first-contact email. Do NOT name the exact former
@@ -265,9 +286,7 @@ factory video, COA, or certifications yet; that comes in the follow-up once the 
 personalization (naming past suppliers, years, volumes) is now appropriate.`
 }
 
-SCENARIO A: Currently/Recently sourced from Vietnam (has_vietnam_supplier=true, recent in purchase_history)
-- Opening: "Building on your relationship with [vietnam_supplier_names], we'd love to offer a complementary Vietnam source..."
-- Angle: Additional supplier, diversification, competitive pricing
+${scenarioA}
 
 ${scenarioB}
 
@@ -281,7 +300,11 @@ Option C1 - If they source from expensive origins (Chile, Brazil, USA, Europe):
 "As [buyer_company] evaluates alternatives to [main_import_countries] for your [main_product] needs, Vietnam offers a compelling combination of quality and landed cost savings."
 
 Option C2 - If high volume buyer (total_shipments > 50 or avg_teu_per_month > 2):
-"With [buyer_company]'s substantial [main_product] volume — [total_shipments] shipments — diversifying your supply chain to include Vietnam could offer meaningful cost advantages and supply security."
+"Given the scale of [buyer_company]'s [main_product] sourcing, diversifying your supply chain to
+include Vietnam could offer meaningful cost advantages and supply security." Use total_shipments /
+avg_teu_per_month only internally to DECIDE this is a high-volume buyer worth this angle — do NOT
+recite the literal number back to them; reading their own shipment count back to them feels like
+being handed a surveillance report, not a thoughtful email.
 
 Option C3 - If they have specific suppliers you can name from top_suppliers:
 "I noticed [buyer_company] sources [main_product] from [top_suppliers]. As you evaluate options to diversify your supply chain, Vietnam offers quality comparable to [main_import_countries] at significantly more competitive landed costs."
@@ -564,6 +587,31 @@ export async function generateEmailDraft(
     `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
     `
+NATURAL AMERICAN BUSINESS TONE - WRITE LIKE A REAL PERSON, NOT AN AI:
+This email must read like it was written by an actual US-based account executive typing a quick,
+thoughtful email between calls — not like a marketing bot or a generated report. Buyers can smell
+"AI-written" outreach from a mile away, and it kills trust instantly.
+- AVOID "AI smell" patterns: perfectly symmetric sentences, triple-stacked adjectives ("innovative,
+  reliable, cost-effective"), overly formal transitions ("Furthermore," "In today's competitive
+  landscape," "We understand that..."), and corporate buzzwords ("synergy," "leverage," "optimize,"
+  "streamline," "robust solution").
+- AVOID sounding like a data/intelligence report reciting facts back at the buyer ("Your total
+  shipments reaching 56...", "We've identified that you source from..."). A real AE doesn't open
+  with "here's what I know about you" — they open with a genuine, low-key question or observation,
+  the way you'd start a note to a professional peer you haven't met yet.
+- Contractions are fine and often more natural ("we'd", "you're", "it's") — this isn't a legal
+  document.
+- Vary sentence length. Real people don't write every sentence the same length. A short sentence
+  after a longer one reads more human.
+- Prefer plain, concrete words over "business-speak": say "a good fit" not "a strategic alignment
+  opportunity"; say "worth comparing" not "a compelling value proposition."
+- The email should sound like it was written specifically for THIS buyer in THIS moment, not like a
+  template with fields swapped in. If a sentence could be sent unchanged to any buyer in any
+  industry, rewrite it to be more specific and less generic.
+- When in doubt, ask: "Would a busy, skeptical US buyer read this and think 'a person wrote this
+  because they actually looked at my business,' or 'this is a mass email with my name inserted'?"
+  Always aim for the former.`,
+    `
 VEXIM POSITIONING - WHO WE ARE (never contradict this):
 Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese manufacturers
 matched to their specific requirements — NOT a broker blasting out a generic supplier list.
@@ -682,12 +730,21 @@ You have access to rich buyer intelligence. USE IT to personalize every email:
    replied and is engaged (follow_up credibility stage), naming the exact extracted
    supplier/year/volume is the high-impact move.
    
-   - If has_vietnam_supplier=true and still active: "Building on your experience with [EXACT_vietnam_supplier_name], we offer a complementary source..." (this framing is fine even on a first email, since it is not surfacing a SWITCH, just an ongoing relationship)
+   - If has_vietnam_supplier=true and still active: on a COLD first email, keep this general —
+     "Given your sourcing activity in Vietnam, we believe there may be an opportunity to strengthen
+     your supply options..." — do NOT name [EXACT_vietnam_supplier_name] yet, even though the
+     relationship is ongoing (not a switch); naming their current, active supplier still reads as
+     "we're watching who you buy from." Once the buyer has engaged (follow_up stage), naming it
+     directly ("Building on your relationship with [EXACT_vietnam_supplier_name]...") is fine and
+     reads as informed partnership.
    - If has_vietnam_supplier=false: "As you expand beyond [main_import_countries], Vietnam offers compelling quality and pricing..."
 
 3. VOLUME & SCALE (total_shipments, avg_teu_per_month):
    - High volume (>50 shipments, >2 TEU/month): Emphasize capacity, consistency, dedicated account management
    - Lower volume: Emphasize flexibility, MOQ accommodation, sample programs
+   - ⚠️ Use these numbers to DECIDE your angle and tone only — do NOT quote the literal shipment
+     count or TEU figure back to the buyer in the email. Reading their own volume stats back to
+     them feels like reciting a surveillance report, not writing them a thoughtful note.
 
 4. TIMING INTELLIGENCE (peak_months, top_low_months, last_shipment_date):
    - If approaching peak_months: "With your Q[X] season approaching..."

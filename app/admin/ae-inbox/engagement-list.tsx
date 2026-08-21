@@ -378,9 +378,36 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-foreground text-pretty">
-                              {reply.translated_vi && locale === "vi" ? reply.translated_vi : reply.raw_content}
-                            </p>
+                            {reply.ai_summary ? (
+                              <p className="text-foreground text-pretty">{reply.ai_summary}</p>
+                            ) : (
+                              <p className="text-foreground text-pretty line-clamp-3">
+                                {reply.translated_vi && locale === "vi" ? reply.translated_vi : reply.raw_content}
+                              </p>
+                            )}
+                            {(reply.translated_vi || reply.raw_content) && (
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors select-none">
+                                  {t("Xem nội dung đầy đủ", "View full message")}
+                                </summary>
+                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  <div className="rounded-md bg-muted/40 p-2.5">
+                                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                                      {t("Nguyên văn (EN)", "Original (EN)")}
+                                    </p>
+                                    <p className="whitespace-pre-wrap leading-relaxed">{reply.raw_content}</p>
+                                  </div>
+                                  {reply.translated_vi && (
+                                    <div className="rounded-md bg-muted/40 p-2.5">
+                                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                                        {t("Bản dịch (VI)", "Vietnamese translation")}
+                                      </p>
+                                      <p className="whitespace-pre-wrap leading-relaxed">{reply.translated_vi}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            )}
                             {reply.ai_suggested_next_step && (
                               <p className="text-xs text-muted-foreground">
                                 {t("Gợi ý bước tiếp theo: ", "Suggested next step: ")}

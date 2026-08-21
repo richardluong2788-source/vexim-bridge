@@ -872,7 +872,12 @@ function ReplyFollowUpDialog({
   onClose: () => void
   onSent: () => void
 }) {
+  const [mode, setMode] = useState<"ai" | "manual">("ai")
   const [viPrompt, setViPrompt] = useState("")
+  const [manualSubject, setManualSubject] = useState(
+    reply.subject && !/^re:/i.test(reply.subject.trim()) ? `Re: ${reply.subject.trim()}` : reply.subject || "",
+  )
+  const [manualContent, setManualContent] = useState("")
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
   const [draft, setDraft] = useState<{
@@ -887,12 +892,27 @@ function ReplyFollowUpDialog({
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
   const handleGenerate = async () => {
+    if (mode === "manual" && !manualContent.trim()) {
+      toast.error(t("Vui lòng nhập nội dung email", "Please enter the email content"))
+      return
+    }
     setGenerating(true)
-    const result = await generateFollowUpReplyEmailAction({
-      engagementId: engagement.id,
-      replyId: reply.id,
-      viPrompt,
-    })
+    const result = await generateFollowUpReplyEmailAction(
+      mode === "manual"
+        ? {
+            engagementId: engagement.id,
+            replyId: reply.id,
+            viPrompt: "",
+            isManual: true,
+            manualSubject: manualSubject.trim() || t("Re: (không có chủ đề)", "Re: (no subject)"),
+            manualContent: manualContent.trim(),
+          }
+        : {
+            engagementId: engagement.id,
+            replyId: reply.id,
+            viPrompt,
+          },
+    )
     setGenerating(false)
     if (!result.ok) {
       toast.error(result.message || result.error)
@@ -946,19 +966,68 @@ function ReplyFollowUpDialog({
 
         {!draft ? (
           <div className="space-y-3">
-            <Label htmlFor="vi-followup-prompt">
-              {t("Bạn muốn trả lời/đàm phán điểm gì?", "What should the reply address or negotiate?")}
-            </Label>
-            <Textarea
-              id="vi-followup-prompt"
-              value={viPrompt}
-              onChange={(e) => setViPrompt(e.target.value)}
-              placeholder={t(
-                "VD: xác nhận có chứng nhận GlobalGAP, báo giá container 20ft...",
-                "E.g. confirm GlobalGAP certification, quote 20ft container price...",
-              )}
-              rows={3}
-            />
+            <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("ai")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn bằng AI", "AI draft")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn tay", "Write manually")}
+              </button>
+            </div>
+
+            {mode === "ai" ? (
+              <>
+                <Label htmlFor="vi-followup-prompt">
+                  {t("Bạn muốn trả lời/đàm phán điểm gì?", "What should the reply address or negotiate?")}
+                </Label>
+                <Textarea
+                  id="vi-followup-prompt"
+                  value={viPrompt}
+                  onChange={(e) => setViPrompt(e.target.value)}
+                  placeholder={t(
+                    "VD: xác nhận có chứng nhận GlobalGAP, báo giá container 20ft...",
+                    "E.g. confirm GlobalGAP certification, quote 20ft container price...",
+                  )}
+                  rows={3}
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="manual-followup-subject">{t("Chủ đề", "Subject")}</Label>
+                  <Input
+                    id="manual-followup-subject"
+                    value={manualSubject}
+                    onChange={(e) => setManualSubject(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-followup-content">{t("Nội dung email", "Email content")}</Label>
+                  <Textarea
+                    id="manual-followup-content"
+                    value={manualContent}
+                    onChange={(e) => setManualContent(e.target.value)}
+                    placeholder={t(
+                      "Viết nội dung email trả lời buyer tại đây...",
+                      "Write the reply email content here...",
+                    )}
+                    rows={8}
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -990,8 +1059,14 @@ function ReplyFollowUpDialog({
           </Button>
           {!draft ? (
             <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {t("Soạn bằng AI", "Generate with AI")}
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : mode === "manual" ? (
+                <CornerUpLeft className="h-4 w-4" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {mode === "manual" ? t("Xem lại email", "Review email") : t("Soạn bằng AI", "Generate with AI")}
             </Button>
           ) : (
             <Button onClick={handleSend} disabled={sending} className="gap-2">

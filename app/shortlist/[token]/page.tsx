@@ -2,10 +2,10 @@
  * Public tokenized shortlist page.
  *
  * A buyer who answered the AE's requirement-gathering email receives a link
- * like `https://esh.example/shortlist/<uuid-token>` and can view the 3-5
- * AI-matched supplier profiles the AE picked for them — without
- * authenticating. The token itself is the authorization bearer, same
- * pattern as `/share/[token]` for compliance docs.
+ * like `https://esh.example/shortlist/<uuid-token>` and can view up to 3
+ * AI-matched supplier profiles the AE picked for them ("Option A/B/C") —
+ * without authenticating. The token itself is the authorization bearer,
+ * same pattern as `/share/[token]` for compliance docs.
  *
  * IMPORTANT: this page renders the FROZEN snapshot stored on
  * `buyer_engagement_shortlist_items` (name, tagline, USPs, MOQ, lead time,
@@ -44,6 +44,7 @@ type SupplierProfileSnapshot = {
   usp_points: { icon?: string; title: string }[] | null
   company_name: string | null
   full_name: string | null
+  highlights: string[] | null
 }
 
 type ShortlistItemRow = {
@@ -53,7 +54,10 @@ type ShortlistItemRow = {
   buyer_interested: boolean | null
   buyer_action: string | null
   supplier_profile_snapshot: SupplierProfileSnapshot
+  supplier_profile_version: string | null
 }
+
+const OPTION_LABELS = ["Option A", "Option B", "Option C", "Option D", "Option E"]
 
 function one<T>(rel: T | T[] | null): T | null {
   if (!rel) return null
@@ -130,7 +134,9 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
 
   const { data: rows } = await admin
     .from("buyer_engagement_shortlist_items")
-    .select("id, client_id, position, buyer_interested, buyer_action, supplier_profile_snapshot")
+    .select(
+      "id, client_id, position, buyer_interested, buyer_action, supplier_profile_snapshot, supplier_profile_version",
+    )
     .eq("version_id", version.id)
     .order("position", { ascending: true })
 
@@ -170,18 +176,32 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
             Expires {new Date(link.expires_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
           </div>
         </div>
+        <div className="max-w-4xl mx-auto px-6 pb-4 -mt-1">
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+            Vexim Trade is a sourcing intermediary: we review your requirements and connect you directly with
+            independent suppliers we work with. We are not the manufacturer of the products below and do not
+            take title to the goods — any order, sample, or payment is arranged directly between you and the
+            supplier you choose, with our team supporting the process.
+          </p>
+        </div>
       </header>
 
       <main className="flex-1">
         <div className="max-w-4xl mx-auto px-6 py-10 flex flex-col gap-8">
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold text-foreground text-balance">
-              We&apos;ve shortlisted {suppliers.length} suppliers for you
+              We&apos;ve shortlisted {suppliers.length} {suppliers.length === 1 ? "option" : "options"} for you
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
               Based on the requirements you shared, our team reviewed your product needs and matched
               you with the suppliers below. Open each profile to review their capabilities, then let
               us know which one(s) you&apos;d like to move forward with.
+              {suppliers.length < 3 && (
+                <span className="block mt-1">
+                  We currently have fewer than our usual 3 options for this request — ask your account manager if
+                  you&apos;d like us to keep looking for additional fits.
+                </span>
+              )}
             </p>
           </div>
 
@@ -193,6 +213,15 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                 const profile = s.supplier_profile_snapshot
                 const name = profile?.display_name || profile?.company_name || profile?.full_name || "Supplier"
                 const usp = (profile?.usp_points ?? []).slice(0, 2)
+                const highlights = (profile?.highlights ?? []).slice(0, 2)
+                const optionLabel = OPTION_LABELS[idx] ?? `Option ${idx + 1}`
+                const updatedAt = s.supplier_profile_version
+                  ? new Date(s.supplier_profile_version).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : null
 
                 return (
                   <div
@@ -221,15 +250,36 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                           )}
                         </div>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                        #{idx + 1}
+                      <Badge variant="outline" className="shrink-0 text-[10px] font-medium">
+                        {optionLabel}
                       </Badge>
                     </div>
 
                     {(profile?.moq || profile?.lead_time_days) && (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {profile?.moq && <span>MOQ: {profile.moq}</span>}
-                        {profile?.lead_time_days && <span>Lead time: {profile.lead_time_days}</span>}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {profile?.moq && <span>MOQ: {profile.moq}</span>}
+                          {profile?.lead_time_days && <span>Lead time: {profile.lead_time_days}</span>}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          Indicative — to be confirmed with the supplier before ordering
+                        </span>
+                      </div>
+                    )}
+
+                    {highlights.length > 0 && (
+                      <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Why this option may fit
+                        </span>
+                        <ul className="flex flex-col gap-0.5">
+                          {highlights.map((h, i) => (
+                            <li key={i} className="text-xs text-foreground/80 flex items-start gap-1.5">
+                              <span className="mt-1 h-1 w-1 rounded-full bg-primary shrink-0" />
+                              {h}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
@@ -244,9 +294,13 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                       </ul>
                     )}
 
-                    <div className="flex items-center gap-2 pt-1 mt-auto">
+                    {updatedAt && (
+                      <span className="text-[10px] text-muted-foreground/70">Profile reviewed {updatedAt}</span>
+                    )}
+
+                    <div className="flex flex-col gap-2 pt-1 mt-auto">
                       {profile?.slug && (
-                        <Button asChild variant="outline" size="sm" className="gap-1.5">
+                        <Button asChild variant="outline" size="sm" className="gap-1.5 self-start">
                           <a href={`/profile/${profile.slug}`} target="_blank" rel="noopener noreferrer">
                             View profile
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -268,8 +322,17 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
       </main>
 
       <footer className="border-t border-border">
-        <div className="max-w-4xl mx-auto px-6 py-4 text-xs text-muted-foreground">
-          This link was sent to you by your Vexim Trade account manager and is not publicly searchable.
+        <div className="max-w-4xl mx-auto px-6 py-4 flex flex-col gap-1.5 text-xs text-muted-foreground">
+          <p>
+            This link was sent to you personally by your Vexim Trade account manager and is not publicly
+            searchable. We record when this page is opened and which actions you take on it, so your account
+            manager can follow up — this activity is only visible to your account manager, not to the listed
+            suppliers.
+          </p>
+          <p>
+            Please don&apos;t forward this link outside your organization — anyone with the link can view this
+            shortlist and act on it as you.
+          </p>
         </div>
       </footer>
     </div>

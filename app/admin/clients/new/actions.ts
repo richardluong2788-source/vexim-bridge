@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 import { siteConfig } from "@/lib/site-config"
+import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
 
 export interface CreateClientInput {
   email: string
@@ -197,6 +198,30 @@ export async function createClientAccount(
 
   revalidatePath("/admin/clients")
   revalidatePath("/admin/users")
+
+  // ---- 6. Re-match any buyer stuck in the shared inbox for these
+  // industries. Before this client existed, no AE may have covered
+  // `industries` — buyers in that industry would have been routed to the
+  // shared inbox (see routeToSharedInbox in lib/matching/orchestrator.ts)
+  // and left there. Now that this AE has a client here, re-run matching so
+  // those buyers get scored/auto-assigned right away instead of waiting on
+  // the daily cron sweep. Best-effort — must never block client creation.
+  if (isAE) {
+    try {
+      const summary = await rematchOpenSharedInboxLeads({
+        industries,
+        triggeredBy: caller.id,
+      })
+      if (summary.scanned > 0) {
+        console.log(
+          `[v0] Re-matched ${summary.scanned} shared-inbox buyer(s) after new client in [${industries.join(", ")}]:`,
+          `auto-assigned=${summary.autoAssigned}, moved-to-inbox=${summary.movedToPerAeInbox}, still-unmatched=${summary.stillUnmatched}`,
+        )
+      }
+    } catch (err) {
+      console.error("[v0] rematchOpenSharedInboxLeads failed after client creation:", err)
+    }
+  }
 
   return {
     ok: true,

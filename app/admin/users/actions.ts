@@ -20,9 +20,10 @@ import { requireCap } from "@/lib/auth/guard"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
-import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
-import { reserveWorkEmail } from "@/lib/email/work-email"
-import type { Role } from "@/lib/supabase/types"
+  import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
+  import { reserveWorkEmail } from "@/lib/email/work-email"
+  import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
+  import type { Role } from "@/lib/supabase/types"
 
 // Roles that send buyer-facing emails and therefore benefit from their own
 // personal sender address (see lib/email/work-email.ts for why).

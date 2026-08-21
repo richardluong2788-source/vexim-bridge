@@ -691,6 +691,123 @@ export async function dropEngagement(
 }
 
 // ---------------------------------------------------------------------------
+// Transfer a claimed buyer to another AE — covers the case where LR routed
+// the buyer by industry match, but once the AE actually asks for
+// requirements the buyer turns out to want a product/category none of this
+// AE's clients cover. Reassigns account_manager_id and records where it
+// came from + why, so the receiving AE has context and there's an audit
+// trail (see scripts/056_engagement_transfer.sql).
+// ---------------------------------------------------------------------------
+
+export interface TransferCandidateAE {
+  id: string
+  fullName: string | null
+  companyName: string | null
+  activeEngagementCount: number
+}
+
+// Staff roles allowed to receive a transferred buyer. Kept separate from
+// account-manager-actions.ts's STAFF_ROLES because that list also includes
+// non-AE roles (finance, lead_researcher) that shouldn't show up here.
+const TRANSFERABLE_ROLES = ["account_executive", "admin", "super_admin"] as const
+
+export async function listTransferCandidateAEs(
+  excludeAeId?: string,
+): Promise<ActionResult<TransferCandidateAE[]>> {
+  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { data: aes, error: aesErr } = await admin
+    .from("profiles")
+    .select("id, full_name, company_name")
+    .in("role", TRANSFERABLE_ROLES as unknown as string[])
+  if (aesErr) return { ok: false, error: aesErr.message }
+
+  const { data: active, error: activeErr } = await admin
+    .from("buyer_engagements")
+    .select("account_manager_id")
+    .not("stage", "in", "(converted,dropped)")
+  if (activeErr) return { ok: false, error: activeErr.message }
+
+  const countByAe = new Map<string, number>()
+  for (const row of active ?? []) {
+    const id = row.account_manager_id as string | null
+    if (!id) continue
+    countByAe.set(id, (countByAe.get(id) ?? 0) + 1)
+  }
+
+  const candidates = (aes ?? [])
+    .filter((ae) => ae.id !== excludeAeId)
+    .map((ae) => ({
+      id: ae.id as string,
+      fullName: ae.full_name as string | null,
+      companyName: ae.company_name as string | null,
+      activeEngagementCount: countByAe.get(ae.id as string) ?? 0,
+    }))
+    .sort((a, b) => (a.fullName ?? "").localeCompare(b.fullName ?? ""))
+
+  return { ok: true, data: candidates }
+}
+
+export async function transferEngagement(
+  engagementId: string,
+  newAccountManagerId: string,
+  reason: string,
+): Promise<ActionResult<{ success: true }>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId, role } = guard
+
+  if (!reason?.trim()) return { ok: false, error: "reason_required" }
+  if (!newAccountManagerId) return { ok: false, error: "target_ae_required" }
+
+  const { data: engagement, error: engErr } = await admin
+    .from("buyer_engagements")
+    .select("id, account_manager_id, stage")
+    .eq("id", engagementId)
+    .single()
+  if (engErr || !engagement) return { ok: false, error: "engagement_not_found" }
+
+  if (role === "account_executive" && engagement.account_manager_id !== userId) {
+    return { ok: false, error: "not_your_engagement" }
+  }
+  if (engagement.account_manager_id === newAccountManagerId) {
+    return { ok: false, error: "already_owned_by_target" }
+  }
+  if (["converted", "dropped"].includes(engagement.stage as string)) {
+    return { ok: false, error: "engagement_already_closed" }
+  }
+
+  const { data: target, error: targetErr } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", newAccountManagerId)
+    .single<{ id: string; role: string | null }>()
+  if (targetErr || !target) return { ok: false, error: "target_ae_not_found" }
+  if (!TRANSFERABLE_ROLES.includes(target.role as (typeof TRANSFERABLE_ROLES)[number])) {
+    return { ok: false, error: "target_not_ae" }
+  }
+
+  const { error } = await admin
+    .from("buyer_engagements")
+    .update({
+      account_manager_id: newAccountManagerId,
+      transferred_from_ae_id: engagement.account_manager_id,
+      transfer_reason: reason.trim(),
+      transferred_at: new Date().toISOString(),
+      // Waiting-on-buyer clock restarts under the new AE, same as
+      // markRequirementEmailSent / approveAndSendShortlist above.
+      stale_reminder_sent_at: null,
+    })
+    .eq("id", engagementId)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/ae-inbox")
+  return { ok: true, data: { success: true } }
+}
+
+// ---------------------------------------------------------------------------
 // Fetch engagements owned by the current AE (or all, for admins) — used to
 // render the "Đang xử lý" section on the AE Inbox page.
 // ---------------------------------------------------------------------------

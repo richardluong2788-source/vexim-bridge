@@ -25,6 +25,7 @@ import {
   CornerUpLeft,
   Tag,
   Clock,
+  ArrowLeftRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -35,6 +36,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -51,8 +59,11 @@ import {
   convertEngagementToOpportunities,
   dropEngagement,
   markEngagementRepliesReadAction,
+  transferEngagement,
+  listTransferCandidateAEs,
   type SaveRequirementsInput,
   type ConvertRoleAssignment,
+  type TransferCandidateAE,
 } from "@/app/admin/ae-inbox/engagement-actions"
 import {
   generateRequirementInquiryEmailAction,
@@ -212,6 +223,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [sendShortlistDialogFor, setSendShortlistDialogFor] = useState<Engagement | null>(null)
   const [convertDialogFor, setConvertDialogFor] = useState<Engagement | null>(null)
   const [dropDialogFor, setDropDialogFor] = useState<Engagement | null>(null)
+  const [transferDialogFor, setTransferDialogFor] = useState<Engagement | null>(null)
   const [markingReadFor, setMarkingReadFor] = useState<string | null>(null)
 
   // Deep link from a "buyer replied" notification: /admin/engagements?focus=<id>
@@ -377,16 +389,28 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDropDialogFor(eng)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      {t("Hủy buyer", "Drop")}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => setTransferDialogFor(eng)}
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5" />
+                        {t("Chuyển buyer", "Transfer")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDropDialogFor(eng)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {t("Hủy buyer", "Drop")}
+                      </Button>
+                    </div>
                     <span
                       className={cn(
                         "flex items-center gap-1 text-xs text-muted-foreground",
@@ -759,6 +783,18 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
           onClose={() => setDropDialogFor(null)}
           onDropped={() => {
             setDropDialogFor(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {transferDialogFor && (
+        <TransferDialog
+          engagement={transferDialogFor}
+          locale={locale}
+          onClose={() => setTransferDialogFor(null)}
+          onTransferred={() => {
+            setTransferDialogFor(null)
             router.refresh()
           }}
         />
@@ -1769,6 +1805,132 @@ function DropDialog({
           </Button>
           <Button variant="destructive" onClick={handleDrop} disabled={saving}>
             {t("Xác nhận hủy", "Confirm drop")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog: Transfer the engagement to another AE — covers the case where LR
+// routed the buyer by industry match, but the buyer's actual product ask
+// doesn't fit any client this AE manages.
+// ---------------------------------------------------------------------------
+
+function TransferDialog({
+  engagement,
+  locale,
+  onClose,
+  onTransferred,
+}: {
+  engagement: Engagement
+  locale: "vi" | "en"
+  onClose: () => void
+  onTransferred: () => void
+}) {
+  const [candidates, setCandidates] = useState<TransferCandidateAE[] | null>(null)
+  const [loadingCandidates, setLoadingCandidates] = useState(true)
+  const [targetId, setTargetId] = useState<string>("")
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  useEffect(() => {
+    let active = true
+    setLoadingCandidates(true)
+    listTransferCandidateAEs(engagement.account_manager_id).then((result) => {
+      if (!active) return
+      setCandidates(result.ok ? result.data : [])
+      setLoadingCandidates(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [engagement.account_manager_id])
+
+  const handleTransfer = async () => {
+    if (!targetId) {
+      toast.error(t("Vui lòng chọn AE nhận buyer", "Please choose a receiving AE"))
+      return
+    }
+    if (!reason.trim()) {
+      toast.error(t("Vui lòng nhập lý do chuyển", "Please enter a transfer reason"))
+      return
+    }
+    setSaving(true)
+    const result = await transferEngagement(engagement.id, targetId, reason)
+    setSaving(false)
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(t("Đã chuyển buyer cho AE khác", "Buyer transferred"))
+    onTransferred()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Chuyển buyer cho AE khác", "Transfer buyer to another AE")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              `Dùng khi buyer ${engagement.leads?.company_name ?? ""} hỏi sản phẩm không khớp với client bạn đang quản lý. Buyer sẽ được gán cho AE khác, kèm lý do để AE đó nắm bối cảnh.`,
+              `Use this when ${engagement.leads?.company_name ?? "this buyer"} is asking for a product none of your clients cover. The buyer moves to another AE, along with the reason for context.`,
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>{t("Chuyển cho", "Transfer to")}</Label>
+            <Select value={targetId} onValueChange={setTargetId} disabled={loadingCandidates}>
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    loadingCandidates
+                      ? t("Đang tải danh sách AE...", "Loading AEs...")
+                      : t("Chọn AE nhận buyer", "Choose a receiving AE")
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(candidates ?? []).map((ae) => (
+                  <SelectItem key={ae.id} value={ae.id}>
+                    {ae.fullName || ae.companyName || ae.id}
+                    {" — "}
+                    {t(
+                      `${ae.activeEngagementCount} buyer đang xử lý`,
+                      `${ae.activeEngagementCount} in progress`,
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("Lý do chuyển", "Transfer reason")}</Label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t(
+                "Ví dụ: Buyer hỏi sản phẩm khác ngành với client tôi đang quản lý...",
+                "E.g. Buyer is asking for a product outside my clients' category...",
+              )}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          <Button onClick={handleTransfer} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
+            {t("Chuyển buyer", "Transfer buyer")}
           </Button>
         </DialogFooter>
       </DialogContent>

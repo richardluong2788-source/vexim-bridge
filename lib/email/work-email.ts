@@ -15,16 +15,18 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * address <-> person mapping.
  *
  * Sending and receiving both go through Resend — there is no Zoho mailbox
- * anywhere in this stack. The domain (veximtrade.com) is already verified
- * on Resend for outbound, so any local-part works as a `from` address
- * immediately with no extra setup. Inbound replies are handled by the
- * `email.received` webhook (app/api/webhooks/resend/route.ts), which
- * matches replies by In-Reply-To / sender email rather than by which
- * address received them — so a new personal address works for replies too,
- * AS LONG AS Resend's inbound route for the domain is a catch-all covering
- * the whole domain rather than a single hardcoded address. Verify this in
- * the Resend Dashboard (Domains -> veximtrade.com -> Inbound Routes) after
- * adding new personal addresses.
+ * anywhere in this stack, and no per-address setup is needed either way:
+ * - Outbound: the domain (veximtrade.com) is already verified on Resend, so
+ *   any local-part works as a `from` address immediately.
+ * - Inbound: Resend receiving is domain-wide, not per-address — once a
+ *   domain's MX record points to Resend (already true here, per the
+ *   "ready to send and receive emails" status in the Resend dashboard),
+ *   EVERY address at that domain automatically receives mail and triggers
+ *   the `email.received` webhook (app/api/webhooks/resend/route.ts).
+ *   There is no "Inbound Route" to configure per address in Resend.
+ * So a freshly generated address like linh@veximtrade.com works for both
+ * sending and receiving the moment it's saved to profiles.work_email —
+ * nothing else to set up in Resend.
  */
 
 const DEFAULT_DOMAIN = "veximtrade.com"

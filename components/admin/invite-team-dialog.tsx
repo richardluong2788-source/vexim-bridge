@@ -77,7 +77,7 @@ const MESSAGES = {
     success: "Invitation sent successfully!",
     workEmailLabel: "Personal sender address (Resend):",
     workEmailHint:
-      "This person's buyer-facing emails will be sent and received from this address via Resend — no mailbox needs to be created anywhere. If replies stop matching, check that Resend's inbound route for veximtrade.com covers the whole domain.",
+      "This person's buyer-facing emails will be sent and received from this address via Resend automatically — nothing to set up, no mailbox to create.",
     errors: {
       invalid_email: "Please enter a valid email address",
       full_name_required: "Full name is required",
@@ -108,7 +108,7 @@ const MESSAGES = {
     success: "Gửi lời mời thành công!",
     workEmailLabel: "Địa chỉ gửi riêng (qua Resend):",
     workEmailHint:
-      "Email gửi cho buyer của người này sẽ dùng địa chỉ này — gửi và nhận đều qua Resend, không cần tạo hộp mail ở đâu cả. Nếu reply không khớp được, kiểm tra lại Inbound Route trên Resend cho domain veximtrade.com có bắt toàn bộ domain hay không.",
+      "Email gửi cho buyer của người này sẽ dùng địa chỉ này — gửi và nhận đều tự động qua Resend, không cần thiết lập gì thêm, không cần tạo hộp mail.",
     errors: {
       invalid_email: "Vui lòng nhập địa chỉ email hợp lệ",
       full_name_required: "Họ tên là bắt buộc",

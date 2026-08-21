@@ -489,7 +489,9 @@ export async function convertEngagementToOpportunities(
 
   const { data: engagement, error: engErr } = await admin
     .from("buyer_engagements")
-    .select("id, lead_id")
+    .select(
+      "id, lead_id, requested_products, target_price_range, moq, payment_terms, packaging_requirements, other_requirements",
+    )
     .eq("id", engagementId)
     .single()
   if (engErr || !engagement) return { ok: false, error: "engagement_not_found" }
@@ -503,7 +505,30 @@ export async function convertEngagementToOpportunities(
   })
   if (!result.ok) return { ok: false, error: result.error }
 
+  // Build a human-readable snapshot of what the buyer told the AE before
+  // any opportunity existed. This is written into `opportunities.notes` so
+  // it survives the transition to the Kanban — an AE opening the card
+  // never has to go dig through the (now-hidden, "converted") engagement
+  // to see what the buyer originally asked for.
+  const requirementLines = [
+    ["Sản phẩm yêu cầu", engagement.requested_products],
+    ["Khoảng giá mục tiêu", engagement.target_price_range],
+    ["MOQ", engagement.moq],
+    ["Điều khoản thanh toán", engagement.payment_terms],
+    ["Yêu cầu đóng gói", engagement.packaging_requirements],
+    ["Yêu cầu khác", engagement.other_requirements],
+  ].filter(([, value]) => value && String(value).trim().length > 0)
+
+  const requirementsBlock =
+    requirementLines.length > 0
+      ? [
+          "[Yêu cầu ban đầu của buyer — ghi nhận trước khi tạo cơ hội]",
+          ...requirementLines.map(([label, value]) => `- ${label}: ${value}`),
+        ].join("\n")
+      : null
+
   const opportunityIds: string[] = []
+  const roleByOpportunityId = new Map<string, string>()
   for (const item of result.data.items) {
     if (!item.ok || !item.opportunityId) continue
     const role = assignments.find((a) => a.clientId === item.clientId)?.role ?? "alternative"
@@ -512,11 +537,66 @@ export async function convertEngagementToOpportunities(
       .update({ source_engagement_id: engagementId, source_role: role })
       .eq("id", item.opportunityId)
     opportunityIds.push(item.opportunityId)
+    roleByOpportunityId.set(item.opportunityId, role)
   }
 
   if (opportunityIds.length === 0) {
     return { ok: false, error: "no_opportunity_created" }
   }
+
+  const primaryOpportunityId =
+    opportunityIds.find((id) => roleByOpportunityId.get(id) === "primary") ?? opportunityIds[0]
+
+  // Carry the buyer's stated requirements onto every opportunity created
+  // from this engagement (they apply to whichever supplier ends up
+  // fulfilling the order, not just the primary one). Notes is empty at
+  // creation time (see assignBuyerToClient), so this never clobbers an
+  // AE's own text.
+  if (requirementsBlock) {
+    await Promise.all(
+      opportunityIds.map((id) => admin.from("opportunities").update({ notes: requirementsBlock }).eq("id", id)),
+    )
+  }
+
+  // Re-point the buyer's pre-opportunity email thread onto the PRIMARY
+  // opportunity so it shows up immediately in that card's conversation
+  // tab (opportunity_id is a single FK — a reply can only "live" on one
+  // opportunity at a time). engagement_id is left untouched for the full
+  // audit trail. Backup/alternative opportunities get a note pointing to
+  // where the real thread lives instead of a duplicated copy.
+  const { data: repointedReplies } = await admin
+    .from("buyer_replies")
+    .update({ opportunity_id: primaryOpportunityId })
+    .eq("engagement_id", engagementId)
+    .is("opportunity_id", null)
+    .select("id")
+
+  const secondaryOpportunityIds = opportunityIds.filter((id) => id !== primaryOpportunityId)
+  if (secondaryOpportunityIds.length > 0 && (repointedReplies?.length ?? 0) > 0) {
+    const pointerNote = `\n\n[Lịch sử email trước khi tạo cơ hội nằm ở cơ hội chính (primary), opportunity_id: ${primaryOpportunityId}]`
+    await Promise.all(
+      secondaryOpportunityIds.map(async (id) => {
+        const { data: opp } = await admin.from("opportunities").select("notes").eq("id", id).single()
+        await admin
+          .from("opportunities")
+          .update({ notes: `${opp?.notes ?? ""}${pointerNote}` })
+          .eq("id", id)
+      }),
+    )
+  }
+
+  // Best-effort activity log so the conversion itself is visible in each
+  // opportunity's timeline.
+  await admin.from("activities").insert(
+    opportunityIds.map((id) => ({
+      opportunity_id: id,
+      action_type: "engagement_converted",
+      description:
+        id === primaryOpportunityId
+          ? "Chuyển từ AE Inbox: đã mang theo yêu cầu ban đầu và lịch sử email của buyer."
+          : "Chuyển từ AE Inbox: đã mang theo yêu cầu ban đầu của buyer (lịch sử email nằm ở cơ hội chính).",
+    })),
+  )
 
   await admin
     .from("buyer_engagements")
@@ -575,7 +655,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
           profiles:client_id ( id, company_name, full_name ) )
       ),
       shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),
-      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at )
+      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at, message_id, responded_email_draft_id, responded_at )
       `,
     )
     .not("stage", "in", "(converted,dropped)")

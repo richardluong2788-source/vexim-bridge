@@ -254,6 +254,11 @@ async function findOpportunityByEmail(
  *    AE sends a "requirement inquiry" email before any client is picked).
  * 2. Buyer's email address against buyer_contacts for a lead that still has
  *    an ACTIVE engagement (stage not in converted/dropped).
+ * 3. Buyer's email address against email_drafts.recipient_email for a SENT
+ *    requirement-inquiry email tied to an engagement. This covers buyers
+ *    who reply from the address the email was actually sent to (often
+ *    leads.contact_email) even when that address hasn't been added to
+ *    buyer_contacts yet — which otherwise silently drops the reply.
  *
  * Only called when findOpportunityByEmail() found nothing — an opportunity
  * match always wins since it's more specific.
@@ -267,7 +272,7 @@ async function findEngagementByEmail(
   leadCompany: string | null
   leadIndustry: string | null
   accountManagerId: string
-  matchSource: "in_reply_to" | "sender_email"
+  matchSource: "in_reply_to" | "sender_email" | "sent_draft_recipient"
   matchConfidence: number
   matchedContactId: string | null
   isUnrecognizedSender: boolean
@@ -350,6 +355,50 @@ async function findEngagementByEmail(
         matchSource: "sender_email",
         matchConfidence: 0.75,
         matchedContactId: contactMatch.id,
+        isUnrecognizedSender: false,
+      }
+    }
+  }
+
+  // Method 3: Match by the recipient address of a sent requirement-inquiry
+  // draft. Catches replies from an address that was actually emailed (e.g.
+  // leads.contact_email) but hasn't been added to buyer_contacts yet.
+  const { data: matchingDrafts } = await admin
+    .from("email_drafts")
+    .select("engagement_id")
+    .eq("email_type", "requirement_inquiry")
+    .eq("status", "sent")
+    .not("engagement_id", "is", null)
+    .ilike("recipient_email", fromEmail)
+    .order("created_at", { ascending: false })
+
+  const draftEngagementIds = Array.from(
+    new Set((matchingDrafts ?? []).map((d) => d.engagement_id as string)),
+  )
+
+  for (const engId of draftEngagementIds) {
+    const { data: eng } = await admin
+      .from("buyer_engagements")
+      .select("id, lead_id, account_manager_id, stage, leads:lead_id ( company_name, industry )")
+      .eq("id", engId)
+      .not("stage", "in", '("converted","dropped")')
+      .maybeSingle()
+
+    if (eng) {
+      const lead = eng.leads as { company_name?: string; industry?: string } | null
+      const matchedContact = await findContactForLead(eng.lead_id)
+
+      return {
+        engagementId: eng.id,
+        leadId: eng.lead_id,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        accountManagerId: eng.account_manager_id,
+        matchSource: "sent_draft_recipient",
+        matchConfidence: 0.8,
+        matchedContactId: matchedContact?.id ?? null,
+        // Not "unrecognized" — we deliberately emailed this address, it's
+        // just missing from the structured contact directory.
         isUnrecognizedSender: false,
       }
     }

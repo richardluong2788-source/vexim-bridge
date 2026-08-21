@@ -66,6 +66,10 @@ export type SendEmailActionInput = {
   overrideRecipient?: string
   overrideCc?: string[]
   attachments?: UploadedAttachment[]
+  /** Threads this send as a reply to a buyer's inbound message (see lib/ai/email-sender.ts). */
+  replyToMessageId?: string | null
+  /** Marks a specific buyer_replies row as answered once this send succeeds. */
+  markReplyId?: string | null
 }
 
 export type SendEmailActionResult =
@@ -82,6 +86,8 @@ export async function sendEmailDraftAction(
       overrideRecipient: input.overrideRecipient,
       overrideCc: input.overrideCc,
       attachments: input.attachments,
+      replyToMessageId: input.replyToMessageId,
+      markReplyId: input.markReplyId,
     })
     return { ok: true, data: result }
   } catch (err) {

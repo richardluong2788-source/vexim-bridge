@@ -4,34 +4,34 @@ import { useState, useTransition } from "react"
 import { Check, Heart, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { markShortlistInterest } from "./actions"
+import { markShortlistInterest, type BuyerActionValue } from "./actions"
 
 export function InterestButton({
   token,
-  shortlistId,
-  initialInterested,
+  shortlistItemId,
+  initialAction,
 }: {
   token: string
-  shortlistId: string
-  initialInterested: boolean | null
+  shortlistItemId: string
+  initialAction: BuyerActionValue | null
 }) {
-  const [interested, setInterested] = useState(initialInterested)
+  const [action, setAction] = useState<BuyerActionValue | null>(initialAction)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   const handleClick = () => {
     setError(null)
     startTransition(async () => {
-      const result = await markShortlistInterest(token, shortlistId, true)
+      const result = await markShortlistInterest(token, shortlistItemId, "interested_no_details")
       if (result.ok) {
-        setInterested(true)
+        setAction("interested_no_details")
       } else {
         setError(result.error)
       }
     })
   }
 
-  if (interested) {
+  if (action && action !== "viewed_only") {
     return (
       <Button
         size="sm"

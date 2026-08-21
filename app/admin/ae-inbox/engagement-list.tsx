@@ -1028,6 +1028,14 @@ function SendShortlistDialog({
 // Dialog: Convert to opportunity — pick final client(s) among the shortlist
 // ---------------------------------------------------------------------------
 
+type SupplierRole = "primary" | "backup" | "alternative"
+
+const ROLE_LABELS: Record<SupplierRole, { vi: string; en: string }> = {
+  primary: { vi: "Chính", en: "Primary" },
+  backup: { vi: "Dự phòng", en: "Backup" },
+  alternative: { vi: "Thay thế", en: "Alternative" },
+}
+
 function ConvertDialog({
   engagement,
   locale,
@@ -1039,33 +1047,65 @@ function ConvertDialog({
   onClose: () => void
   onConverted: () => void
 }) {
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(engagement.buyer_engagement_shortlist.filter((s) => s.buyer_interested === true).map((s) => s.client_id)),
+  // Prefer the sent (immutable, buyer-facing) version's items since that
+  // reflects what the buyer actually reacted to; fall back to the newest
+  // version otherwise.
+  const versions = [...engagement.buyer_engagement_shortlist_versions].sort(
+    (a, b) => b.version_number - a.version_number,
   )
+  const items = (versions.find((v) => v.status === "sent") ?? versions[0])?.buyer_engagement_shortlist_items ?? []
+
+  const [roles, setRoles] = useState<Map<string, SupplierRole>>(() => {
+    const initial = new Map<string, SupplierRole>()
+    const interested = items.filter((s) => s.buyer_interested === true)
+    interested.forEach((s, idx) => initial.set(s.client_id, idx === 0 ? "primary" : "backup"))
+    return initial
+  })
   const [saving, setSaving] = useState(false)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
   const toggle = (clientId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(clientId) ? next.delete(clientId) : next.add(clientId)
+    setRoles((prev) => {
+      const next = new Map(prev)
+      if (next.has(clientId)) {
+        next.delete(clientId)
+      } else {
+        next.set(clientId, next.size === 0 ? "primary" : "backup")
+      }
       return next
     })
   }
 
+  const setRole = (clientId: string, role: SupplierRole) => {
+    setRoles((prev) => new Map(prev).set(clientId, role))
+  }
+
   const handleConvert = async () => {
-    if (selected.size === 0) {
+    if (roles.size === 0) {
       toast.error(t("Chọn ít nhất 1 client", "Select at least 1 client"))
       return
     }
+    if (!Array.from(roles.values()).includes("primary")) {
+      toast.error(t("Phải có 1 supplier vai trò Chính", "One supplier must be marked Primary"))
+      return
+    }
+    const assignments: ConvertRoleAssignment[] = Array.from(roles.entries()).map(([clientId, role]) => ({
+      clientId,
+      role,
+    }))
     setSaving(true)
-    const result = await convertEngagementToClients(engagement.id, Array.from(selected))
+    const result = await convertEngagementToOpportunities(engagement.id, assignments)
     setSaving(false)
     if (!result.ok) {
       toast.error(result.error)
       return
     }
-    toast.success(t("Đã tạo opportunity, buyer chuyển vào Kanban", "Opportunity created — buyer moved to Kanban"))
+    toast.success(
+      t(
+        `Đã tạo ${result.data.opportunityIds.length} opportunity, buyer chuyển vào Kanban`,
+        `${result.data.opportunityIds.length} opportunity created — buyer moved to Kanban`,
+      ),
+    )
     onConverted()
   }
 
@@ -1076,29 +1116,47 @@ function ConvertDialog({
           <DialogTitle>{t("Gán client & tạo Opportunity", "Assign client & create Opportunity")}</DialogTitle>
           <DialogDescription>
             {t(
-              "Chọn (những) client buyer đã quan tâm để tạo opportunity và chuyển vào Kanban pipeline.",
-              "Pick the client(s) the buyer showed interest in to create opportunities and move them onto the Kanban pipeline.",
+              "Chọn (những) client buyer đã quan tâm và gán vai trò để tạo opportunity, chuyển vào Kanban pipeline. Cần đúng 1 supplier vai trò Chính.",
+              "Pick the client(s) the buyer showed interest in and assign a role to create opportunities and move them onto the Kanban pipeline. Exactly one supplier must be Primary.",
             )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
-          {engagement.buyer_engagement_shortlist.map((s) => (
-            <label
-              key={s.client_id}
-              className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
-            >
-              <Checkbox checked={selected.has(s.client_id)} onCheckedChange={() => toggle(s.client_id)} />
-              <span className="flex-1 truncate text-sm font-medium">
-                {s.profiles?.company_name || s.profiles?.full_name || "—"}
-              </span>
-              {s.buyer_interested === true && (
-                <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px]" variant="outline">
-                  {t("Quan tâm", "Interested")}
-                </Badge>
-              )}
-            </label>
-          ))}
+          {items.map((s) => {
+            const role = roles.get(s.client_id)
+            return (
+              <div key={s.client_id} className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2">
+                <Checkbox checked={!!role} onCheckedChange={() => toggle(s.client_id)} />
+                <span className="flex-1 truncate text-sm font-medium">
+                  {s.profiles?.company_name || s.profiles?.full_name || "—"}
+                </span>
+                {s.buyer_interested === true && (
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px]" variant="outline">
+                    {t("Quan tâm", "Interested")}
+                  </Badge>
+                )}
+                {role && (
+                  <div className="flex gap-1">
+                    {(["primary", "backup", "alternative"] as const).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRole(s.client_id, r)}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                          role === r
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {t(ROLE_LABELS[r].vi, ROLE_LABELS[r].en)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <DialogFooter>

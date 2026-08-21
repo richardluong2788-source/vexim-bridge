@@ -7,10 +7,18 @@
  * authenticating. The token itself is the authorization bearer, same
  * pattern as `/share/[token]` for compliance docs.
  *
- * The buyer can mark which supplier(s) they're interested in directly on
- * this page. That flips `buyer_engagement_shortlist.buyer_interested` and
- * advances the engagement to `buyer_responded`, which is what surfaces the
- * "Gán client" (assign client) action back in the AE's Inbox.
+ * IMPORTANT: this page renders the FROZEN snapshot stored on
+ * `buyer_engagement_shortlist_items` (name, tagline, USPs, MOQ, lead time,
+ * etc. as they existed at the moment the AE built this shortlist version),
+ * NOT a live join against `client_profiles`. A supplier editing their
+ * profile afterward must never change what a buyer already received —
+ * only a brand new shortlist version (a new link) reflects updated data.
+ *
+ * The buyer can log an action (e.g. "I'm interested") directly on this
+ * page. That's recorded as `buyer_action` on the item and advances the
+ * engagement to `qualified_interest`, which is what surfaces the
+ * "Gán client" (assign client) action back in the AE's Inbox — the AE
+ * still makes the final call on whether/how to convert.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ShieldAlert, Clock, Building2, ExternalLink } from "lucide-react"
@@ -24,23 +32,27 @@ interface PageProps {
   params: Promise<{ token: string }>
 }
 
-type ClientProfileSummary = {
-  client_id: string
-  slug: string
+type SupplierProfileSnapshot = {
   display_name: string | null
+  slug: string | null
   tagline: string | null
   logo_url: string | null
   cover_image_url: string | null
   moq: string | null
   lead_time_days: string | null
+  production_capacity: string | null
   usp_points: { icon?: string; title: string }[] | null
+  company_name: string | null
+  full_name: string | null
 }
 
-type ShortlistRow = {
+type ShortlistItemRow = {
   id: string
   client_id: string
   position: number
   buyer_interested: boolean | null
+  buyer_action: string | null
+  supplier_profile_snapshot: SupplierProfileSnapshot
 }
 
 function one<T>(rel: T | T[] | null): T | null {
@@ -54,7 +66,7 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
 
   const { data: link } = await admin
     .from("shortlist_share_links")
-    .select("token, engagement_id, expires_at, revoked_at, view_count")
+    .select("token, engagement_id, version_id, expires_at, revoked_at, view_count")
     .eq("token", token)
     .maybeSingle()
 
@@ -98,35 +110,31 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
     )
   }
 
+  // Every link is minted for one specific shortlist VERSION (the one that
+  // was approved & sent) — never the "latest" version, so an in-progress
+  // draft rebuild never leaks into an already-delivered link.
+  const { data: version } = await admin
+    .from("buyer_engagement_shortlist_versions")
+    .select("id, status, version_number")
+    .eq("id", link.version_id)
+    .maybeSingle()
+
+  if (!version) {
+    return (
+      <ErrorScreen
+        title="Không tìm thấy shortlist"
+        desc="Không tìm thấy phiên bản shortlist liên quan đến đường link này."
+      />
+    )
+  }
+
   const { data: rows } = await admin
-    .from("buyer_engagement_shortlist")
-    .select("id, client_id, position, buyer_interested")
-    .eq("engagement_id", link.engagement_id)
+    .from("buyer_engagement_shortlist_items")
+    .select("id, client_id, position, buyer_interested, buyer_action, supplier_profile_snapshot")
+    .eq("version_id", version.id)
     .order("position", { ascending: true })
 
-  const suppliers = (rows ?? []) as ShortlistRow[]
-  const clientIds = suppliers.map((s) => s.client_id)
-
-  const [{ data: profileRows }, { data: clientProfileRows }] = await Promise.all([
-    clientIds.length
-      ? admin.from("profiles").select("id, company_name, full_name").in("id", clientIds)
-      : Promise.resolve({ data: [] as any[] }),
-    clientIds.length
-      ? admin
-          .from("client_profiles")
-          .select(
-            "client_id, slug, display_name, tagline, logo_url, cover_image_url, moq, lead_time_days, usp_points",
-          )
-          .in("client_id", clientIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ])
-
-  const profileById = new Map(
-    (profileRows ?? []).map((p) => [p.id as string, p as { company_name: string | null; full_name: string | null }]),
-  )
-  const clientProfileByClientId = new Map(
-    (clientProfileRows ?? []).map((cp) => [cp.client_id as string, cp as ClientProfileSummary]),
-  )
+  const suppliers = (rows ?? []) as ShortlistItemRow[]
 
   // Best-effort telemetry + stage advance — never blocks rendering.
   await admin
@@ -182,9 +190,8 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {suppliers.map((s, idx) => {
-                const profile = clientProfileByClientId.get(s.client_id) ?? null
-                const p = profileById.get(s.client_id) ?? null
-                const name = profile?.display_name || p?.company_name || p?.full_name || "Supplier"
+                const profile = s.supplier_profile_snapshot
+                const name = profile?.display_name || profile?.company_name || profile?.full_name || "Supplier"
                 const usp = (profile?.usp_points ?? []).slice(0, 2)
 
                 return (
@@ -248,8 +255,8 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                       )}
                       <InterestButton
                         token={token}
-                        shortlistId={s.id}
-                        initialInterested={s.buyer_interested}
+                        shortlistItemId={s.id}
+                        initialAction={s.buyer_action as any}
                       />
                     </div>
                   </div>

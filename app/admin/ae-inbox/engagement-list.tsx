@@ -1258,8 +1258,8 @@ function ShortlistBuilderDialog({
       if (next.has(clientId)) {
         next.delete(clientId)
       } else {
-        if (next.size >= 5) {
-          toast.error(t("Tối đa 5 supplier", "Maximum 5 suppliers"))
+        if (next.size >= 3) {
+          toast.error(t("Tối đa 3 supplier", "Maximum 3 suppliers"))
           return prev
         }
         next.add(clientId)
@@ -1288,11 +1288,11 @@ function ShortlistBuilderDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t("Chọn 3-5 supplier phù hợp nhất", "Pick the 3-5 best-fit suppliers")}</DialogTitle>
+          <DialogTitle>{t("Chọn tối đa 3 supplier phù hợp nhất", "Pick up to 3 best-fit suppliers")}</DialogTitle>
           <DialogDescription>
             {t(
-              "Dựa trên nhu cầu buyer đã ghi nhận, AI xếp hạng supplier phù hợp. Bạn chọn tối đa 5 để đưa vào shortlist.",
-              "Based on the buyer's recorded requirements, AI ranks the best-fit suppliers. Pick up to 5 for the shortlist.",
+              "Dựa trên nhu cầu buyer đã ghi nhận, AI xếp hạng supplier phù hợp. Buyer sẽ thấy đúng 3 lựa chọn (Option A/B/C) — nếu chọn ít hơn 3, hãy đảm bảo có lý do rõ ràng (ví dụ: không đủ supplier đạt tiêu chí) để có thể giải thích cho buyer.",
+              "Based on the buyer's recorded requirements, AI ranks the best-fit suppliers. The buyer will see exactly 3 options (Option A/B/C) — if you select fewer than 3, make sure you have a clear reason (e.g. not enough qualifying suppliers) you can explain to the buyer.",
             )}
           </DialogDescription>
         </DialogHeader>

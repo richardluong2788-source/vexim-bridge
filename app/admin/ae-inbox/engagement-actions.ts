@@ -165,6 +165,28 @@ export async function markRequirementEmailSent(
 // `approveAndSendShortlist` to lock it in and mint the public link.
 // ---------------------------------------------------------------------------
 
+// Buyer-friendly, non-numeric rendering of why a supplier was included.
+// Deliberately excludes raw scores/weights and internal-only factors
+// ("Priority Bonus", "VN Supplier Bonus") — those stay in match_reasoning
+// for AE eyes only. Returns at most 2 short, plain-language bullets.
+const BUYER_FACING_FACTOR_COPY: Record<string, string> = {
+  "HS Code Match": "Product classification matches the HS code of what you're sourcing",
+  "Product Match": "Specializes in the product category you requested",
+  "Country Match": "Established export experience to your destination market",
+  "Logistics Match": "Familiar with your preferred shipping ports and container types",
+}
+
+function buildBuyerFacingHighlights(match: any): string[] {
+  if (!match?.matchBreakdown?.length) {
+    return ["Reviewed and pre-qualified by our sourcing team for your requirements"]
+  }
+  return match.matchBreakdown
+    .filter((f: any) => BUYER_FACING_FACTOR_COPY[f.factor] && f.rawScore >= 60)
+    .sort((a: any, b: any) => b.rawScore - a.rawScore)
+    .slice(0, 2)
+    .map((f: any) => BUYER_FACING_FACTOR_COPY[f.factor])
+}
+
 export async function buildShortlist(
   engagementId: string,
   clientIds: string[],
@@ -173,8 +195,8 @@ export async function buildShortlist(
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 
-  if (clientIds.length < 1 || clientIds.length > 5) {
-    return { ok: false, error: "shortlist_must_have_1_to_5_clients" }
+  if (clientIds.length < 1 || clientIds.length > 3) {
+    return { ok: false, error: "shortlist_must_have_1_to_3_clients" }
   }
 
   const { data: engagement, error: engErr } = await admin
@@ -305,6 +327,7 @@ export async function buildShortlist(
         usp_points: cp?.usp_points ?? [],
         company_name: p?.company_name ?? null,
         full_name: p?.full_name ?? null,
+        highlights: buildBuyerFacingHighlights(match),
       },
       supplier_profile_version: cp?.updated_at ?? null,
     }

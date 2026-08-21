@@ -13,24 +13,22 @@
  * touched here.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
+import { BUYER_SELECTABLE_ACTIONS, type BuyerActionValue } from "./types"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
-
-export type BuyerActionValue =
-  | "viewed_only"
-  | "interested_no_details"
-  | "requested_info"
-  | "requested_sample"
-  | "requested_meeting"
-  | "selected_primary"
-  | "sent_price_volume"
-  | "sent_po"
 
 export async function markShortlistInterest(
   token: string,
   shortlistItemId: string,
   action: BuyerActionValue = "interested_no_details",
 ): Promise<ActionResult> {
+  if (!BUYER_SELECTABLE_ACTIONS.includes(action as any)) {
+    // Defence-in-depth: even if a caller reaches this action with an
+    // AE-only value (e.g. "sent_po"), reject it here too — not just in the
+    // UI — since this is a public, unauthenticated server action.
+    return { ok: false, error: "This action cannot be set from the shortlist page." }
+  }
+
   const admin = createAdminClient()
 
   const { data: link } = await admin

@@ -249,6 +249,116 @@ async function findOpportunityByEmail(
 }
 
 /**
+ * Find a pre-opportunity buyer_engagement by matching:
+ * 1. Our sent email's Message-ID (email_drafts.engagement_id, set when the
+ *    AE sends a "requirement inquiry" email before any client is picked).
+ * 2. Buyer's email address against buyer_contacts for a lead that still has
+ *    an ACTIVE engagement (stage not in converted/dropped).
+ *
+ * Only called when findOpportunityByEmail() found nothing — an opportunity
+ * match always wins since it's more specific.
+ */
+async function findEngagementByEmail(
+  fromEmail: string,
+  inReplyTo?: string,
+): Promise<{
+  engagementId: string
+  leadId: string
+  leadCompany: string | null
+  leadIndustry: string | null
+  accountManagerId: string
+  matchSource: "in_reply_to" | "sender_email"
+  matchConfidence: number
+  matchedContactId: string | null
+  isUnrecognizedSender: boolean
+} | null> {
+  const admin = createAdminClient()
+
+  async function findContactForLead(leadId: string) {
+    const { data } = await admin
+      .from("buyer_contacts")
+      .select("id, email")
+      .eq("lead_id", leadId)
+    const contacts = (data ?? []) as { id: string; email: string | null }[]
+    return contacts.find((c) => c.email?.toLowerCase() === fromEmail) ?? null
+  }
+
+  // Method 1: Match by In-Reply-To header (high confidence)
+  if (inReplyTo) {
+    const cleanMessageId = inReplyTo.replace(/^<|>$/g, "")
+
+    const { data: draft } = await admin
+      .from("email_drafts")
+      .select("engagement_id")
+      .or(`smtp_message_id.eq.${cleanMessageId},resend_message_id.eq.${cleanMessageId}`)
+      .single()
+
+    if (draft?.engagement_id) {
+      const { data: eng } = await admin
+        .from("buyer_engagements")
+        .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+        .eq("id", draft.engagement_id)
+        .single()
+
+      if (eng) {
+        const lead = eng.leads as { company_name?: string; industry?: string } | null
+        const matchedContact = await findContactForLead(eng.lead_id)
+
+        return {
+          engagementId: eng.id,
+          leadId: eng.lead_id,
+          leadCompany: lead?.company_name ?? null,
+          leadIndustry: lead?.industry ?? null,
+          accountManagerId: eng.account_manager_id,
+          matchSource: "in_reply_to",
+          matchConfidence: 0.95,
+          matchedContactId: matchedContact?.id ?? null,
+          isUnrecognizedSender: !matchedContact,
+        }
+      }
+    }
+  }
+
+  // Method 2: Match by sender email against buyer_contacts, scoped to a
+  // lead that still has an active (not converted/dropped) engagement.
+  const { data: matchingContacts } = await admin
+    .from("buyer_contacts")
+    .select("id, lead_id")
+    .eq("status", "active")
+    .ilike("email", fromEmail)
+
+  const contactMatches = (matchingContacts ?? []) as { id: string; lead_id: string }[]
+
+  for (const contactMatch of contactMatches) {
+    const { data: eng } = await admin
+      .from("buyer_engagements")
+      .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+      .eq("lead_id", contactMatch.lead_id)
+      .not("stage", "in", '("converted","dropped")')
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (eng) {
+      const lead = eng.leads as { company_name?: string; industry?: string } | null
+      return {
+        engagementId: eng.id,
+        leadId: contactMatch.lead_id,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        accountManagerId: eng.account_manager_id,
+        matchSource: "sender_email",
+        matchConfidence: 0.75,
+        matchedContactId: contactMatch.id,
+        isUnrecognizedSender: false,
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * Check if this email was already processed (deduplication)
  */
 async function isDuplicate(messageId: string): Promise<boolean> {
@@ -309,15 +419,28 @@ export async function POST(req: NextRequest) {
     // Extract sender email
     const fromEmail = extractEmailAddress(data.from)
 
-    // Find matching opportunity
+    // Find matching opportunity — an opportunity has already been created
+    // for this buyer, so this reply is mid-pipeline.
     const match = await findOpportunityByEmail(fromEmail, data.in_reply_to)
-    if (!match) {
-      console.log("[v0] No matching opportunity found for:", fromEmail)
+
+    // If no opportunity yet, this buyer may still be in the pre-opportunity
+    // "requirement gathering" stage (AE claimed them, asked about their
+    // needs, no client/supplier picked yet) — check buyer_engagements too.
+    const engagementMatch = match
+      ? null
+      : await findEngagementByEmail(fromEmail, data.in_reply_to)
+
+    if (!match && !engagementMatch) {
+      console.log("[v0] No matching opportunity or engagement found for:", fromEmail)
       // Could store in a "unmatched_emails" table for manual review
       return NextResponse.json({ ok: true, skipped: "no_match" })
     }
 
-    console.log("[v0] Matched opportunity:", match.opportunityId, "via", match.matchSource)
+    if (match) {
+      console.log("[v0] Matched opportunity:", match.opportunityId, "via", match.matchSource)
+    } else if (engagementMatch) {
+      console.log("[v0] Matched buyer engagement:", engagementMatch.engagementId, "via", engagementMatch.matchSource)
+    }
 
     // Get email body - first check if it's in the webhook payload (Resend inbound)
     // If not, try to fetch from API (only works for outbound emails)
@@ -368,9 +491,9 @@ export async function POST(req: NextRequest) {
       // Only classify if we have actual body content (not just subject fallback)
       if (cleanBody) {
         classification = await classifyBuyerReply(cleanBody, {
-          buyerCompany: match.leadCompany,
-          buyerIndustry: match.leadIndustry,
-          opportunityStage: match.oppStage,
+          buyerCompany: match?.leadCompany ?? engagementMatch?.leadCompany ?? null,
+          buyerIndustry: match?.leadIndustry ?? engagementMatch?.leadIndustry ?? null,
+          opportunityStage: match?.oppStage ?? null,
         })
       } else {
         console.log("[v0] Skipping AI classification for empty/test body")
@@ -380,12 +503,15 @@ export async function POST(req: NextRequest) {
       // Continue without AI - still save the raw reply
     }
 
-    // Insert buyer reply
+    // Insert buyer reply — either against an opportunity (mid-pipeline) or
+    // a pre-opportunity buyer_engagement (still gathering requirements).
     const admin = createAdminClient()
     const { data: reply, error: insertErr } = await admin
       .from("buyer_replies")
       .insert({
-        opportunity_id: match.opportunityId,
+        opportunity_id: match?.opportunityId ?? null,
+        lead_id: match?.leadId ?? engagementMatch?.leadId ?? null,
+        engagement_id: engagementMatch?.engagementId ?? null,
         from_email: fromEmail,
         subject: data.subject,
         message_id: data.message_id,
@@ -398,10 +524,10 @@ export async function POST(req: NextRequest) {
         ai_confidence: classification?.confidence ?? null,
         ai_suggested_next_step: classification?.suggestedNextStepVi ?? null,
         ai_model: classification?.model ?? null,
-        match_source: match.matchSource,
-        match_confidence: match.matchConfidence,
-        matched_contact_id: match.matchedContactId,
-        is_unrecognized_sender: match.isUnrecognizedSender,
+        match_source: match?.matchSource ?? engagementMatch?.matchSource ?? null,
+        match_confidence: match?.matchConfidence ?? engagementMatch?.matchConfidence ?? null,
+        matched_contact_id: match?.matchedContactId ?? engagementMatch?.matchedContactId ?? null,
+        is_unrecognized_sender: match?.isUnrecognizedSender ?? engagementMatch?.isUnrecognizedSender ?? false,
         received_at: data.created_at,
         created_by: null, // System-created, not by a user
       })
@@ -415,32 +541,53 @@ export async function POST(req: NextRequest) {
 
     console.log("[v0] Buyer reply saved with ID:", reply?.id)
 
-    // Dispatch notification to opportunity owner
+    // Dispatch notification to whichever AE owns this buyer right now —
+    // the opportunity owner if a client/supplier has been picked, or the
+    // engagement's account manager if the AE is still gathering requirements.
     try {
-      const admin = createAdminClient()
-      const { data: opp, error: oppErr } = await admin
-        .from("opportunities")
-        .select("owner_id, lead_id")
-        .eq("id", match.opportunityId)
-        .single()
+      const isUnrecognizedSender = match?.isUnrecognizedSender ?? engagementMatch?.isUnrecognizedSender ?? false
+      let notifyUserId: string | null = null
+      let notifyOpportunityId: string | null = null
+      let notifyLinkPath = ""
 
-      if (!oppErr && opp?.owner_id) {
+      if (match) {
+        const { data: opp, error: oppErr } = await admin
+          .from("opportunities")
+          .select("owner_id")
+          .eq("id", match.opportunityId)
+          .single()
+        if (!oppErr && opp?.owner_id) {
+          notifyUserId = opp.owner_id
+          notifyOpportunityId = match.opportunityId
+          notifyLinkPath = `/admin/opportunities/${match.opportunityId}?tab=replies`
+        }
+      } else if (engagementMatch) {
+        notifyUserId = engagementMatch.accountManagerId
+        notifyLinkPath = `/admin/engagements?focus=${engagementMatch.engagementId}`
+      }
+
+      if (notifyUserId) {
         await dispatchNotification({
-          userId: opp.owner_id,
+          userId: notifyUserId,
           category: "action_required",
-          opportunityId: match.opportunityId,
-          linkPath: `/admin/opportunities/${match.opportunityId}?tab=replies`,
+          opportunityId: notifyOpportunityId,
+          linkPath: notifyLinkPath,
           dedupKey: `buyer_reply:${reply?.id}`,
-          title: match.isUnrecognizedSender
+          title: isUnrecognizedSender
             ? {
                 vi: `Người lạ trả lời (chưa có trong danh bạ): ${fromEmail}`,
                 en: `Unrecognized sender replied (not in contact directory): ${fromEmail}`,
               }
-            : {
-                vi: `Có phản hồi từ ${fromEmail}`,
-                en: `New reply from ${fromEmail}`,
-              },
-          body: match.isUnrecognizedSender
+            : engagementMatch
+              ? {
+                  vi: `Buyer đã phản hồi yêu cầu nhu cầu: ${fromEmail}`,
+                  en: `Buyer replied to your requirement request: ${fromEmail}`,
+                }
+              : {
+                  vi: `Có phản hồi từ ${fromEmail}`,
+                  en: `New reply from ${fromEmail}`,
+                },
+          body: isUnrecognizedSender
             ? {
                 vi: `Có thể buyer đã giới thiệu sang người khác. Hãy vào Danh bạ để thêm liên hệ mới. ${data.subject.slice(0, 60)}...`,
                 en: `Buyer may have introduced a different contact. Add them to the contact directory. ${data.subject.slice(0, 60)}...`,

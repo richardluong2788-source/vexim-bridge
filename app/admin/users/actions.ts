@@ -21,7 +21,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
 import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
+import { reserveWorkEmail } from "@/lib/email/work-email"
 import type { Role } from "@/lib/supabase/types"
+
+// Roles that send buyer-facing emails and therefore benefit from their own
+// personal sender address (see lib/email/work-email.ts for why).
+const ROLES_NEEDING_WORK_EMAIL: Role[] = ["account_executive", "admin", "super_admin"]
 
 // Assignable roles surfaced in the UI. `staff` is legacy — left out on
 // purpose so new assignments can only land on the 5 canonical roles.
@@ -63,17 +68,26 @@ export async function updateUserRole(
   // Only super_admin can demote a super_admin.
   const { data: target } = await admin
     .from("profiles")
-    .select("role")
+    .select("role, full_name, work_email")
     .eq("id", userId)
-    .single<{ role: string | null }>()
+    .single<{ role: string | null; full_name: string | null; work_email: string | null }>()
   const targetRole = normaliseRole(target?.role)
   if (targetRole === "super_admin" && callerRole !== "super_admin") {
     return { ok: false, error: "superAdminOnly" }
   }
 
+  // Backfill a personal sender address if this promotion moves the user
+  // into a role that sends buyer-facing email and they don't have one yet
+  // (e.g. they were invited as lead_researcher, later promoted to AE).
+  const needsWorkEmail =
+    ROLES_NEEDING_WORK_EMAIL.includes(newRole) && !target?.work_email
+  const workEmail = needsWorkEmail
+    ? await reserveWorkEmail(target?.full_name || "user")
+    : undefined
+
   const { error: profileErr } = await admin
     .from("profiles")
-    .update({ role: newRole })
+    .update({ role: newRole, ...(workEmail ? { work_email: workEmail } : {}) })
     .eq("id", userId)
 
   if (profileErr) {
@@ -92,6 +106,53 @@ export async function updateUserRole(
 
   revalidatePath("/admin/users")
   return { ok: true }
+}
+
+// ============================================================================
+// Backfill Work Email
+// ============================================================================
+
+export interface GenerateWorkEmailResult {
+  ok: boolean
+  workEmail?: string
+  error?: string
+}
+
+/**
+ * Backfill a personal sender address for an existing user who doesn't have
+ * one yet (e.g. they were invited before this feature existed). Used from
+ * the users table for anyone in ROLES_NEEDING_WORK_EMAIL with a null
+ * work_email. See lib/email/work-email.ts for why this matters.
+ */
+export async function generateWorkEmailForUser(
+  userId: string,
+): Promise<GenerateWorkEmailResult> {
+  const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("role, full_name, work_email")
+    .eq("id", userId)
+    .single<{ role: string | null; full_name: string | null; work_email: string | null }>()
+
+  if (!target) return { ok: false, error: "not_found" }
+  if (target.work_email) return { ok: true, workEmail: target.work_email }
+  if (!ROLES_NEEDING_WORK_EMAIL.includes(normaliseRole(target.role) as Role)) {
+    return { ok: false, error: "role_not_eligible" }
+  }
+
+  const workEmail = await reserveWorkEmail(target.full_name || "user")
+  const { error } = await admin
+    .from("profiles")
+    .update({ work_email: workEmail })
+    .eq("id", userId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/admin/users")
+  return { ok: true, workEmail }
 }
 
 // ============================================================================
@@ -175,6 +236,10 @@ export interface InviteTeamMemberResult {
   ok: boolean
   userId?: string
   error?: string
+  /** Auto-generated personal sender address, if this role gets one. Sending
+   * and receiving both go through Resend — no mailbox needs to be created
+   * anywhere for this to work (see lib/email/work-email.ts). */
+  workEmail?: string | null
 }
 
 /**
@@ -244,6 +309,15 @@ export async function inviteTeamMember(
 
   const newUserId = inviteData.user.id
 
+  // ---- 3b. Auto-generate a personal work email for roles that send
+  // buyer-facing email, so each person has a stable address the buyer's
+  // mail provider learns to trust with their real name (see
+  // lib/email/work-email.ts). Sending and receiving both go through
+  // Resend — no mailbox setup is required elsewhere.
+  const workEmail = ROLES_NEEDING_WORK_EMAIL.includes(role)
+    ? await reserveWorkEmail(fullName)
+    : null
+
   // ---- 4. Create profile with role ------------------------------------------
   const { error: profileErr } = await admin
     .from("profiles")
@@ -254,6 +328,7 @@ export async function inviteTeamMember(
         email,
         full_name: fullName,
         industry,
+        work_email: workEmail,
       },
       { onConflict: "id" },
     )
@@ -275,6 +350,7 @@ export async function inviteTeamMember(
       full_name: fullName,
       role,
       industry,
+      work_email: workEmail,
       invited_by_role: callerRole,
     },
   })
@@ -284,5 +360,6 @@ export async function inviteTeamMember(
   return {
     ok: true,
     userId: newUserId,
+    workEmail,
   }
 }

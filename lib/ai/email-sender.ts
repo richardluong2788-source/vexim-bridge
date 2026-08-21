@@ -70,7 +70,7 @@ export async function sendEmailDraft(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, work_email")
     .eq("id", user.id)
     .single()
 
@@ -135,13 +135,15 @@ export async function sendEmailDraft(
   // If full_name is not set in profile, we MUST still use a human-sounding name.
   // Fallback to "Vexim Trade Team" if no name available (better than just email address).
   const senderName = profile.full_name || "Vexim Trade Team"
-  const fromAddress = buildPersonalizedSender(senderName, "trade")
-  
+  const workEmail = profile.work_email || null
+  const fromAddress = buildPersonalizedSender(senderName, { workEmail })
+
   // DEBUG: Log sender info to verify it's working correctly
   console.log("[email-sender] Building from address:", {
     userId: user.id,
     profileFullName: profile.full_name,
     senderName,
+    workEmail,
     fromAddress,
   })
   
@@ -153,11 +155,11 @@ export async function sendEmailDraft(
   // Keep subject line clean — no ref code visible to buyer.
   const subject = baseSubject
   
-  // Reply-To: Use the sender's OWN email for replies.
-  // This looks more personal and trustworthy than plus-addressed tracking emails.
-  // The X-Ref-Code header handles tracking internally.
-  // NOTE: If the AE has a personal veximtrade.com email, use that. Otherwise, use trade@
-  const replyToEmail = getSenderEmail("trade")
+  // Reply-To: prefer the AE's own mailbox (workEmail) so replies land
+  // directly with them and Gmail/Outlook keep trusting the name<->address
+  // pairing. Falls back to the shared trade@ address when the AE has no
+  // personal mailbox provisioned yet.
+  const replyToEmail = workEmail || getSenderEmail("trade")
 
   // 3. Send via Resend
   // Add headers to prevent Gmail from filtering into Promotions folder.

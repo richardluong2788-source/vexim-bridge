@@ -109,8 +109,8 @@ export default async function AEInboxPage() {
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl text-pretty">
             {locale === "vi"
-              ? "Danh sách buyer được AI phân bổ cho bạn dựa trên sản phẩm, ngành hàng, và lịch sử thắng. Chọn client để tạo cơ hội mới hoặc từ chối nếu không phù hợp."
-              : "Buyers assigned to you by AI based on product fit, industry, and win history. Select a client to create an opportunity or reject if not a good fit."}
+              ? "Danh sách buyer được AI phân bổ cho bạn dựa trên sản phẩm, ngành hàng, và lịch sử thắng. Nhận buyer để hỏi nhu cầu, gửi shortlist supplier, rồi gán client khi buyer đã phản hồi."
+              : "Buyers assigned to you by AI based on product fit, industry, and win history. Claim a buyer to gather requirements, send a supplier shortlist, then assign a client once the buyer responds."}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

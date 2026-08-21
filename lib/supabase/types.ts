@@ -30,7 +30,15 @@ export const COMPLIANCE_REQUIRED_STAGES: Stage[] = [
   "won",
 ]
 
-export type EmailType = "introduction" | "follow_up" | "quotation" | "custom"
+export type EmailType =
+  | "introduction"
+  | "follow_up"
+  | "quotation"
+  | "sample_offer"
+  | "negotiation"
+  | "custom"
+  | "requirement_inquiry"
+  | "shortlist_delivery"
 export type EmailDraftStatus =
   | "pending_approval"
   | "approved"
@@ -965,6 +973,8 @@ export type Database = {
         Row: {
           id: string
           opportunity_id: string | null
+          lead_id: string | null
+          engagement_id: string | null
           email_type: EmailType
           ai_prompt: string
           generated_subject: string | null
@@ -981,6 +991,8 @@ export type Database = {
         Insert: {
           id?: string
           opportunity_id?: string | null
+          lead_id?: string | null
+          engagement_id?: string | null
           email_type?: EmailType
           ai_prompt: string
           generated_subject?: string | null
@@ -997,6 +1009,8 @@ export type Database = {
         Update: {
           id?: string
           opportunity_id?: string | null
+          lead_id?: string | null
+          engagement_id?: string | null
           email_type?: EmailType
           ai_prompt?: string
           generated_subject?: string | null

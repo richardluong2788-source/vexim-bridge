@@ -142,3 +142,14 @@ export const MATCH_SCORE_SHARE = 0.8
 export const TRUST_SCORE_SHARE = 0.2
 
 export const MAX_AI_MATCH_RESULTS = 10
+
+/**
+ * Version tag for the buyer↔client scoring engine in this file
+ * (client-scorer.ts + these weights). Bump this any time the weights,
+ * factor formulas, or eligibility rules change.
+ *
+ * Persisted verbatim into `buyer_engagement_shortlist_versions.scoring_engine_version`
+ * so a sent shortlist snapshot can always be traced back to the exact
+ * scoring logic that produced it, even after this engine is upgraded.
+ */
+export const SCORING_ENGINE_VERSION = "client-scorer@v1"

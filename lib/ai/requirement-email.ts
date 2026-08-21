@@ -1,8 +1,18 @@
 /**
- * AI generator for the "requirement inquiry" email — sent to a buyer
- * BEFORE any client/supplier has been picked, to collect their sourcing
- * requirements (product spec, MOQ, target price range, payment terms,
- * packaging, and anything else).
+ * AI generator for the "requirement inquiry" email — the FIRST, LIGHT-TOUCH
+ * email an AE sends a buyer BEFORE any client/supplier has been picked and
+ * before any sourcing requirements have been collected.
+ *
+ * This is deliberately NOT a discovery/requirements email. It does not ask
+ * about product spec, MOQ, target price, payment terms, or packaging — it
+ * only introduces Vexim briefly, shows a safe/generic understanding of the
+ * buyer's industry, and asks ONE single question: whether the buyer is open
+ * to evaluating additional sourcing from Vietnam. Collecting the detailed
+ * requirements (spec, price, MOQ, payment, packaging, other) happens in a
+ * SEPARATE follow-up step, once the buyer has replied positively — via
+ * generateFollowUpReplyEmail() below, triggered from the AE's "Reply" flow
+ * with a Vietnamese instruction (see the "Ask for detailed requirements"
+ * quick-preset in ReplyFollowUpDialog).
  *
  * Deliberately kept separate from lib/ai/email-generator.ts (which is
  * opportunity-scoped and much more elaborate) because this email has no
@@ -34,7 +44,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body. Politely asks the buyer to share: 1) exact product/spec needed, 2) target price range, 3) MOQ (minimum order quantity), 4) preferred payment terms, 5) packaging requirements, 6) any other requirements. Keep it short (120-180 words), warm, and easy to answer point-by-point. End with a complete signature using sender_name / exporter_company / sender_email / sender_phone from context — never use placeholders.",
+      "Full English email body. Exact content requirements (what to ask, what NOT to ask, tone, structure, length) are fully specified in the system prompt for the given emailType — follow the system prompt precisely rather than any generic assumption. Always end with a complete signature using sender_name / exporter_company / sender_email / sender_phone from context — never use placeholders.",
     ),
   content_vi: z
     .string()
@@ -175,13 +185,72 @@ export async function generateRequirementInquiryEmail(
           "placeholders. Never invent facts not present in context. No emoji.",
         ].join("\n")
       : [
-          "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
-          "Goal of THIS email: ask the buyer to share their sourcing requirements so the team can",
-          "shortlist the right manufacturers for them. Do NOT pitch any specific supplier yet — no",
-          "supplier has been chosen. Ask specifically about: 1) product/spec, 2) target price range,",
-          "3) MOQ, 4) payment terms, 5) packaging requirements, 6) anything else important to them.",
-          "Frame it as helping them get matched with the RIGHT supplier faster, not a sales pitch.",
-          "Never invent facts not present in context. No emoji. No excessive punctuation.",
+          "You write the FIRST, LIGHT-TOUCH opening email a Vietnamese export sales team (Vexim)",
+          "sends to a new buyer lead. This is NOT a requirements-collection email.",
+          "",
+          "GOAL OF THIS EMAIL:",
+          "Briefly introduce Vexim, show a safe, generic understanding of the buyer's industry/",
+          "product context, and end with exactly ONE call-to-action: asking whether the buyer would",
+          "be open to evaluating additional sourcing/supply from Vietnam for their",
+          "product/industry. That is the only question in the email.",
+          "",
+          "MANDATORY RULES (do not violate any of these):",
+          "1. Exactly ONE call-to-action: whether the buyer is open to evaluating Vietnam sourcing.",
+          "2. Do NOT ask about product spec/details, target price, MOQ, payment terms, or packaging.",
+          "   Those belong to a later, separate follow-up email — not this one.",
+          "3. Do NOT name, list, or describe any specific supplier or factory. No supplier has been",
+          "   chosen or vetted yet.",
+          "4. Do NOT invent or assume any fact not present in the context JSON — no specific prices,",
+          "   quantities, certifications, capacity figures, delivery times, or claimed history of",
+          "   past purchases/communication with this buyer.",
+          "5. Do NOT use any forbidden/absolute claims: no 'FDA approved', 'guaranteed', 'cheapest',",
+          "   'best', 'top supplier', '#1', or similarly unverifiable superlative/regulatory claims.",
+          "6. Do NOT reference or reveal any internal-only or unverified data fields, scoring, notes,",
+          "   or anything that reads as internal system/CRM language.",
+          "7. Do NOT mention attachments, catalogs, price lists, or files — none are attached.",
+          "8. Do NOT claim the email has been or will be auto-sent — it is drafted for AE review.",
+          "9. Vexim's self-introduction must be brief: roughly 10-20% of the email's total content,",
+          "   not the centerpiece.",
+          "10. Show buyer-context awareness only at a safe, generic level (their general industry or",
+          "    main product category from context) — never fabricate specifics about their company.",
+          "11. Keep a professional, warm, consultative B2B tone — never pushy or salesy.",
+          "12. No emoji. No excessive punctuation (no multiple exclamation marks, no ALL CAPS).",
+          "13. Total length: 120-180 words for the body (excluding signature).",
+          "14. End with a complete, real signature built ONLY from sender_name / exporter_company /",
+          "    sender_email / sender_phone in context — never a placeholder like '[Your Name]'.",
+          "15. Do not use a 'Re:' subject prefix — this is a first contact on this topic.",
+          "16. Do not add a P.S., forwarded-message framing, or any second CTA/question of any kind.",
+          "17. Generalize to the buyer's ACTUAL product/industry taken from context (main_product /",
+          "    industry) — never hardcode or default to any single specific product category.",
+          "18. If a context field needed to sound specific is missing, stay generic rather than",
+          "    guessing or fabricating a value.",
+          "",
+          "STRUCTURE (8 steps, in this order):",
+          "1. Personal, professional greeting using the contact person's name if available.",
+          "2. One sentence: brief reason for reaching out (e.g. came across their company profile/",
+          "   sourcing interest in [industry/product]).",
+          "3. Brief Vexim introduction (10-20% of content): who Vexim is — a Vietnam-based export/",
+          "   sourcing partner connecting international buyers with vetted Vietnamese manufacturers.",
+          "4. One sentence showing safe, generic understanding of the buyer's industry/product",
+          "   context — no fabricated specifics.",
+          "5. One sentence bridging to why Vietnam is a relevant sourcing option for that industry",
+          "   in general terms (e.g. manufacturing capability, export experience) — no unverifiable",
+          "   superlatives or claims.",
+          "6. The single CTA: ask clearly whether the buyer would be open to evaluating additional",
+          "   sourcing from Vietnam for their product/industry.",
+          "7. A polite, low-pressure closing line (e.g. happy to share more if there's interest).",
+          "8. Complete signature (sender_name, title if natural, exporter_company, sender_email,",
+          "   sender_phone if present in context).",
+          "",
+          "WRITING STYLE:",
+          "Concise, plain business English, active voice, short sentences and short paragraphs.",
+          "Confident but not pushy. No jargon, no filler adjectives, no hype language.",
+          "",
+          "SELF-CHECK BEFORE RETURNING THE RESULT:",
+          "Before producing content_en, verify silently: exactly one CTA present; no MOQ/price/",
+          "payment/packaging/spec question anywhere; no supplier named; no fabricated fact; no",
+          "forbidden claim; Vexim intro is brief, not the centerpiece; length is 120-180 words;",
+          "signature uses only real context fields. If any check fails, rewrite before finalizing.",
         ].join("\n")
 
   const userPrompt = [
@@ -192,7 +261,9 @@ export async function generateRequirementInquiryEmail(
     input.viPrompt ||
       (emailType === "shortlist_delivery"
         ? "Thông báo cho buyer là đã có shortlist supplier phù hợp, mời họ bấm link xem profile và chọn supplier quan tâm."
-        : "Hỏi buyer về nhu cầu sản phẩm, MOQ, khoảng giá mục tiêu, điều kiện thanh toán và bao bì."),
+        : `Giới thiệu ngắn gọn về Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung ${
+            (lead["industry"] as string | null) || (lead["main_product"] as string | null) || "sản phẩm liên quan"
+          } từ Việt Nam không. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này — những điểm đó sẽ hỏi ở bước follow-up sau khi buyer phản hồi đồng ý.`),
   ].join("\n")
 
   const { experimental_output: generated } = await generateText({

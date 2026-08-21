@@ -21,6 +21,8 @@ import {
   DollarSign,
   AlertTriangle,
   Handshake,
+  Reply,
+  CornerUpLeft,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -53,6 +55,7 @@ import {
 import {
   generateRequirementInquiryEmailAction,
   markEngagementEmailSentAction,
+  generateFollowUpReplyEmailAction,
 } from "@/app/admin/ae-inbox/requirement-email-actions"
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
@@ -113,6 +116,9 @@ export interface EngagementReplyRow {
   ai_suggested_next_step: string | null
   received_at: string
   read_at: string | null
+  message_id: string | null
+  responded_email_draft_id: string | null
+  responded_at: string | null
 }
 
 export interface Engagement {
@@ -193,6 +199,9 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [pending, startTransition] = useTransition()
 
   const [reqEmailDialogFor, setReqEmailDialogFor] = useState<Engagement | null>(null)
+  const [replyDialogFor, setReplyDialogFor] = useState<{ engagement: Engagement; reply: EngagementReplyRow } | null>(
+    null,
+  )
   const [reqFormDialogFor, setReqFormDialogFor] = useState<Engagement | null>(null)
   const [shortlistDialogFor, setShortlistDialogFor] = useState<Engagement | null>(null)
   const [sendShortlistDialogFor, setSendShortlistDialogFor] = useState<Engagement | null>(null)
@@ -414,9 +423,31 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                                 <span className="text-foreground">{reply.ai_suggested_next_step}</span>
                               </p>
                             )}
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(reply.received_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-US")}
-                            </p>
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(reply.received_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-US")}
+                              </p>
+                              {reply.responded_at ? (
+                                <Badge
+                                  variant="outline"
+                                  className="gap-1 text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                >
+                                  <CornerUpLeft className="h-3 w-3" />
+                                  {t("Đã trả lời", "Replied")}
+                                </Badge>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 gap-1 text-xs"
+                                  onClick={() => setReplyDialogFor({ engagement: eng, reply })}
+                                >
+                                  <Reply className="h-3 w-3" />
+                                  {t("Trả lời", "Reply")}
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )
                       })}
@@ -578,6 +609,19 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
           onClose={() => setReqEmailDialogFor(null)}
           onSent={() => {
             setReqEmailDialogFor(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {replyDialogFor && (
+        <ReplyFollowUpDialog
+          engagement={replyDialogFor.engagement}
+          reply={replyDialogFor.reply}
+          locale={locale}
+          onClose={() => setReplyDialogFor(null)}
+          onSent={() => {
+            setReplyDialogFor(null)
             router.refresh()
           }}
         />
@@ -799,6 +843,160 @@ function RequirementEmailDialog({
             <Button onClick={handleSend} disabled={sending} className="gap-2">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               {t("Gửi email", "Send email")}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog: Reply to a SPECIFIC buyer message mid-negotiation. Works at any
+// stage — buyer replies can arrive before requirements are fully captured,
+// and the AE needs to keep answering without leaving this workspace.
+// Threads the outgoing email onto the buyer's original message and stamps
+// the reply as answered on send.
+// ---------------------------------------------------------------------------
+
+function ReplyFollowUpDialog({
+  engagement,
+  reply,
+  locale,
+  onClose,
+  onSent,
+}: {
+  engagement: Engagement
+  reply: EngagementReplyRow
+  locale: "vi" | "en"
+  onClose: () => void
+  onSent: () => void
+}) {
+  const [viPrompt, setViPrompt] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [draft, setDraft] = useState<{
+    draftId: string
+    subject_en: string
+    content_en: string
+    content_vi: string
+    recipient_email: string | null
+    inReplyToMessageId: string | null
+  } | null>(null)
+
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    const result = await generateFollowUpReplyEmailAction({
+      engagementId: engagement.id,
+      replyId: reply.id,
+      viPrompt,
+    })
+    setGenerating(false)
+    if (!result.ok) {
+      toast.error(result.message || result.error)
+      return
+    }
+    setDraft(result.data)
+  }
+
+  const handleSend = async () => {
+    if (!draft) return
+    if (!draft.recipient_email) {
+      toast.error(t("Không xác định được email người nhận", "Could not determine recipient email"))
+      return
+    }
+    setSending(true)
+    const sendResult = await sendEmailDraftAction({
+      draftId: draft.draftId,
+      replyToMessageId: draft.inReplyToMessageId,
+      markReplyId: reply.id,
+    })
+    setSending(false)
+    if (!sendResult.ok) {
+      toast.error(sendResult.message || sendResult.error)
+      return
+    }
+    toast.success(t("Đã gửi email trả lời", "Reply email sent"))
+    onSent()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("Trả lời buyer", "Reply to buyer")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "AI sẽ soạn email trả lời đúng nội dung buyer vừa gửi. Bạn có thể chỉnh trước khi gửi.",
+              "AI will draft a reply grounded in what the buyer just wrote. Review before sending.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            {t("Buyer vừa viết: ", "Buyer wrote: ")}
+          </p>
+          <p className="text-foreground text-pretty line-clamp-4">
+            {reply.translated_vi && locale === "vi" ? reply.translated_vi : reply.raw_content}
+          </p>
+        </div>
+
+        {!draft ? (
+          <div className="space-y-3">
+            <Label htmlFor="vi-followup-prompt">
+              {t("Bạn muốn trả lời/đàm phán điểm gì?", "What should the reply address or negotiate?")}
+            </Label>
+            <Textarea
+              id="vi-followup-prompt"
+              value={viPrompt}
+              onChange={(e) => setViPrompt(e.target.value)}
+              placeholder={t(
+                "VD: xác nhận có chứng nhận GlobalGAP, báo giá container 20ft...",
+                "E.g. confirm GlobalGAP certification, quote 20ft container price...",
+              )}
+              rows={3}
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label>{t("Chủ đề", "Subject")}</Label>
+              <Input
+                value={draft.subject_en}
+                onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{t("Nội dung (English)", "Content (English)")}</Label>
+              <Textarea
+                value={draft.content_en}
+                onChange={(e) => setDraft({ ...draft, content_en: e.target.value })}
+                rows={8}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t("Người nhận: ", "Recipient: ")}
+              {draft.recipient_email || t("(chưa có email)", "(no email on file)")}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          {!draft ? (
+            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {t("Soạn bằng AI", "Generate with AI")}
+            </Button>
+          ) : (
+            <Button onClick={handleSend} disabled={sending} className="gap-2">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Reply className="h-4 w-4" />}
+              {t("Gửi trả lời", "Send reply")}
             </Button>
           )}
         </DialogFooter>

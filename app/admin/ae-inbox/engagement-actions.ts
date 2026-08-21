@@ -575,7 +575,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
           profiles:client_id ( id, company_name, full_name ) )
       ),
       shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),
-      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at )
+      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at, message_id, responded_email_draft_id, responded_at )
       `,
     )
     .not("stage", "in", "(converted,dropped)")

@@ -228,3 +228,219 @@ export async function generateRequirementInquiryEmail(
     recipient_email: recipient,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Follow-up reply — AE answers a SPECIFIC buyer_replies message while still
+// mid-negotiation (before requirements are fully captured / an opportunity
+// exists). Separate from generateRequirementInquiryEmail above because this
+// is a reply within an existing thread, not an opening message: it must be
+// grounded in what the buyer actually asked, and it threads onto their
+// original email (see replyToMessageId in lib/ai/email-sender.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const followUpOutputSchema = z.object({
+  subject_en: z
+    .string()
+    .describe("Subject line for this reply. Should start with 'Re:' if the buyer's original subject already does; otherwise prefix one."),
+  content_en: z
+    .string()
+    .describe(
+      "Full English email body replying directly to the buyer's message. Address exactly what the buyer asked/raised — do not repeat the original requirement questions. Keep it concise (80-160 words), warm, and specific. End with a complete signature using sender_name / exporter_company / sender_email / sender_phone from context — never use placeholders.",
+    ),
+  content_vi: z
+    .string()
+    .describe("Faithful Vietnamese translation of the English reply so the Vietnamese AE can verify intent before sending."),
+})
+
+export type GenerateFollowUpReplyInput = {
+  engagementId: string
+  /** The buyer_replies.id being answered — the reply must belong to this engagement. */
+  replyId: string
+  /** AE instruction in Vietnamese: what to address, negotiate, or ask back. */
+  viPrompt: string
+  isManual?: boolean
+  manualSubject?: string
+  manualContent?: string
+}
+
+export type GenerateFollowUpReplyResult = {
+  draftId: string
+  subject_en: string
+  content_en: string
+  content_vi: string
+  recipient_email: string | null
+  /** Pass to sendEmailDraft's replyToMessageId so the send threads correctly. */
+  inReplyToMessageId: string | null
+  replyId: string
+}
+
+export async function generateFollowUpReplyEmail(
+  input: GenerateFollowUpReplyInput,
+): Promise<GenerateFollowUpReplyResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new RequirementEmailAuthError()
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, full_name, email, work_email, company_name")
+    .eq("id", user.id)
+    .single()
+  if (!profile || !ALLOWED_ROLES.has(profile.role)) {
+    throw new RequirementEmailAuthError("Role not permitted")
+  }
+
+  const { data: engagement, error: engErr } = await supabase
+    .from("buyer_engagements")
+    .select(
+      "id, lead_id, requested_products, target_price_range, moq, payment_terms, packaging_requirements, other_requirements, leads (*)",
+    )
+    .eq("id", input.engagementId)
+    .single()
+  if (engErr || !engagement) {
+    throw new Error("Engagement not found")
+  }
+  const lead = (Array.isArray((engagement as any).leads)
+    ? (engagement as any).leads[0]
+    : (engagement as any).leads) as Record<string, unknown> | null
+  if (!lead) throw new Error("Engagement has no associated lead")
+
+  // The reply MUST belong to this engagement — prevents an AE from
+  // grounding a reply in another buyer's message via a guessed replyId.
+  const { data: reply, error: replyErr } = await supabase
+    .from("buyer_replies")
+    .select("id, from_email, subject, raw_content, translated_vi, ai_summary, ai_suggested_next_step, message_id, engagement_id")
+    .eq("id", input.replyId)
+    .eq("engagement_id", input.engagementId)
+    .single()
+  if (replyErr || !reply) {
+    throw new Error("Buyer reply not found for this engagement")
+  }
+
+  // Reply to the address the buyer actually wrote from — NOT the lead's
+  // on-file contact email, which can legitimately differ (e.g. a colleague
+  // answering on the original contact's behalf).
+  const recipient = reply.from_email || (lead["contact_email"] as string | null) || null
+
+  const originalSubject = reply.subject?.trim() || ""
+  const defaultSubject = originalSubject
+    ? /^re:/i.test(originalSubject)
+      ? originalSubject
+      : `Re: ${originalSubject}`
+    : "Re: Your inquiry"
+
+  // ------------------------------------------------------------
+  // Manual mode — skip AI generation entirely.
+  // ------------------------------------------------------------
+  if (input.isManual && input.manualSubject && input.manualContent) {
+    const { data: draft, error: draftError } = await supabase
+      .from("email_drafts")
+      .insert({
+        lead_id: engagement.lead_id,
+        engagement_id: input.engagementId,
+        email_type: "follow_up",
+        ai_prompt: "[MANUAL]",
+        generated_subject: input.manualSubject,
+        generated_content_en: input.manualContent,
+        translated_content_vi: input.manualContent,
+        recipient_email: recipient,
+        status: "pending_approval",
+        created_by: user.id,
+      })
+      .select("id")
+      .single()
+    if (draftError || !draft) throw new Error(draftError?.message ?? "Failed to save draft")
+
+    return {
+      draftId: draft.id,
+      subject_en: input.manualSubject,
+      content_en: input.manualContent,
+      content_vi: input.manualContent,
+      recipient_email: recipient,
+      inReplyToMessageId: reply.message_id ?? null,
+      replyId: reply.id,
+    }
+  }
+
+  const contextBlock = JSON.stringify(
+    {
+      buyer_company: lead["company_name"],
+      contact_person: lead["contact_person"],
+      main_product: lead["main_product"],
+      country: lead["country"],
+      requested_products: (engagement as any).requested_products,
+      target_price_range: (engagement as any).target_price_range,
+      moq: (engagement as any).moq,
+      payment_terms: (engagement as any).payment_terms,
+      packaging_requirements: (engagement as any).packaging_requirements,
+      buyer_message_subject: reply.subject,
+      buyer_message_en: reply.raw_content,
+      buyer_message_vi_translation: reply.translated_vi,
+      buyer_message_ai_summary: reply.ai_summary,
+      ai_suggested_next_step: reply.ai_suggested_next_step,
+      sender_name: profile.full_name,
+      exporter_company: profile.company_name ?? "Vexim Trade",
+      sender_email: profile.work_email || "trade@veximtrade.com",
+    },
+    null,
+    2,
+  )
+
+  const system = [
+    "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
+    "This is a REPLY within an existing email thread with a buyer — the buyer's most recent",
+    "message is given as buyer_message_en (with a Vietnamese translation for context) in the",
+    "JSON below. Answer exactly what the buyer asked or raised. Do not re-ask the original",
+    "requirement questions (product/MOQ/price/payment/packaging) unless the AE instruction",
+    "explicitly says information is still missing. Follow the AE's Vietnamese instruction for",
+    "what points to address, negotiate, or push back on. Never invent facts (prices, certifications,",
+    "capacity) not present in context — if unsure, phrase it as 'we will confirm' rather than",
+    "fabricating a number. No emoji. No excessive punctuation.",
+  ].join("\n")
+
+  const userPrompt = [
+    "Conversation + buyer context (JSON):",
+    contextBlock,
+    "",
+    "AE instruction (Vietnamese) on what to address in this reply:",
+    input.viPrompt || "Trả lời đúng trọng tâm câu hỏi/yêu cầu của buyer ở trên.",
+  ].join("\n")
+
+  const { experimental_output: generated } = await generateText({
+    model: "openai/gpt-4o-mini",
+    system,
+    prompt: userPrompt,
+    experimental_output: Output.object({ schema: followUpOutputSchema }),
+  })
+
+  const { data: draft, error: draftError } = await supabase
+    .from("email_drafts")
+    .insert({
+      lead_id: engagement.lead_id,
+      engagement_id: input.engagementId,
+      email_type: "follow_up",
+      ai_prompt: input.viPrompt,
+      generated_subject: generated.subject_en || defaultSubject,
+      generated_content_en: generated.content_en,
+      translated_content_vi: generated.content_vi,
+      recipient_email: recipient,
+      status: "pending_approval",
+      created_by: user.id,
+    })
+    .select("id")
+    .single()
+  if (draftError || !draft) throw new Error(draftError?.message ?? "Failed to save draft")
+
+  return {
+    draftId: draft.id,
+    subject_en: generated.subject_en || defaultSubject,
+    content_en: generated.content_en,
+    content_vi: generated.content_vi,
+    recipient_email: recipient,
+    inReplyToMessageId: reply.message_id ?? null,
+    replyId: reply.id,
+  }
+}

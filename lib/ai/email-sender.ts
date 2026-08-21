@@ -58,6 +58,21 @@ export async function sendEmailDraft(
     overrideCc?: string[]
     /** File attachments to include in email */
     attachments?: UploadedAttachment[]
+    /**
+     * RFC Message-ID of the buyer message this draft is replying to (e.g.
+     * a `buyer_replies.message_id`). When set, threads the outgoing email
+     * as a real reply (In-Reply-To / References headers) so it lands in
+     * the same Gmail/Outlook thread as the buyer's message instead of
+     * appearing as a new conversation.
+     */
+    replyToMessageId?: string | null
+    /**
+     * A `buyer_replies.id` this draft directly answers. When set, that
+     * reply row is stamped with `responded_email_draft_id` / `responded_at`
+     * on successful send, so the UI can show "already answered" instead of
+     * leaving the AE to guess.
+     */
+    markReplyId?: string | null
   },
 ): Promise<SendDraftResult> {
   const supabase = await createClient()
@@ -192,6 +207,12 @@ export async function sendEmailDraft(
     "X-Mailer": "Vexim-Trade/1.0",
     // Store ref code in custom header for internal tracking (not visible to buyer)
     ...(refCode && { "X-Ref-Code": refCode }),
+    // Thread this as a reply to the buyer's message (see replyToMessageId
+    // doc above) so Gmail/Outlook group it with the original thread.
+    ...(opts?.replyToMessageId && {
+      "In-Reply-To": opts.replyToMessageId,
+      References: opts.replyToMessageId,
+    }),
   }
 
   const ccEmails = (opts?.overrideCc ?? []).filter((e) => e.trim().length > 0)
@@ -241,6 +262,15 @@ export async function sendEmailDraft(
       description: `Email sent to ${recipient}: "${subject}"${refSuffix}`,
       performed_by: user.id,
     })
+  }
+
+  // 6. Stamp the buyer_replies row this draft was answering (best-effort —
+  //    never fail the send over a bookkeeping update).
+  if (opts?.markReplyId) {
+    await supabase
+      .from("buyer_replies")
+      .update({ responded_email_draft_id: draftId, responded_at: new Date().toISOString() })
+      .eq("id", opts.markReplyId)
   }
 
   return { status: "sent", resendId: sendRes.data?.id ?? null }

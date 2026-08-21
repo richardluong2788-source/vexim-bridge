@@ -4,7 +4,8 @@ import { useState, useTransition } from "react"
 import { Check, FileText, Loader2, MessageSquare, Package, ThumbsUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { markShortlistInterest, type BuyerActionValue } from "./actions"
+import { markShortlistInterest } from "./actions"
+import type { BuyerActionValue } from "./types"
 
 const ACTION_LABEL: Partial<Record<BuyerActionValue, string>> = {
   requested_info: "Request info",

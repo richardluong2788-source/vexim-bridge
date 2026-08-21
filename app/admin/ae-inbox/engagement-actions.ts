@@ -175,7 +175,10 @@ export async function markRequirementEmailSent(
 
   const { error } = await admin
     .from("buyer_engagements")
-    .update({ stage: "requirement_email_sent" })
+    // Reset stale_reminder_sent_at: the AE is waiting on the buyer again
+    // from this point, so the 14-day no-reply clock (see
+    // app/api/cron/engagement-stale-check/route.ts) restarts fresh.
+    .update({ stage: "requirement_email_sent", stale_reminder_sent_at: null })
     .eq("id", engagementId)
     .eq("stage", "claimed")
 
@@ -432,7 +435,10 @@ export async function approveAndSendShortlist(
 
   await admin
     .from("buyer_engagements")
-    .update({ stage: "shortlist_sent" })
+    // Reset stale_reminder_sent_at — waiting on the buyer starts fresh
+    // from this send (see markRequirementEmailSent above for the same
+    // pattern and app/api/cron/engagement-stale-check/route.ts).
+    .update({ stage: "shortlist_sent", stale_reminder_sent_at: null })
     .eq("id", version.engagement_id)
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? ""

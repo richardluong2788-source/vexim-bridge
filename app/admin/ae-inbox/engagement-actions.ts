@@ -708,7 +708,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
       requested_products, target_price_range, moq, payment_terms,
       packaging_requirements, other_requirements,
       created_at, updated_at,
-      leads ( id, company_name, contact_person, contact_email, country, industry, main_product ),
+      leads ( id, company_name, contact_person, contact_email, country, industry, main_product, hs_code, hs_codes, product_keywords ),
       buyer_engagement_shortlist_versions (
         id, version_number, status, scoring_engine_version, created_at, sent_at, superseded_at,
         buyer_engagement_shortlist_items ( id, client_id, position, match_score, buyer_interested, buyer_action, buyer_responded_at,

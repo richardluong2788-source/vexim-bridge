@@ -23,6 +23,8 @@ import {
   Handshake,
   Reply,
   CornerUpLeft,
+  Tag,
+  Clock,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -142,6 +144,9 @@ export interface Engagement {
     country: string | null
     industry: string | null
     main_product: string | null
+    hs_code: string | null
+    hs_codes: string[] | null
+    product_keywords: string[] | null
   } | null
   buyer_engagement_shortlist_versions: ShortlistVersionRow[]
   shortlist_share_links: ShareLinkRow[]
@@ -284,6 +289,23 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
               : 0
           const isSilentTooLong = silentDays >= 14
 
+          // How long the buyer has been sitting in the current stage —
+          // helps AEs spot buyers that have stalled and need follow-up,
+          // regardless of whether a warning threshold has been crossed.
+          const daysInStage = Math.floor(
+            (Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000),
+          )
+
+          const productLabel =
+            lead?.main_product || lead?.product_keywords?.filter(Boolean).join(", ") || null
+          const hsCodes = Array.from(
+            new Set(
+              [lead?.hs_code, ...(lead?.hs_codes || [])].filter(
+                (code): code is string => Boolean(code),
+              ),
+            ),
+          )
+
           return (
             <Card
               key={eng.id}
@@ -337,17 +359,49 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                         </span>
                       )}
                     </div>
+                    {(productLabel || hsCodes.length > 0) && (
+                      <div className="flex flex-wrap items-start gap-3 text-sm text-muted-foreground">
+                        {productLabel && (
+                          <span className="flex items-start gap-1.5 max-w-md">
+                            <Package className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <span className="text-pretty">{productLabel}</span>
+                          </span>
+                        )}
+                        {hsCodes.length > 0 && (
+                          <span className="flex items-start gap-1.5">
+                            <Tag className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <span className="font-mono text-xs">{hsCodes.join(", ")}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-muted-foreground hover:text-destructive"
-                    onClick={() => setDropDialogFor(eng)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    {t("Hủy buyer", "Drop")}
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDropDialogFor(eng)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      {t("Hủy buyer", "Drop")}
+                    </Button>
+                    <span
+                      className={cn(
+                        "flex items-center gap-1 text-xs text-muted-foreground",
+                        daysInStage >= 14 && "text-amber-600",
+                      )}
+                    >
+                      <Clock className="h-3 w-3" />
+                      {daysInStage <= 0
+                        ? t("Mới hôm nay", "Started today")
+                        : t(
+                            `${daysInStage} ngày ở giai đoạn này`,
+                            `${daysInStage} day${daysInStage === 1 ? "" : "s"} in this stage`,
+                          )}
+                    </span>
+                  </div>
                 </div>
               </CardHeader>
 

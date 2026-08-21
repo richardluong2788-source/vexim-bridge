@@ -103,7 +103,7 @@ export async function getMatchScores(
 export async function getAEInbox(): Promise<
   ActionResult<Awaited<ReturnType<typeof getInboxItemsForAE>>>
 > {
-  const user = await getCurrentUser()
+  const user = await getCurrentRole()
   if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs see their own inbox, admins see all
@@ -138,7 +138,7 @@ export async function getAEInbox(): Promise<
       return { ok: true, data: data || [] }
     } else if (user.role === "account_executive") {
       // AEs see only their own inbox
-      const items = await getInboxItemsForAE(user.id)
+      const items = await getInboxItemsForAE(user.userId)
       return { ok: true, data: items }
     } else {
       return { ok: false, error: "forbidden" }
@@ -164,7 +164,7 @@ export interface AcceptMatchInput {
 export async function acceptMatch(
   input: AcceptMatchInput
 ): Promise<ActionResult<{ opportunityId: string }>> {
-  const user = await getCurrentUser()
+  const user = await getCurrentRole()
   if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs can accept their own matches; admins can accept any.
@@ -181,7 +181,7 @@ export async function acceptMatch(
       .eq("id", input.inboxItemId)
       .single()
 
-    if (!inbox || inbox.account_manager_id !== user.id) {
+    if (!inbox || inbox.account_manager_id !== user.userId) {
       return { ok: false, error: "not_your_inbox_item" }
     }
   } else if (user.role !== "admin" && user.role !== "super_admin") {
@@ -192,7 +192,7 @@ export async function acceptMatch(
     const result = await acceptInboxItem(
       input.inboxItemId,
       input.clientId,
-      user.id
+      user.userId
     )
 
     if (result.error) {
@@ -225,7 +225,7 @@ export interface RejectMatchInput {
 export async function rejectMatch(
   input: RejectMatchInput
 ): Promise<ActionResult<{ success: boolean }>> {
-  const user = await getCurrentUser()
+  const user = await getCurrentRole()
   if (!user) return { ok: false, error: "unauthorized" }
 
   // AEs can reject their own matches; admins can reject any.
@@ -240,7 +240,7 @@ export async function rejectMatch(
       .eq("id", input.inboxItemId)
       .single()
 
-    if (!inbox || inbox.account_manager_id !== user.id) {
+    if (!inbox || inbox.account_manager_id !== user.userId) {
       return { ok: false, error: "not_your_inbox_item" }
     }
   } else if (user.role !== "admin" && user.role !== "super_admin") {
@@ -250,7 +250,7 @@ export async function rejectMatch(
   try {
     const result = await rejectInboxItem(
       input.inboxItemId,
-      user.id,
+      user.userId,
       input.reason
     )
 

@@ -34,21 +34,33 @@ export type SenderKey = keyof typeof SENDER_EMAILS
 
 /**
  * Build a personalized sender address with human name.
- * 
+ *
  * Why this matters for deliverability:
  * - "Hoc Luong <trade@veximtrade.com>" looks like a real person
  * - "Vexim Trade <trade@veximtrade.com>" looks like automated marketing
  * - Gmail/Outlook spam filters strongly prefer human-looking senders
- * 
+ *
+ * IMPORTANT — display name stripping: if the SAME address is repeatedly
+ * used with MANY DIFFERENT display names (e.g. every AE sending from the
+ * shared trade@veximtrade.com), Gmail/Outlook eventually stop trusting the
+ * display name and show only the raw address. Pass `workEmail` (a person's
+ * own address, e.g. "linh@veximtrade.com") whenever one is available —
+ * see lib/email/work-email.ts — so each person's name stays stable and tied
+ * to their own address instead.
+ *
  * @param senderName - Full name of the person sending (e.g., "Hoc Luong")
- * @param senderKey - Which email address to use (trade, hello, noreply)
- * @returns Formatted sender string like '"Hoc Luong" <trade@veximtrade.com>'
+ * @param options.workEmail - The person's own address, if one has been
+ *   provisioned (profiles.work_email). Takes priority over `senderKey`.
+ * @param options.senderKey - Fallback shared address to use when no
+ *   personal work email exists (trade, hello, noreply).
+ * @returns Formatted sender string like '"Hoc Luong" <linh@veximtrade.com>'
  */
 export function buildPersonalizedSender(
   senderName: string | null | undefined,
-  senderKey: SenderKey = "trade"
+  options: SenderKey | { workEmail?: string | null; senderKey?: SenderKey } = "trade",
 ): string {
-  const email = SENDER_EMAILS[senderKey]
+  const opts = typeof options === "string" ? { senderKey: options } : options
+  const email = opts.workEmail?.trim() || SENDER_EMAILS[opts.senderKey ?? "trade"]
   // If no sender name, fall back to company name (less ideal but acceptable)
   const displayName = senderName?.trim() || "Vexim Trade"
   // RFC 5322 recommends quoting display names that contain spaces or special characters

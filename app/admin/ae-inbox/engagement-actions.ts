@@ -86,6 +86,37 @@ export async function claimBuyer(
     return { ok: false, error: insertErr?.message ?? "claim_failed" }
   }
 
+  // Mark this inbox item accepted so it drops out of "Buyer của tôi"
+  // (which only lists status = "pending") the moment the AE claims it —
+  // previously this never ran, so claimed cards kept showing "Nhận buyer"
+  // indefinitely (until the 7-day expiry) even though the engagement had
+  // already moved on.
+  await admin
+    .from("ae_match_inbox")
+    .update({
+      status: "accepted",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("id", inbox.id)
+
+  // Close out sibling inbox copies for the same buyer (other AEs who also
+  // had this lead pending — normal multi-candidate range, or the shared
+  // inbox when no AE matched the buyer's industry). Once one AE claims
+  // the buyer it must disappear from everyone else's inbox too, so two
+  // AEs can't claim the same buyer at once. Mirrors acceptInboxItem's
+  // sibling-closing logic in lib/matching/orchestrator.ts.
+  await admin
+    .from("ae_match_inbox")
+    .update({
+      status: "expired",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("lead_id", inbox.lead_id)
+    .eq("status", "pending")
+    .neq("id", inbox.id)
+
   revalidatePath("/admin/ae-inbox")
   return { ok: true, data: { engagementId: engagement.id } }
 }
@@ -144,7 +175,10 @@ export async function markRequirementEmailSent(
 
   const { error } = await admin
     .from("buyer_engagements")
-    .update({ stage: "requirement_email_sent" })
+    // Reset stale_reminder_sent_at: the AE is waiting on the buyer again
+    // from this point, so the 14-day no-reply clock (see
+    // app/api/cron/engagement-stale-check/route.ts) restarts fresh.
+    .update({ stage: "requirement_email_sent", stale_reminder_sent_at: null })
     .eq("id", engagementId)
     .eq("stage", "claimed")
 
@@ -401,7 +435,10 @@ export async function approveAndSendShortlist(
 
   await admin
     .from("buyer_engagements")
-    .update({ stage: "shortlist_sent" })
+    // Reset stale_reminder_sent_at — waiting on the buyer starts fresh
+    // from this send (see markRequirementEmailSent above for the same
+    // pattern and app/api/cron/engagement-stale-check/route.ts).
+    .update({ stage: "shortlist_sent", stale_reminder_sent_at: null })
     .eq("id", version.engagement_id)
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? ""

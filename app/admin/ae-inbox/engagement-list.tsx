@@ -271,6 +271,19 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
           )
           const unreadReplies = replies.filter((r) => !r.read_at)
 
+          // Silent-buyer warning: mirrors the 14-day threshold used by the
+          // daily cron (app/api/cron/engagement-stale-check). Purely a
+          // client-side hint so the AE sees it immediately on the card,
+          // without waiting for the cron's email/in-app notification —
+          // only shown while waiting on the buyer and only if the buyer
+          // hasn't already replied since this stage started.
+          const silentDays =
+            (eng.stage === "requirement_email_sent" || eng.stage === "shortlist_sent") &&
+            replies.every((r) => new Date(r.received_at).getTime() <= new Date(eng.updated_at).getTime())
+              ? Math.floor((Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000))
+              : 0
+          const isSilentTooLong = silentDays >= 14
+
           return (
             <Card
               key={eng.id}
@@ -292,6 +305,15 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                         <Badge className="gap-1 bg-primary/10 text-primary border-primary/20" variant="outline">
                           <MessageSquareText className="h-3 w-3" />
                           {t(`${unreadReplies.length} phản hồi mới`, `${unreadReplies.length} new reply`)}
+                        </Badge>
+                      )}
+                      {isSilentTooLong && (
+                        <Badge
+                          className="gap-1 bg-amber-500/10 text-amber-700 border-amber-500/20"
+                          variant="outline"
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          {t(`Im lặng ${silentDays} ngày`, `Silent ${silentDays} days`)}
                         </Badge>
                       )}
                     </div>

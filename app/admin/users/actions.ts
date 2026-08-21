@@ -20,9 +20,10 @@ import { requireCap } from "@/lib/auth/guard"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
-import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
-import { reserveWorkEmail } from "@/lib/email/work-email"
-import type { Role } from "@/lib/supabase/types"
+  import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
+  import { reserveWorkEmail } from "@/lib/email/work-email"
+  import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
+  import type { Role } from "@/lib/supabase/types"
 
 // Roles that send buyer-facing emails and therefore benefit from their own
 // personal sender address (see lib/email/work-email.ts for why).
@@ -204,6 +205,19 @@ export async function updateUserIndustry(
   }
 
   revalidatePath("/admin/users")
+
+  // This AE now covers `normalized` — re-run matching for any buyer stuck
+  // in the shared inbox for that industry (no AE covered it before). Best
+  // effort: never fail the industry update because of this.
+  try {
+    await rematchOpenSharedInboxLeads({
+      industries: [normalized],
+      triggeredBy: guard.userId,
+    })
+  } catch (err) {
+    console.error("[v0] rematchOpenSharedInboxLeads failed after industry update:", err)
+  }
+
   return { ok: true }
 }
 
@@ -356,6 +370,20 @@ export async function inviteTeamMember(
   })
 
   revalidatePath("/admin/users")
+
+  // A new AE covering `industry` may unblock buyers stranded in the shared
+  // inbox because no AE covered that vertical yet. Best effort — never
+  // fail the invite because of this.
+  if (industry) {
+    try {
+      await rematchOpenSharedInboxLeads({
+        industries: [industry],
+        triggeredBy: guard.userId,
+      })
+    } catch (err) {
+      console.error("[v0] rematchOpenSharedInboxLeads failed after invite:", err)
+    }
+  }
 
   return {
     ok: true,

@@ -29,11 +29,14 @@ import { CAPS, can, canAny, ROLE_META, type Capability } from "@/lib/auth/permis
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/components/i18n/language-provider"
+import type { SidebarBadgeCounts } from "@/lib/nav/sidebar-badges"
 
 interface AdminSidebarProps {
   profile: Profile | null
   /** Normalised role (already validated in admin layout). */
   role: Role
+  /** Per-item notification counts — see lib/nav/sidebar-badges.ts. */
+  badgeCounts?: SidebarBadgeCounts
 }
 
 interface NavItem {
@@ -48,9 +51,11 @@ interface NavItem {
    * - `null` → visible to all admin-shell roles.
    */
   cap: Capability | Capability[] | null
+  /** Key into SidebarBadgeCounts — shows a count pill when > 0. */
+  badgeKey?: keyof SidebarBadgeCounts
 }
 
-export function AdminSidebar({ profile, role }: AdminSidebarProps) {
+export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t, locale } = useTranslation()
@@ -64,11 +69,11 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
   const allItems: NavItem[] = [
     { href: "/admin",                   label: t.nav.dashboard,                           icon: BarChart3, exact: true, cap: null },
     { href: "/admin/my-kpi",            label: locale === "vi" ? "KPI của tôi" : "My KPIs", icon: Target,                 cap: null },
-    { href: "/admin/ae-inbox",          label: locale === "vi" ? "Buyer của tôi" : "My Buyers", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW },
-    { href: "/admin/engagements",       label: locale === "vi" ? "Đang xử lý" : "In progress", icon: ClipboardList,      cap: CAPS.MATCH_INBOX_VIEW },
+    { href: "/admin/ae-inbox",          label: locale === "vi" ? "Buyer của tôi" : "My Buyers", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "myBuyers" },
+    { href: "/admin/engagements",       label: locale === "vi" ? "Đang xử lý" : "In progress", icon: ClipboardList,      cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "inProgress" },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
-    { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW },
-    { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW },
+    { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW, badgeKey: "pipeline" },
+    { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW, badgeKey: "buyers" },
     // Manual buyer intake — legacy flow that bypasses AI matching.
     // Restricted to Lead Researcher + Super Admin via BUYER_MANUAL_INTAKE.
     // Account Executives must use the AE Inbox (AI auto-assign) instead.
@@ -117,8 +122,13 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
 
       {/* Navigation */}
       <nav className="flex flex-col gap-1 p-3 flex-1 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon, exact }) => {
+        {navItems.map(({ href, label, icon: Icon, exact, badgeKey }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href)
+          // "buyers" is a plain total (always shown when known); the other
+          // three are attention badges that only appear once there's
+          // something new/pending to act on.
+          const count = badgeKey ? badgeCounts?.[badgeKey] ?? 0 : 0
+          const showBadge = badgeKey === "buyers" ? badgeCounts != null : count > 0
           return (
             <Link
               key={href}
@@ -131,7 +141,20 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {label}
+              <span className="flex-1 truncate">{label}</span>
+              {showBadge && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none tabular-nums",
+                    badgeKey === "buyers"
+                      ? "bg-sidebar-accent text-sidebar-foreground/70"
+                      : "bg-destructive text-destructive-foreground",
+                  )}
+                >
+                  {count > 99 ? "99+" : count}
+                </span>
+              )}
             </Link>
           )
         })}

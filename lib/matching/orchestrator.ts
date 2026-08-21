@@ -14,7 +14,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { normalizeIndustry } from "@/lib/constants/industries"
-import type { Lead, Profile } from "@/lib/supabase/types"
+import type { Lead, Profile, Database } from "@/lib/supabase/types"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   calculateScoresForBuyer,
   calculateHybridScoresForBuyer,
@@ -38,10 +39,21 @@ import { DEFAULT_SCORING_WEIGHTS, DEFAULT_THRESHOLDS, normalizeWeights } from ".
 // ============================================================
 
 export async function runMatchingPipeline(
-  request: MatchingRequest
+  request: MatchingRequest,
+  // Optional service-role client for callers with no logged-in session
+  // (cron jobs, the shared-inbox re-match sweep) — see
+  // lib/matching/rematch-shared-inbox.ts. Defaults to the cookie-bound
+  // client used by every normal (in-request) caller, unchanged.
+  opts?: { client?: SupabaseClient<Database> }
 ): Promise<MatchingResult> {
   const { leadId, triggeredBy, useLLMAugmentation } = request
-  const supabase = await createClient()
+  // Cast to the cookie-client's exact type rather than unioning the two —
+  // unioning SupabaseClient<Database> with the ssr client type collapses
+  // every `.from(...)` overload below to `never`. The two clients are
+  // structurally compatible for the plain CRUD calls this file makes.
+  const supabase = (opts?.client
+    ? (opts.client as unknown as Awaited<ReturnType<typeof createClient>>)
+    : await createClient())
 
   // 1. Load configuration
   const config = await loadMatchingConfig(supabase)
@@ -293,6 +305,26 @@ async function storeScores(
 }
 
 // ============================================================
+// Helper: UUID guard for FK columns
+// ============================================================
+
+/**
+ * `triggeredBy` doubles as a free-text audit label for system callers
+ * (e.g. "cron:rematch-unassigned") but several columns it also feeds
+ * (`ae_match_scores.assigned_by`, `activities.performed_by`) are UUID FKs
+ * to `profiles(id)`. Writing a non-UUID string there throws a DB error.
+ * Real user ids (the normal, in-request path) always pass through
+ * unchanged; system labels are stored as NULL on those FK columns instead
+ * (still readable from `factors.triggered_by` / the activity description).
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function toUuidOrNull(value: string | null | undefined): string | null {
+  if (!value) return null
+  return UUID_RE.test(value) ? value : null
+}
+
+// ============================================================
 // Result Processing
 // ============================================================
 
@@ -323,7 +355,7 @@ async function processResults(
         .update({
           assignment_source: "auto",
           assigned_at: new Date().toISOString(),
-          assigned_by: triggeredBy,
+          assigned_by: toUuidOrNull(triggeredBy),
         })
         .eq("lead_id", leadId)
         .eq("account_manager_id", topCandidate.accountManagerId)
@@ -455,8 +487,8 @@ async function routeToSharedInbox(
 
   await supabase.from("activities").insert({
     action_type: "ai_matching_shared_inbox",
-    description: `AI Matching: no AE covers industry "${buyer.lead.industry ?? "unknown"}" for ${buyerName} — routed to shared inbox for ${aes.length} AE(s)`,
-    performed_by: triggeredBy,
+    description: `AI Matching: no AE covers industry "${buyer.lead.industry ?? "unknown"}" for ${buyerName} — routed to shared inbox for ${aes.length} AE(s) (triggered by: ${triggeredBy})`,
+    performed_by: toUuidOrNull(triggeredBy),
   })
 
   for (const ae of aes) {
@@ -533,12 +565,12 @@ async function logMatchingActivity(
   // For now, we log to a general activity (without opportunity_id)
   // This can be enhanced to create an opportunity on assignment
 
-  const description = `AI Matching: ${action} with score ${score.toFixed(1)}`
+  const description = `AI Matching: ${action} with score ${score.toFixed(1)} (triggered by: ${performedBy})`
 
   await supabase.from("activities").insert({
     action_type: `ai_matching_${action}`,
     description,
-    performed_by: performedBy,
+    performed_by: toUuidOrNull(performedBy),
     // opportunity_id will be set when an opportunity is created
   })
 }

@@ -39,6 +39,14 @@
     {
       "path": "/api/cron/sync-embeddings",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/rematch-unassigned",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/engagement-stale-check",
+      "schedule": "0 7 * * *"
     }
   ]
 }

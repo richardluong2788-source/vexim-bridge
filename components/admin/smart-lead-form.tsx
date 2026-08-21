@@ -48,7 +48,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
-import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
+import { INDUSTRIES, INDUSTRY_LABELS_VI, INDUSTRY_LABELS_EN, INDUSTRY_HELP_TEXT } from "@/lib/constants/industries"
 import { Switch } from "@/components/ui/switch"
 import {
   createLeadWithAIMatchingAction,
@@ -952,11 +952,16 @@ export function SmartLeadForm() {
                 <SelectContent>
                   {INDUSTRIES.map((ind) => (
                     <SelectItem key={ind} value={ind}>
-                      {locale === "vi" ? INDUSTRY_LABELS_VI[ind] ?? ind : ind}
+                      {locale === "vi" ? INDUSTRY_LABELS_VI[ind] ?? ind : INDUSTRY_LABELS_EN[ind] ?? ind}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {(needsIndustry === "Agriculture" || needsIndustry === "Food & Beverage" || !needsIndustry) && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {locale === "vi" ? INDUSTRY_HELP_TEXT.vi : INDUSTRY_HELP_TEXT.en}
+                </p>
+              )}
             </div>
           </div>
         </CardContent>

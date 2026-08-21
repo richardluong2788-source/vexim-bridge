@@ -154,7 +154,7 @@ async function findOpenSharedInboxLeadIds(
 
   if (industries && industries.length > 0) {
     const normalizedTargets = new Set(
-      industries.map((i) => normalizeIndustry(i)).filter((v): v is string => !!v)
+      industries.map((i) => normalizeIndustry(i)).filter(Boolean) as string[]
     )
     if (normalizedTargets.size === 0) return []
 
@@ -163,12 +163,14 @@ async function findOpenSharedInboxLeadIds(
       .select("id, industry")
       .in("id", openLeadIds)
 
-    openLeadIds = (leadRows ?? [])
-      .filter((l) => {
-        const norm = normalizeIndustry(l.industry)
-        return norm ? normalizedTargets.has(norm) : false
-      })
-      .map((l) => l.id)
+    const matchingIds: string[] = []
+    for (const l of (leadRows ?? []) as { id: string; industry: string | null }[]) {
+      const norm = normalizeIndustry(l.industry)
+      if (norm && normalizedTargets.has(norm)) {
+        matchingIds.push(l.id)
+      }
+    }
+    openLeadIds = matchingIds
   }
 
   return openLeadIds.slice(0, limit)

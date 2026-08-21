@@ -205,6 +205,19 @@ export async function updateUserIndustry(
   }
 
   revalidatePath("/admin/users")
+
+  // This AE now covers `normalized` — re-run matching for any buyer stuck
+  // in the shared inbox for that industry (no AE covered it before). Best
+  // effort: never fail the industry update because of this.
+  try {
+    await rematchOpenSharedInboxLeads({
+      industries: [normalized],
+      triggeredBy: guard.userId,
+    })
+  } catch (err) {
+    console.error("[v0] rematchOpenSharedInboxLeads failed after industry update:", err)
+  }
+
   return { ok: true }
 }
 
@@ -357,6 +370,20 @@ export async function inviteTeamMember(
   })
 
   revalidatePath("/admin/users")
+
+  // A new AE covering `industry` may unblock buyers stranded in the shared
+  // inbox because no AE covered that vertical yet. Best effort — never
+  // fail the invite because of this.
+  if (industry) {
+    try {
+      await rematchOpenSharedInboxLeads({
+        industries: [industry],
+        triggeredBy: guard.userId,
+      })
+    } catch (err) {
+      console.error("[v0] rematchOpenSharedInboxLeads failed after invite:", err)
+    }
+  }
 
   return {
     ok: true,

@@ -29,6 +29,7 @@ import { CAPS } from "@/lib/auth/permissions"
 import { assignBuyerToClients } from "@/app/admin/buyers/actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import { SCORING_ENGINE_VERSION } from "@/lib/matching/client-types"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -691,119 +692,116 @@ export async function dropEngagement(
 }
 
 // ---------------------------------------------------------------------------
-// Transfer a claimed buyer to another AE — covers the case where LR routed
-// the buyer by industry match, but once the AE actually asks for
-// requirements the buyer turns out to want a product/category none of this
-// AE's clients cover. Reassigns account_manager_id and records where it
-// came from + why, so the receiving AE has context and there's an audit
-// trail (see scripts/056_engagement_transfer.sql).
+// Return a claimed buyer to the shared "Kho tự do" (free pool) — covers the
+// case where LR routed the buyer by industry match, but once the AE actually
+// asks for requirements the buyer turns out to want a product/category none
+// of this AE's clients cover. Instead of picking a specific AE to hand off
+// to, this reopens the buyer to every other AE (fan-out into
+// ae_match_inbox, same "first to claim wins" mechanic used for buyers with
+// no matching-industry AE — see routeToSharedInbox in
+// lib/matching/orchestrator.ts) so whoever actually has the right client can
+// pick it up, the same way AEs already coordinate over Zalo today.
 // ---------------------------------------------------------------------------
 
-export interface TransferCandidateAE {
-  id: string
-  fullName: string | null
-  companyName: string | null
-  activeEngagementCount: number
-}
-
-// Staff roles allowed to receive a transferred buyer. Kept separate from
+// Staff roles eligible to receive a pooled buyer. Kept separate from
 // account-manager-actions.ts's STAFF_ROLES because that list also includes
 // non-AE roles (finance, lead_researcher) that shouldn't show up here.
 const TRANSFERABLE_ROLES = ["account_executive", "admin", "super_admin"] as const
 
-export async function listTransferCandidateAEs(
-  excludeAeId?: string,
-): Promise<ActionResult<TransferCandidateAE[]>> {
-  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
-  if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin } = guard
-
-  const { data: aes, error: aesErr } = await admin
-    .from("profiles")
-    .select("id, full_name, company_name")
-    .in("role", TRANSFERABLE_ROLES as unknown as string[])
-  if (aesErr) return { ok: false, error: aesErr.message }
-
-  const { data: active, error: activeErr } = await admin
-    .from("buyer_engagements")
-    .select("account_manager_id")
-    .not("stage", "in", "(converted,dropped)")
-  if (activeErr) return { ok: false, error: activeErr.message }
-
-  const countByAe = new Map<string, number>()
-  for (const row of active ?? []) {
-    const id = row.account_manager_id as string | null
-    if (!id) continue
-    countByAe.set(id, (countByAe.get(id) ?? 0) + 1)
-  }
-
-  const candidates = (aes ?? [])
-    .filter((ae) => ae.id !== excludeAeId)
-    .map((ae) => ({
-      id: ae.id as string,
-      fullName: ae.full_name as string | null,
-      companyName: ae.company_name as string | null,
-      activeEngagementCount: countByAe.get(ae.id as string) ?? 0,
-    }))
-    .sort((a, b) => (a.fullName ?? "").localeCompare(b.fullName ?? ""))
-
-  return { ok: true, data: candidates }
-}
-
-export async function transferEngagement(
+export async function returnEngagementToPool(
   engagementId: string,
-  newAccountManagerId: string,
   reason: string,
 ): Promise<ActionResult<{ success: true }>> {
   const guard = await requireCap(CAPS.BUYER_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId, role } = guard
 
-  if (!reason?.trim()) return { ok: false, error: "reason_required" }
-  if (!newAccountManagerId) return { ok: false, error: "target_ae_required" }
+  const trimmedReason = reason?.trim()
+  if (!trimmedReason) return { ok: false, error: "reason_required" }
 
   const { data: engagement, error: engErr } = await admin
     .from("buyer_engagements")
-    .select("id, account_manager_id, stage")
+    .select("id, lead_id, account_manager_id, stage, leads ( company_name )")
     .eq("id", engagementId)
-    .single()
+    .single<{
+      id: string
+      lead_id: string
+      account_manager_id: string
+      stage: string
+      leads: { company_name: string | null } | null
+    }>()
   if (engErr || !engagement) return { ok: false, error: "engagement_not_found" }
 
   if (role === "account_executive" && engagement.account_manager_id !== userId) {
     return { ok: false, error: "not_your_engagement" }
   }
-  if (engagement.account_manager_id === newAccountManagerId) {
-    return { ok: false, error: "already_owned_by_target" }
-  }
-  if (["converted", "dropped"].includes(engagement.stage as string)) {
+  if (["converted", "dropped", "returned_to_pool"].includes(engagement.stage)) {
     return { ok: false, error: "engagement_already_closed" }
   }
 
-  const { data: target, error: targetErr } = await admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", newAccountManagerId)
-    .single<{ id: string; role: string | null }>()
-  if (targetErr || !target) return { ok: false, error: "target_ae_not_found" }
-  if (!TRANSFERABLE_ROLES.includes(target.role as (typeof TRANSFERABLE_ROLES)[number])) {
-    return { ok: false, error: "target_not_ae" }
-  }
+  const fromAeId = engagement.account_manager_id
+  const nowIso = new Date().toISOString()
 
-  const { error } = await admin
+  const { error: updateErr } = await admin
     .from("buyer_engagements")
     .update({
-      account_manager_id: newAccountManagerId,
-      transferred_from_ae_id: engagement.account_manager_id,
-      transfer_reason: reason.trim(),
-      transferred_at: new Date().toISOString(),
-      // Waiting-on-buyer clock restarts under the new AE, same as
-      // markRequirementEmailSent / approveAndSendShortlist above.
-      stale_reminder_sent_at: null,
+      stage: "returned_to_pool",
+      transferred_from_ae_id: fromAeId,
+      transfer_reason: trimmedReason,
+      transferred_at: nowIso,
     })
     .eq("id", engagementId)
-  if (error) return { ok: false, error: error.message }
+  if (updateErr) return { ok: false, error: updateErr.message }
+
+  // Fan out to every other AE (same mechanic as the shared inbox for buyers
+  // with no matching-industry AE): one pending ae_match_inbox row each, no
+  // AI score attached, first to claim wins.
+  const { data: aes, error: aesErr } = await admin
+    .from("profiles")
+    .select("id")
+    .in("role", TRANSFERABLE_ROLES as unknown as string[])
+    .neq("id", fromAeId)
+  if (aesErr) return { ok: false, error: aesErr.message }
+
+  const recipients = (aes ?? []).map((ae) => ae.id as string)
+  if (recipients.length > 0) {
+    const { error: fanOutErr } = await admin.from("ae_match_inbox").insert(
+      recipients.map((aeId) => ({
+        lead_id: engagement.lead_id,
+        account_manager_id: aeId,
+        match_score_id: null,
+        status: "pending",
+        priority: "medium",
+        transferred_from_ae_id: fromAeId,
+        transfer_reason: trimmedReason,
+      })),
+    )
+    if (fanOutErr) return { ok: false, error: fanOutErr.message }
+  }
+
+  const buyerName = engagement.leads?.company_name ?? "Buyer"
+  for (const aeId of recipients) {
+    dispatchNotification({
+      userId: aeId,
+      category: "action_required",
+      linkPath: "/admin/free-pool",
+      dedupKey: `pool_return:${engagementId}:${aeId}`,
+      title: {
+        vi: "Buyer mới trong kho tự do",
+        en: "New buyer in the free pool",
+      },
+      body: {
+        vi: `${buyerName} vừa được chuyển vào kho tự do. Lý do: ${trimmedReason}`,
+        en: `${buyerName} was just returned to the free pool. Reason: ${trimmedReason}`,
+      },
+      ctaLabel: { vi: "Xem kho tự do", en: "View free pool" },
+    }).catch((err) => {
+      console.error("[engagement-actions] notification dispatch failed for pool return", err)
+    })
+  }
 
   revalidatePath("/admin/ae-inbox")
+  revalidatePath("/admin/free-pool")
   return { ok: true, data: { success: true } }
 }
 
@@ -845,6 +843,120 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
   const { data, error } = await query
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: data ?? [] }
+}
+
+// ---------------------------------------------------------------------------
+// "Kho tự do" (free pool) — buyers an AE returned because the buyer's actual
+// product need doesn't match any client they manage. Every other AE sees
+// the same pool; whoever recognizes a fit claims it. No AI scoring here on
+// purpose — the pool is deliberately simple, mirroring how AEs already
+// coordinate this over Zalo, just with the buyer context visible in-app.
+// ---------------------------------------------------------------------------
+
+export async function listFreePoolBuyers(): Promise<ActionResult<any[]>> {
+  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId, role } = guard
+
+  let query = admin
+    .from("ae_match_inbox")
+    .select(
+      `
+      id, lead_id, account_manager_id, status, priority,
+      transferred_from_ae_id, transfer_reason, created_at, expires_at,
+      leads ( id, company_name, contact_person, country, industry, main_product, hs_code, hs_codes, product_keywords ),
+      transferred_from:transferred_from_ae_id ( id, full_name, company_name )
+      `,
+    )
+    .eq("status", "pending")
+    .not("transferred_from_ae_id", "is", null)
+    .order("created_at", { ascending: false })
+
+  if (role === "account_executive") {
+    query = query.eq("account_manager_id", userId)
+  }
+
+  const { data, error } = await query
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data ?? [] }
+}
+
+export async function claimPoolBuyer(
+  inboxItemId: string,
+): Promise<ActionResult<{ engagementId: string }>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId, role } = guard
+
+  const { data: inbox, error: inboxErr } = await admin
+    .from("ae_match_inbox")
+    .select("id, lead_id, account_manager_id, status, transferred_from_ae_id, transfer_reason")
+    .eq("id", inboxItemId)
+    .single()
+  if (inboxErr || !inbox) return { ok: false, error: "inbox_item_not_found" }
+
+  if (role === "account_executive" && inbox.account_manager_id !== userId) {
+    return { ok: false, error: "not_your_inbox_item" }
+  }
+  if (inbox.status !== "pending") {
+    return { ok: false, error: "inbox_item_already_processed" }
+  }
+
+  // Reject if another engagement is already active for this buyer (e.g.
+  // another AE claimed it a moment earlier).
+  const { data: existing } = await admin
+    .from("buyer_engagements")
+    .select("id")
+    .eq("lead_id", inbox.lead_id)
+    .not("stage", "in", "(converted,dropped,returned_to_pool)")
+    .maybeSingle()
+  if (existing?.id) {
+    return { ok: false, error: "buyer_already_claimed" }
+  }
+
+  const { data: engagement, error: insertErr } = await admin
+    .from("buyer_engagements")
+    .insert({
+      lead_id: inbox.lead_id,
+      account_manager_id: userId,
+      inbox_item_id: inbox.id,
+      stage: "claimed",
+      created_by: userId,
+      transferred_from_ae_id: inbox.transferred_from_ae_id,
+      transfer_reason: inbox.transfer_reason,
+      transferred_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
+  if (insertErr || !engagement) {
+    return { ok: false, error: insertErr?.message ?? "claim_failed" }
+  }
+
+  await admin
+    .from("ae_match_inbox")
+    .update({
+      status: "accepted",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("id", inbox.id)
+
+  // Close out sibling pool copies for the same buyer so it disappears from
+  // every other AE's free pool the moment someone claims it.
+  await admin
+    .from("ae_match_inbox")
+    .update({
+      status: "expired",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("lead_id", inbox.lead_id)
+    .eq("status", "pending")
+    .neq("id", inbox.id)
+
+  revalidatePath("/admin/free-pool")
+  revalidatePath("/admin/ae-inbox")
+  return { ok: true, data: { engagementId: engagement.id } }
 }
 
 // ---------------------------------------------------------------------------

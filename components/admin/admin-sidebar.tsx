@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Target,
   Inbox,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -64,6 +65,7 @@ export function AdminSidebar({ profile, role }: AdminSidebarProps) {
     { href: "/admin",                   label: t.nav.dashboard,                           icon: BarChart3, exact: true, cap: null },
     { href: "/admin/my-kpi",            label: locale === "vi" ? "KPI của tôi" : "My KPIs", icon: Target,                 cap: null },
     { href: "/admin/ae-inbox",          label: locale === "vi" ? "Buyer của tôi" : "My Buyers", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW },
+    { href: "/admin/engagements",       label: locale === "vi" ? "Đang xử lý" : "In progress", icon: ClipboardList,      cap: CAPS.MATCH_INBOX_VIEW },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW },
     { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW },

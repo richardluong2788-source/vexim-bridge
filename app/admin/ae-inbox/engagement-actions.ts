@@ -265,7 +265,7 @@ export async function buildShortlist(
 
     const remainingRisks = match
       ? [
-          match.eligible ? null : `Không đủ điều kiện: ${match.ineligibleReason}`,
+          match.eligible ? null : `Không đủ ��iều kiện: ${match.ineligibleReason}`,
           match.trustLabel === "new_supplier" ? "Supplier chưa được xác minh hoặc đánh giá nhà máy" : null,
           ...match.commercialFlags
             .filter((f: any) => f.level === "unknown" || f.level === "red")
@@ -574,7 +574,8 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
         buyer_engagement_shortlist_items ( id, client_id, position, match_score, buyer_interested, buyer_action, buyer_responded_at,
           profiles:client_id ( id, company_name, full_name ) )
       ),
-      shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at )
+      shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),
+      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at )
       `,
     )
     .not("stage", "in", "(converted,dropped)")
@@ -587,4 +588,51 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
   const { data, error } = await query
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: data ?? [] }
+}
+
+// ---------------------------------------------------------------------------
+// Buyer replies scoped to a pre-opportunity engagement — mirrors
+// listBuyerRepliesAction / markBuyerRepliesReadAction in
+// app/admin/opportunities/reply-actions.ts, but keyed by engagement_id
+// since no opportunity exists yet at this stage.
+// ---------------------------------------------------------------------------
+
+export async function listEngagementRepliesAction(
+  engagementId: string,
+): Promise<ActionResult<any[]>> {
+  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { data, error } = await admin
+    .from("buyer_replies")
+    .select("*")
+    .eq("engagement_id", engagementId)
+    .order("received_at", { ascending: false })
+    .limit(50)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, data: data ?? [] }
+}
+
+/**
+ * Mark all unread buyer replies for the given engagement as read. Called
+ * when an AE opens a buyer's card in the "Đang xử lý" page.
+ */
+export async function markEngagementRepliesReadAction(
+  engagementId: string,
+): Promise<ActionResult<{ success: true }>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { error } = await admin
+    .from("buyer_replies")
+    .update({ read_at: new Date().toISOString() })
+    .eq("engagement_id", engagementId)
+    .is("read_at", null)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/admin/engagements")
+  return { ok: true, data: { success: true } }
 }

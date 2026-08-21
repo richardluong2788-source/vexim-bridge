@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, useTransition } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Building2,
   Globe,
@@ -17,6 +17,10 @@ import {
   Eye,
   ArrowRight,
   Package,
+  MessageSquareText,
+  DollarSign,
+  AlertTriangle,
+  Handshake,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -42,6 +46,7 @@ import {
   createNewShortlistVersion,
   convertEngagementToOpportunities,
   dropEngagement,
+  markEngagementRepliesReadAction,
   type SaveRequirementsInput,
   type ConvertRoleAssignment,
 } from "@/app/admin/ae-inbox/engagement-actions"
@@ -97,6 +102,19 @@ interface ShareLinkRow {
   revoked_at: string | null
 }
 
+export interface EngagementReplyRow {
+  id: string
+  from_email: string
+  subject: string | null
+  raw_content: string
+  translated_vi: string | null
+  ai_intent: "price_request" | "sample_request" | "objection" | "closing_signal" | "general" | null
+  ai_summary: string | null
+  ai_suggested_next_step: string | null
+  received_at: string
+  read_at: string | null
+}
+
 export interface Engagement {
   id: string
   lead_id: string
@@ -121,6 +139,7 @@ export interface Engagement {
   } | null
   buyer_engagement_shortlist_versions: ShortlistVersionRow[]
   shortlist_share_links: ShareLinkRow[]
+  buyer_replies?: EngagementReplyRow[]
 }
 
 interface Client {
@@ -146,6 +165,17 @@ const STAGE_LABELS: Record<string, { vi: string; en: string; tone: string }> = {
   qualified_interest: { vi: "Buyer quan tâm — cần quyết định", en: "Qualified interest — needs decision", tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
 }
 
+const REPLY_INTENT_META: Record<
+  NonNullable<EngagementReplyRow["ai_intent"]>,
+  { vi: string; en: string; icon: typeof DollarSign; tone: string }
+> = {
+  price_request: { vi: "Hỏi giá", en: "Price request", icon: DollarSign, tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+  sample_request: { vi: "Yêu cầu mẫu", en: "Sample request", icon: Package, tone: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  objection: { vi: "Phản đối / lo ngại", en: "Objection", icon: AlertTriangle, tone: "bg-destructive/10 text-destructive border-destructive/30" },
+  closing_signal: { vi: "Có dấu hiệu chốt đơn", en: "Closing signal", icon: Handshake, tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+  general: { vi: "Chung", en: "General", icon: MessageSquareText, tone: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+}
+
 const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> = {
   viewed_only: { vi: "Chỉ xem", en: "Viewed only" },
   interested_no_details: { vi: "Quan tâm (chưa chi tiết)", en: "Interested (no details)" },
@@ -159,6 +189,7 @@ const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> 
 
 export function EngagementList({ engagements, clients, locale }: EngagementListProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [pending, startTransition] = useTransition()
 
   const [reqEmailDialogFor, setReqEmailDialogFor] = useState<Engagement | null>(null)
@@ -167,6 +198,27 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [sendShortlistDialogFor, setSendShortlistDialogFor] = useState<Engagement | null>(null)
   const [convertDialogFor, setConvertDialogFor] = useState<Engagement | null>(null)
   const [dropDialogFor, setDropDialogFor] = useState<Engagement | null>(null)
+  const [markingReadFor, setMarkingReadFor] = useState<string | null>(null)
+
+  // Deep link from a "buyer replied" notification: /admin/engagements?focus=<id>
+  const focusId = searchParams.get("focus")
+
+  useEffect(() => {
+    if (!focusId) return
+    const el = document.getElementById(`engagement-${focusId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [focusId])
+
+  function handleMarkRepliesRead(engagementId: string) {
+    setMarkingReadFor(engagementId)
+    startTransition(async () => {
+      await markEngagementRepliesReadAction(engagementId)
+      router.refresh()
+      setMarkingReadFor(null)
+    })
+  }
 
   if (engagements.length === 0) return null
 
@@ -205,8 +257,20 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
             : null
           const interestedCount = shortlist.filter((s) => s.buyer_interested === true).length
 
+          const replies = [...(eng.buyer_replies ?? [])].sort(
+            (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
+          )
+          const unreadReplies = replies.filter((r) => !r.read_at)
+
           return (
-            <Card key={eng.id} className={cn(pending && "opacity-50 pointer-events-none")}>
+            <Card
+              key={eng.id}
+              id={`engagement-${eng.id}`}
+              className={cn(
+                pending && "opacity-50 pointer-events-none",
+                focusId === eng.id && "ring-2 ring-primary",
+              )}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
@@ -215,6 +279,12 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                       <Badge variant="outline" className={cn(stageInfo.tone)}>
                         {locale === "vi" ? stageInfo.vi : stageInfo.en}
                       </Badge>
+                      {unreadReplies.length > 0 && (
+                        <Badge className="gap-1 bg-primary/10 text-primary border-primary/20" variant="outline">
+                          <MessageSquareText className="h-3 w-3" />
+                          {t(`${unreadReplies.length} phản hồi mới`, `${unreadReplies.length} new reply`)}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       {lead?.industry && (
@@ -251,6 +321,82 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
               </CardHeader>
 
               <CardContent className="space-y-4">
+                {/* Buyer replies — arrive via the Resend inbound webhook
+                    while the AE is still gathering requirements, i.e.
+                    before any opportunity/supplier exists. */}
+                {replies.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <MessageSquareText className="h-3.5 w-3.5" />
+                        {t(
+                          `Phản hồi từ buyer (${replies.length})`,
+                          `Buyer replies (${replies.length})`,
+                        )}
+                      </div>
+                      {unreadReplies.length > 0 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          disabled={markingReadFor === eng.id}
+                          onClick={() => handleMarkRepliesRead(eng.id)}
+                        >
+                          {markingReadFor === eng.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            t("Đánh dấu đã đọc", "Mark as read")
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {replies.map((reply) => {
+                        const intentMeta = reply.ai_intent ? REPLY_INTENT_META[reply.ai_intent] : null
+                        const IntentIcon = intentMeta?.icon ?? MessageSquareText
+                        return (
+                          <div
+                            key={reply.id}
+                            className={cn(
+                              "rounded-md border bg-background p-2.5 text-sm space-y-1.5",
+                              !reply.read_at && "border-primary/40 bg-primary/5",
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="flex items-center gap-1.5 font-medium">
+                                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                {reply.from_email}
+                                {!reply.read_at && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                                )}
+                              </span>
+                              {intentMeta && (
+                                <Badge variant="outline" className={cn("gap-1 text-xs", intentMeta.tone)}>
+                                  <IntentIcon className="h-3 w-3" />
+                                  {locale === "vi" ? intentMeta.vi : intentMeta.en}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-foreground text-pretty">
+                              {reply.translated_vi && locale === "vi" ? reply.translated_vi : reply.raw_content}
+                            </p>
+                            {reply.ai_suggested_next_step && (
+                              <p className="text-xs text-muted-foreground">
+                                {t("Gợi ý bước tiếp theo: ", "Suggested next step: ")}
+                                <span className="text-foreground">{reply.ai_suggested_next_step}</span>
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(reply.received_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-US")}
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Recorded buyer requirements */}
                 {(eng.requested_products || eng.moq || eng.target_price_range) && (
                   <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">

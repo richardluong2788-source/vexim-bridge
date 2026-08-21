@@ -4,8 +4,6 @@ import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { InboxList } from "./inbox-list"
-import { EngagementList } from "./engagement-list"
-import { getMyEngagements } from "./engagement-actions"
 
 export const dynamic = "force-dynamic"
 
@@ -99,9 +97,6 @@ export default async function AEInboxPage() {
     return new Date(c.fda_expires_at) > new Date()
   })
 
-  const engagementsResult = await getMyEngagements()
-  const engagements = engagementsResult.ok ? engagementsResult.data : []
-
   return (
     <div className="flex flex-col gap-6 p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -127,14 +122,6 @@ export default async function AEInboxPage() {
           </span>
         </div>
       </div>
-
-      {engagements.length > 0 && current.role !== "lead_researcher" && (
-        <EngagementList
-          engagements={engagements as any}
-          clients={validClients}
-          locale={locale}
-        />
-      )}
 
       <InboxList
         items={inboxItems || []}

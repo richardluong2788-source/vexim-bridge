@@ -21,7 +21,7 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import { notifyLeadAssigned } from "@/app/admin/opportunities/actions"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 import { assessCountryRisk } from "@/lib/risk/country-risk"
-import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
+import { INDUSTRIES, INDUSTRY_LABELS_VI, INDUSTRY_LABELS_EN, INDUSTRY_HELP_TEXT } from "@/lib/constants/industries"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 
 interface ClientOption {
@@ -320,11 +320,16 @@ export function AddLeadForm({ clients }: AddLeadFormProps) {
                     <SelectItem key={ind} value={ind}>
                       {locale === "vi"
                         ? `${ind} · ${INDUSTRY_LABELS_VI[ind]}`
-                        : ind}
+                        : INDUSTRY_LABELS_EN[ind] ?? ind}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {(industry === "Agriculture" || industry === "Food & Beverage" || !industry) && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {locale === "vi" ? INDUSTRY_HELP_TEXT.vi : INDUSTRY_HELP_TEXT.en}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="country">

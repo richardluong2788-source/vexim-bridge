@@ -66,10 +66,17 @@ export async function runMatchingPipeline(
     }
   }
 
-  // 3b. Hard filter: only AEs whose primary industry matches the buyer's
-  // industry are eligible to be scored. This is a hard gate, not a scoring
-  // factor — an AE in a different industry must never be assigned a buyer,
-  // regardless of how well HS code / product / country line up.
+  // 3b. Hard filter: only AEs who cover the buyer's industry are eligible to
+  // be scored. This is a hard gate, not a scoring factor — an AE in a
+  // different industry must never be assigned a buyer, regardless of how
+  // well HS code / product / country line up.
+  //
+  // AEs can cover multiple industries (profiles.industries, migration 018 —
+  // e.g. an AE doing both Seafood and Food & Beverage). `profile.industry`
+  // is only the mirrored *first* entry of that array, so gating on it alone
+  // would incorrectly reject an AE for every industry they cover except
+  // their first one. Always gate on the full `industries` array, falling
+  // back to the singular column only for legacy rows that predate it.
   //
   // If the buyer has no industry, or no AE currently covers that industry,
   // there is no eligible candidate to score. Rather than silently fall back
@@ -77,7 +84,13 @@ export async function runMatchingPipeline(
   // to a shared inbox visible to every AE — first to claim it wins.
   const buyerIndustry = normalizeIndustry(buyer.lead.industry)
   const eligibleAes = buyerIndustry
-    ? aes.filter((ae) => normalizeIndustry(ae.profile.industry) === buyerIndustry)
+    ? aes.filter((ae) => {
+        const aeIndustries =
+          ae.profile.industries && ae.profile.industries.length > 0
+            ? ae.profile.industries
+            : [ae.profile.industry]
+        return aeIndustries.some((ind) => normalizeIndustry(ind) === buyerIndustry)
+      })
     : []
 
   if (eligibleAes.length === 0) {

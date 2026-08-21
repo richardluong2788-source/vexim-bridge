@@ -7,8 +7,12 @@
  *   - "Buyer của tôi" (/admin/ae-inbox)   → pending ae_match_inbox rows
  *     (mirrors app/admin/ae-inbox/page.tsx's inboxQuery)
  *   - "Đang xử lý" (/admin/engagements)   → open buyer_engagements that
- *     have at least one unread buyer_replies row (mirrors the unread
- *     badge shown on each card in engagement-list.tsx)
+ *     either (a) are freshly claimed and still waiting on the AE to send
+ *     the opening/requirement email (stage === "claimed"), or (b) have at
+ *     least one unread buyer_replies row (mirrors the unread badge shown
+ *     on each card in engagement-list.tsx). This ensures claiming a buyer
+ *     from "Buyer của tôi" immediately bumps this badge, even before any
+ *     buyer reply exists.
  *   - "Pipeline" (/admin/pipeline)        → open opportunities with at
  *     least one unread buyer_replies row (mirrors the kanban board's
  *     unreadReplyCountByOpp in app/admin/pipeline/page.tsx)
@@ -84,25 +88,35 @@ async function countInProgressWithUnread(
 ): Promise<number> {
   let engQ = admin
     .from("buyer_engagements")
-    .select("id")
+    .select("id, stage")
     .not("stage", "in", "(converted,dropped)")
   if (isAE) engQ = engQ.eq("account_manager_id", userId)
   const { data: engagements } = await engQ
-  const engagementIds = (engagements ?? []).map((e: { id: string }) => e.id)
-  if (engagementIds.length === 0) return 0
+  const allEngagements = engagements ?? []
+  if (allEngagements.length === 0) return 0
 
+  // (a) freshly claimed, AE hasn't sent the opening/requirement email yet —
+  // these need attention right away, before any buyer reply can exist.
+  const needsAction = new Set(
+    allEngagements
+      .filter((e: { id: string; stage: string }) => e.stage === "claimed")
+      .map((e: { id: string; stage: string }) => e.id),
+  )
+
+  // (b) any open engagement with an unread buyer reply.
+  const engagementIds = allEngagements.map((e: { id: string }) => e.id)
   const { data: unread } = await admin
     .from("buyer_replies")
     .select("engagement_id")
     .in("engagement_id", engagementIds)
     .is("read_at", null)
 
-  const distinctEngagements = new Set(
-    (unread ?? [])
-      .map((r: { engagement_id: string | null }) => r.engagement_id)
-      .filter((v: string | null): v is string => !!v),
-  )
-  return distinctEngagements.size
+  for (const r of unread ?? []) {
+    const engagementId = (r as { engagement_id: string | null }).engagement_id
+    if (engagementId) needsAction.add(engagementId)
+  }
+
+  return needsAction.size
 }
 
 // ---------------------------------------------------------------------------

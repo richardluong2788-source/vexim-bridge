@@ -550,7 +550,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                   {eng.stage === "claimed" && (
                     <Button size="sm" className="gap-2" onClick={() => setReqEmailDialogFor(eng)}>
                       <Mail className="h-4 w-4" />
-                      {t("Soạn email hỏi nhu cầu", "Draft requirement email")}
+                      {t("Soạn email mở đầu", "Draft opening email")}
                     </Button>
                   )}
                   {eng.stage === "requirement_email_sent" && (
@@ -778,7 +778,7 @@ function RequirementEmailDialog({
     }
     await markEngagementEmailSentAction(engagement.id)
     setSending(false)
-    toast.success(t("Đã gửi email hỏi nhu cầu", "Requirement email sent"))
+    toast.success(t("Đã gửi email mở đầu", "Opening email sent"))
     onSent()
   }
 
@@ -786,11 +786,11 @@ function RequirementEmailDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t("Soạn email hỏi nhu cầu buyer", "Draft requirement email")}</DialogTitle>
+          <DialogTitle>{t("Soạn email mở đầu cho buyer", "Draft opening email")}</DialogTitle>
           <DialogDescription>
             {t(
-              "AI sẽ soạn email hỏi buyer về sản phẩm, MOQ, giá mục tiêu, thanh toán và bao bì. Bạn có thể chỉnh trước khi gửi.",
-              "AI will draft an email asking the buyer about product, MOQ, target price, payment and packaging. Review before sending.",
+              "AI sẽ soạn email giới thiệu Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không. Chưa hỏi chi tiết MOQ/giá/thanh toán/bao bì ở bước này.",
+              "AI will draft an email introducing Vexim and asking whether the buyer would like to evaluate additional sourcing from Vietnam. No MOQ/price/payment/packaging questions at this step.",
             )}
           </DialogDescription>
         </DialogHeader>
@@ -802,7 +802,10 @@ function RequirementEmailDialog({
               id="vi-prompt"
               value={viPrompt}
               onChange={(e) => setViPrompt(e.target.value)}
-              placeholder={t("VD: nhấn mạnh thời gian giao hàng gấp...", "E.g. emphasize urgent delivery timeline...")}
+              placeholder={t(
+                "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
+                "E.g. emphasize Vexim works with export-certified factories...",
+              )}
               rows={3}
             />
           </div>
@@ -989,9 +992,25 @@ function ReplyFollowUpDialog({
 
             {mode === "ai" ? (
               <>
-                <Label htmlFor="vi-followup-prompt">
-                  {t("Bạn muốn trả lời/đàm phán điểm gì?", "What should the reply address or negotiate?")}
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="vi-followup-prompt">
+                    {t("Bạn muốn trả lời/đàm phán điểm gì?", "What should the reply address or negotiate?")}
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() =>
+                      setViPrompt(
+                        "Cảm ơn buyer đã quan tâm và phản hồi. Hỏi cụ thể để nắm yêu cầu chi tiết: 1) sản phẩm/spec cụ thể cần, 2) khoảng giá mục tiêu, 3) MOQ (số lượng đặt hàng tối thiểu), 4) điều kiện thanh toán mong muốn, 5) yêu cầu về bao bì/đóng gói, 6) các yêu cầu khác nếu có. Giữ giọng văn thân thiện, dễ trả lời theo từng điểm.",
+                      )
+                    }
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    {t("Hỏi yêu cầu chi tiết", "Ask for detailed requirements")}
+                  </Button>
+                </div>
                 <Textarea
                   id="vi-followup-prompt"
                   value={viPrompt}

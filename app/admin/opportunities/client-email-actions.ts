@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendMail } from "@/lib/mail"
+import { buildPersonalizedSender, getSenderEmail } from "@/lib/email/mailer"
 import { normaliseRole } from "@/lib/auth/permissions"
 import { ownershipScopeFor, assertOpportunityOwned } from "@/lib/auth/scope"
 
@@ -49,7 +50,7 @@ export async function sendClientUpdateEmail(
   // Role check
   const { data: callerProfile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, work_email")
     .eq("id", user.id)
     .single()
 
@@ -101,7 +102,12 @@ ${escapeHtml(input.body)}
   `
 
   try {
+    const fromAddress = buildPersonalizedSender(senderName, {
+      workEmail: callerProfile.work_email,
+    })
     await sendMail({
+      from: fromAddress,
+      replyTo: callerProfile.work_email || getSenderEmail("trade"),
       to: input.to,
       subject: input.subject,
       html: htmlBody,

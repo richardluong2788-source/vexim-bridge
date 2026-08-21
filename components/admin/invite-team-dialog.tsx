@@ -75,6 +75,9 @@ const MESSAGES = {
     invite: "Send Invitation",
     inviting: "Sending...",
     success: "Invitation sent successfully!",
+    workEmailLabel: "Sender email to create in Zoho Mail:",
+    workEmailHint:
+      "This person's buyer-facing emails will be sent from this address. Create a matching mailbox in the Zoho Mail admin panel so replies can be received.",
     errors: {
       invalid_email: "Please enter a valid email address",
       full_name_required: "Full name is required",
@@ -103,6 +106,9 @@ const MESSAGES = {
     invite: "Gửi lời mời",
     inviting: "Đang gửi...",
     success: "Gửi lời mời thành công!",
+    workEmailLabel: "Email gửi buyer cần tạo trên Zoho Mail:",
+    workEmailHint:
+      "Email gửi cho buyer của người này sẽ dùng địa chỉ này. Hãy tạo hộp mail tương ứng trong Zoho Mail admin để nhận được reply.",
     errors: {
       invalid_email: "Vui lòng nhập địa chỉ email hợp lệ",
       full_name_required: "Họ tên là bắt buộc",
@@ -127,6 +133,7 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
   const [industry, setIndustry] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [generatedWorkEmail, setGeneratedWorkEmail] = useState<string | null>(null)
 
   const isAccountExecutive = role === "account_executive"
 
@@ -146,6 +153,7 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
     setIndustry("")
     setError(null)
     setSuccess(false)
+    setGeneratedWorkEmail(null)
   }
 
   const handleSubmit = () => {
@@ -169,10 +177,16 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
 
       if (result.ok) {
         setSuccess(true)
-        setTimeout(() => {
-          setOpen(false)
-          resetForm()
-        }, 1500)
+        setGeneratedWorkEmail(result.workEmail ?? null)
+        // Keep the dialog open longer when there's a work email to show —
+        // the admin needs time to read/copy it before it auto-closes.
+        setTimeout(
+          () => {
+            setOpen(false)
+            resetForm()
+          },
+          result.workEmail ? 6000 : 1500,
+        )
       } else {
         const errorKey = result.error as keyof typeof t.errors
         setError(t.errors[errorKey] || t.errors.default)
@@ -297,9 +311,18 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
 
           {/* Success message */}
           {success && (
-            <p className="text-sm text-green-600" role="status">
-              {t.success}
-            </p>
+            <div className="flex flex-col gap-2" role="status">
+              <p className="text-sm text-green-600">{t.success}</p>
+              {generatedWorkEmail && (
+                <div className="rounded-md border border-border bg-muted/50 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{t.workEmailLabel}</p>
+                  <p className="mt-1 font-mono text-sm font-medium text-foreground">
+                    {generatedWorkEmail}
+                  </p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">{t.workEmailHint}</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

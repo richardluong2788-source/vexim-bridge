@@ -74,7 +74,7 @@ export async function generateRequirementInquiryEmail(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name, email, company_name")
+    .select("role, full_name, email, work_email, company_name")
     .eq("id", user.id)
     .single()
   if (!profile || !ALLOWED_ROLES.has(profile.role)) {
@@ -144,7 +144,11 @@ export async function generateRequirementInquiryEmail(
       country: lead["country"],
       sender_name: profile.full_name,
       exporter_company: profile.company_name ?? "Vexim Trade",
-      sender_email: profile.email,
+      // IMPORTANT: never sign with profile.email — that's the AE's login
+      // address and is often a personal Gmail (leaks into the buyer-facing
+      // signature). Sign with their provisioned work_email, falling back to
+      // the shared trade@ address if they don't have one yet.
+      sender_email: profile.work_email || "trade@veximtrade.com",
       ...(emailType === "shortlist_delivery"
         ? {
             requested_products: (engagement as any).requested_products,

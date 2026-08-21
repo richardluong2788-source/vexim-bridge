@@ -2,12 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { Copy } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { updateUserRole, updateUserIndustry } from "@/app/admin/users/actions"
+import { updateUserRole, updateUserIndustry, generateWorkEmailForUser } from "@/app/admin/users/actions"
 import { ROLE_META, assignableRoles } from "@/lib/auth/permissions"
 import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
 import type { Role } from "@/lib/supabase/types"
@@ -20,6 +22,7 @@ interface UserRow {
   role: Role
   company_name: string | null
   industry: string | null
+  work_email: string | null
   created_at: string
 }
 
@@ -54,6 +57,30 @@ export function UsersTable({
   const [industryPending, industryStartTransition] = useTransition()
   const [query, setQuery] = useState("")
   const [filterRole, setFilterRole] = useState<Role | "all">("all")
+  const [workEmailPendingId, setWorkEmailPendingId] = useState<string | null>(null)
+  const [workEmailPending, workEmailStartTransition] = useTransition()
+
+  // Roles that send buyer-facing email and therefore get a personal sender
+  // address (see lib/email/work-email.ts). Kept in sync with
+  // ROLES_NEEDING_WORK_EMAIL in app/admin/users/actions.ts.
+  const ROLES_NEEDING_WORK_EMAIL: Role[] = ["account_executive", "admin", "super_admin"]
+
+  function handleGenerateWorkEmail(userId: string) {
+    setWorkEmailPendingId(userId)
+    workEmailStartTransition(async () => {
+      const res = await generateWorkEmailForUser(userId)
+      setWorkEmailPendingId(null)
+      if (res.ok) {
+        toast.success(
+          locale === "vi" ? `Đã tạo địa chỉ: ${res.workEmail}` : `Created address: ${res.workEmail}`,
+        )
+      } else {
+        toast.error(locale === "vi" ? "Không tạo được địa chỉ" : "Failed to generate address", {
+          description: res.error,
+        })
+      }
+    })
+  }
 
   const assignable = useMemo(() => assignableRoles(currentUserRole), [currentUserRole])
 
@@ -159,6 +186,9 @@ export function UsersTable({
             <tr className="text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <th className="px-6 py-3">{t.admin.users.user}</th>
               <th className="px-6 py-3">{t.admin.users.company}</th>
+              <th className="px-6 py-3">
+                {locale === "vi" ? "Email gửi buyer" : "Sender email"}
+              </th>
               <th className="px-6 py-3">{t.admin.users.role}</th>
               <th className="w-48 px-6 py-3">
                 {locale === "vi" ? "Ngành hàng (AE)" : "Industry (AE)"}
@@ -187,6 +217,43 @@ export function UsersTable({
                     </div>
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{u.company_name ?? "—"}</td>
+                  <td className="px-6 py-4">
+                    {u.work_email ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-foreground">{u.work_email}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-6"
+                          onClick={() => {
+                            navigator.clipboard.writeText(u.work_email!)
+                            toast.success(
+                              locale === "vi" ? "Đã sao chép địa chỉ email" : "Email address copied",
+                            )
+                          }}
+                          aria-label={locale === "vi" ? "Sao chép email" : "Copy email"}
+                        >
+                          <Copy className="size-3.5" />
+                        </Button>
+                      </div>
+                    ) : ROLES_NEEDING_WORK_EMAIL.includes(u.role) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={workEmailPending && workEmailPendingId === u.id}
+                        onClick={() => handleGenerateWorkEmail(u.id)}
+                      >
+                        {locale === "vi" ? "Tạo địa chỉ" : "Generate address"}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {locale === "vi" ? "Không cần" : "Not needed"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
                       <Badge className={ROLE_BADGE_CLASS[u.role]}>{roleLabel(u.role)}</Badge>
@@ -262,7 +329,7 @@ export function UsersTable({
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">
                   {t.admin.users.noResults ?? "No users match these filters."}
                 </td>
               </tr>

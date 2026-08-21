@@ -75,9 +75,9 @@ const MESSAGES = {
     invite: "Send Invitation",
     inviting: "Sending...",
     success: "Invitation sent successfully!",
-    workEmailLabel: "Sender email to create in Zoho Mail:",
+    workEmailLabel: "Personal sender address (Resend):",
     workEmailHint:
-      "This person's buyer-facing emails will be sent from this address. Create a matching mailbox in the Zoho Mail admin panel so replies can be received.",
+      "This person's buyer-facing emails will be sent and received from this address via Resend — no mailbox needs to be created anywhere. If replies stop matching, check that Resend's inbound route for veximtrade.com covers the whole domain.",
     errors: {
       invalid_email: "Please enter a valid email address",
       full_name_required: "Full name is required",
@@ -106,9 +106,9 @@ const MESSAGES = {
     invite: "Gửi lời mời",
     inviting: "Đang gửi...",
     success: "Gửi lời mời thành công!",
-    workEmailLabel: "Email gửi buyer cần tạo trên Zoho Mail:",
+    workEmailLabel: "Địa chỉ gửi riêng (qua Resend):",
     workEmailHint:
-      "Email gửi cho buyer của người này sẽ dùng địa chỉ này. Hãy tạo hộp mail tương ứng trong Zoho Mail admin để nhận được reply.",
+      "Email gửi cho buyer của người này sẽ dùng địa chỉ này — gửi và nhận đều qua Resend, không cần tạo hộp mail ở đâu cả. Nếu reply không khớp được, kiểm tra lại Inbound Route trên Resend cho domain veximtrade.com có bắt toàn bộ domain hay không.",
     errors: {
       invalid_email: "Vui lòng nhập địa chỉ email hợp lệ",
       full_name_required: "Họ tên là bắt buộc",

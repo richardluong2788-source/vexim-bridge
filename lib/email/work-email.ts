@@ -14,9 +14,17 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * "linh@veximtrade.com") lets mail providers learn a stable
  * address <-> person mapping.
  *
- * IMPORTANT: generating an address here does NOT create a real mailbox.
- * A matching mailbox must be created manually in the Zoho Mail admin panel
- * so replies sent to it can actually be received.
+ * Sending and receiving both go through Resend — there is no Zoho mailbox
+ * anywhere in this stack. The domain (veximtrade.com) is already verified
+ * on Resend for outbound, so any local-part works as a `from` address
+ * immediately with no extra setup. Inbound replies are handled by the
+ * `email.received` webhook (app/api/webhooks/resend/route.ts), which
+ * matches replies by In-Reply-To / sender email rather than by which
+ * address received them — so a new personal address works for replies too,
+ * AS LONG AS Resend's inbound route for the domain is a catch-all covering
+ * the whole domain rather than a single hardcoded address. Verify this in
+ * the Resend Dashboard (Domains -> veximtrade.com -> Inbound Routes) after
+ * adding new personal addresses.
  */
 
 const DEFAULT_DOMAIN = "veximtrade.com"

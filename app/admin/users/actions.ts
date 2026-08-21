@@ -236,8 +236,9 @@ export interface InviteTeamMemberResult {
   ok: boolean
   userId?: string
   error?: string
-  /** Auto-generated personal sender address, if this role gets one — surface
-   * it to the admin so they know which mailbox to create in Zoho Mail. */
+  /** Auto-generated personal sender address, if this role gets one. Sending
+   * and receiving both go through Resend — no mailbox needs to be created
+   * anywhere for this to work (see lib/email/work-email.ts). */
   workEmail?: string | null
 }
 
@@ -311,8 +312,8 @@ export async function inviteTeamMember(
   // ---- 3b. Auto-generate a personal work email for roles that send
   // buyer-facing email, so each person has a stable address the buyer's
   // mail provider learns to trust with their real name (see
-  // lib/email/work-email.ts). A matching mailbox must still be created
-  // manually in Zoho Mail for replies to actually be received.
+  // lib/email/work-email.ts). Sending and receiving both go through
+  // Resend — no mailbox setup is required elsewhere.
   const workEmail = ROLES_NEEDING_WORK_EMAIL.includes(role)
     ? await reserveWorkEmail(fullName)
     : null

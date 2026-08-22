@@ -38,6 +38,7 @@ export function ProfileRequestQuoteDialog({
   const [contactName, setContactName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [country, setCountry] = useState("")
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [quantity, setQuantity] = useState("")
   const [notes, setNotes] = useState("")
@@ -59,6 +60,7 @@ export function ProfileRequestQuoteDialog({
         contact_name: contactName,
         email,
         phone: phone || undefined,
+        country: country || undefined,
         products_interested: selectedProducts,
         quantity_volume: quantity || undefined,
         notes: notes || undefined,
@@ -182,6 +184,17 @@ export function ProfileRequestQuoteDialog({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+1 (555) 000-0000"
+                />
+              </div>
+
+              {/* Country */}
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g., United States"
                 />
               </div>
 

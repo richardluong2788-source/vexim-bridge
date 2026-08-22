@@ -1686,7 +1686,8 @@ export type ProfileQuoteRequest = {
   contact_name: string
   email: string
   phone?: string
+  country?: string
   products_interested: string[]
   quantity_volume?: string
   notes?: string
-}
+  }

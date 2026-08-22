@@ -282,7 +282,7 @@ export async function createClientProfile(
       tagline: input.tagline || null,
       cover_image_url: input.cover_image_url || null,
       logo_url: input.logo_url || null,
-      factory_image_url: input.factory_image_url || null,
+      factory_image_urls: input.factory_image_urls || [],
       video_url: input.video_url || null,
       video_thumbnail_url: input.video_thumbnail_url || null,
       usp_points: input.usp_points || [],

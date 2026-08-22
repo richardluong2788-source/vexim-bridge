@@ -1,5 +1,5 @@
 export { ProfileHero } from "./profile-hero"
-export { ProfileVideo } from "./profile-video"
+export { ProfileMediaGallery } from "./profile-media-gallery"
 export { ProfileUSP } from "./profile-usp"
 export { ProfileCertifications } from "./profile-certifications"
 export { ProfileProducts } from "./profile-products"

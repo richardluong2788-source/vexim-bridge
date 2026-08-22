@@ -18,6 +18,7 @@
  */
 
 import { useMemo, useRef, useState, useTransition } from "react"
+import { upload } from "@vercel/blob/client"
 import { toast } from "sonner"
 import {
   FileBadge2,
@@ -72,7 +73,7 @@ import type {
 } from "@/lib/supabase/types"
 import { privateFileHref } from "@/lib/blob/file-url"
 import {
-  uploadClientDocAction,
+  finalizeClientDocUploadAction,
   deleteClientDocAction,
   createShareLinkAction,
   createBundleShareLinkAction,
@@ -629,16 +630,47 @@ function UploadPanel({
       toast.error(s.missingFile)
       return
     }
-    const fd = new FormData()
-    fd.set("ownerId", clientId)
-    fd.set("kind", kind)
-    fd.set("title", title)
-    fd.set("expiresAt", expiresAt)
-    fd.set("notes", notes)
-    fd.set("file", file)
 
     startTransition(async () => {
-      const res = await uploadClientDocAction(fd)
+      // Upload straight from the browser to Vercel Blob — factory videos
+      // can be up to 100MB, well past what a server action or proxy
+      // route could safely accept.
+      const safeName = file.name
+        .split(/[/\\]/)
+        .pop()!
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, "-")
+        .slice(0, 80)
+      let blob
+      try {
+        blob = await upload(`clients/${clientId}/${kind}/${Date.now()}-${safeName}`, file, {
+          access: "private",
+          handleUploadUrl: "/api/clients/upload-token",
+        })
+      } catch (err) {
+        console.error("[v0] client doc client upload failed", err)
+        const message = (err as Error)?.message ?? ""
+        toast.error(
+          translateError(
+            s,
+            message.includes("exceeds") || message.includes("size")
+              ? "fileTooLarge"
+              : "invalidType",
+          ),
+        )
+        return
+      }
+
+      const res = await finalizeClientDocUploadAction({
+        ownerId: clientId,
+        kind,
+        pathname: blob.pathname,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        title,
+        expiresAt,
+        notes,
+      })
       if (!res.ok) {
         toast.error(translateError(s, res.error))
         return

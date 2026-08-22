@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
+import { upload } from "@vercel/blob/client"
 import { Paperclip, X, Upload, FileText, Image as ImageIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -53,21 +54,32 @@ export function EmailAttachmentPicker({ attachments, onChange, disabled }: Props
       setUploading(true)
 
       try {
-        const formData = new FormData()
-        fileArray.forEach((file) => formData.append("files", file))
+        // Upload directly from the browser to Vercel Blob — the file
+        // bytes never pass through our server, so large attachments
+        // can't crash a serverless function's request-body limit.
+        const uploaded: UploadedAttachment[] = []
+        for (const file of fileArray) {
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+          const blob = await upload(
+            `email-attachments/${Date.now()}_${safeName}`,
+            file,
+            {
+              access: "public",
+              handleUploadUrl: "/api/attachments/upload",
+              clientPayload: JSON.stringify({ filename: file.name }),
+            }
+          )
 
-        const res = await fetch("/api/attachments/upload", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || "Upload failed")
+          uploaded.push({
+            url: blob.url,
+            pathname: blob.pathname,
+            filename: file.name,
+            size: file.size,
+            contentType: file.type,
+          })
         }
 
-        const data = await res.json()
-        onChange([...attachments, ...data.attachments])
+        onChange([...attachments, ...uploaded])
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed")
       } finally {

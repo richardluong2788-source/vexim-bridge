@@ -1,10 +1,19 @@
-import { put } from "@vercel/blob"
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const MAX_FILES = 5
-const ALLOWED_TYPES = [
+/**
+ * Client-side direct upload for email attachments.
+ *
+ * The browser uploads the file bytes straight to Vercel Blob storage using
+ * a short-lived token issued here — the file body never passes through this
+ * serverless function, so it is not subject to the ~4.5MB request-body
+ * limit (or function memory) that a proxy `formData()` upload would hit.
+ */
+
+export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export const MAX_FILES = 5
+export const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
@@ -27,8 +36,9 @@ export type UploadedAttachment = {
 }
 
 export async function POST(request: NextRequest) {
+  const body = (await request.json()) as HandleUploadBody
+
   try {
-    // Auth check
     const supabase = await createClient()
     const {
       data: { user },
@@ -38,62 +48,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const formData = await request.formData()
-    const files = formData.getAll("files") as File[]
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        const originalName = clientPayload ? JSON.parse(clientPayload).filename : pathname
 
-    if (!files || files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 })
-    }
+        return {
+          allowedContentTypes: ALLOWED_TYPES,
+          maximumSizeInBytes: MAX_FILE_SIZE,
+          addRandomSuffix: false,
+          tokenPayload: JSON.stringify({ userId: user.id, filename: originalName }),
+        }
+      },
+      onUploadCompleted: async () => {
+        // No DB write needed — attachments are ephemeral and referenced
+        // directly by URL in the email draft until sent.
+      },
+    })
 
-    if (files.length > MAX_FILES) {
-      return NextResponse.json(
-        { error: `Maximum ${MAX_FILES} files allowed` },
-        { status: 400 }
-      )
-    }
-
-    const results: UploadedAttachment[] = []
-
-    for (const file of files) {
-      // Validate size
-      if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          { error: `File "${file.name}" exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
-          { status: 400 }
-        )
-      }
-
-      // Validate type
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        return NextResponse.json(
-          { error: `File type "${file.type}" is not allowed` },
-          { status: 400 }
-        )
-      }
-
-      // Generate unique filename with timestamp
-      const timestamp = Date.now()
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
-      const pathname = `email-attachments/${user.id}/${timestamp}_${safeName}`
-
-      // Upload to Vercel Blob (public access for email embedding)
-      const blob = await put(pathname, file, {
-        access: "public",
-        contentType: file.type,
-      })
-
-      results.push({
-        url: blob.url,
-        pathname: blob.pathname,
-        filename: file.name,
-        size: file.size,
-        contentType: file.type,
-      })
-    }
-
-    return NextResponse.json({ attachments: results })
+    return NextResponse.json(jsonResponse)
   } catch (error) {
-    console.error("Upload error:", error)
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
+    console.error("[v0] attachment upload token error:", error)
+    return NextResponse.json(
+      { error: (error as Error).message || "Upload failed" },
+      { status: 400 }
+    )
   }
 }

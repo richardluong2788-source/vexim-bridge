@@ -9,6 +9,7 @@ const nextConfig = {
   // anon key is inlined into the browser bundle. Re-expose it here instead
   // of duplicating the fallback logic in every file.
   env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY:
       process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
   },

@@ -77,8 +77,9 @@ export async function uploadComplianceDoc(args: {
     contentType: file.type,
   })
 
-  // `blob.url` from a private store is NOT publicly accessible — we
-  // persist the pathname and serve it through `/api/files`.
+  // Even though `blob.url` is publicly reachable (public store), we
+  // persist only the pathname and always serve it through `/api/files`
+  // so role/session-based access control stays enforced at the app layer.
   return { pathname: blob.pathname }
 }
 

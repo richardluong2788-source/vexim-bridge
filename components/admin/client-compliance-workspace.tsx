@@ -644,7 +644,8 @@ function UploadPanel({
       let blob
       try {
         blob = await upload(`clients/${clientId}/${kind}/${Date.now()}-${safeName}`, file, {
-          access: "private",
+          // Blob store is configured as `public`; access must match.
+          access: "public",
           handleUploadUrl: "/api/clients/upload-token",
         })
       } catch (err) {
@@ -934,9 +935,9 @@ function DocCard({
   )
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────��───────
 // Tokenized share link row + dialogs
-// ────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────��───────────
 
 function ShareLinkRow({
   link,

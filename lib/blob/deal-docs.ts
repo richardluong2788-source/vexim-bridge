@@ -4,8 +4,12 @@ import { put } from "@vercel/blob"
  * Vercel Blob integration for deal-related documents
  * (Sprint A — Closing & Compliance, SOP Phase 3).
  *
- * All deal documents are stored with `access: "private"` — only authenticated
- * admin/staff requests that go through our server actions can retrieve them.
+ * The Blob store backing this project is configured as `public`, so all
+ * deal documents are uploaded with `access: "public"`. Access control is
+ * still enforced at the app layer: clients only ever reach files through
+ * `/api/files?path=...`, which checks the caller's session/role before
+ * streaming the blob — the pathname itself is never surfaced to the
+ * browser as a raw public URL.
  *
  * Key convention (flat, per-deal prefix so list/delete by prefix is easy):
  *   deals/{dealId}/{kind}/{timestamp}-{filename}
@@ -79,10 +83,11 @@ export async function uploadDealDoc(
 
   try {
     const blob = await put(path, file, {
-      // The Blob store is configured as `private`; `blob.url` is NOT
-      // publicly reachable. We persist the pathname and serve it
-      // through `/api/files?path=...` after auth checks.
-      access: "private",
+      // The Blob store is configured as `public`; `blob.url` IS directly
+      // reachable, but we still persist only the pathname and always
+      // serve it through `/api/files?path=...` so auth checks stay
+      // enforced at the app layer.
+      access: "public",
       addRandomSuffix: true,
       contentType: file.type,
     })

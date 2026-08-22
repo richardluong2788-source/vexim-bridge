@@ -48,6 +48,15 @@ export default async function NotificationSettingsPage() {
       email_deal_closed: true,
       email_new_assignment: true,
       unsubscribe_token: "",
+      telegram_enabled: false,
+      telegram_chat_id: null,
+      telegram_username: null,
+      telegram_action_required: true,
+      telegram_status_update: true,
+      telegram_deal_closed: true,
+      telegram_new_assignment: true,
+      telegram_link_token: "",
+      telegram_link_token_expires_at: null,
       updated_at: new Date().toISOString(),
     }
   }
@@ -55,10 +64,16 @@ export default async function NotificationSettingsPage() {
   const initialLanguage: PreferredLanguage =
     (profile?.preferred_language as PreferredLanguage | undefined) ?? "vi"
 
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Veximtrade_bot"
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <SettingsPageHeader backHref={backHref} />
-      <NotificationPreferencesForm initial={prefs} initialLanguage={initialLanguage} />
+      <NotificationPreferencesForm
+        initial={prefs}
+        initialLanguage={initialLanguage}
+        botUsername={botUsername}
+      />
     </div>
   )
 }

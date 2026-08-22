@@ -2,6 +2,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getFromAddress, sendMail } from "@/lib/email/mailer"
+import { sendTelegramMessage } from "@/lib/telegram/client"
 import type {
   NotificationCategory,
   PreferredLanguage,
@@ -69,6 +70,32 @@ const CATEGORY_PREF_COLUMN: Record<
 }
 
 /**
+ * Same idea as CATEGORY_PREF_COLUMN but for the Telegram channel. Kept as a
+ * separate map (rather than deriving from the email one) so the two channels
+ * can diverge in the future without a breaking rename.
+ */
+type TelegramCategoryColumn =
+  | "telegram_action_required"
+  | "telegram_status_update"
+  | "telegram_deal_closed"
+  | "telegram_new_assignment"
+
+const TELEGRAM_CATEGORY_PREF_COLUMN: Record<
+  Exclude<NotificationCategory, "system">,
+  TelegramCategoryColumn
+> = {
+  action_required: "telegram_action_required",
+  status_update: "telegram_status_update",
+  deal_closed: "telegram_deal_closed",
+  new_assignment: "telegram_new_assignment",
+}
+
+/** Telegram HTML parse mode only supports a small tag subset — escape the rest. */
+function escapeTelegramHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+/**
  * Resolve the absolute app URL, falling back to Vercel's VERCEL_URL in
  * deploy-preview environments. Used for both the CTA and the unsubscribe link.
  */
@@ -127,7 +154,9 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
     // Continue — we still attempt the email so the user is not silent-dropped.
   }
 
-  // 2) Email — guarded by prefs + idempotency
+  // 2) Fetch prefs once, fan out to both channels independently. Neither
+  // channel's early-exit should block the other, so each runs in its own
+  // guarded block rather than sharing return statements.
   const { data: prefs } = await admin
     .from("notification_preferences")
     .select("*")
@@ -136,10 +165,34 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
 
   if (!prefs) {
     // Trigger should have created this row; if it is missing something is off
-    // but we don't want to spam emails either.
+    // but we don't want to spam emails/messages either.
     console.warn("[notifications] no prefs row for", input.userId)
     return
   }
+
+  await Promise.all([
+    sendEmailChannel({ admin, input, profile, prefs, locale, title, body, ctaLabel, subject }),
+    sendTelegramChannel({ admin, input, prefs, locale, title, body, ctaLabel }),
+  ])
+}
+
+interface ChannelContext {
+  admin: ReturnType<typeof createAdminClient>
+  input: DispatchInput
+  prefs: Record<string, unknown>
+  locale: PreferredLanguage
+  title: string
+  body: string | null
+  ctaLabel: string
+}
+
+async function sendEmailChannel(
+  ctx: ChannelContext & {
+    profile: { email: string | null; full_name: string | null }
+    subject: string
+  },
+): Promise<void> {
+  const { admin, input, profile, prefs, locale, title, body, ctaLabel, subject } = ctx
 
   if (!prefs.email_enabled) return
 
@@ -221,4 +274,59 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
       .eq("dedup_key", input.dedupKey)
     console.error("[notifications] smtp threw", message)
   }
+}
+
+async function sendTelegramChannel(ctx: ChannelContext): Promise<void> {
+  const { admin, input, prefs, title, body, ctaLabel } = ctx
+
+  if (!prefs.telegram_enabled) return
+  if (!prefs.telegram_chat_id) return
+
+  // `system` follows master switch only; otherwise honor the per-category toggle.
+  if (input.category !== "system") {
+    const column = TELEGRAM_CATEGORY_PREF_COLUMN[input.category]
+    if (prefs[column] === false) return
+  }
+
+  // Idempotency: same pattern as the email log — insert first, skip on conflict.
+  const { error: logErr } = await admin
+    .from("notification_telegram_log")
+    .insert({
+      user_id: input.userId,
+      dedup_key: input.dedupKey,
+      status: "sent",
+    })
+
+  if (logErr) {
+    if ((logErr as { code?: string }).code === "23505") return
+    console.error("[notifications] telegram log insert failed", logErr.message)
+    return
+  }
+
+  const appUrl = getAppBaseUrl()
+  const ctaUrl = `${appUrl}${input.linkPath.startsWith("/") ? "" : "/"}${input.linkPath}`
+
+  const lines = [
+    `<b>${escapeTelegramHtml(title)}</b>`,
+    body ? escapeTelegramHtml(body) : null,
+    `<a href="${ctaUrl}">${escapeTelegramHtml(ctaLabel)}</a>`,
+  ].filter(Boolean)
+
+  const result = await sendTelegramMessage(prefs.telegram_chat_id as string, lines.join("\n\n"))
+
+  if (!result.ok) {
+    await admin
+      .from("notification_telegram_log")
+      .update({ status: "failed", error: result.error })
+      .eq("user_id", input.userId)
+      .eq("dedup_key", input.dedupKey)
+    console.error("[notifications] telegram send failed", result.error)
+    return
+  }
+
+  await admin
+    .from("notification_telegram_log")
+    .update({ message_id: result.messageId ?? null })
+    .eq("user_id", input.userId)
+    .eq("dedup_key", input.dedupKey)
 }

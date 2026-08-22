@@ -23,8 +23,36 @@ import {
   MAX_FILE_SIZE_BYTES,
   type ComplianceDocKind,
 } from "@/lib/blob/client-docs"
-import { sendMail, getFromAddress } from "@/lib/email/mailer"
+import { sendMail, getFromAddress, buildPersonalizedSender, getSenderEmail } from "@/lib/email/mailer"
 import { siteConfig } from "@/lib/site-config"
+
+/**
+ * Resolve the calling AE/admin's own Resend identity (name + work_email)
+ * so buyer-facing share-link emails come from a real person's address
+ * instead of the shared "noreply@veximtrade.com". Falls back to the shared
+ * "trade@veximtrade.com" sender when the caller has no work_email yet.
+ * Everything here is sent via Resend — there is no Zoho mailbox involved.
+ */
+async function resolveCallerSender(
+  adminClient: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  userId: string | null | undefined,
+) {
+  if (!userId) {
+    return { from: getFromAddress("trade"), replyTo: getSenderEmail("trade") }
+  }
+  const { data: caller } = await adminClient
+    .from("profiles")
+    .select("full_name, work_email")
+    .eq("id", userId)
+    .single()
+
+  const from = buildPersonalizedSender(caller?.full_name ?? null, {
+    workEmail: caller?.work_email ?? null,
+    senderKey: "trade",
+  })
+  const replyTo = caller?.work_email?.trim() || getSenderEmail("trade")
+  return { from, replyTo }
+}
 
 // Which doc kinds are safe to share with external buyers via a public
 // tokenized link. The Vexim team handles redaction of sensitive fields

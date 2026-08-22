@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireCap, type GuardSuccess } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
-import { uploadDealDoc, type DealDocKind } from "@/lib/blob/deal-docs"
+import { DEAL_DOC_ALLOWED_KINDS, type DealDocKind } from "@/lib/blob/deal-docs"
 import { assessCountryRisk, type RiskAssessment } from "@/lib/risk/country-risk"
 
 type AdminSB = GuardSuccess["admin"]
@@ -78,17 +78,28 @@ async function ensureDeal(
 }
 
 // ---------------------------------------------------------------------------
-// 1. Upload a deal document (PO / Swift / B-L) to Vercel Blob.
+// 1. Upload a deal document (PO / Swift / B-L) — client-side direct upload.
+//
+// The file itself never touches a server action anymore (Server Actions
+// cap request bodies at 1MB by default, and even a raised limit would
+// still buffer the whole file in the function). Instead the flow is:
+//   a) prepareDealDocumentUploadAction  — auth check + ensureDeal, returns
+//      the dealId the browser needs to build the Blob pathname.
+//   b) browser calls `upload()` from `@vercel/blob/client` straight to
+//      Blob storage via the token route at /api/deals/upload-token.
+//   c) finalizeDealDocumentUploadAction — auth check again + persists the
+//      resulting pathname/url on the deal row (same DB writes as before).
 // ---------------------------------------------------------------------------
-export interface UploadDealDocumentResult {
+export interface PrepareDealDocumentUploadResult {
   ok: boolean
   error?: ActionError
-  url?: string
+  dealId?: string
 }
 
-export async function uploadDealDocumentAction(
-  formData: FormData,
-): Promise<UploadDealDocumentResult> {
+export async function prepareDealDocumentUploadAction(
+  opportunityId: string,
+  kind: string,
+): Promise<PrepareDealDocumentUploadResult> {
   const guard = await requireCap(CAPS.DEAL_COMPLIANCE_WRITE)
   if (!guard.ok) {
     return {
@@ -98,28 +109,52 @@ export async function uploadDealDocumentAction(
   }
   const { admin, userId } = guard
 
-  const opportunityId = String(formData.get("opportunityId") ?? "")
-  const kindRaw = String(formData.get("kind") ?? "")
-  const file = formData.get("file")
-
-  const allowedKinds: DealDocKind[] = ["po", "swift", "bl"]
-  if (!opportunityId || !allowedKinds.includes(kindRaw as DealDocKind)) {
+  if (!opportunityId || !DEAL_DOC_ALLOWED_KINDS.includes(kind as DealDocKind)) {
     return { ok: false, error: "invalidInput" }
-  }
-  if (!(file instanceof File)) {
-    return { ok: false, error: "invalidFile" }
   }
 
   const dealId = await ensureDeal(admin, opportunityId, userId)
   if (!dealId) return { ok: false, error: "dealCreateFailed" }
 
-  const uploaded = await uploadDealDoc({
-    dealId,
-    kind: kindRaw as DealDocKind,
-    file,
-  })
-  if (!uploaded.ok || !uploaded.url) {
-    return { ok: false, error: uploaded.error ?? "uploadFailed" }
+  return { ok: true, dealId }
+}
+
+export interface FinalizeDealDocumentUploadInput {
+  opportunityId: string
+  dealId: string
+  kind: DealDocKind
+  pathname: string
+}
+
+export interface FinalizeDealDocumentUploadResult {
+  ok: boolean
+  error?: ActionError
+  url?: string
+}
+
+export async function finalizeDealDocumentUploadAction(
+  input: FinalizeDealDocumentUploadInput,
+): Promise<FinalizeDealDocumentUploadResult> {
+  const guard = await requireCap(CAPS.DEAL_COMPLIANCE_WRITE)
+  if (!guard.ok) {
+    return {
+      ok: false,
+      error: guard.error === "unauthenticated" ? "notAuthenticated" : "forbidden",
+    }
+  }
+  const { admin, userId } = guard
+
+  const { opportunityId, dealId, kind, pathname } = input
+  if (
+    !opportunityId ||
+    !dealId ||
+    !pathname ||
+    !DEAL_DOC_ALLOWED_KINDS.includes(kind) ||
+    // The pathname must belong to this deal — prevents a caller from
+    // pointing another deal's blob at this one.
+    !pathname.startsWith(`deals/${dealId}/${kind}/`)
+  ) {
+    return { ok: false, error: "invalidInput" }
   }
 
   // Map the kind to the right column + record uploader metadata for Swift.
@@ -127,13 +162,13 @@ export async function uploadDealDocumentAction(
   // reset swift_verified/_at/_by whenever swift_doc_url changes, so we
   // always re-enter the "awaiting dual-control verification" state.
   const patch: Record<string, unknown> = {}
-  if (kindRaw === "po") {
-    patch.po_doc_url = uploaded.url
-  } else if (kindRaw === "bl") {
-    patch.bl_doc_url = uploaded.url
+  if (kind === "po") {
+    patch.po_doc_url = pathname
+  } else if (kind === "bl") {
+    patch.bl_doc_url = pathname
   } else {
     // swift
-    patch.swift_doc_url = uploaded.url
+    patch.swift_doc_url = pathname
     patch.swift_uploaded_by = userId
     patch.swift_uploaded_at = new Date().toISOString()
   }
@@ -141,20 +176,20 @@ export async function uploadDealDocumentAction(
   const { error: updErr } = await admin.from("deals").update(patch).eq("id", dealId)
 
   if (updErr) {
-    console.error("[v0] uploadDealDocumentAction update failed", updErr)
+    console.error("[v0] finalizeDealDocumentUploadAction update failed", updErr)
     return { ok: false, error: "dbError" }
   }
 
   await admin.from("activities").insert({
     opportunity_id: opportunityId,
     action_type: "deal_doc_uploaded",
-    description: `${kindRaw.toUpperCase()} document uploaded`,
+    description: `${kind.toUpperCase()} document uploaded`,
     performed_by: userId,
   })
 
   revalidatePath("/admin/pipeline")
   revalidatePath("/admin")
-  return { ok: true, url: uploaded.url }
+  return { ok: true, url: pathname }
 }
 
 // ---------------------------------------------------------------------------

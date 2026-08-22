@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
+import { upload } from "@vercel/blob/client"
 import { toast } from "sonner"
 import {
   ShieldCheck,
@@ -23,7 +24,8 @@ import { Spinner } from "@/components/ui/spinner"
 import { privateFileHref } from "@/lib/blob/file-url"
 import {
   getOpportunityComplianceState,
-  uploadDealDocumentAction,
+  prepareDealDocumentUploadAction,
+  finalizeDealDocumentUploadAction,
   verifySwiftAction,
   type OpportunityComplianceState,
 } from "@/app/admin/opportunities/compliance-actions"
@@ -83,22 +85,48 @@ export function OpportunityComplianceSection({ opportunityId, open }: Props) {
     if (!file) return
     setUploadingKind(kind)
     try {
-      const fd = new FormData()
-      fd.append("opportunityId", opportunityId)
-      fd.append("kind", kind)
-      fd.append("file", file)
-      const res = await uploadDealDocumentAction(fd)
-      if (!res.ok) {
+      // 1) Ensure the deal row exists and get its id (small, JSON-only
+      //    server action — no file bytes involved).
+      const prepared = await prepareDealDocumentUploadAction(opportunityId, kind)
+      if (!prepared.ok || !prepared.dealId) {
+        toast.error(s.errorGeneric)
+        return
+      }
+
+      // 2) Upload straight from the browser to Vercel Blob. The file
+      //    never passes through our server, so large scans/photos can't
+      //    hit a request-body limit.
+      const safeName = file.name.replace(/[^\w.-]+/g, "_").slice(0, 80) || `${kind}.pdf`
+      let blob
+      try {
+        blob = await upload(
+          `deals/${prepared.dealId}/${kind}/${Date.now()}-${safeName}`,
+          file,
+          {
+            access: "private",
+            handleUploadUrl: "/api/deals/upload-token",
+          }
+        )
+      } catch (err) {
+        console.error("[v0] deal doc client upload failed", err)
         toast.error(s.errorGeneric, {
           description:
-            res.error === "fileTooLarge"
+            (err as Error)?.message?.includes("exceeds")
               ? s.errorFileTooLarge
-              : res.error === "invalidType"
-                ? s.errorInvalidType
-                : res.error === "missingToken"
-                  ? s.errorMissingToken
-                  : undefined,
+              : s.errorInvalidType,
         })
+        return
+      }
+
+      // 3) Persist the pathname on the deal row.
+      const res = await finalizeDealDocumentUploadAction({
+        opportunityId,
+        dealId: prepared.dealId,
+        kind,
+        pathname: blob.pathname,
+      })
+      if (!res.ok) {
+        toast.error(s.errorGeneric)
         return
       }
       toast.success(s.uploadSuccess)

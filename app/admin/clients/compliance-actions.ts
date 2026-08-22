@@ -18,10 +18,9 @@ import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import {
-  uploadComplianceDoc,
   deleteComplianceDocByUrl,
-  validateComplianceFile,
   COMPLIANCE_DOC_KINDS,
+  MAX_FILE_SIZE_BYTES,
   type ComplianceDocKind,
 } from "@/lib/blob/client-docs"
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
@@ -64,42 +63,44 @@ type ActionResult<T = unknown> =
 // Compliance Docs
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function uploadClientDocAction(
-  formData: FormData,
-): Promise<ActionResult<{ url: string; id: string }>> {
+// ---------------------------------------------------------------------------
+// Client compliance doc uploads are client-side direct uploads to Vercel
+// Blob (see /api/clients/upload-token) — factory videos can be up to
+// 100MB, far past what a Server Action (1MB) or a proxy `formData()`
+// route (~4.5MB Serverless Function body limit) can safely handle.
+//
+// Flow: the browser calls `upload()` from `@vercel/blob/client` directly,
+// then calls this action with just the resulting pathname + metadata to
+// persist the DB row.
+// ---------------------------------------------------------------------------
+export async function finalizeClientDocUploadAction(args: {
+  ownerId: string
+  kind: ComplianceDocKind
+  pathname: string
+  mimeType: string
+  sizeBytes: number
+  title?: string | null
+  expiresAt?: string | null
+  notes?: string | null
+}): Promise<ActionResult<{ url: string; id: string }>> {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin: adminClient, userId } = guard
 
-  const ownerId = String(formData.get("ownerId") ?? "")
-  const kind = String(formData.get("kind") ?? "") as ComplianceDocKind
-  const title = String(formData.get("title") ?? "").trim() || null
-  const expiresAtRaw = String(formData.get("expiresAt") ?? "").trim()
-  const expiresAt = expiresAtRaw || null
-  const notes = String(formData.get("notes") ?? "").trim() || null
-  const file = formData.get("file") as File | null
+  const { ownerId, kind, pathname, mimeType, sizeBytes } = args
+  const title = args.title?.trim() || null
+  const expiresAt = args.expiresAt?.trim() || null
+  const notes = args.notes?.trim() || null
 
   if (!ownerId) return { ok: false, error: "missingClient" }
   if (!COMPLIANCE_DOC_KINDS.includes(kind)) {
     return { ok: false, error: "invalidDocType" }
   }
-  if (!file || file.size === 0) return { ok: false, error: "missingFile" }
-
-  const validation = validateComplianceFile(file)
-  if (!validation.ok) {
-    return { ok: false, error: validation.errorKey! }
-  }
-
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return { ok: false, error: "missingToken" }
-  }
-
-  let uploaded: { pathname: string }
-  try {
-    uploaded = await uploadComplianceDoc({ ownerId, kind, file })
-  } catch (err) {
-    console.error("[v0] uploadComplianceDoc failed", err)
+  if (!pathname || !pathname.startsWith(`clients/${ownerId}/${kind}/`)) {
     return { ok: false, error: "uploadFailed" }
+  }
+  if (!sizeBytes || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE_BYTES) {
+    return { ok: false, error: "fileTooLarge" }
   }
 
   const { data, error } = await adminClient
@@ -111,9 +112,9 @@ export async function uploadClientDocAction(
       // `compliance_docs.url` now holds the blob *pathname*, not a
       // public URL — the store is private and files are served via
       // `/api/files?path=<pathname>`.
-      url: uploaded.pathname,
-      mime_type: file.type,
-      size_bytes: file.size,
+      url: pathname,
+      mime_type: mimeType,
+      size_bytes: sizeBytes,
       expires_at: expiresAt,
       notes,
       uploaded_by: userId ?? null,
@@ -123,7 +124,7 @@ export async function uploadClientDocAction(
 
   if (error || !data) {
     // Roll back the blob so we don't leak orphans.
-    await deleteComplianceDocByUrl(uploaded.pathname)
+    await deleteComplianceDocByUrl(pathname)
     console.error("[v0] compliance_docs insert failed", error)
     return { ok: false, error: "dbInsertFailed" }
   }
@@ -131,7 +132,7 @@ export async function uploadClientDocAction(
   // The expiry date lives on the compliance_docs row itself; kanban checks
   // read it from there. No profile update needed.
   revalidatePath(`/admin/clients/${ownerId}`)
-  return { ok: true, data: { url: uploaded.pathname, id: data.id } }
+  return { ok: true, data: { url: pathname, id: data.id } }
 }
 
 export async function deleteClientDocAction(

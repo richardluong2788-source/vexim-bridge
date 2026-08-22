@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { upload } from '@vercel/blob/client';
 import { Loader2, Plus, Upload, X, ImageIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -207,22 +208,18 @@ export function AdminProductDialog({
   const uploadImages = async (): Promise<string[]> => {
     if (files.length === 0) return [];
 
-    const formData = new FormData();
+    // Upload directly from the browser to Vercel Blob so large product
+    // photos never pass through this app's server functions.
+    const urls: string[] = [];
     for (const file of files) {
-      formData.append('files', file);
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const blob = await upload(`product-images/${Date.now()}_${safeName}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/products/upload-images',
+      });
+      urls.push(blob.url);
     }
 
-    const res = await fetch('/api/products/upload-images', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Upload failed');
-    }
-
-    const { urls } = await res.json();
     return urls;
   };
 

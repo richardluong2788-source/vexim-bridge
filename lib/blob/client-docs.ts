@@ -30,7 +30,7 @@ export type ComplianceDocKind = (typeof COMPLIANCE_DOC_KINDS)[number]
 const MAX_FILE_MB = 100
 export const MAX_FILE_SIZE_BYTES = MAX_FILE_MB * 1024 * 1024
 
-const ALLOWED_MIME_TYPES = new Set([
+export const COMPLIANCE_DOC_ALLOWED_MIME = [
   "application/pdf",
   "image/png",
   "image/jpeg",
@@ -38,7 +38,9 @@ const ALLOWED_MIME_TYPES = new Set([
   "video/mp4",
   "video/quicktime",
   "video/webm",
-])
+]
+
+const ALLOWED_MIME_TYPES = new Set(COMPLIANCE_DOC_ALLOWED_MIME)
 
 export function validateComplianceFile(file: File): {
   ok: boolean
@@ -53,7 +55,7 @@ export function validateComplianceFile(file: File): {
   return { ok: true }
 }
 
-function safeFilename(name: string): string {
+export function safeFilename(name: string): string {
   const base = name.split(/[/\\]/).pop() ?? "file"
   return base.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").slice(0, 80)
 }

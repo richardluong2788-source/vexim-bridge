@@ -16,14 +16,20 @@ import { put } from "@vercel/blob"
 
 export type DealDocKind = "po" | "swift" | "bl" | "fda" | "coa"
 
-const ALLOWED_MIME = new Set([
+// The three kinds accepted by the opportunity compliance upload flow.
+export const DEAL_DOC_ALLOWED_KINDS: DealDocKind[] = ["po", "swift", "bl"]
+
+export const DEAL_DOC_ALLOWED_MIME = [
   "application/pdf",
   "image/png",
   "image/jpeg",
   "image/webp",
-])
+]
 
-const MAX_SIZE_BYTES = 15 * 1024 * 1024 // 15 MB — PO/Swift scans are rarely larger
+const ALLOWED_MIME = new Set(DEAL_DOC_ALLOWED_MIME)
+
+export const DEAL_DOC_MAX_SIZE_BYTES = 15 * 1024 * 1024 // 15 MB — PO/Swift scans are rarely larger
+const MAX_SIZE_BYTES = DEAL_DOC_MAX_SIZE_BYTES
 
 export interface UploadDealDocInput {
   dealId: string

@@ -70,6 +70,29 @@ export async function sendTelegramMessage(
 }
 
 /**
+ * Fetches Telegram's view of our webhook registration — the URL it has on
+ * file, pending update count, and the last delivery error (if any). Handy
+ * for diagnosing "the bot never replies" without re-registering anything.
+ */
+export async function getTelegramWebhookInfo(): Promise<{
+  ok: boolean
+  info?: Record<string, unknown>
+  error?: string
+}> {
+  const token = getBotToken()
+  try {
+    const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/getWebhookInfo`)
+    const json = await res.json()
+    if (!res.ok || !json.ok) {
+      return { ok: false, error: json?.description ?? `Telegram API returned ${res.status}` }
+    }
+    return { ok: true, info: json.result }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
  * Registers (or re-registers) the webhook URL with Telegram so incoming
  * messages (e.g. `/start <token>`) are POSTed to our API route.
  *

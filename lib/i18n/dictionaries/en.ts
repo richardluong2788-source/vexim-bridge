@@ -990,6 +990,20 @@ emailSectionHint:
       new_assignment: "New buyer assigned",
       new_assignmentDesc: "When our team assigns a new US buyer to your company.",
     },
+    telegram: {
+      section: "Telegram notifications",
+      sectionDesc:
+        "Get instant push notifications on your phone via Telegram, even when the app isn't open.",
+      notLinkedDesc:
+        "Tap the button below to open Telegram and link your account. After you hit Start there, come back and tap \"Check status\".",
+      linkCta: "Link Telegram",
+      checkStatus: "Check status",
+      connected: "Telegram linked",
+      connectedAs: "Linked as @{username}",
+      masterDesc: "When off, no Telegram notifications are sent for any category.",
+      unlink: "Unlink",
+      unlinked: "Telegram unlinked",
+    },
     save: "Save changes",
     saving: "Saving...",
     saved: "Preferences saved",

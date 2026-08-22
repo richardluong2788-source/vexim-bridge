@@ -723,6 +723,15 @@ export type Database = {
           email_deal_closed: boolean
           email_new_assignment: boolean
           unsubscribe_token: string
+          telegram_enabled: boolean
+          telegram_chat_id: string | null
+          telegram_username: string | null
+          telegram_action_required: boolean
+          telegram_status_update: boolean
+          telegram_deal_closed: boolean
+          telegram_new_assignment: boolean
+          telegram_link_token: string
+          telegram_link_token_expires_at: string | null
           updated_at: string
         }
         Insert: {
@@ -733,6 +742,15 @@ export type Database = {
           email_deal_closed?: boolean
           email_new_assignment?: boolean
           unsubscribe_token?: string
+          telegram_enabled?: boolean
+          telegram_chat_id?: string | null
+          telegram_username?: string | null
+          telegram_action_required?: boolean
+          telegram_status_update?: boolean
+          telegram_deal_closed?: boolean
+          telegram_new_assignment?: boolean
+          telegram_link_token?: string
+          telegram_link_token_expires_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -743,6 +761,15 @@ export type Database = {
           email_deal_closed?: boolean
           email_new_assignment?: boolean
           unsubscribe_token?: string
+          telegram_enabled?: boolean
+          telegram_chat_id?: string | null
+          telegram_username?: string | null
+          telegram_action_required?: boolean
+          telegram_status_update?: boolean
+          telegram_deal_closed?: boolean
+          telegram_new_assignment?: boolean
+          telegram_link_token?: string
+          telegram_link_token_expires_at?: string | null
           updated_at?: string
         }
       }
@@ -770,6 +797,35 @@ export type Database = {
           user_id?: string
           dedup_key?: string
           provider_id?: string | null
+          status?: NotificationEmailStatus
+          error?: string | null
+          created_at?: string
+        }
+      }
+      notification_telegram_log: {
+        Row: {
+          id: string
+          user_id: string
+          dedup_key: string
+          message_id: string | null
+          status: NotificationEmailStatus
+          error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          dedup_key: string
+          message_id?: string | null
+          status?: NotificationEmailStatus
+          error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          dedup_key?: string
+          message_id?: string | null
           status?: NotificationEmailStatus
           error?: string | null
           created_at?: string
@@ -1040,6 +1096,7 @@ export type EmailDraft = Database["public"]["Tables"]["email_drafts"]["Row"]
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"]
 export type NotificationPreferences = Database["public"]["Tables"]["notification_preferences"]["Row"]
 export type NotificationEmailLog = Database["public"]["Tables"]["notification_email_log"]["Row"]
+export type NotificationTelegramLog = Database["public"]["Tables"]["notification_telegram_log"]["Row"]
 
 export type ClientFactoryAssessment =
   Database["public"]["Tables"]["client_factory_assessments"]["Row"]

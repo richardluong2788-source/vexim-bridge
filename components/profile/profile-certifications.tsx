@@ -33,7 +33,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
           Certifications & Compliance
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+        <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
           {certifications.map((doc) => {
             const fileUrl = privateFileHref(doc.url)
             const isImage = doc.mime_type?.startsWith("image/")
@@ -42,27 +42,35 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
               <button
                 key={doc.id}
                 onClick={() => setSelectedDoc(doc)}
-                className="group relative aspect-[4/3] rounded-lg overflow-hidden bg-card border border-border hover:border-accent/50 hover:shadow-md transition-all cursor-pointer"
+                className="group relative w-28 sm:w-32 aspect-square rounded-lg overflow-hidden bg-card border border-border hover:border-accent/50 hover:shadow-md transition-all cursor-pointer"
               >
                 {isImage && fileUrl ? (
-                  <Image
-                    src={fileUrl}
-                    alt={doc.title || "Certificate"}
-                    fill
-                    className="object-contain p-2 group-hover:scale-105 transition-transform"
-                  />
+                  <>
+                    <Image
+                      src={fileUrl}
+                      alt={doc.title || "Certificate"}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform"
+                    />
+                    {/* Caption overlay */}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5">
+                      <span className="text-[11px] font-medium text-white text-center line-clamp-1 block">
+                        {doc.title || "Document"}
+                      </span>
+                    </div>
+                  </>
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-                    <FileCheck className="w-10 h-10 text-accent mb-2" />
-                    <span className="text-xs text-muted-foreground text-center line-clamp-2">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-2 gap-1">
+                    <FileCheck className="w-8 h-8 text-accent" />
+                    <span className="text-[11px] text-muted-foreground text-center line-clamp-2">
                       {doc.title || "Document"}
                     </span>
                   </div>
                 )}
 
                 {/* Badge */}
-                <div className="absolute top-2 right-2">
-                  <Badge variant="secondary" className="text-xs">
+                <div className="absolute top-1.5 right-1.5">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {kindLabels[doc.kind] || doc.kind}
                   </Badge>
                 </div>

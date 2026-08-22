@@ -29,7 +29,7 @@
  *  the blob hasn't changed.
  */
 import { type NextRequest, NextResponse } from "next/server"
-import { get } from "@vercel/blob"
+import { head } from "@vercel/blob"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -78,32 +78,49 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await get(path, {
-      access: "private",
-      ifNoneMatch: request.headers.get("if-none-match") ?? undefined,
-    })
+    // The Blob store backing this project is configured as `public`, so
+    // there is no `get()` (private-read) API to call here — instead we
+    // look up the blob's metadata (including its public URL) with
+    // `head()`, then fetch and re-stream it ourselves. This keeps the
+    // access-control checks above in effect: the caller only ever sees
+    // this proxy route, never the raw public blob URL.
+    const meta = await head(path)
 
-    if (!result) {
+    if (!meta) {
       return new NextResponse("Not found", { status: 404 })
     }
 
-    if (result.statusCode === 304) {
+    const ifNoneMatch = request.headers.get("if-none-match")
+
+    const upstream = await fetch(meta.url, {
+      headers: ifNoneMatch ? { "If-None-Match": ifNoneMatch } : undefined,
+      cache: "no-store",
+    })
+
+    if (upstream.status === 304) {
       return new NextResponse(null, {
         status: 304,
         headers: {
-          ETag: result.blob.etag,
+          ETag: upstream.headers.get("etag") ?? "",
           "Cache-Control": "private, no-cache",
         },
       })
     }
 
+    if (!upstream.ok) {
+      return new NextResponse("Not found", { status: 404 })
+    }
+
     // `Content-Disposition: inline` so browsers render PDFs/images/videos
     // in place; users can still right-click → download or use the
     // explicit download button (we don't force `attachment`).
-    return new NextResponse(result.stream, {
+    return new NextResponse(upstream.body, {
       headers: {
-        "Content-Type": result.blob.contentType || "application/octet-stream",
-        ETag: result.blob.etag,
+        "Content-Type":
+          upstream.headers.get("content-type") ||
+          meta.contentType ||
+          "application/octet-stream",
+        ETag: upstream.headers.get("etag") ?? "",
         "Cache-Control": "private, no-cache",
         "Content-Disposition": "inline",
       },

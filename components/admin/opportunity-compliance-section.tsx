@@ -103,7 +103,8 @@ export function OpportunityComplianceSection({ opportunityId, open }: Props) {
           `deals/${prepared.dealId}/${kind}/${Date.now()}-${safeName}`,
           file,
           {
-            access: "private",
+            // Blob store is configured as `public`; access must match.
+            access: "public",
             handleUploadUrl: "/api/deals/upload-token",
           }
         )

@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { MediaUploadField } from "@/components/admin/media-upload-field"
 import {
   createClientProfile,
   updateClientProfile,
@@ -364,52 +365,50 @@ export function AdminProfileManager({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="coverUrl">{trans?.branding?.coverImage || "Cover Image URL"}</Label>
-              <Input
-                id="coverUrl"
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-                placeholder={trans?.branding?.urlPlaceholder || "https://..."}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="logoUrl">{trans?.branding?.logo || "Logo URL"}</Label>
-              <Input
-                id="logoUrl"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder={trans?.branding?.urlPlaceholder || "https://..."}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="factoryImageUrl">
-              {trans?.branding?.factoryImage || "Factory Image URL"}
-            </Label>
-            <Input
-              id="factoryImageUrl"
-              value={factoryImageUrl}
-              onChange={(e) => setFactoryImageUrl(e.target.value)}
-              placeholder={trans?.branding?.urlPlaceholder || "https://..."}
+            <MediaUploadField
+              id="coverUrl"
+              label={trans?.branding?.coverImage || "Cover Image URL"}
+              value={coverImageUrl}
+              onChange={setCoverImageUrl}
+              kind="image"
+              folder="profile-cover"
             />
-            <p className="text-xs text-muted-foreground">
-              {trans?.branding?.factoryImageHint ||
-                "Shown next to the factory video on the public profile page."}
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="videoUrl">{trans?.branding?.video || "Factory Video URL (YouTube or direct)"}</Label>
-            <Input
-              id="videoUrl"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder={trans?.branding?.videoPlaceholder || "https://youtube.com/watch?v=..."}
+            <MediaUploadField
+              id="logoUrl"
+              label={trans?.branding?.logo || "Logo URL"}
+              value={logoUrl}
+              onChange={setLogoUrl}
+              kind="image"
+              folder="profile-logo"
             />
           </div>
+
+          <MediaUploadField
+            id="factoryImageUrl"
+            label={trans?.branding?.factoryImage || "Factory Image URL"}
+            value={factoryImageUrl}
+            onChange={setFactoryImageUrl}
+            kind="image"
+            folder="profile-factory-image"
+            hint={
+              trans?.branding?.factoryImageHint ||
+              "Shown next to the factory video on the public profile page."
+            }
+          />
+
+          <MediaUploadField
+            id="videoUrl"
+            label={trans?.branding?.video || "Factory Video (YouTube link or upload a file)"}
+            value={videoUrl}
+            onChange={setVideoUrl}
+            kind="video"
+            folder="profile-factory-video"
+            hint={
+              trans?.branding?.videoHint ||
+              "Paste a YouTube link, or click \"Chọn file\" to upload a video directly."
+            }
+          />
         </CardContent>
       </Card>
 

@@ -15,13 +15,7 @@
  *         behind authenticated staff access only.
  *     This branch does NOT require a logged-in user.
  *
- *  2. Otherwise, if the doc is featured on a *published* public supplier
- *     profile (`client_profiles.featured_certifications`), allow anonymous
- *     access too. Admins explicitly curate that list to be shown to any
- *     buyer visiting `/profile/[slug]` — those visitors are never logged
- *     in, so this doc's kind must also be on the public whitelist.
- *
- *  3. Otherwise, require a Supabase session:
+ *  2. Otherwise, require a Supabase session:
  *       - staff roles (admin, super_admin, staff, lead_researcher,
  *         account_executive) can read anything (they see every client
  *         and every deal in the UI)
@@ -77,7 +71,7 @@ export async function GET(request: NextRequest) {
 
   const authorized = token
     ? await authorizeViaShareToken(token, path)
-    : (await authorizeViaPublicProfile(path)) || (await authorizeViaSession(path))
+    : await authorizeViaSession(path)
 
   if (!authorized) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 })
@@ -196,33 +190,6 @@ async function authorizeViaShareToken(
   }
 
   return false
-}
-
-// A doc is publicly viewable without any session or token when an admin
-// has explicitly featured it on a *published* supplier profile
-// (`client_profiles.featured_certifications`). Buyers browsing
-// `/profile/[slug]` are anonymous, so this is the only way those
-// certificate thumbnails can actually render for them.
-async function authorizeViaPublicProfile(path: string): Promise<boolean> {
-  const admin = createAdminClient()
-
-  const { data: doc } = await admin
-    .from("compliance_docs")
-    .select("id, kind")
-    .eq("url", path)
-    .maybeSingle()
-
-  if (!doc) return false
-  if (!PUBLICLY_SHAREABLE_KINDS.has(doc.kind)) return false
-
-  const { data: profile } = await admin
-    .from("client_profiles")
-    .select("id")
-    .eq("is_published", true)
-    .contains("featured_certifications", [doc.id])
-    .maybeSingle()
-
-  return !!profile
 }
 
 async function authorizeViaSession(path: string): Promise<boolean> {

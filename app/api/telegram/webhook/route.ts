@@ -24,17 +24,19 @@ interface TelegramUpdate {
  *
  * Auth: Telegram calls this with a `X-Telegram-Bot-Api-Secret-Token` header
  * that must match what we registered via setWebhook (see lib/telegram/client.ts).
- * We reuse CRON_SECRET as that shared secret to avoid provisioning a new env var.
+ * We use a dedicated TELEGRAM_WEBHOOK_SECRET rather than CRON_SECRET because
+ * Telegram only allows [A-Za-z0-9_-] in secret_token, while CRON_SECRET may
+ * contain other characters (e.g. base64 padding) that Telegram rejects.
  */
 export async function POST(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    console.error("[telegram-webhook] CRON_SECRET not configured")
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    console.error("[telegram-webhook] TELEGRAM_WEBHOOK_SECRET not configured")
     return NextResponse.json({ ok: true }) // Always 200 so Telegram doesn't retry-storm.
   }
 
   const secretHeader = request.headers.get("x-telegram-bot-api-secret-token")
-  if (secretHeader !== cronSecret) {
+  if (secretHeader !== webhookSecret) {
     return NextResponse.json({ ok: false }, { status: 401 })
   }
 

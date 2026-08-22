@@ -26,13 +26,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    return NextResponse.json({ error: "TELEGRAM_WEBHOOK_SECRET not configured" }, { status: 500 })
+  }
+
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? `https://${process.env.VERCEL_URL}`).replace(
     /\/+$/,
     "",
   )
   const webhookUrl = `${appUrl}/api/telegram/webhook`
 
-  const result = await setTelegramWebhook(webhookUrl, cronSecret)
+  const result = await setTelegramWebhook(webhookUrl, webhookSecret)
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 500 })

@@ -215,6 +215,10 @@ export interface PublicCapability {
   audit_readiness: string[]
   incoterms: string[]
   traceability: string[]
+  // Quy mo cong ty & so nam xuat khau — tin hieu tong quan AN TOAN de hien
+  // thi cong khai, KHONG phai so lieu nhan su chi tiet.
+  company_scale: string | null
+  export_since_year: number | null
   // Muc 11 — chi cac tin hieu AN TOAN/tich cuc, KHONG lo so nhan su hay
   // vi tri/ghi chu o nhiem (nhung du lieu nay chi dung cho diem noi bo).
   food_safety_training_regular: boolean | null
@@ -235,7 +239,7 @@ export async function getPublicCapabilityByClientId(
   const { data, error } = await admin
     .from("client_factory_assessments")
     .select(
-      "quality_systems, oem_odm, export_markets, audit_readiness, incoterms, traceability, food_safety_training_regular, equipment_calibration_regular, water_testing"
+      "quality_systems, oem_odm, export_markets, audit_readiness, incoterms, traceability, company_scale, export_since_year, food_safety_training_regular, equipment_calibration_regular, water_testing"
     )
     .eq("client_id", clientId)
     .maybeSingle()

@@ -3,13 +3,9 @@ import { notFound } from "next/navigation"
 import { getProfileBySlug } from "@/lib/profile/actions"
 import { getPublicCapabilityByClientId } from "@/lib/assessment/actions"
 import { ProfileHero } from "@/components/profile/profile-hero"
-import { ProfileDescription } from "@/components/profile/profile-description"
+import { ProfileHeaderCard } from "@/components/profile/profile-header-card"
 import { ProfileVideo } from "@/components/profile/profile-video"
-import { ProfileUSP } from "@/components/profile/profile-usp"
-import { ProfileCertifications } from "@/components/profile/profile-certifications"
-import { ProfileProducts } from "@/components/profile/profile-products"
-import { ProfileStats } from "@/components/profile/profile-stats"
-import { ProfileCapabilities } from "@/components/profile/profile-capabilities"
+import { ProfileTabs } from "@/components/profile/profile-tabs"
 import { ProfileCTA } from "@/components/profile/profile-cta"
 
 interface ProfilePageProps {
@@ -68,35 +64,23 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   // Lay phan nang luc AN TOAN de hien thi cong khai (khong diem so/nhan su/cam ket)
   const capResult = await getPublicCapabilityByClientId(profile.client_id)
-  const capability = capResult.success ? capResult.data : null
+  const capability = capResult.success ? capResult.data ?? null : null
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Block 1: Hero (Cover + Logo + Name) */}
+      {/* Block 1: Cover image */}
       <ProfileHero profile={profile} />
 
-      {/* Block 2: Description */}
-      <ProfileDescription profile={profile} />
+      {/* Block 2: Header card — logo, name, verified badge, meta, checklist, CTA */}
+      <ProfileHeaderCard profile={profile} capability={capability} />
 
       {/* Block 3: Video */}
       <ProfileVideo profile={profile} />
 
-      {/* Block 4: USP Points */}
-      <ProfileUSP profile={profile} />
+      {/* Block 4: Tabs — "Ho So cong ty" (overview/production/quality/trade) + "San pham" */}
+      <ProfileTabs profile={profile} capability={capability} />
 
-      {/* Block 5: Certifications Gallery */}
-      <ProfileCertifications profile={profile} />
-
-      {/* Block 6: Products Showcase */}
-      <ProfileProducts profile={profile} />
-
-      {/* Block 7: Production Stats */}
-      <ProfileStats profile={profile} />
-
-      {/* Block 7b: Verified Capabilities (tu danh gia nang luc) */}
-      <ProfileCapabilities capability={capability ?? null} />
-
-      {/* Block 8: CTA */}
+      {/* Block 5: CTA */}
       <ProfileCTA profile={profile} />
 
       {/* Footer */}

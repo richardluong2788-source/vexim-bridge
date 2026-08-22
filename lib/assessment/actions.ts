@@ -51,6 +51,19 @@ export interface AssessmentInput {
   moq: string | null
   lead_time_days: string | null
   production_capacity: string | null
+  // Muc 11: Nhan su, gio lam, ATTP/thiet bi, nguon nuoc, vi tri nha may
+  staff_engineers_count: number | null
+  staff_workers_count: number | null
+  work_hours_start: string | null
+  work_hours_end: string | null
+  work_days_per_week: number | null
+  food_safety_training_regular: boolean | null
+  equipment_calibration_regular: boolean | null
+  water_source: string[]
+  water_source_other: string | null
+  water_testing: boolean | null
+  near_pollution_source: boolean | null
+  pollution_source_note: string | null
 }
 
 /**
@@ -123,6 +136,18 @@ export async function upsertAssessment(
     pricing_decision_maker: input.pricing_decision_maker,
     commitments: input.commitments,
     project_priority: input.project_priority,
+    staff_engineers_count: input.staff_engineers_count,
+    staff_workers_count: input.staff_workers_count,
+    work_hours_start: input.work_hours_start,
+    work_hours_end: input.work_hours_end,
+    work_days_per_week: input.work_days_per_week,
+    food_safety_training_regular: input.food_safety_training_regular,
+    equipment_calibration_regular: input.equipment_calibration_regular,
+    water_source: input.water_source,
+    water_source_other: input.water_source_other,
+    water_testing: input.water_testing,
+    near_pollution_source: input.near_pollution_source,
+    pollution_source_note: input.pollution_source_note,
     score_total: score.total,
     score_grade: score.grade,
     score_breakdown: score.breakdown as unknown as Record<string, unknown>,
@@ -189,11 +214,18 @@ export interface PublicCapability {
   export_markets: string[]
   audit_readiness: string[]
   incoterms: string[]
+  traceability: string[]
+  // Muc 11 — chi cac tin hieu AN TOAN/tich cuc, KHONG lo so nhan su hay
+  // vi tri/ghi chu o nhiem (nhung du lieu nay chi dung cho diem noi bo).
+  food_safety_training_regular: boolean | null
+  equipment_calibration_regular: boolean | null
+  water_testing: boolean | null
 }
 
 /**
  * Lay phan nang luc AN TOAN de hien thi cong khai cho buyer.
- * KHONG tra ve diem so, cam ket, nhan su, nguoi quyet dinh gia.
+ * KHONG tra ve diem so, cam ket, nhan su, nguoi quyet dinh gia,
+ * so lieu nhan cong hoac vi tri/nguon o nhiem cua nha may.
  * Dung admin client de bypass RLS (bang nay khong public-read).
  */
 export async function getPublicCapabilityByClientId(
@@ -202,7 +234,9 @@ export async function getPublicCapabilityByClientId(
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("client_factory_assessments")
-    .select("quality_systems, oem_odm, export_markets, audit_readiness, incoterms")
+    .select(
+      "quality_systems, oem_odm, export_markets, audit_readiness, incoterms, traceability, food_safety_training_regular, equipment_calibration_regular, water_testing"
+    )
     .eq("client_id", clientId)
     .maybeSingle()
 

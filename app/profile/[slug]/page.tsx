@@ -4,7 +4,6 @@ import { getProfileBySlug } from "@/lib/profile/actions"
 import { getPublicCapabilityByClientId } from "@/lib/assessment/actions"
 import { ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileHeaderCard } from "@/components/profile/profile-header-card"
-import { ProfileVideo } from "@/components/profile/profile-video"
 import { ProfileTabs } from "@/components/profile/profile-tabs"
 import { ProfileCTA } from "@/components/profile/profile-cta"
 
@@ -71,13 +70,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       {/* Block 1: Cover image */}
       <ProfileHero profile={profile} />
 
-      {/* Block 2: Header card — logo, name, verified badge, meta, checklist, CTA */}
+      {/* Block 2: Header card — logo, name, verified badge, meta, checklist, CTA, factory media */}
       <ProfileHeaderCard profile={profile} capability={capability} />
 
-      {/* Block 3: Video */}
-      <ProfileVideo profile={profile} />
-
-      {/* Block 4: Tabs — "Ho So cong ty" (overview/production/quality/trade) + "San pham" */}
+      {/* Block 3: Tabs — "Ho So cong ty" (overview/production/quality/trade) + "San pham" */}
       <ProfileTabs profile={profile} capability={capability} />
 
       {/* Block 5: CTA */}

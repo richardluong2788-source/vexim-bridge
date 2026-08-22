@@ -15,14 +15,14 @@ interface ProfileQuoteButtonProps {
 }
 
 /**
- * Nut CTA "Yeu cau bao gia" dung chung cho header card va CTA section,
- * de tranh lap logic mo dialog o nhieu noi.
+ * Shared "Request Quote" CTA button for the header card and CTA section,
+ * avoiding duplicate dialog-open logic in multiple places.
  */
 export function ProfileQuoteButton({
   profile,
   className,
   size = "default",
-  label = "Yêu cầu báo giá qua Vexim",
+  label = "Request Quote",
 }: ProfileQuoteButtonProps) {
   const [open, setOpen] = useState(false)
 

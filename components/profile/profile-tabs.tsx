@@ -16,31 +16,31 @@ const QUALITY_SYSTEM_LABELS: Record<string, string> = {
   HACCP: "HACCP",
   GMP: "GMP",
   ISO22000: "ISO 22000",
-  SOP: "Quy trình vận hành nội bộ (SOP)",
-  QC: "Quy trình kiểm soát chất lượng (QC)",
+  SOP: "Standard Operating Procedures (SOP)",
+  QC: "Quality Control (QC) Process",
 }
 
 const TRACEABILITY_LABELS: Record<string, string> = {
-  lot: "Truy xuất theo lô (Lot)",
-  input: "Ghi nhận nguyên liệu đầu vào",
-  finished: "Ghi nhận thành phẩm đầu ra",
-  recall: "Quy trình thu hồi sản phẩm",
-  "batch-lot": "Mã hóa theo Batch/Lot",
+  lot: "Lot-level Traceability",
+  input: "Input Material Records",
+  finished: "Finished Goods Records",
+  recall: "Product Recall Procedure",
+  "batch-lot": "Batch/Lot Coding",
 }
 
 const AUDIT_LABELS: Record<string, string> = {
-  onsite: "Chấp nhận kiểm tra thực tế nhà máy",
-  online: "Hỗ trợ kiểm tra trực tuyến",
+  onsite: "On-site Factory Audits Accepted",
+  online: "Online Audits Supported",
 }
 
 const MARKET_LABELS: Record<string, string> = {
-  US: "Hoa Kỳ",
-  EU: "Liên minh Châu Âu",
-  JP: "Nhật Bản",
-  KR: "Hàn Quốc",
-  CN: "Trung Quốc",
+  US: "United States",
+  EU: "European Union",
+  JP: "Japan",
+  KR: "South Korea",
+  CN: "China",
   ASEAN: "ASEAN",
-  ME: "Trung Đông",
+  ME: "Middle East",
 }
 
 function InfoGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -104,9 +104,9 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
     .filter((label): label is string => Boolean(label))
 
   const foodSafety = [
-    capability?.food_safety_training_regular ? "Đào tạo an toàn thực phẩm định kỳ" : null,
-    capability?.equipment_calibration_regular ? "Kiểm định máy móc định kỳ" : null,
-    capability?.water_testing ? "Nguồn nước được kiểm định định kỳ" : null,
+    capability?.food_safety_training_regular ? "Regular Food Safety Training" : null,
+    capability?.equipment_calibration_regular ? "Regular Equipment Calibration" : null,
+    capability?.water_testing ? "Regular Water Testing" : null,
   ].filter((item): item is string => Boolean(item))
 
   const markets = (capability?.export_markets ?? [])
@@ -149,13 +149,13 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="company" className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="company">Hồ Sơ công ty</TabsTrigger>
-            <TabsTrigger value="products">Sản phẩm</TabsTrigger>
+            <TabsTrigger value="company">Company Profile</TabsTrigger>
+            <TabsTrigger value="products">Products</TabsTrigger>
           </TabsList>
 
           <TabsContent value="company" className="space-y-8">
             {hasOverview && (
-              <InfoGroup title="Tổng quan">
+              <InfoGroup title="Overview">
                 {profile.description && (
                   <div className="py-3">
                     <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
@@ -164,23 +164,26 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
                   </div>
                 )}
                 {profile.profiles.country && (
-                  <InfoRow label="Địa điểm" value={profile.profiles.country} />
+                  <InfoRow label="Location" value={profile.profiles.country} />
                 )}
                 {capability?.export_since_year && (
                   <InfoRow
-                    label="Năm bắt đầu xuất khẩu"
+                    label="Exporting Since"
                     value={capability.export_since_year}
                   />
                 )}
                 {yearsOnVexim && (
-                  <InfoRow label="Số năm trên Vexim" value={`${yearsOnVexim} năm`} />
+                  <InfoRow
+                    label="Years on Vexim"
+                    value={`${yearsOnVexim} ${yearsOnVexim === 1 ? "year" : "years"}`}
+                  />
                 )}
                 {capability?.company_scale && (
-                  <InfoRow label="Quy mô công ty" value={capability.company_scale} />
+                  <InfoRow label="Company Scale" value={capability.company_scale} />
                 )}
                 {uspPoints.length > 0 && (
                   <ChipsRow
-                    label="Điểm nổi bật"
+                    label="Highlights"
                     items={uspPoints.map((p) => p.title).filter(Boolean)}
                   />
                 )}
@@ -188,23 +191,23 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
             )}
 
             {hasProduction && (
-              <InfoGroup title="Năng lực sản xuất">
+              <InfoGroup title="Production Capacity">
                 {profile.production_capacity && (
-                  <InfoRow label="Công suất sản xuất" value={profile.production_capacity} />
+                  <InfoRow label="Production Capacity" value={profile.production_capacity} />
                 )}
-                {profile.moq && <InfoRow label="Số lượng đặt hàng tối thiểu (MOQ)" value={profile.moq} />}
+                {profile.moq && <InfoRow label="Minimum Order Quantity (MOQ)" value={profile.moq} />}
                 {profile.lead_time_days && (
-                  <InfoRow label="Thời gian giao hàng" value={profile.lead_time_days} />
+                  <InfoRow label="Lead Time" value={profile.lead_time_days} />
                 )}
               </InfoGroup>
             )}
 
             {hasQuality && (
-              <InfoGroup title="Kiểm soát chất lượng">
-                <ChipsRow label="Hệ thống chất lượng" items={quality} />
-                <ChipsRow label="Truy xuất nguồn gốc" items={traceability} />
-                <ChipsRow label="Sẵn sàng kiểm tra" items={audit} />
-                <ChipsRow label="An toàn thực phẩm & thiết bị" items={foodSafety} />
+              <InfoGroup title="Quality Control">
+                <ChipsRow label="Quality Systems" items={quality} />
+                <ChipsRow label="Traceability" items={traceability} />
+                <ChipsRow label="Audit Readiness" items={audit} />
+                <ChipsRow label="Food Safety & Equipment" items={foodSafety} />
                 {hasCertifications && (
                   <div className="py-3 -mx-4 sm:-mx-5">
                     <ProfileCertifications profile={profile} />
@@ -214,16 +217,16 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
             )}
 
             {hasTrade && (
-              <InfoGroup title="Kinh nghiệm thương mại">
-                <ChipsRow label="Thị trường xuất khẩu" items={markets} />
-                <ChipsRow label="Điều khoản Incoterms" items={incoterms} />
+              <InfoGroup title="Trade Experience">
+                <ChipsRow label="Export Markets" items={markets} />
+                <ChipsRow label="Incoterms" items={incoterms} />
                 <ChipsRow label="OEM / ODM" items={oem} />
               </InfoGroup>
             )}
 
             {!hasAnyCompanyInfo && (
               <p className="text-sm text-muted-foreground text-center py-12">
-                Chưa có thông tin hồ sơ công ty.
+                No company profile information yet.
               </p>
             )}
           </TabsContent>
@@ -232,7 +235,7 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
             <ProfileProducts profile={profile} />
             {(!profile.products || profile.products.length === 0) && (
               <p className="text-sm text-muted-foreground text-center py-12">
-                Chưa có sản phẩm nào được đăng.
+                No products have been posted yet.
               </p>
             )}
           </TabsContent>

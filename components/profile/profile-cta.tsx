@@ -21,10 +21,10 @@ export function ProfileCTA({ profile }: ProfileCTAProps) {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4 text-balance">
-              Sẵn sàng bắt đầu đơn hàng của bạn?
+              Ready to start your order?
             </h2>
             <p className="text-muted-foreground mb-8">
-              Liên hệ với chúng tôi để nhận giá, mẫu sản phẩm hoặc bất kỳ câu hỏi nào về sản phẩm.
+              Contact us for pricing, samples, or any questions about our products.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -40,7 +40,7 @@ export function ProfileCTA({ profile }: ProfileCTAProps) {
                     rel="noopener noreferrer"
                   >
                     <FileText className="w-5 h-5 mr-2" />
-                    Tải hồ sơ năng lực (PDF)
+                    Download Capability Profile (PDF)
                   </a>
                 </Button>
               )}
@@ -57,7 +57,7 @@ export function ProfileCTA({ profile }: ProfileCTAProps) {
               profile={profile}
               size="lg"
               className="flex-1"
-              label="Yêu cầu báo giá"
+              label="Request Quote"
             />
           )}
 

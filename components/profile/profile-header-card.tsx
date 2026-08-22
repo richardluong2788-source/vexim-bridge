@@ -114,7 +114,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                 {yearsOnVexim && (
                   <span className="inline-flex items-center gap-1.5">
                     <CalendarDays className="w-4 h-4" />
-                    {yearsOnVexim} năm trên Vexim
+                    {yearsOnVexim} {yearsOnVexim === 1 ? "year" : "years"} on Vexim
                   </span>
                 )}
                 {companyScale && (
@@ -141,7 +141,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
           {/* Checklist */}
           {checklist.length > 0 && (
             <div className="mt-6 pt-6 border-t border-border">
-              <p className="text-sm font-semibold text-foreground mb-3">Năng lực đã xác minh</p>
+              <p className="text-sm font-semibold text-foreground mb-3">Verified Capabilities</p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                 {previewChecklist.map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-foreground">
@@ -156,7 +156,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                   onClick={() => setShowAllChecklist(true)}
                   className="mt-3 text-sm font-medium text-accent hover:underline"
                 >
-                  Xem tất cả năng lực đã xác minh ({checklist.length})
+                  View all verified capabilities ({checklist.length})
                 </button>
               )}
             </div>
@@ -167,7 +167,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
       <Dialog open={showAllChecklist} onOpenChange={setShowAllChecklist}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Năng lực đã xác minh</DialogTitle>
+            <DialogTitle>Verified Capabilities</DialogTitle>
           </DialogHeader>
           <ul className="space-y-2.5 mt-2">
             {checklist.map((item) => (

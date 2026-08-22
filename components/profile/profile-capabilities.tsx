@@ -1,4 +1,4 @@
-import { ShieldCheck, Globe2, ClipboardCheck, BadgeCheck, Boxes } from "lucide-react"
+import { ShieldCheck, Globe2, ClipboardCheck, BadgeCheck, Boxes, QrCode, Leaf } from "lucide-react"
 import type { PublicCapability } from "@/lib/assessment/actions"
 
 interface ProfileCapabilitiesProps {
@@ -28,6 +28,20 @@ const AUDIT_LABELS: Record<string, string> = {
   online: "Online audit available",
 }
 
+const TRACEABILITY_LABELS: Record<string, string> = {
+  lot: "Lot-level traceability records",
+  input: "Raw material input records",
+  finished: "Finished goods records",
+  recall: "Product recall procedure",
+  "batch-lot": "Batch/Lot coding",
+}
+
+const FOOD_SAFETY_LABELS: Record<string, string> = {
+  training: "Regular food safety training",
+  calibration: "Regular equipment calibration",
+  water: "Water source tested regularly",
+}
+
 export function ProfileCapabilities({ capability }: ProfileCapabilitiesProps) {
   if (!capability) return null
 
@@ -42,9 +56,23 @@ export function ProfileCapabilities({ capability }: ProfileCapabilitiesProps) {
     .filter((a) => a !== "not-ready" && AUDIT_LABELS[a])
     .map((a) => AUDIT_LABELS[a])
   const incoterms = capability.incoterms ?? []
+  const traceability = (capability.traceability ?? [])
+    .filter((t) => t !== "none" && TRACEABILITY_LABELS[t])
+    .map((t) => TRACEABILITY_LABELS[t])
+  const foodSafety = [
+    capability.food_safety_training_regular && FOOD_SAFETY_LABELS.training,
+    capability.equipment_calibration_regular && FOOD_SAFETY_LABELS.calibration,
+    capability.water_testing && FOOD_SAFETY_LABELS.water,
+  ].filter(Boolean) as string[]
 
   const hasAny =
-    quality.length > 0 || oem.length > 0 || markets.length > 0 || audit.length > 0 || incoterms.length > 0
+    quality.length > 0 ||
+    oem.length > 0 ||
+    markets.length > 0 ||
+    audit.length > 0 ||
+    incoterms.length > 0 ||
+    traceability.length > 0 ||
+    foodSafety.length > 0
   if (!hasAny) return null
 
   return (
@@ -74,8 +102,14 @@ export function ProfileCapabilities({ capability }: ProfileCapabilitiesProps) {
             {incoterms.length > 0 && (
               <CapabilityCard icon={ClipboardCheck} title="Incoterms" items={incoterms} />
             )}
+            {traceability.length > 0 && (
+              <CapabilityCard icon={QrCode} title="Traceability" items={traceability} />
+            )}
             {audit.length > 0 && (
               <CapabilityCard icon={BadgeCheck} title="Buyer Audit" items={audit} />
+            )}
+            {foodSafety.length > 0 && (
+              <CapabilityCard icon={Leaf} title="Food Safety & Environment" items={foodSafety} />
             )}
           </div>
         </div>

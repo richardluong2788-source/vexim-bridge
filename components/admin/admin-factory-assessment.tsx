@@ -33,6 +33,7 @@ const TRACEABILITY = ["lot", "input", "finished", "recall", "batch-lot", "none"]
 const AUDIT_READINESS = ["onsite", "online", "not-ready"]
 const INCOTERMS = ["EXW", "FOB", "CIF"]
 const COMMITMENTS = ["priority", "cooperation", "accuracy"]
+const WATER_SOURCES = ["municipal", "well", "filtered", "other"]
 
 const LBL: Record<string, string> = {
   HACCP: "HACCP", GMP: "GMP", ISO22000: "ISO 22000", SOP: "SOP nội bộ",
@@ -50,6 +51,9 @@ const LBL: Record<string, string> = {
   priority: "Cam kết ưu tiên nguồn lực để triển khai dự án cùng Vexim",
   cooperation: "Cam kết phối hợp đầy đủ trong suốt quá trình phát triển thị trường",
   accuracy: "Đồng ý cung cấp đầy đủ thông tin trung thực và chịu trách nhiệm về tính chính xác",
+  municipal: "Nước máy / thủy cục",
+  well: "Nước giếng khoan (đã xử lý)",
+  filtered: "Hệ thống lọc RO / xử lý nội bộ",
 }
 
 function toggle(arr: string[], v: string, single?: string[]) {
@@ -100,6 +104,41 @@ export function AdminFactoryAssessment({
   const [leadTime, setLeadTime] = useState(initLeadTime ?? "")
   const [capacity, setCapacity] = useState(initCapacity ?? "")
 
+  const [staffEngineers, setStaffEngineers] = useState(
+    existing?.staff_engineers_count?.toString() ?? ""
+  )
+  const [staffWorkers, setStaffWorkers] = useState(
+    existing?.staff_workers_count?.toString() ?? ""
+  )
+  const [workHoursStart, setWorkHoursStart] = useState(existing?.work_hours_start ?? "")
+  const [workHoursEnd, setWorkHoursEnd] = useState(existing?.work_hours_end ?? "")
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(
+    existing?.work_days_per_week?.toString() ?? ""
+  )
+  const [foodSafetyTraining, setFoodSafetyTraining] = useState<string>(
+    existing?.food_safety_training_regular == null
+      ? ""
+      : existing.food_safety_training_regular
+        ? "yes"
+        : "no"
+  )
+  const [equipmentCalibration, setEquipmentCalibration] = useState<string>(
+    existing?.equipment_calibration_regular == null
+      ? ""
+      : existing.equipment_calibration_regular
+        ? "yes"
+        : "no"
+  )
+  const [waterSource, setWaterSource] = useState<string[]>(existing?.water_source ?? [])
+  const [waterSourceOther, setWaterSourceOther] = useState(existing?.water_source_other ?? "")
+  const [waterTesting, setWaterTesting] = useState<string>(
+    existing?.water_testing == null ? "" : existing.water_testing ? "yes" : "no"
+  )
+  const [nearPollution, setNearPollution] = useState<string>(
+    existing?.near_pollution_source == null ? "" : existing.near_pollution_source ? "yes" : "no"
+  )
+  const [pollutionNote, setPollutionNote] = useState(existing?.pollution_source_note ?? "")
+
   const score = existing?.score_total ?? null
   const grade = existing?.score_grade ?? null
   const breakdown = (existing?.score_breakdown as unknown as ScoreCategory[]) ?? []
@@ -129,6 +168,19 @@ export function AdminFactoryAssessment({
         moq: moq || null,
         lead_time_days: leadTime || null,
         production_capacity: capacity || null,
+        staff_engineers_count: staffEngineers ? parseInt(staffEngineers, 10) : null,
+        staff_workers_count: staffWorkers ? parseInt(staffWorkers, 10) : null,
+        work_hours_start: workHoursStart || null,
+        work_hours_end: workHoursEnd || null,
+        work_days_per_week: workDaysPerWeek ? parseInt(workDaysPerWeek, 10) : null,
+        food_safety_training_regular: foodSafetyTraining === "" ? null : foodSafetyTraining === "yes",
+        equipment_calibration_regular:
+          equipmentCalibration === "" ? null : equipmentCalibration === "yes",
+        water_source: waterSource,
+        water_source_other: waterSourceOther || null,
+        water_testing: waterTesting === "" ? null : waterTesting === "yes",
+        near_pollution_source: nearPollution === "" ? null : nearPollution === "yes",
+        pollution_source_note: pollutionNote || null,
       }
       const res = await upsertAssessment(clientId, input)
       if (res.success) {
@@ -303,6 +355,158 @@ export function AdminFactoryAssessment({
               <p className="text-muted-foreground">Chưa có số FDA — cập nhật ở tab Tuân thủ.</p>
             )}
           </div>
+        </section>
+
+        {/* Muc 11: Nhan su, gio lam viec, ATTP/thiet bi, nguon nuoc, vi tri nha may */}
+        <section className="space-y-3">
+          <h3 className="font-semibold">11. Nhân sự, giờ làm việc & rủi ro lao động / môi trường</h3>
+          <p className="text-xs text-muted-foreground">
+            Dùng để đánh giá rủi ro lao động cưỡng bức, an toàn thực phẩm và môi trường sản xuất.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Số lượng kỹ sư / nhân viên kỹ thuật</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="VD: 8"
+                value={staffEngineers}
+                onChange={(e) => setStaffEngineers(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Số lượng công nhân sản xuất</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="VD: 120"
+                value={staffWorkers}
+                onChange={(e) => setStaffWorkers(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Giờ bắt đầu ca làm việc</Label>
+              <Input
+                type="time"
+                value={workHoursStart}
+                onChange={(e) => setWorkHoursStart(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Giờ kết thúc ca làm việc</Label>
+              <Input
+                type="time"
+                value={workHoursEnd}
+                onChange={(e) => setWorkHoursEnd(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Số ngày làm việc / tuần</Label>
+              <Input
+                type="number"
+                min={1}
+                max={7}
+                placeholder="VD: 6"
+                value={workDaysPerWeek}
+                onChange={(e) => setWorkDaysPerWeek(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Đào tạo / tập huấn ATTP định kỳ</Label>
+              <RadioGroup
+                value={foodSafetyTraining}
+                onValueChange={setFoodSafetyTraining}
+                className="flex gap-4"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="yes" /> Có
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="no" /> Không
+                </label>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label>Kiểm tra / kiểm định máy móc định kỳ</Label>
+              <RadioGroup
+                value={equipmentCalibration}
+                onValueChange={setEquipmentCalibration}
+                className="flex gap-4"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="yes" /> Có
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="no" /> Không
+                </label>
+              </RadioGroup>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nguồn nước sử dụng trong sản xuất</Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {WATER_SOURCES.map((w) => (
+                <label key={w} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={waterSource.includes(w)}
+                    onCheckedChange={() => setWaterSource(toggle(waterSource, w))}
+                  />
+                  {LBL[w]}
+                </label>
+              ))}
+            </div>
+            {waterSource.includes("other") && (
+              <Input
+                placeholder="Nguồn nước khác..."
+                value={waterSourceOther}
+                onChange={(e) => setWaterSourceOther(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Nguồn nước có được kiểm định định kỳ</Label>
+              <RadioGroup value={waterTesting} onValueChange={setWaterTesting} className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="yes" /> Có
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="no" /> Không
+                </label>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label>Nhà máy có gần nguồn ô nhiễm (KCN nặng, bãi rác, sông ô nhiễm...)</Label>
+              <RadioGroup value={nearPollution} onValueChange={setNearPollution} className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="yes" /> Có
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="no" /> Không
+                </label>
+              </RadioGroup>
+            </div>
+          </div>
+          {nearPollution === "yes" && (
+            <div className="space-y-2">
+              <Label>Ghi chú vị trí / nguồn ô nhiễm gần nhà máy</Label>
+              <Textarea
+                value={pollutionNote}
+                onChange={(e) => setPollutionNote(e.target.value)}
+                rows={2}
+                placeholder="VD: cách khu công nghiệp X 500m..."
+              />
+            </div>
+          )}
         </section>
 
         {/* Muc 12: Buyer Audit */}

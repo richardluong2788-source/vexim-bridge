@@ -945,6 +945,18 @@ export type Database = {
           pricing_decision_maker: string | null
           commitments: string[]
           project_priority: string | null
+          staff_engineers_count: number | null
+          staff_workers_count: number | null
+          work_hours_start: string | null
+          work_hours_end: string | null
+          work_days_per_week: number | null
+          food_safety_training_regular: boolean | null
+          equipment_calibration_regular: boolean | null
+          water_source: string[]
+          water_source_other: string | null
+          water_testing: boolean | null
+          near_pollution_source: boolean | null
+          pollution_source_note: string | null
           score_total: number | null
           score_grade: string | null
           score_breakdown: Record<string, unknown>
@@ -976,6 +988,20 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
+          staff_engineers_count?: number | null
+          staff_workers_count?: number | null
+          work_hours_start?: string | null
+          work_hours_end?: string | null
+          work_days_per_week?: number | null
+          food_safety_training_regular?: boolean | null
+          equipment_calibration_regular?: boolean | null
+          water_source?: string[]
+          water_source_other?: string | null
+          water_testing?: boolean | null
+          near_pollution_source?: boolean | null
+          pollution_source_note?: string | null
+          production_capacity_monthly?: string | null
+          lead_time_days?: string | null
           score_total?: number | null
           score_grade?: string | null
           score_breakdown?: Record<string, unknown>
@@ -1007,6 +1033,20 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
+          staff_engineers_count?: number | null
+          staff_workers_count?: number | null
+          work_hours_start?: string | null
+          work_hours_end?: string | null
+          work_days_per_week?: number | null
+          food_safety_training_regular?: boolean | null
+          equipment_calibration_regular?: boolean | null
+          water_source?: string[]
+          water_source_other?: string | null
+          water_testing?: boolean | null
+          near_pollution_source?: boolean | null
+          pollution_source_note?: string | null
+          production_capacity_monthly?: string | null
+          lead_time_days?: string | null
           score_total?: number | null
           score_grade?: string | null
           score_breakdown?: Record<string, unknown>
@@ -1646,7 +1686,8 @@ export type ProfileQuoteRequest = {
   contact_name: string
   email: string
   phone?: string
+  country?: string
   products_interested: string[]
   quantity_volume?: string
   notes?: string
-}
+  }

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type {
   ClientProfile,
   ClientProfileWithRelations,
@@ -504,8 +505,8 @@ export async function submitQuoteRequest(
       contact_person: request.contact_name,
       contact_email: request.email,
       contact_phone: request.phone || null,
-      region: "North America",
-      country: "United States",
+      region: null,
+      country: request.country || null,
       source: "profile_page",
       notes: `Quote request from profile page.\n\nProducts interested: ${request.products_interested.join(", ")}\nQuantity/Volume: ${request.quantity_volume || "Not specified"}\n\nNotes: ${request.notes || "None"}`,
     })
@@ -536,18 +537,59 @@ export async function submitQuoteRequest(
     // Don't fail - lead was still created
   }
 
-  // Create notification for account manager or admins
-  const notifyUserId = client?.account_manager_id
-  if (notifyUserId) {
-    await adminSupabase.from("notifications").insert({
-      user_id: notifyUserId,
-      category: "new_assignment",
-      title: "New Quote Request",
-      body: `${request.company_name} requested a quote via profile page`,
-      link_path: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
-      opportunity_id: opportunity?.id || null,
-    })
+  // Determine who should be notified: the client's assigned account manager,
+  // or — if the client has no AE assigned yet — every admin/super_admin so the
+  // lead is never silently dropped.
+  const linkPath = opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`
+  const dedupKeySuffix = opportunity?.id || lead.id
+
+  let notifyUserIds: string[] = []
+  if (client?.account_manager_id) {
+    notifyUserIds = [client.account_manager_id]
+  } else {
+    const { data: admins } = await adminSupabase
+      .from("profiles")
+      .select("id")
+      .in("role", ["admin", "super_admin"])
+
+    notifyUserIds = (admins || []).map((a) => a.id)
+    if (notifyUserIds.length === 0) {
+      console.error(
+        "[v0] submitQuoteRequest: no account manager and no admin/super_admin found — notification not delivered",
+        { clientId: profile.client_id, leadId: lead.id }
+      )
+    }
   }
+
+  // Dispatch through the shared notification pipeline so recipients get the
+  // in-app row AND email AND Telegram (per their own channel preferences),
+  // instead of only a silent in-app row.
+  await Promise.all(
+    notifyUserIds.map((userId) =>
+      dispatchNotification({
+        userId,
+        category: "new_assignment",
+        linkPath,
+        dedupKey: `profile_quote_request:${dedupKeySuffix}:${userId}`,
+        title: {
+          vi: "Yêu cầu báo giá mới",
+          en: "New Quote Request",
+        },
+        body: {
+          vi: `${request.company_name} đã yêu cầu báo giá qua trang hồ sơ${
+            profile.display_name ? ` (${profile.display_name})` : ""
+          }`,
+          en: `${request.company_name} requested a quote via the profile page${
+            profile.display_name ? ` (${profile.display_name})` : ""
+          }`,
+        },
+        ctaLabel: {
+          vi: "Xem chi tiết",
+          en: "View details",
+        },
+      })
+    )
+  )
 
   // Generate reference number
   const reference = `QR-${Date.now().toString(36).toUpperCase()}`

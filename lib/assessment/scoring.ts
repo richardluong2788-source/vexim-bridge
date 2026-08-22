@@ -108,7 +108,32 @@ export function computeScore(
   if (a.project_priority === "high") commit += 2
   breakdown.push({ key: "commit", label: "Cam kết triển khai", score: commit, max: 5 })
 
-  const total = breakdown.reduce((s, c) => s + c.score, 0)
+  // 11. Lao dong & moi truong (10d)
+  let labor = 0
+  // Gio lam viec hop ly: <=8h/ngay va <=6 ngay/tuan (chong lao dong cuong buc/qua gio)
+  if (a.work_hours_start && a.work_hours_end) {
+    const [sh, sm] = a.work_hours_start.split(":").map(Number)
+    const [eh, em] = a.work_hours_end.split(":").map(Number)
+    if (!Number.isNaN(sh) && !Number.isNaN(eh)) {
+      let hours = eh + em / 60 - (sh + sm / 60)
+      if (hours < 0) hours += 24
+      if (hours <= 8.5) labor += 2
+    }
+  }
+  if (a.work_days_per_week != null && a.work_days_per_week <= 6) labor += 1
+  if (a.food_safety_training_regular) labor += 2
+  if (a.equipment_calibration_regular) labor += 2
+  if (has(a.water_source, "municipal") || has(a.water_source, "filtered")) labor += 1
+  if (a.water_testing) labor += 1
+  if (a.near_pollution_source === false) labor += 1
+  labor = Math.min(labor, 10)
+  breakdown.push({ key: "labor_env", label: "Lao động & môi trường", score: labor, max: 10 })
+
+  // Chuan hoa ve thang 100 (tong max cac hang muc hien la 110 sau khi
+  // them "Lao dong & moi truong") de nguong xep hang A/B/C/D khong doi.
+  const rawTotal = breakdown.reduce((s, c) => s + c.score, 0)
+  const maxTotal = breakdown.reduce((s, c) => s + c.max, 0)
+  const total = maxTotal > 0 ? Math.round((rawTotal / maxTotal) * 100) : 0
   return { total, grade: gradeFromScore(total), breakdown }
 }
 

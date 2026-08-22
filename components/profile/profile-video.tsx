@@ -3,6 +3,13 @@
 import { useState } from "react"
 import Image from "next/image"
 import { Factory, Play } from "lucide-react"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileVideoProps {
@@ -29,8 +36,9 @@ function getYouTubeId(url: string): string | null {
 export function ProfileVideo({ profile }: ProfileVideoProps) {
   const [isPlaying, setIsPlaying] = useState(false)
 
+  const factoryImages = profile.factory_image_urls || []
   const hasVideo = Boolean(profile.video_url)
-  const hasImage = Boolean(profile.factory_image_url)
+  const hasImage = factoryImages.length > 0
 
   if (!hasVideo && !hasImage) return null
 
@@ -58,13 +66,34 @@ export function ProfileVideo({ profile }: ProfileVideoProps) {
 
         <div className={gridClass}>
           {hasImage && (
-            <div className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
-              <Image
-                src={profile.factory_image_url!}
-                alt="Factory"
-                fill
-                className="object-cover"
-              />
+            <div className="relative">
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {factoryImages.map((url, index) => (
+                    <CarouselItem key={`${url}-${index}`}>
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
+                        <Image
+                          src={url || "/placeholder.svg"}
+                          alt={`Factory photo ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {factoryImages.length > 1 && (
+                  <>
+                    <CarouselPrevious className="left-2" />
+                    <CarouselNext className="right-2" />
+                  </>
+                )}
+              </Carousel>
+              {factoryImages.length > 1 && (
+                <p className="text-center text-xs text-muted-foreground mt-2">
+                  {factoryImages.length} factory photos
+                </p>
+              )}
             </div>
           )}
 

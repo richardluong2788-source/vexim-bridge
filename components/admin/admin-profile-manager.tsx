@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { MediaUploadField } from "@/components/admin/media-upload-field"
+import { MediaGalleryField } from "@/components/admin/media-gallery-field"
 import {
   createClientProfile,
   updateClientProfile,
@@ -89,7 +90,9 @@ export function AdminProfileManager({
   const [tagline, setTagline] = useState(existingProfile?.tagline || "")
   const [coverImageUrl, setCoverImageUrl] = useState(existingProfile?.cover_image_url || "")
   const [logoUrl, setLogoUrl] = useState(existingProfile?.logo_url || "")
-  const [factoryImageUrl, setFactoryImageUrl] = useState(existingProfile?.factory_image_url || "")
+  const [factoryImageUrls, setFactoryImageUrls] = useState<string[]>(
+    existingProfile?.factory_image_urls || [],
+  )
   const [videoUrl, setVideoUrl] = useState(existingProfile?.video_url || "")
   const [uspPoints, setUspPoints] = useState<USPPoint[]>(
     existingProfile?.usp_points || [{ title: "", icon: "check" }]
@@ -182,7 +185,7 @@ export function AdminProfileManager({
         tagline: tagline || undefined,
         cover_image_url: coverImageUrl || undefined,
         logo_url: logoUrl || undefined,
-        factory_image_url: factoryImageUrl || undefined,
+        factory_image_urls: factoryImageUrls,
         video_url: videoUrl || undefined,
         usp_points: validUspPoints,
         production_capacity: productionCapacity || undefined,
@@ -384,16 +387,15 @@ export function AdminProfileManager({
             />
           </div>
 
-          <MediaUploadField
-            id="factoryImageUrl"
-            label={trans?.branding?.factoryImage || "Factory Image URL"}
-            value={factoryImageUrl}
-            onChange={setFactoryImageUrl}
-            kind="image"
+          <MediaGalleryField
+            id="factoryImageUrls"
+            label={trans?.branding?.factoryImage || "Factory Images"}
+            value={factoryImageUrls}
+            onChange={setFactoryImageUrls}
             folder="profile-factory-image"
             hint={
               trans?.branding?.factoryImageHint ||
-              "Shown next to the factory video on the public profile page."
+              "Shown next to the factory video on the public profile page. You can add multiple photos."
             }
           />
 

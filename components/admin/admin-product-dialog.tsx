@@ -398,7 +398,7 @@ export function AdminProductDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Mô t��</Label>
+              <Label htmlFor="description">Mô tả</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -454,7 +454,7 @@ export function AdminProductDialog({
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="monthly_capacity">Năng lực hàng tháng</Label>
+                <Label htmlFor="monthly_capacity">Năng lực/tháng</Label>
                 <Input
                   id="monthly_capacity"
                   name="monthly_capacity_units"
@@ -589,7 +589,7 @@ export function AdminProductDialog({
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="moq_value">
-                  Số lượng đặt hàng t���i thiểu (MOQ) <span className="text-destructive">*</span>
+                  Số lượng đặt hàng tối thiểu <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="moq_value"
@@ -602,7 +602,7 @@ export function AdminProductDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="moq_unit">Đơn vị MOQ</Label>
+                <Label htmlFor="moq_unit">Đơn vị đơn hàng MOQ</Label>
                 <Input
                   id="moq_unit"
                   name="moq_unit"

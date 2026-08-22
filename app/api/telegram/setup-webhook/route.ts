@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { setTelegramWebhook } from "@/lib/telegram/client"
+import { getTelegramWebhookInfo, setTelegramWebhook } from "@/lib/telegram/client"
+import { siteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -26,10 +27,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? `https://${process.env.VERCEL_URL}`).replace(
-    /\/+$/,
-    "",
-  )
+  // NEXT_PUBLIC_APP_URL isn't set in this project — reuse the same base URL
+  // resolution the rest of the app uses (NEXT_PUBLIC_SITE_URL, then Vercel's
+  // runtime URL, then localhost) so this never resolves to
+  // "https://undefined" again.
+  const appUrl = siteConfig.url.replace(/\/+$/, "")
   const webhookUrl = `${appUrl}/api/telegram/webhook`
 
   const result = await setTelegramWebhook(webhookUrl, cronSecret)
@@ -39,4 +41,32 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true, webhookUrl })
+}
+
+/**
+ * Diagnostic: reports what Telegram currently has on file for our webhook —
+ * the URL, pending update count, and the last delivery error. Use this to
+ * check *why* `/start` isn't getting a reply before re-running POST.
+ *
+ * Usage:
+ *   curl "https://<your-domain>/api/telegram/setup-webhook" \
+ *     -H "Authorization: Bearer $CRON_SECRET"
+ */
+export async function GET(request: Request) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+  }
+
+  const authHeader = request.headers.get("authorization")
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const result = await getTelegramWebhookInfo()
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, expectedUrl: `${siteConfig.url.replace(/\/+$/, "")}/api/telegram/webhook`, ...result.info })
 }

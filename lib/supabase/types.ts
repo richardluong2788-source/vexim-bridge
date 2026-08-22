@@ -840,6 +840,7 @@ export type Database = {
           tagline: string | null
           cover_image_url: string | null
           logo_url: string | null
+          factory_image_url: string | null
           video_url: string | null
           video_thumbnail_url: string | null
           usp_points: Record<string, unknown>[]
@@ -867,6 +868,7 @@ export type Database = {
           tagline?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
+          factory_image_url?: string | null
           video_url?: string | null
           video_thumbnail_url?: string | null
           usp_points?: Record<string, unknown>[]
@@ -894,6 +896,7 @@ export type Database = {
           tagline?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
+          factory_image_url?: string | null
           video_url?: string | null
           video_thumbnail_url?: string | null
           usp_points?: Record<string, unknown>[]
@@ -1606,6 +1609,7 @@ export type ClientProfile = {
   slug: string
   cover_image_url: string | null
   logo_url: string | null
+  factory_image_url: string | null
 
   // Display info
   display_name: string | null
@@ -1663,6 +1667,7 @@ export type CreateClientProfileInput = {
   description?: string
   cover_image_url?: string
   logo_url?: string
+  factory_image_url?: string
   video_url?: string
   video_thumbnail_url?: string
   usp_points?: USPPoint[]

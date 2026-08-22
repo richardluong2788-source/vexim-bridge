@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { X, FileCheck, ExternalLink } from "lucide-react"
+import { X, FileCheck, ExternalLink, Copy, Check, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -19,6 +19,25 @@ const kindLabels: Record<string, string> = {
   other: "Certificate",
 }
 
+function CopyCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        navigator.clipboard.writeText(code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+      className="text-muted-foreground hover:text-foreground transition-colors"
+      aria-label="Copy code"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+    </button>
+  )
+}
+
 export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
   const [selectedDoc, setSelectedDoc] = useState<ComplianceDoc | null>(null)
 
@@ -33,46 +52,51 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
           Certifications & Compliance
         </h2>
 
-        <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
+        <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto">
           {certifications.map((doc) => {
             const fileUrl = privateFileHref(doc.url)
             const isImage = doc.mime_type?.startsWith("image/")
+            const code = doc.notes?.trim()
 
             return (
               <button
                 key={doc.id}
                 onClick={() => setSelectedDoc(doc)}
-                className="group relative w-28 sm:w-32 aspect-square rounded-lg overflow-hidden bg-card border border-border hover:border-accent/50 hover:shadow-md transition-all cursor-pointer"
+                className="group w-40 sm:w-44 text-left cursor-pointer"
               >
-                {isImage && fileUrl ? (
-                  <>
+                {/* Document preview */}
+                <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-white border border-border group-hover:border-accent/50 group-hover:shadow-md transition-all">
+                  {isImage && fileUrl ? (
                     <Image
                       src={fileUrl}
                       alt={doc.title || "Certificate"}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform"
+                      className="object-contain p-1.5 group-hover:scale-[1.03] transition-transform"
                     />
-                    {/* Caption overlay */}
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5">
-                      <span className="text-[11px] font-medium text-white text-center line-clamp-1 block">
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-3 gap-2 bg-muted/40">
+                      <FileCheck className="w-10 h-10 text-accent" />
+                      <span className="text-[11px] text-muted-foreground text-center line-clamp-2">
                         {doc.title || "Document"}
                       </span>
                     </div>
-                  </>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-2 gap-1">
-                    <FileCheck className="w-8 h-8 text-accent" />
-                    <span className="text-[11px] text-muted-foreground text-center line-clamp-2">
-                      {doc.title || "Document"}
-                    </span>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Badge */}
-                <div className="absolute top-1.5 right-1.5">
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {kindLabels[doc.kind] || doc.kind}
-                  </Badge>
+                {/* Caption row */}
+                <div className="mt-2.5 flex items-start gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground leading-tight line-clamp-1">
+                      {doc.title || kindLabels[doc.kind] || doc.kind}
+                    </p>
+                    {code && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-xs text-muted-foreground truncate">{code}</span>
+                        <CopyCode code={code} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </button>
             )

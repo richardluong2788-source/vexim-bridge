@@ -43,6 +43,8 @@ const MARKET_LABELS: Record<string, string> = {
   ME: "Middle East",
 }
 
+const NOT_SPECIFIED = "Not specified"
+
 function InfoGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
@@ -54,39 +56,64 @@ function InfoGroup({ title, children }: { title: string; children: ReactNode }) 
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: ReactNode }) {
+function InfoRow({ label, value }: { label: string; value?: ReactNode }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3">
       <span className="text-sm text-muted-foreground sm:w-56 shrink-0">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="text-sm font-medium text-foreground">
+        {value !== undefined && value !== null && value !== "" ? (
+          value
+        ) : (
+          <span className="font-normal text-muted-foreground">{NOT_SPECIFIED}</span>
+        )}
+      </span>
     </div>
   )
 }
 
+/** Row for a tri-state boolean field: shows Yes / No / Not specified — always visible, never hidden. */
+function BooleanRow({ label, value }: { label: string; value: boolean | null | undefined }) {
+  return (
+    <InfoRow
+      label={label}
+      value={
+        value === null || value === undefined ? undefined : (
+          <span className={value ? "text-foreground" : "text-muted-foreground"}>
+            {value ? "Yes" : "No"}
+          </span>
+        )
+      }
+    />
+  )
+}
+
 function ChipsRow({ label, items }: { label: string; items: string[] }) {
-  if (items.length === 0) return null
   return (
     <div className="py-3">
       <p className="text-sm text-muted-foreground mb-2">{label}</p>
-      <div className="flex flex-wrap gap-2">
-        {items.map((item) => (
-          <span
-            key={item}
-            className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-border"
-          >
-            {item}
-          </span>
-        ))}
-      </div>
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <span
+              key={item}
+              className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-border"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="text-sm font-medium text-muted-foreground">{NOT_SPECIFIED}</span>
+      )}
     </div>
   )
 }
 
 /**
- * Tab "Ho So cong ty" / "San pham" — gop lai noi dung tu ProfileDescription,
- * ProfileUSP, ProfileStats, ProfileCapabilities, ProfileCertifications thanh
- * bang label/value 2 cot theo tung nhom, va ProfileProducts trong tab rieng.
- * Khong thay doi nguon du lieu, chi to chuc lai noi render + style.
+ * Tab "Company Profile" / "Products" — presented as a spec-sheet: every
+ * field always shows its label on the left, even when there is no data or
+ * a boolean is false, so buyers see the full picture rather than a partial
+ * list of only the positive signals.
  */
 export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
   const quality = (capability?.quality_systems ?? [])
@@ -103,12 +130,6 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
     .map((a) => AUDIT_LABELS[a])
     .filter((label): label is string => Boolean(label))
 
-  const foodSafety = [
-    capability?.food_safety_training_regular ? "Regular Food Safety Training" : null,
-    capability?.equipment_calibration_regular ? "Regular Equipment Calibration" : null,
-    capability?.water_testing ? "Regular Water Testing" : null,
-  ].filter((item): item is string => Boolean(item))
-
   const markets = (capability?.export_markets ?? [])
     .map((m) => MARKET_LABELS[m] ?? m)
     .filter((m) => m !== "other")
@@ -116,33 +137,14 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
   const incoterms = capability?.incoterms ?? []
   const oem = (capability?.oem_odm ?? []).filter((o) => o !== "none")
 
-  const hasCertifications = (profile.certifications || []).length > 0
+  const certifications = profile.certifications || []
   const uspPoints = profile.usp_points || []
 
   const yearsOnVexim = (() => {
     const startYear = capability?.export_since_year || new Date(profile.created_at).getFullYear()
     const years = new Date().getFullYear() - startYear
-    return years > 0 ? years : null
+    return years > 0 ? `${years} ${years === 1 ? "year" : "years"}` : undefined
   })()
-
-  const hasOverview = Boolean(
-    profile.description ||
-      capability?.export_since_year ||
-      capability?.company_scale ||
-      profile.profiles.country ||
-      uspPoints.length > 0
-  )
-  const hasProduction = Boolean(
-    profile.production_capacity || profile.moq || profile.lead_time_days
-  )
-  const hasQuality =
-    quality.length > 0 ||
-    traceability.length > 0 ||
-    audit.length > 0 ||
-    foodSafety.length > 0 ||
-    hasCertifications
-  const hasTrade = markets.length > 0 || incoterms.length > 0 || oem.length > 0
-  const hasAnyCompanyInfo = hasOverview || hasProduction || hasQuality || hasTrade
 
   return (
     <section className="py-8 sm:py-12 bg-white">
@@ -154,81 +156,60 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
           </TabsList>
 
           <TabsContent value="company" className="space-y-8">
-            {hasOverview && (
-              <InfoGroup title="Overview">
-                {profile.description && (
-                  <div className="py-3">
-                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
-                      {profile.description}
-                    </p>
-                  </div>
-                )}
-                {profile.profiles.country && (
-                  <InfoRow label="Location" value={profile.profiles.country} />
-                )}
-                {capability?.export_since_year && (
-                  <InfoRow
-                    label="Exporting Since"
-                    value={capability.export_since_year}
-                  />
-                )}
-                {yearsOnVexim && (
-                  <InfoRow
-                    label="Years on Vexim"
-                    value={`${yearsOnVexim} ${yearsOnVexim === 1 ? "year" : "years"}`}
-                  />
-                )}
-                {capability?.company_scale && (
-                  <InfoRow label="Company Scale" value={capability.company_scale} />
-                )}
-                {uspPoints.length > 0 && (
-                  <ChipsRow
-                    label="Highlights"
-                    items={uspPoints.map((p) => p.title).filter(Boolean)}
-                  />
-                )}
-              </InfoGroup>
-            )}
+            <InfoGroup title="Overview">
+              {profile.description && (
+                <div className="py-3">
+                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+                    {profile.description}
+                  </p>
+                </div>
+              )}
+              <InfoRow label="Location" value={profile.profiles.country ?? undefined} />
+              <InfoRow label="Exporting Since" value={capability?.export_since_year ?? undefined} />
+              <InfoRow label="Years on Vexim" value={yearsOnVexim} />
+              <InfoRow label="Company Scale" value={capability?.company_scale ?? undefined} />
+              <ChipsRow
+                label="Highlights"
+                items={uspPoints.map((p) => p.title).filter(Boolean)}
+              />
+            </InfoGroup>
 
-            {hasProduction && (
-              <InfoGroup title="Production Capacity">
-                {profile.production_capacity && (
-                  <InfoRow label="Production Capacity" value={profile.production_capacity} />
-                )}
-                {profile.moq && <InfoRow label="Minimum Order Quantity (MOQ)" value={profile.moq} />}
-                {profile.lead_time_days && (
-                  <InfoRow label="Lead Time" value={profile.lead_time_days} />
-                )}
-              </InfoGroup>
-            )}
+            <InfoGroup title="Production Capacity">
+              <InfoRow label="Production Capacity" value={profile.production_capacity ?? undefined} />
+              <InfoRow label="Minimum Order Quantity (MOQ)" value={profile.moq ?? undefined} />
+              <InfoRow label="Lead Time" value={profile.lead_time_days ?? undefined} />
+            </InfoGroup>
 
-            {hasQuality && (
-              <InfoGroup title="Quality Control">
-                <ChipsRow label="Quality Systems" items={quality} />
-                <ChipsRow label="Traceability" items={traceability} />
-                <ChipsRow label="Audit Readiness" items={audit} />
-                <ChipsRow label="Food Safety & Equipment" items={foodSafety} />
-                {hasCertifications && (
-                  <div className="py-3 -mx-4 sm:-mx-5">
+            <InfoGroup title="Quality Control">
+              <ChipsRow label="Quality Systems" items={quality} />
+              <ChipsRow label="Traceability" items={traceability} />
+              <ChipsRow label="Audit Readiness" items={audit} />
+              <BooleanRow
+                label="Regular Food Safety Training"
+                value={capability?.food_safety_training_regular}
+              />
+              <BooleanRow
+                label="Regular Equipment Calibration"
+                value={capability?.equipment_calibration_regular}
+              />
+              <BooleanRow label="Regular Water Testing" value={capability?.water_testing} />
+              <div className="py-3">
+                <p className="text-sm text-muted-foreground mb-2">Certifications</p>
+                {certifications.length > 0 ? (
+                  <div className="-mx-4 sm:-mx-5">
                     <ProfileCertifications profile={profile} />
                   </div>
+                ) : (
+                  <span className="text-sm font-medium text-muted-foreground">{NOT_SPECIFIED}</span>
                 )}
-              </InfoGroup>
-            )}
+              </div>
+            </InfoGroup>
 
-            {hasTrade && (
-              <InfoGroup title="Trade Experience">
-                <ChipsRow label="Export Markets" items={markets} />
-                <ChipsRow label="Incoterms" items={incoterms} />
-                <ChipsRow label="OEM / ODM" items={oem} />
-              </InfoGroup>
-            )}
-
-            {!hasAnyCompanyInfo && (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                No company profile information yet.
-              </p>
-            )}
+            <InfoGroup title="Trade Experience">
+              <ChipsRow label="Export Markets" items={markets} />
+              <ChipsRow label="Incoterms" items={incoterms} />
+              <ChipsRow label="OEM / ODM" items={oem} />
+            </InfoGroup>
           </TabsContent>
 
           <TabsContent value="products">

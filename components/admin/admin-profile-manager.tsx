@@ -88,6 +88,7 @@ export function AdminProfileManager({
   const [tagline, setTagline] = useState(existingProfile?.tagline || "")
   const [coverImageUrl, setCoverImageUrl] = useState(existingProfile?.cover_image_url || "")
   const [logoUrl, setLogoUrl] = useState(existingProfile?.logo_url || "")
+  const [factoryImageUrl, setFactoryImageUrl] = useState(existingProfile?.factory_image_url || "")
   const [videoUrl, setVideoUrl] = useState(existingProfile?.video_url || "")
   const [uspPoints, setUspPoints] = useState<USPPoint[]>(
     existingProfile?.usp_points || [{ title: "", icon: "check" }]
@@ -180,6 +181,7 @@ export function AdminProfileManager({
         tagline: tagline || undefined,
         cover_image_url: coverImageUrl || undefined,
         logo_url: logoUrl || undefined,
+        factory_image_url: factoryImageUrl || undefined,
         video_url: videoUrl || undefined,
         usp_points: validUspPoints,
         production_capacity: productionCapacity || undefined,
@@ -381,6 +383,22 @@ export function AdminProfileManager({
                 placeholder={trans?.branding?.urlPlaceholder || "https://..."}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="factoryImageUrl">
+              {trans?.branding?.factoryImage || "Factory Image URL"}
+            </Label>
+            <Input
+              id="factoryImageUrl"
+              value={factoryImageUrl}
+              onChange={(e) => setFactoryImageUrl(e.target.value)}
+              placeholder={trans?.branding?.urlPlaceholder || "https://..."}
+            />
+            <p className="text-xs text-muted-foreground">
+              {trans?.branding?.factoryImageHint ||
+                "Shown next to the factory video on the public profile page."}
+            </p>
           </div>
 
           <div className="space-y-2">

@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog"
 import { buildVerifiedCapabilityChecklist } from "@/lib/profile/capability-checklist"
 import { ProfileMediaGallery } from "./profile-media-gallery"
-import { ProfileQuoteButton } from "./profile-quote-button"
 import type { PublicCapability } from "@/lib/assessment/actions"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
@@ -136,11 +135,6 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                       </span>
                     )}
                   </div>
-                </div>
-
-                {/* CTA */}
-                <div className="w-full sm:w-auto shrink-0">
-                  <ProfileQuoteButton profile={profile} size="lg" className="w-full sm:w-auto" />
                 </div>
               </div>
 

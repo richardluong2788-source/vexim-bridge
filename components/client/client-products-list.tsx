@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Empty } from '@/components/ui/empty';
 import { listClientProductsAction } from '@/app/admin/clients/products-actions';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
+import { markdownToPlainText } from '@/lib/markdown-preview';
 
 interface ClientProductsListProps {
   clientId: string;
@@ -101,7 +102,11 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {product.description && <p className="text-sm text-muted-foreground">{product.description}</p>}
+                {product.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {markdownToPlainText(product.description)}
+                  </p>
+                )}
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   {product.monthly_capacity_units && (

@@ -30,6 +30,7 @@ import {
 import { AdminProductDialog } from './admin-product-dialog';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import { toast } from 'sonner';
+import { markdownToPlainText } from '@/lib/markdown-preview';
 
 interface AdminClientProductsManagerProps {
   clientId: string;
@@ -176,7 +177,9 @@ export function AdminClientProductsManager({
 
               <CardContent className="space-y-4">
                 {product.description && (
-                  <p className="text-sm text-muted-foreground">{product.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {markdownToPlainText(product.description)}
+                  </p>
                 )}
 
                 <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">

@@ -37,6 +37,161 @@ export class RequirementEmailAuthError extends Error {
 
 const ALLOWED_ROLES = new Set(["admin", "staff", "super_admin", "account_executive"])
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Gateway resilience: the model call above is the single point of failure
+// for every "soạn email" action in the AE inbox. If the Gateway is down or
+// slow, an AE must still be able to send an email within seconds — so every
+// generateText() call in this file is (1) time-boxed with AI_GENERATION_TIMEOUT_MS
+// and (2) backed by a static fallback template that still produces a usable,
+// on-brand, review-ready draft instead of surfacing a dead end to the AE.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AI_GENERATION_TIMEOUT_MS = 20_000
+
+class AIGenerationTimeoutError extends Error {
+  constructor() {
+    super("AI generation timed out")
+    this.name = "AIGenerationTimeoutError"
+  }
+}
+
+/** Races an AI call against a timeout so a stuck/slow Gateway never blocks the AE. */
+async function withGenerationTimeout<T>(promise: Promise<T>, ms = AI_GENERATION_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new AIGenerationTimeoutError()), ms)
+  })
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    clearTimeout(timer!)
+  }
+}
+
+type FallbackEmailContext = {
+  senderName: string
+  exporterCompany: string
+  senderEmail: string
+  buyerCompany?: string | null
+  contactPerson?: string | null
+  industryOrProduct?: string | null
+  shortlistUrl?: string | null
+}
+
+/**
+ * Static, hand-written email templates used ONLY when the AI Gateway call
+ * fails or times out. Deliberately plain and generic (no fabricated facts)
+ * so they are always safe to send as-is, though the AE still reviews before
+ * sending like every other draft in this pipeline.
+ */
+function buildFallbackEmail(
+  emailType: EngagementEmailType,
+  ctx: FallbackEmailContext,
+): { subject_en: string; content_en: string; content_vi: string } {
+  const greetingName = ctx.contactPerson?.trim() || "there"
+  const topic = ctx.industryOrProduct?.trim() || "your product category"
+  const signature_en = [
+    "",
+    "Best regards,",
+    ctx.senderName,
+    ctx.exporterCompany,
+    ctx.senderEmail,
+  ].join("\n")
+  const signature_vi = [
+    "",
+    "Trân trọng,",
+    ctx.senderName,
+    ctx.exporterCompany,
+    ctx.senderEmail,
+  ].join("\n")
+
+  if (emailType === "shortlist_delivery") {
+    return {
+      subject_en: `Supplier shortlist prepared for ${ctx.buyerCompany || "your company"}`,
+      content_en: [
+        `Hi ${greetingName},`,
+        "",
+        "Thank you for sharing your sourcing requirements with us. We have reviewed them and prepared a shortlist of pre-vetted suppliers for your consideration.",
+        "",
+        `Please open the link below to view each supplier's profile and let us know which one(s) you would like to move forward with:`,
+        ctx.shortlistUrl || "",
+        "",
+        "We look forward to your feedback.",
+        signature_en,
+      ]
+        .filter((l) => l !== undefined)
+        .join("\n"),
+      content_vi: [
+        `Xin chào ${greetingName},`,
+        "",
+        "Cảm ơn bạn đã chia sẻ nhu cầu sourcing với chúng tôi. Chúng tôi đã xem xét và chuẩn bị một shortlist các nhà cung cấp đã được kiểm tra kỹ để bạn tham khảo.",
+        "",
+        "Vui lòng mở link dưới đây để xem hồ sơ từng nhà cung cấp và cho chúng tôi biết bạn quan tâm đến nhà cung cấp nào:",
+        ctx.shortlistUrl || "",
+        "",
+        "Chúng tôi mong nhận được phản hồi từ bạn.",
+        signature_vi,
+      ]
+        .filter((l) => l !== undefined)
+        .join("\n"),
+    }
+  }
+
+  return {
+    subject_en: `Sourcing from Vietnam — ${topic}`,
+    content_en: [
+      `Hi ${greetingName},`,
+      "",
+      `My name is ${ctx.senderName} from ${ctx.exporterCompany}, a Vietnam-based export and sourcing partner connecting international buyers with vetted Vietnamese manufacturers.`,
+      "",
+      `We came across your company's profile and thought you might be open to evaluating additional sourcing options for ${topic} from Vietnam.`,
+      "",
+      "Would you be open to discussing this further? Happy to share more information if there's interest.",
+      signature_en,
+    ].join("\n"),
+    content_vi: [
+      `Xin chào ${greetingName},`,
+      "",
+      `Tôi là ${ctx.senderName} từ ${ctx.exporterCompany}, đơn vị xuất khẩu và sourcing tại Việt Nam, kết nối các nhà mua hàng quốc tế với các nhà máy Việt Nam đã được kiểm chứng.`,
+      "",
+      `Chúng tôi biết đến hồ sơ công ty bạn và muốn hỏi liệu bạn có quan tâm đánh giá thêm nguồn cung ${topic} từ Việt Nam không.`,
+      "",
+      "Bạn có muốn trao đổi thêm về việc này không? Rất vui được chia sẻ thêm thông tin nếu bạn quan tâm.",
+      signature_vi,
+    ].join("\n"),
+  }
+}
+
+/** Fallback for a mid-thread reply — deliberately generic since we cannot safely paraphrase the buyer's specific ask without AI. */
+function buildFallbackFollowUpReply(ctx: {
+  senderName: string
+  exporterCompany: string
+  senderEmail: string
+  defaultSubject: string
+}): { subject_en: string; content_en: string; content_vi: string } {
+  const signature_en = ["", "Best regards,", ctx.senderName, ctx.exporterCompany, ctx.senderEmail].join("\n")
+  const signature_vi = ["", "Trân trọng,", ctx.senderName, ctx.exporterCompany, ctx.senderEmail].join("\n")
+  return {
+    subject_en: ctx.defaultSubject,
+    content_en: [
+      "Hi,",
+      "",
+      "Thank you for your message. We are reviewing it and will follow up shortly with a full response.",
+      "",
+      "In the meantime, please let us know if you have any additional details to share.",
+      signature_en,
+    ].join("\n"),
+    content_vi: [
+      "Xin chào,",
+      "",
+      "Cảm ơn bạn đã phản hồi. Chúng tôi đang xem xét và sẽ trả lời đầy đủ trong thời gian sớm nhất.",
+      "",
+      "Trong lúc đó, nếu có thêm thông tin nào bạn muốn chia sẻ, xin vui lòng cho chúng tôi biết.",
+      signature_vi,
+    ].join("\n"),
+  }
+}
+
 const outputSchema = z.object({
   subject_en: z
     .string()
@@ -70,6 +225,8 @@ export type GenerateRequirementEmailResult = {
   content_en: string
   content_vi: string
   recipient_email: string | null
+  /** True when the AI Gateway failed/timed out and a static fallback template was used instead. */
+  usedFallback?: boolean
 }
 
 export async function generateRequirementInquiryEmail(
@@ -266,12 +423,31 @@ export async function generateRequirementInquiryEmail(
           } từ Việt Nam không. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này — những điểm đó sẽ hỏi ở bước follow-up sau khi buyer phản hồi đồng ý.`),
   ].join("\n")
 
-  const { experimental_output: generated } = await generateText({
-    model: "openai/gpt-4o-mini",
-    system,
-    prompt: userPrompt,
-    experimental_output: Output.object({ schema: outputSchema }),
-  })
+  let generated: { subject_en: string; content_en: string; content_vi: string }
+  let usedFallback = false
+  try {
+    const { experimental_output } = await withGenerationTimeout(
+      generateText({
+        model: "openai/gpt-4o-mini",
+        system,
+        prompt: userPrompt,
+        experimental_output: Output.object({ schema: outputSchema }),
+      }),
+    )
+    generated = experimental_output
+  } catch (err) {
+    console.error("[v0] generateRequirementInquiryEmail: AI generation failed, using fallback template:", err)
+    usedFallback = true
+    generated = buildFallbackEmail(emailType, {
+      senderName: profile.full_name || "Vexim Trade",
+      exporterCompany: profile.company_name ?? "Vexim Trade",
+      senderEmail: profile.work_email || "trade@veximtrade.com",
+      buyerCompany: lead["company_name"] as string | null,
+      contactPerson: lead["contact_person"] as string | null,
+      industryOrProduct: (lead["industry"] as string | null) || (lead["main_product"] as string | null),
+      shortlistUrl: input.shortlistUrl,
+    })
+  }
 
   const { data: draft, error: draftError } = await supabase
     .from("email_drafts")
@@ -279,7 +455,7 @@ export async function generateRequirementInquiryEmail(
       lead_id: engagement.lead_id,
       engagement_id: input.engagementId,
       email_type: emailType,
-      ai_prompt: input.viPrompt,
+      ai_prompt: usedFallback ? `[FALLBACK TEMPLATE] ${input.viPrompt}` : input.viPrompt,
       generated_subject: generated.subject_en,
       generated_content_en: generated.content_en,
       translated_content_vi: generated.content_vi,
@@ -297,6 +473,7 @@ export async function generateRequirementInquiryEmail(
     content_en: generated.content_en,
     content_vi: generated.content_vi,
     recipient_email: recipient,
+    usedFallback,
   }
 }
 
@@ -307,7 +484,7 @@ export async function generateRequirementInquiryEmail(
 // is a reply within an existing thread, not an opening message: it must be
 // grounded in what the buyer actually asked, and it threads onto their
 // original email (see replyToMessageId in lib/ai/email-sender.ts).
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────��──────────────────────────────────────────────────────────────
 
 const followUpOutputSchema = z.object({
   subject_en: z
@@ -343,6 +520,8 @@ export type GenerateFollowUpReplyResult = {
   /** Pass to sendEmailDraft's replyToMessageId so the send threads correctly. */
   inReplyToMessageId: string | null
   replyId: string
+  /** True when the AI Gateway failed/timed out and a static fallback template was used instead. */
+  usedFallback?: boolean
 }
 
 export async function generateFollowUpReplyEmail(
@@ -480,12 +659,28 @@ export async function generateFollowUpReplyEmail(
     input.viPrompt || "Trả lời đúng trọng tâm câu hỏi/yêu cầu của buyer ở trên.",
   ].join("\n")
 
-  const { experimental_output: generated } = await generateText({
-    model: "openai/gpt-4o-mini",
-    system,
-    prompt: userPrompt,
-    experimental_output: Output.object({ schema: followUpOutputSchema }),
-  })
+  let generated: { subject_en: string; content_en: string; content_vi: string }
+  let usedFallback = false
+  try {
+    const { experimental_output } = await withGenerationTimeout(
+      generateText({
+        model: "openai/gpt-4o-mini",
+        system,
+        prompt: userPrompt,
+        experimental_output: Output.object({ schema: followUpOutputSchema }),
+      }),
+    )
+    generated = experimental_output
+  } catch (err) {
+    console.error("[v0] generateFollowUpReplyEmail: AI generation failed, using fallback template:", err)
+    usedFallback = true
+    generated = buildFallbackFollowUpReply({
+      senderName: profile.full_name || "Vexim Trade",
+      exporterCompany: profile.company_name ?? "Vexim Trade",
+      senderEmail: profile.work_email || "trade@veximtrade.com",
+      defaultSubject,
+    })
+  }
 
   const { data: draft, error: draftError } = await supabase
     .from("email_drafts")
@@ -493,7 +688,7 @@ export async function generateFollowUpReplyEmail(
       lead_id: engagement.lead_id,
       engagement_id: input.engagementId,
       email_type: "follow_up",
-      ai_prompt: input.viPrompt,
+      ai_prompt: usedFallback ? `[FALLBACK TEMPLATE] ${input.viPrompt}` : input.viPrompt,
       generated_subject: generated.subject_en || defaultSubject,
       generated_content_en: generated.content_en,
       translated_content_vi: generated.content_vi,
@@ -513,5 +708,6 @@ export async function generateFollowUpReplyEmail(
     recipient_email: recipient,
     inReplyToMessageId: reply.message_id ?? null,
     replyId: reply.id,
+    usedFallback,
   }
 }

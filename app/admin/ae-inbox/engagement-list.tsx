@@ -879,6 +879,7 @@ function RequirementEmailDialog({
     content_en: string
     content_vi: string
     recipient_email: string | null
+    usedFallback?: boolean
   } | null>(null)
 
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -893,6 +894,14 @@ function RequirementEmailDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -945,6 +954,17 @@ function RequirementEmailDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input
@@ -1024,6 +1044,7 @@ function ReplyFollowUpDialog({
     content_vi: string
     recipient_email: string | null
     inReplyToMessageId: string | null
+    usedFallback?: boolean
   } | null>(null)
 
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -1054,6 +1075,14 @@ function ReplyFollowUpDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -1184,6 +1213,17 @@ function ReplyFollowUpDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input
@@ -1586,6 +1626,7 @@ function SendShortlistDialog({
     subject_en: string
     content_en: string
     recipient_email: string | null
+    usedFallback?: boolean
   } | null>(null)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
@@ -1619,6 +1660,14 @@ function SendShortlistDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -1673,6 +1722,17 @@ function SendShortlistDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input value={draft.subject_en} onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })} />

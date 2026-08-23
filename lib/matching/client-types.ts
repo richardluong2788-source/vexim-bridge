@@ -144,6 +144,15 @@ export const TRUST_SCORE_SHARE = 0.2
 export const MAX_AI_MATCH_RESULTS = 10
 
 /**
+ * finalScore thresholds used purely for AE-facing UI warnings — they do NOT
+ * affect ranking or eligibility. Below LOW, the client is very unlikely to
+ * be a real fit for the buyer's stated requirements; AE should treat these
+ * as "no good match found" rather than a genuine recommendation.
+ */
+export const LOW_MATCH_SCORE_THRESHOLD = 40
+export const MEDIUM_MATCH_SCORE_THRESHOLD = 65
+
+/**
  * Version tag for the buyer↔client scoring engine in this file
  * (client-scorer.ts + these weights). Bump this any time the weights,
  * factor formulas, or eligibility rules change.

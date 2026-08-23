@@ -311,7 +311,7 @@ export const vi: Dictionary = {
 createLinkDesc:
   "Người mua có thể xem tài liệu này qua liên kết mà không cần đăng nhập. Liên kết sẽ tự động hết hạn sau khoảng thời gian bạn chọn.",
 ttlDays: "Số ngày hiệu lực",
-ttlHint: "M��c định là 30 ngày. Sau đó người mua sẽ không thể xem nữa.",
+ttlHint: "Mặc định là 30 ngày. Sau đó người mua sẽ không thể xem nữa.",
 note: "Ghi chú nội bộ (tùy chọn)",
 notePlaceholder: "ví dụ: Gửi cho ABC Corp vào ngày 1 tháng 4",
 cancel: "Hủy",

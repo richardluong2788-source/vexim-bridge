@@ -860,6 +860,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
       buyer_engagement_shortlist_versions (
         id, version_number, status, scoring_engine_version, created_at, sent_at, superseded_at,
         buyer_engagement_shortlist_items ( id, client_id, position, match_score, buyer_interested, buyer_action, buyer_responded_at,
+          total_dwell_ms, first_viewed_at, last_dwell_at,
           profiles:client_id ( id, company_name, full_name ) )
       ),
       shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),

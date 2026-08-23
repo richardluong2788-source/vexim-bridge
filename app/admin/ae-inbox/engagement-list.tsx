@@ -73,6 +73,7 @@ import {
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
+import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,6 +85,7 @@ export type BuyerActionValue =
   | "requested_info"
   | "requested_sample"
   | "requested_meeting"
+  | "requested_order_discussion"
   | "selected_primary"
   | "sent_price_volume"
   | "sent_po"
@@ -96,6 +98,9 @@ interface ShortlistItemRow {
   buyer_interested: boolean | null
   buyer_action: BuyerActionValue | null
   buyer_responded_at: string | null
+  total_dwell_ms: number | null
+  first_viewed_at: string | null
+  last_dwell_at: string | null
   profiles: { id: string; company_name: string | null; full_name: string | null } | null
 }
 
@@ -214,9 +219,29 @@ const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> 
   requested_info: { vi: "Hỏi thêm thông tin", en: "Requested info" },
   requested_sample: { vi: "Yêu cầu mẫu", en: "Requested sample" },
   requested_meeting: { vi: "Yêu cầu họp", en: "Requested meeting" },
+  requested_order_discussion: { vi: "Muốn thảo luận đặt hàng", en: "Wants to discuss an order" },
   selected_primary: { vi: "Chọn làm supplier chính", en: "Selected as primary" },
   sent_price_volume: { vi: "Gửi giá & số lượng", en: "Sent price & volume" },
   sent_po: { vi: "Đã gửi PO", en: "Sent PO" },
+}
+
+function formatDwell(ms: number, locale: "vi" | "en"): string {
+  const totalSeconds = Math.round(ms / 1000)
+  if (totalSeconds < 60) return locale === "vi" ? `${totalSeconds} giây` : `${totalSeconds}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return locale === "vi" ? `${minutes} phút ${seconds}s` : `${minutes}m ${seconds}s`
+}
+
+function formatRelativeTime(dateStr: string, locale: "vi" | "en"): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 1) return locale === "vi" ? "vừa xong" : "just now"
+  if (minutes < 60) return locale === "vi" ? `${minutes} phút trước` : `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return locale === "vi" ? `${hours} giờ trước` : `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return locale === "vi" ? `${days} ngày trước` : `${days}d ago`
 }
 
 export function EngagementList({ engagements, clients, locale }: EngagementListProps) {
@@ -292,6 +317,20 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
             ? eng.shortlist_share_links.find((l) => l.version_id === sentVersion.id) ?? null
             : null
           const interestedCount = shortlist.filter((s) => s.buyer_interested === true).length
+
+          // Which option is winning the buyer's attention, based on
+          // dwell-time on the public shortlist page — useful even when
+          // the buyer never clicks an action button.
+          const topDwell = shortlist.reduce<{ id: string; ms: number } | null>((best, s) => {
+            const ms = s.total_dwell_ms ?? 0
+            if (ms <= 0) return best
+            return !best || ms > best.ms ? { id: s.id, ms } : best
+          }, null)
+          const lastDwellAt = shortlist.reduce<string | null>((latest, s) => {
+            if (!s.last_dwell_at) return latest
+            if (!latest || new Date(s.last_dwell_at).getTime() > new Date(latest).getTime()) return s.last_dwell_at
+            return latest
+          }, null)
 
           const replies = [...(eng.buyer_replies ?? [])].sort(
             (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
@@ -625,30 +664,72 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
                           {t(`${shareLink.view_count} lượt xem`, `${shareLink.view_count} views`)}
+                          {shareLink.last_viewed_at && (
+                            <span>
+                              {" · "}
+                              {t("mở lần cuối", "opened")} {formatRelativeTime(shareLink.last_viewed_at, locale)}
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      {shortlist.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm"
-                        >
-                          <span className="truncate font-medium">
-                            {s.profiles?.company_name || s.profiles?.full_name || "—"}
-                          </span>
-                          {s.buyer_action ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20" variant="outline">
-                              {t(BUYER_ACTION_LABELS[s.buyer_action].vi, BUYER_ACTION_LABELS[s.buyer_action].en)}
-                            </Badge>
-                          ) : s.buyer_interested === false ? (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              {t("Không quan tâm", "Passed")}
-                            </Badge>
-                          ) : null}
-                        </div>
-                      ))}
+                      {shortlist.map((s, idx) => {
+                        const optionLabel = ["A", "B", "C", "D", "E"][idx] ?? String(idx + 1)
+                        const isTopDwell = topDwell && s.id === topDwell.id
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm",
+                              isTopDwell && "border-primary/40 bg-primary/5",
+                            )}
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate font-medium">
+                                <span className="text-muted-foreground font-normal">{optionLabel} · </span>
+                                {s.profiles?.company_name || s.profiles?.full_name || "—"}
+                              </span>
+                              {(s.total_dwell_ms ?? 0) > 0 && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  {t(
+                                    `Xem ${formatDwell(s.total_dwell_ms!, locale)}`,
+                                    `Viewed for ${formatDwell(s.total_dwell_ms!, locale)}`,
+                                  )}
+                                  {isTopDwell && (
+                                    <span className="text-primary font-medium">
+                                      {t(" — chú ý nhất", " — most attention")}
+                                    </span>
+                                  )}
+                                  {s.last_dwell_at && (
+                                    <span>· {formatRelativeTime(s.last_dwell_at, locale)}</span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                            {s.buyer_action ? (
+                              <Badge
+                                className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                variant="outline"
+                              >
+                                {t(BUYER_ACTION_LABELS[s.buyer_action].vi, BUYER_ACTION_LABELS[s.buyer_action].en)}
+                              </Badge>
+                            ) : s.buyer_interested === false ? (
+                              <Badge variant="outline" className="shrink-0 text-muted-foreground">
+                                {t("Không quan tâm", "Passed")}
+                              </Badge>
+                            ) : null}
+                          </div>
+                        )
+                      })}
                     </div>
+                    {lastDwellAt && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("Buyer xem shortlist lần cuối", "Buyer last engaged with the shortlist")}{" "}
+                        {formatRelativeTime(lastDwellAt, locale)}
+                      </p>
+                    )}
                     {shareLink && (
                       <ShareLinkRow locale={locale} token={shareLink.token} />
                     )}
@@ -878,6 +959,7 @@ function RequirementEmailDialog({
     content_en: string
     content_vi: string
     recipient_email: string | null
+    usedFallback?: boolean
   } | null>(null)
 
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -892,6 +974,14 @@ function RequirementEmailDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -944,6 +1034,17 @@ function RequirementEmailDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input
@@ -1023,6 +1124,7 @@ function ReplyFollowUpDialog({
     content_vi: string
     recipient_email: string | null
     inReplyToMessageId: string | null
+    usedFallback?: boolean
   } | null>(null)
 
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -1053,6 +1155,14 @@ function ReplyFollowUpDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -1085,7 +1195,7 @@ function ReplyFollowUpDialog({
           <DialogTitle>{t("Trả lời buyer", "Reply to buyer")}</DialogTitle>
           <DialogDescription>
             {t(
-              "AI sẽ soạn email trả lời đúng nội dung buyer vừa gửi. Bạn có thể chỉnh trước khi gửi.",
+              "AI sẽ soạn email trả lời đúng n���i dung buyer vừa gửi. Bạn có thể chỉnh trước khi gửi.",
               "AI will draft a reply grounded in what the buyer just wrote. Review before sending.",
             )}
           </DialogDescription>
@@ -1183,6 +1293,17 @@ function ReplyFollowUpDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input
@@ -1497,23 +1618,51 @@ function ShortlistBuilderDialog({
         ) : error && matches.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">{error}</p>
         ) : (
-          <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto">
-            {matches.map((m, idx) => (
-              <label
-                key={m.clientId}
-                className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
-              >
-                <Checkbox
-                  checked={selected.has(m.clientId)}
-                  onCheckedChange={() => toggle(m.clientId)}
-                />
-                <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
-                <span className="flex-1 truncate text-sm font-medium">{m.clientName}</span>
-                <Badge variant="outline" className="shrink-0 text-[10px]">
-                  {m.finalScore}
-                </Badge>
-              </label>
-            ))}
+          <div className="flex flex-col gap-2">
+            {matches.length > 0 && matches.every((m) => m.finalScore < LOW_MATCH_SCORE_THRESHOLD) && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "Chưa có supplier nào thực sự phù hợp với nhu cầu buyer (điểm khớp đều dưới " +
+                      LOW_MATCH_SCORE_THRESHOLD +
+                      "/100). Cân nhắc báo buyer chờ thêm thời gian tìm supplier, mở rộng tiêu chí tìm kiếm, hoặc bổ sung supplier mới vào hệ thống trước khi gửi shortlist.",
+                    "No supplier is a strong fit for this buyer's requirements (all match scores are below " +
+                      LOW_MATCH_SCORE_THRESHOLD +
+                      "/100). Consider telling the buyer you need more time to source, broadening the search criteria, or onboarding a new supplier before sending a shortlist.",
+                  )}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto">
+              {matches.map((m, idx) => {
+                const scoreTone =
+                  m.finalScore < LOW_MATCH_SCORE_THRESHOLD
+                    ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+                    : m.finalScore < MEDIUM_MATCH_SCORE_THRESHOLD
+                      ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                return (
+                  <label
+                    key={m.clientId}
+                    className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
+                  >
+                    <Checkbox
+                      checked={selected.has(m.clientId)}
+                      onCheckedChange={() => toggle(m.clientId)}
+                    />
+                    <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
+                    <span className="flex-1 truncate text-sm font-medium">{m.clientName}</span>
+                    {m.finalScore < LOW_MATCH_SCORE_THRESHOLD && (
+                      <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
+                    )}
+                    <Badge variant="outline" className={cn("shrink-0 text-[10px]", scoreTone)}>
+                      {m.finalScore}
+                    </Badge>
+                  </label>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -1557,6 +1706,7 @@ function SendShortlistDialog({
     subject_en: string
     content_en: string
     recipient_email: string | null
+    usedFallback?: boolean
   } | null>(null)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
@@ -1590,6 +1740,14 @@ function SendShortlistDialog({
     if (!result.ok) {
       toast.error(result.message || result.error)
       return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
     }
     setDraft(result.data)
   }
@@ -1644,6 +1802,17 @@ function SendShortlistDialog({
           </div>
         ) : (
           <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
             <div>
               <Label>{t("Chủ đề", "Subject")}</Label>
               <Input value={draft.subject_en} onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })} />

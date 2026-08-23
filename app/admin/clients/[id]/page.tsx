@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
 import { CountryEditDialog } from "@/components/admin/country-edit-dialog"
+import { EmailEditDialog } from "@/components/admin/email-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
@@ -171,6 +172,14 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
               {client.full_name && client.company_name && (
                 <span className="text-muted-foreground/70 ml-1">· {client.full_name}</span>
               )}
+              <EmailEditDialog
+                client={{
+                  id: client.id,
+                  full_name: client.full_name,
+                  company_name: client.company_name,
+                  email: client.email,
+                }}
+              />
             </p>
 
             {/* FDA at-a-glance */}

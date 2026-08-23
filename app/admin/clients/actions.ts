@@ -220,6 +220,116 @@ export async function updateClientCountry(
 }
 
 // ---------------------------------------------------------------------------
+// Update client login email
+// ---------------------------------------------------------------------------
+
+export interface UpdateClientEmailResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Update a client's login email.
+ *
+ * Updates BOTH `auth.users` (via the admin API, so the client can actually
+ * sign in with the new address) and `profiles.email` (so the clients table /
+ * client-card / AI email generator stay in sync) — these two must never
+ * drift apart.
+ *
+ * Security:
+ *   - Caller must be authenticated AND have role admin/staff/super_admin/
+ *     account_executive/lead_researcher/finance (same list as the other
+ *     client-editing actions on this page).
+ *   - Target must have role `client`.
+ *   - Ownership gate: scoped users (AE/Lead Researcher) can only edit
+ *     clients assigned to them.
+ */
+export async function updateClientEmail(
+  clientId: string,
+  email: string,
+): Promise<UpdateClientEmailResult> {
+  const normalized = email.trim().toLowerCase()
+  if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { ok: false, error: "invalidEmail" }
+  }
+
+  // --- AuthZ --------------------------------------------------------------
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "notAuthenticated" }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (
+    !callerProfile ||
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+      callerProfile.role,
+    )
+  ) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const admin = createAdminClient()
+  const { data: target, error: targetErr } = await admin
+    .from("profiles")
+    .select("id, role, email")
+    .eq("id", clientId)
+    .single()
+
+  if (targetErr || !target) return { ok: false, error: "notFound" }
+  if (target.role !== "client") return { ok: false, error: "notAClient" }
+
+  // Ownership gate — scoped users can only edit clients they manage.
+  {
+    const role = normaliseRole(callerProfile.role)
+    if (role) {
+      const scope = ownershipScopeFor(role, user.id)
+      const own = await assertClientOwned(scope, admin, clientId)
+      if (!own.ok) return { ok: false, error: own.error }
+    }
+  }
+
+  if (normalized === target.email) {
+    return { ok: true }
+  }
+
+  // --- Update the auth user first — this is what the client actually
+  // signs in with, and it's the one that can fail with "email_exists".
+  const { error: authErr } = await admin.auth.admin.updateUserById(clientId, {
+    email: normalized,
+    email_confirm: true,
+  })
+
+  if (authErr) {
+    if (/already|exists|registered/i.test(authErr.message)) {
+      return { ok: false, error: "emailExists" }
+    }
+    return { ok: false, error: authErr.message }
+  }
+
+  const { error: profileErr } = await admin
+    .from("profiles")
+    .update({ email: normalized })
+    .eq("id", clientId)
+
+  if (profileErr) {
+    // Best-effort rollback so auth + profile don't drift apart.
+    await admin.auth.admin.updateUserById(clientId, { email: target.email ?? undefined })
+    return { ok: false, error: profileErr.message }
+  }
+
+  revalidatePath("/admin/clients")
+  revalidatePath(`/admin/clients/${clientId}`)
+  return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
 // Delete client
 // ---------------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ import { AlertTriangle, CheckCircle2, XCircle, Building2, Clock, ExternalLink, S
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { FdaEditDialog } from "@/components/admin/fda-edit-dialog"
+import { EmailEditDialog } from "@/components/admin/email-edit-dialog"
 import { AccountManagerSelect, type ManagerOption } from "@/components/admin/account-manager-select"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { GRADE_COLORS } from "@/lib/assessment/scoring"
@@ -36,8 +37,16 @@ interface ClientsTableProps {
   managers: ManagerOption[]
   /** Map of managerId -> label, used to render read-only cells. */
   managerLabels: Record<string, string>
-  /** True when the current viewer has CLIENT_WRITE. */
+  /** True when the current viewer has CLIENT_WRITE + OWNERSHIP_BYPASS (can reassign any client). */
   canAssignManager: boolean
+  /**
+   * True when the current viewer has CLIENT_WRITE — enables editing a
+   * client's own fields (email, FDA, country) on rows they can already
+   * see. The list query itself is already scoped to owned clients for
+   * AE/Lead Researcher, so no extra ownership check is needed here; the
+   * server action re-verifies ownership regardless.
+   */
+  canEditClient: boolean
   /** True when the current viewer is super_admin — enables the delete button. */
   isSuperAdmin?: boolean
   /** Map client_id -> assessment score/grade. */
@@ -49,6 +58,7 @@ export function ClientsTable({
   managers,
   managerLabels,
   canAssignManager,
+  canEditClient,
   isSuperAdmin = false,
   assessmentMap = {},
 }: ClientsTableProps) {
@@ -142,7 +152,21 @@ export function ClientsTable({
                   </div>
                 </Link>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{client.email}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <span className="truncate max-w-[180px]">{client.email}</span>
+                  {canEditClient && (
+                    <EmailEditDialog
+                      client={{
+                        id: client.id,
+                        full_name: client.full_name,
+                        company_name: client.company_name,
+                        email: client.email,
+                      }}
+                    />
+                  )}
+                </div>
+              </TableCell>
               <TableCell className="text-sm">
                 <IndustriesCell
                   industries={client.industries}

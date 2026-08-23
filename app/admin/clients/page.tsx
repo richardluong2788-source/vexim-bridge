@@ -48,6 +48,10 @@ export default async function AdminClientsPage() {
   // Only roles with OWNERSHIP_BYPASS may reassign — see
   // setAccountManager() server action for the matching server-side check.
   const canAssignManager = canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
+  // The clients query below is already scoped to owned clients for
+  // AE/Lead Researcher, so CLIENT_WRITE alone is enough to let them edit
+  // fields (email, FDA, country) on the rows they can see.
+  const canEditClient = can(role, CAPS.CLIENT_WRITE)
   const isSuperAdmin = role === "super_admin"
   // AEs can create clients (they will auto-become account manager)
   const canCreateClient = can(role, CAPS.CLIENT_WRITE) || role === "account_executive"
@@ -147,6 +151,7 @@ export default async function AdminClientsPage() {
         managers={managers}
         managerLabels={managerLabels}
         canAssignManager={canAssignManager}
+        canEditClient={canEditClient}
         isSuperAdmin={isSuperAdmin}
         assessmentMap={assessmentMap}
       />

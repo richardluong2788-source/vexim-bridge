@@ -10,13 +10,15 @@ import {
   CheckCircle2,
   Mail,
   Building2,
-  Package
+  Package,
+  Globe
 } from "lucide-react"
 import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
 import { ProductMarkdown } from "@/components/product"
+import { InfoTile, ProductOrderTradeInfo, ProductPackagingAndSpecs } from "@/components/product"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -204,7 +206,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
             )}
 
             {/* Quick Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {typedProduct.monthly_capacity_units && (
                 <div className="bg-background border rounded-lg p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -227,7 +229,21 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                   </p>
                 </div>
               )}
+              {typedProduct.country_of_origin && (
+                <div className="bg-background border rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Globe className="w-4 h-4" />
+                    <span className="text-xs font-medium uppercase tracking-wide">Origin</span>
+                  </div>
+                  <p className="text-lg font-semibold">
+                    {typedProduct.country_of_origin}
+                  </p>
+                </div>
+              )}
             </div>
+
+            {/* Order & Trade Terms */}
+            <ProductOrderTradeInfo product={typedProduct} />
 
             {/* Certifications */}
             {typedProduct.compliance_badges && typedProduct.compliance_badges.length > 0 && (
@@ -291,7 +307,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
         </div>
 
         {/* Description & USP Section */}
-        {(typedProduct.description || typedProduct.usp) && (
+        {(typedProduct.description || typedProduct.usp || typedProduct.key_specifications || typedProduct.packing || typedProduct.package_size || typedProduct.shelf_life || typedProduct.storage_conditions || typedProduct.private_label_available) && (
           <div className="mt-12 pt-8 border-t space-y-10">
             {typedProduct.description && (
               <div>
@@ -306,6 +322,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 <ProductMarkdown content={typedProduct.usp} />
               </div>
             )}
+
+            <ProductPackagingAndSpecs product={typedProduct} />
           </div>
         )}
       </div>

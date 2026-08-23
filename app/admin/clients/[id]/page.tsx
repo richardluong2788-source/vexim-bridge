@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck, UserCircle, Globe, ExternalLink } from "lucide-react"
+import { ArrowLeft, Building2, Mail, Briefcase, Star, TrendingUp, Package, ShieldCheck, UserCircle, Globe, ExternalLink, Activity } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { CountryEditDialog } from "@/components/admin/country-edit-dialog"
 import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-workspace"
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
+import { ClientBlackboxPanel } from "@/components/admin/clients/client-blackbox-panel"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, canAny } from "@/lib/auth/permissions"
@@ -21,7 +22,7 @@ import { AdminClientProfileTab } from "@/components/admin/admin-client-profile-t
 
 interface PageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ perfPeriod?: string }>
+  searchParams: Promise<{ perfPeriod?: string; bbPeriod?: string }>
 }
 
 export default async function AdminClientDetailPage({ params, searchParams }: PageProps) {
@@ -273,12 +274,18 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
 
         return (
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
+            <TabsList className="grid w-full grid-cols-5 sm:inline-flex sm:w-auto">
               {showPerf && (
                 <TabsTrigger value="performance" className="gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">{tabsCopy.performance}</span>
                   <span className="sm:hidden">{tabsCopy.performance}</span>
+                </TabsTrigger>
+              )}
+              {showPerf && (
+                <TabsTrigger value="blackbox" className="gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  <span>Hộp đen</span>
                 </TabsTrigger>
               )}
               <TabsTrigger value="products" className="gap-1.5">
@@ -300,6 +307,16 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
                 <ClientPerformanceCard
                   clientId={client.id}
                   perfPeriodRaw={sp.perfPeriod}
+                  basePath={`/admin/clients/${client.id}`}
+                />
+              </TabsContent>
+            )}
+
+            {showPerf && (
+              <TabsContent value="blackbox" className="mt-4">
+                <ClientBlackboxPanel
+                  clientId={client.id}
+                  bbPeriodRaw={sp.bbPeriod}
                   basePath={`/admin/clients/${client.id}`}
                 />
               </TabsContent>

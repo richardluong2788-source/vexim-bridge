@@ -2,12 +2,10 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { X, FileCheck, ExternalLink, Copy, Check, ShieldCheck } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { ChevronLeft, ChevronRight, FileCheck, Copy, Check, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { privateFileHref } from "@/lib/blob/file-url"
-import type { ClientProfileWithRelations, ComplianceDoc } from "@/lib/supabase/types"
+import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileCertificationsProps {
   profile: ClientProfileWithRelations
@@ -39,11 +37,18 @@ function CopyCode({ code }: { code: string }) {
 }
 
 export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
-  const [selectedDoc, setSelectedDoc] = useState<ComplianceDoc | null>(null)
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const certifications = profile.certifications || []
 
   if (certifications.length === 0) return null
+
+  const showPrevious = () =>
+    setActiveIndex((index) => (index === null ? null : (index - 1 + certifications.length) % certifications.length))
+  const showNext = () =>
+    setActiveIndex((index) => (index === null ? null : (index + 1) % certifications.length))
+
+  const selectedDoc = activeIndex !== null ? certifications[activeIndex] : null
 
   return (
     <section className="py-12 sm:py-16 bg-muted/30">
@@ -53,7 +58,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
         </h2>
 
         <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto">
-          {certifications.map((doc) => {
+          {certifications.map((doc, index) => {
             const fileUrl = privateFileHref(doc.url)
             const isImage = doc.mime_type?.startsWith("image/")
             const code = doc.notes?.trim()
@@ -61,8 +66,8 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
             return (
               <button
                 key={doc.id}
-                onClick={() => setSelectedDoc(doc)}
-                className="group w-40 sm:w-44 text-left cursor-pointer"
+                onClick={() => setActiveIndex(index)}
+                className="group w-40 sm:w-44 text-left cursor-zoom-in"
               >
                 {/* Document preview */}
                 <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-white border border-border group-hover:border-accent/50 group-hover:shadow-md transition-all">
@@ -104,69 +109,56 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
         </div>
 
         {/* Lightbox Dialog */}
-        <Dialog open={!!selectedDoc} onOpenChange={() => setSelectedDoc(null)}>
-          <DialogContent className="max-w-3xl p-0 overflow-hidden">
-            <DialogTitle className="sr-only">
-              {selectedDoc?.title || "Certificate"}
-            </DialogTitle>
-            {selectedDoc && (
-              <div className="relative">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div>
-                    <h3 className="font-semibold">{selectedDoc.title || "Certificate"}</h3>
-                    <Badge variant="outline" className="mt-1">
-                      {kindLabels[selectedDoc.kind] || selectedDoc.kind}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {privateFileHref(selectedDoc.url) && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a
-                          href={privateFileHref(selectedDoc.url)!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Open
-                        </a>
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSelectedDoc(null)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="relative aspect-[4/3] bg-muted">
-                  {selectedDoc.mime_type?.startsWith("image/") &&
-                  privateFileHref(selectedDoc.url) ? (
+        <Dialog open={activeIndex !== null} onOpenChange={(open) => !open && setActiveIndex(null)}>
+          <DialogContent className="max-w-6xl border-border bg-background p-3 sm:p-5">
+            <DialogTitle className="sr-only">{selectedDoc?.title || "Certificate"}</DialogTitle>
+            <div className="relative flex min-h-[50vh] items-center justify-center rounded-lg bg-muted/30">
+              {selectedDoc && (
+                <>
+                  {selectedDoc.mime_type?.startsWith("image/") && privateFileHref(selectedDoc.url) ? (
                     <Image
                       src={privateFileHref(selectedDoc.url)!}
                       alt={selectedDoc.title || "Certificate"}
-                      fill
-                      className="object-contain"
+                      width={1600}
+                      height={1200}
+                      className="max-h-[75vh] w-auto max-w-full object-contain"
                     />
-                  ) : selectedDoc.mime_type === "application/pdf" ? (
+                  ) : selectedDoc.mime_type === "application/pdf" && privateFileHref(selectedDoc.url) ? (
                     <iframe
                       src={privateFileHref(selectedDoc.url)!}
-                      className="w-full h-full min-h-[500px]"
+                      className="w-full h-[75vh]"
                       title={selectedDoc.title || "Document"}
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
+                    <div className="flex flex-col items-center justify-center py-16">
                       <FileCheck className="w-16 h-16 text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">Document preview not available</p>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
+
+                  {certifications.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={showPrevious}
+                        aria-label="Previous certificate"
+                        className="absolute left-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={showNext}
+                        aria-label="Next certificate"
+                        className="absolute right-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>

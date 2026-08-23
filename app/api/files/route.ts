@@ -23,6 +23,12 @@
  *         to them: `clients/<their uuid>/...` OR pathnames belonging to
  *         a deal on an opportunity they own (checked via DB).
  *
+ *  3. Otherwise, allow anonymous access when the file is a compliance
+ *     doc that a client has explicitly chosen to feature on their
+ *     *published* public profile (`/profile/[slug]`, no login required)
+ *     — e.g. FDA cert / HACCP thumbnails shown under "Certifications &
+ *     Compliance". Same kind whitelist as share links applies.
+ *
  *  On success we stream the blob with an ETag + `Cache-Control: private,
  *  no-cache` — the browser caches bytes but always revalidates. When the
  *  client sends `If-None-Match`, we pass it through and respond 304 if
@@ -71,7 +77,7 @@ export async function GET(request: NextRequest) {
 
   const authorized = token
     ? await authorizeViaShareToken(token, path)
-    : await authorizeViaSession(path)
+    : (await authorizeViaSession(path)) || (await authorizeViaPublicProfile(path))
 
   if (!authorized) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 })
@@ -190,6 +196,33 @@ async function authorizeViaShareToken(
   }
 
   return false
+}
+
+// Public, unauthenticated fallback: a compliance doc is viewable if it
+// is on the public-safe kind whitelist AND some *published* client
+// profile lists it in `featured_certifications`. This lets visitors
+// who aren't logged in (and don't have a share token) see the
+// certificate thumbnails on a supplier's public profile page.
+async function authorizeViaPublicProfile(path: string): Promise<boolean> {
+  const admin = createAdminClient()
+
+  const { data: doc } = await admin
+    .from("compliance_docs")
+    .select("id, kind")
+    .eq("url", path)
+    .maybeSingle()
+
+  if (!doc) return false
+  if (!PUBLICLY_SHAREABLE_KINDS.has(doc.kind)) return false
+
+  const { data: profile } = await admin
+    .from("client_profiles")
+    .select("id")
+    .eq("is_published", true)
+    .contains("featured_certifications", [doc.id])
+    .maybeSingle()
+
+  return !!profile
 }
 
 async function authorizeViaSession(path: string): Promise<boolean> {

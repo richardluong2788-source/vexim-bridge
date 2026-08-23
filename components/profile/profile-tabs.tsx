@@ -140,7 +140,7 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
   const certifications = profile.certifications || []
   const uspPoints = profile.usp_points || []
 
-  const yearsOnVexim = (() => {
+  const exportExperience = (() => {
     const startYear = capability?.export_since_year || new Date(profile.created_at).getFullYear()
     const years = new Date().getFullYear() - startYear
     return years > 0 ? `${years} ${years === 1 ? "year" : "years"}` : undefined
@@ -166,7 +166,7 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
               )}
               <InfoRow label="Location" value={profile.profiles.country ?? undefined} />
               <InfoRow label="Exporting Since" value={capability?.export_since_year ?? undefined} />
-              <InfoRow label="Years on Vexim" value={yearsOnVexim} />
+              <InfoRow label="Export Experience" value={exportExperience} />
               <InfoRow label="Company Scale" value={capability?.company_scale ?? undefined} />
               <ChipsRow
                 label="Highlights"

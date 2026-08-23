@@ -42,7 +42,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
   const isVerified = Boolean(profile.profiles.is_verified)
   const location = profile.profiles.country
 
-  const yearsOnVexim = (() => {
+  const exportExperienceYears = (() => {
     const startYear = capability?.export_since_year || new Date(profile.created_at).getFullYear()
     const years = new Date().getFullYear() - startYear
     return years > 0 ? years : null
@@ -116,10 +116,11 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                         {location}
                       </span>
                     )}
-                    {yearsOnVexim && (
+                    {exportExperienceYears && (
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="w-4 h-4" />
-                        {yearsOnVexim} {yearsOnVexim === 1 ? "year" : "years"} on Vexim
+                        {exportExperienceYears}{" "}
+                        {exportExperienceYears === 1 ? "year" : "years"} of export experience
                       </span>
                     )}
                     {companyScale && (

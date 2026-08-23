@@ -307,7 +307,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
         </div>
 
         {/* Description & USP Section */}
-        {(typedProduct.description || typedProduct.usp) && (
+        {(typedProduct.description || typedProduct.usp || typedProduct.key_specifications || typedProduct.packing || typedProduct.package_size || typedProduct.shelf_life || typedProduct.storage_conditions || typedProduct.private_label_available) && (
           <div className="mt-12 pt-8 border-t space-y-10">
             {typedProduct.description && (
               <div>
@@ -322,6 +322,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 <ProductMarkdown content={typedProduct.usp} />
               </div>
             )}
+
+            <ProductPackagingAndSpecs product={typedProduct} />
           </div>
         )}
       </div>

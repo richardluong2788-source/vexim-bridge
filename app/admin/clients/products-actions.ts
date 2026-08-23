@@ -1,7 +1,73 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { can, CAPS, normaliseRole } from '@/lib/auth/permissions';
+import { ownershipScopeFor, assertClientOwned } from '@/lib/auth/scope';
 import { redirect } from 'next/navigation';
+
+type AdminSB = ReturnType<typeof createAdminClient>;
+
+/**
+ * Resolve the current authenticated user + their normalised role, using the
+ * service-role client for the profile lookup (avoids RLS recursion on
+ * `profiles`, same pattern as lib/auth/guard.ts).
+ */
+async function resolveActor(): Promise<
+  | { ok: true; userId: string; role: ReturnType<typeof normaliseRole>; admin: AdminSB }
+  | { ok: false; error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { ok: false, error: 'Not authenticated' };
+  }
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const role = normaliseRole(profile?.role ?? null);
+
+  return { ok: true, userId: user.id, role, admin };
+}
+
+/**
+ * Verify the caller may write products for `clientId`.
+ * - The client themselves (self-service portal) may always write their own products.
+ * - Staff roles need CAPS.CLIENT_WRITE (super_admin, admin, account_executive) AND,
+ *   unless they have OWNERSHIP_BYPASS, must own the client
+ *   (profiles.account_manager_id === userId) — see lib/auth/scope.ts.
+ */
+async function assertProductWriteAccess(
+  admin: AdminSB,
+  userId: string,
+  role: ReturnType<typeof normaliseRole>,
+  clientId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (userId === clientId) {
+    return { ok: true };
+  }
+
+  if (!role || !can(role, CAPS.CLIENT_WRITE)) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+
+  const scope = ownershipScopeFor(role, userId);
+  const owned = await assertClientOwned(scope, admin, clientId);
+  if (!owned.ok) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+
+  return { ok: true };
+}
 
 export interface ClientProduct {
   id: string;
@@ -81,34 +147,20 @@ export async function addClientProductAction(
     private_label_notes?: string;
   }
 ) {
-  const supabase = await createClient();
-
-  // Get current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { success: false, error: 'Not authenticated' };
+  const actor = await resolveActor();
+  if (!actor.ok) {
+    return { success: false, error: actor.error };
   }
+  const { userId, role, admin } = actor;
 
-  // Verify user has permission (is admin/staff or the client themselves)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'staff' || profile?.role === 'super_admin';
-  const isOwnClient = user.id === clientId;
-
-  if (!isAdmin && !isOwnClient) {
-    return { success: false, error: 'Unauthorized' };
+  // Verify user has permission (is staff with CLIENT_WRITE + ownership, or the client themselves)
+  const access = await assertProductWriteAccess(admin, userId, role, clientId);
+  if (!access.ok) {
+    return { success: false, error: access.error };
   }
 
   // Insert product
-  const { data: product, error } = await supabase
+  const { data: product, error } = await admin
     .from('client_products')
     .insert([
       {
@@ -145,7 +197,7 @@ export async function addClientProductAction(
         storage_conditions: data.storage_conditions || null,
         private_label_available: data.private_label_available ?? false,
         private_label_notes: data.private_label_notes || null,
-        created_by: user.id,
+        created_by: userId,
       },
     ])
     .select()
@@ -157,11 +209,11 @@ export async function addClientProductAction(
   }
 
   // Log activity
-  await supabase.from('activities').insert([
+  await admin.from('activities').insert([
     {
       action_type: 'client_product_added',
       description: `Product "${data.product_name}" added to client ${clientId}`,
-      performed_by: user.id,
+      performed_by: userId,
     },
   ]);
 
@@ -205,20 +257,15 @@ export async function updateClientProductAction(
     private_label_available: boolean;
     private_label_notes: string;
   }>
-) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { success: false, error: 'Not authenticated' };
+  ) {
+  const actor = await resolveActor();
+  if (!actor.ok) {
+    return { success: false, error: actor.error };
   }
+  const { userId, role, admin } = actor;
 
   // Get product to check permissions
-  const { data: product } = await supabase
+  const { data: product } = await admin
     .from('client_products')
     .select('client_id')
     .eq('id', productId)
@@ -228,98 +275,77 @@ export async function updateClientProductAction(
     return { success: false, error: 'Product not found' };
   }
 
-  // Check permissions
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'staff' || profile?.role === 'super_admin';
-  const isOwnProduct = user.id === product.client_id;
-
-  if (!isAdmin && !isOwnProduct) {
-    return { success: false, error: 'Unauthorized' };
+  // Verify user has permission (is staff with CLIENT_WRITE + ownership, or the client themselves)
+  const access = await assertProductWriteAccess(admin, userId, role, product.client_id);
+  if (!access.ok) {
+    return { success: false, error: access.error };
   }
 
   // Update product
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await admin
     .from('client_products')
     .update(data)
     .eq('id', productId)
     .select()
     .single();
-
+  
   if (error) {
     console.error('[v0] updateClientProductAction error:', error);
     return { success: false, error: error.message };
   }
 
   // Log activity
-  await supabase.from('activities').insert([
-    {
-      action_type: 'client_product_updated',
-      description: `Product "${data.product_name || 'Unknown'}" updated`,
-      performed_by: user.id,
-    },
+  await admin.from('activities').insert([
+  {
+  action_type: 'client_product_updated',
+  description: `Product "${data.product_name || 'Unknown'}" updated`,
+  performed_by: userId,
+  },
   ]);
-
+  
   return { success: true, data: updated };
-}
-
-// Delete a client product
-export async function deleteClientProductAction(productId: string) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { success: false, error: 'Not authenticated' };
   }
-
+  
+  // Delete a client product
+  export async function deleteClientProductAction(productId: string) {
+  const actor = await resolveActor();
+  if (!actor.ok) {
+    return { success: false, error: actor.error };
+  }
+  const { userId, role, admin } = actor;
+  
   // Get product to check permissions
-  const { data: product } = await supabase
-    .from('client_products')
-    .select('client_id, product_name')
-    .eq('id', productId)
-    .single();
-
+  const { data: product } = await admin
+  .from('client_products')
+  .select('client_id, product_name')
+  .eq('id', productId)
+  .single();
+  
   if (!product) {
-    return { success: false, error: 'Product not found' };
+  return { success: false, error: 'Product not found' };
   }
-
-  // Check permissions
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'staff' || profile?.role === 'super_admin';
-  const isOwnProduct = user.id === product.client_id;
-
-  if (!isAdmin && !isOwnProduct) {
-    return { success: false, error: 'Unauthorized' };
+  
+  // Verify user has permission (is staff with CLIENT_WRITE + ownership, or the client themselves)
+  const access = await assertProductWriteAccess(admin, userId, role, product.client_id);
+  if (!access.ok) {
+  return { success: false, error: access.error };
   }
-
+  
   // Delete product
-  const { error } = await supabase.from('client_products').delete().eq('id', productId);
-
+  const { error } = await admin.from('client_products').delete().eq('id', productId);
+  
   if (error) {
-    console.error('[v0] deleteClientProductAction error:', error);
-    return { success: false, error: error.message };
+  console.error('[v0] deleteClientProductAction error:', error);
+  return { success: false, error: error.message };
   }
-
+  
   // Log activity
-  await supabase.from('activities').insert([
-    {
-      action_type: 'client_product_deleted',
-      description: `Product "${product.product_name}" deleted`,
-      performed_by: user.id,
-    },
+  await admin.from('activities').insert([
+  {
+  action_type: 'client_product_deleted',
+  description: `Product "${product.product_name}" deleted`,
+  performed_by: userId,
+  },
   ]);
 
   return { success: true };
@@ -335,14 +361,31 @@ export async function listClientProductsAction(
     min_capacity?: number;
     search?: string;
   }
-) {
-  const supabase = await createClient();
+  ) {
+  const actor = await resolveActor();
+  if (!actor.ok) {
+    return { success: false, error: actor.error, data: [] };
+  }
+  const { userId, role, admin } = actor;
 
-  let query = supabase
-    .from('client_products')
-    .select('*')
-    .eq('client_id', clientId);
+  // The client may always list their own products; staff need CLIENT_VIEW
+  // and, unless they have OWNERSHIP_BYPASS, must own the client.
+  if (userId !== clientId) {
+    if (!role || !can(role, CAPS.CLIENT_VIEW)) {
+      return { success: false, error: 'Unauthorized', data: [] };
+    }
+    const scope = ownershipScopeFor(role, userId);
+    const owned = await assertClientOwned(scope, admin, clientId);
+    if (!owned.ok) {
+      return { success: false, error: 'Unauthorized', data: [] };
+    }
+  }
 
+  let query = admin
+  .from('client_products')
+  .select('*')
+  .eq('client_id', clientId);
+  
   if (filters?.category) {
     query = query.eq('category', filters.category);
   }
@@ -386,32 +429,19 @@ export async function searchClientProductsAction(filters: {
   search?: string;
   limit?: number;
   offset?: number;
-}) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { success: false, error: 'Not authenticated', data: [] };
+  }) {
+  const actor = await resolveActor();
+  if (!actor.ok) {
+    return { success: false, error: actor.error, data: [] };
   }
+  const { role, admin } = actor;
 
-  // Verify user is admin or staff
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'staff' || profile?.role === 'super_admin';
-
-  if (!isAdmin) {
-    return { success: false, error: 'Unauthorized', data: [] };
+  // Verify user has read access to client product data.
+  if (!role || !can(role, CAPS.CLIENT_VIEW)) {
+  return { success: false, error: 'Unauthorized', data: [] };
   }
-
-  let query = supabase.from('client_products').select(
+  
+  let query = admin.from('client_products').select(
     `
       *,
       profiles:client_id (

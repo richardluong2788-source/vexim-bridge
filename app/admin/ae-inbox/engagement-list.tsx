@@ -145,6 +145,8 @@ export interface Engagement {
   payment_terms: string | null
   packaging_requirements: string | null
   other_requirements: string | null
+  contact_channel: string | null
+  contact_channel_note: string | null
   created_at: string
   updated_at: string
   leads: {
@@ -196,6 +198,14 @@ const REPLY_INTENT_META: Record<
   objection: { vi: "Phản đối / lo ngại", en: "Objection", icon: AlertTriangle, tone: "bg-destructive/10 text-destructive border-destructive/30" },
   closing_signal: { vi: "Có dấu hiệu chốt đơn", en: "Closing signal", icon: Handshake, tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
   general: { vi: "Chung", en: "General", icon: MessageSquareText, tone: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+}
+
+const CONTACT_CHANNEL_LABELS: Record<string, { vi: string; en: string }> = {
+  system_email: { vi: "Email trong hệ thống", en: "In-system email" },
+  linkedin: { vi: "LinkedIn", en: "LinkedIn" },
+  whatsapp: { vi: "WhatsApp", en: "WhatsApp" },
+  phone: { vi: "Điện thoại", en: "Phone" },
+  other: { vi: "Khác", en: "Other" },
 }
 
 const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> = {
@@ -648,10 +658,21 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                 {/* Stage actions */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {eng.stage === "claimed" && (
-                    <Button size="sm" className="gap-2" onClick={() => setReqEmailDialogFor(eng)}>
-                      <Mail className="h-4 w-4" />
-                      {t("Soạn email mở đầu", "Draft opening email")}
-                    </Button>
+                    <>
+                      <Button size="sm" className="gap-2" onClick={() => setReqEmailDialogFor(eng)}>
+                        <Mail className="h-4 w-4" />
+                        {t("Soạn email mở đầu", "Draft opening email")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setReqFormDialogFor(eng)}
+                      >
+                        <ClipboardList className="h-4 w-4" />
+                        {t("Đã liên hệ ngoài hệ thống — ghi nhận nhu cầu", "Contacted outside the system — record requirements")}
+                      </Button>
+                    </>
                   )}
                   {eng.stage === "requirement_email_sent" && (
                     <Button size="sm" className="gap-2" onClick={() => setReqFormDialogFor(eng)}>
@@ -1115,7 +1136,7 @@ function ReplyFollowUpDialog({
                     className="h-7 gap-1.5 px-2 text-xs"
                     onClick={() =>
                       setViPrompt(
-                        "Cảm ơn buyer đã quan tâm và phản hồi. Hỏi cụ thể để nắm yêu cầu chi tiết: 1) sản phẩm/spec cụ thể cần, 2) khoảng giá mục tiêu, 3) MOQ (số lượng đặt hàng tối thiểu), 4) điều kiện thanh toán mong muốn, 5) yêu cầu về bao bì/đóng gói, 6) các yêu cầu khác nếu có. Giữ giọng văn thân thiện, dễ trả lời theo từng điểm.",
+                        "Cảm ơn buyer đã quan tâm và phản hồi. Hỏi cụ thể để nắm yêu cầu chi tiết: 1) sản phẩm/spec cụ thể cần, 2) khoảng giá mục tiêu, 3) MOQ (số lượng đặt hàng tối thiểu), 4) điều kiện thanh toán mong muốn, 5) yêu cầu v�� bao bì/đóng gói, 6) các yêu cầu khác nếu có. Giữ giọng văn thân thiện, dễ trả lời theo từng điểm.",
                       )
                     }
                   >
@@ -1233,11 +1254,27 @@ function RequirementFormDialog({
     paymentTerms: engagement.payment_terms ?? "",
     packagingRequirements: engagement.packaging_requirements ?? "",
     otherRequirements: engagement.other_requirements ?? "",
+    contactChannel: (engagement.contact_channel as SaveRequirementsInput["contactChannel"]) ?? undefined,
+    contactChannelNote: engagement.contact_channel_note ?? "",
   })
   const [saving, setSaving] = useState(false)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
+  // Only ask "how did you reach the buyer" when it isn't known yet.
+  // Once the in-system email step ran (or a channel was already
+  // recorded), it's implicit — don't ask again.
+  const needsContactChannel = !engagement.contact_channel && engagement.stage === "claimed"
+
   const handleSave = async () => {
+    if (needsContactChannel && !form.contactChannel) {
+      toast.error(
+        t(
+          "Vui lòng chọn kênh đã liên hệ với buyer",
+          "Please select how you reached the buyer",
+        ),
+      )
+      return
+    }
     setSaving(true)
     const result = await saveBuyerRequirements({ engagementId: engagement.id, ...form })
     setSaving(false)
@@ -1262,6 +1299,47 @@ function RequirementFormDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {needsContactChannel ? (
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <Label>
+                {t("Bạn đã liên hệ với buyer qua đâu?", "How did you reach the buyer?")}
+              </Label>
+              <Select
+                value={form.contactChannel}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, contactChannel: v as SaveRequirementsInput["contactChannel"] }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("Chọn kênh liên hệ", "Select a channel")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="linkedin">{CONTACT_CHANNEL_LABELS.linkedin[locale]}</SelectItem>
+                  <SelectItem value="whatsapp">{CONTACT_CHANNEL_LABELS.whatsapp[locale]}</SelectItem>
+                  <SelectItem value="phone">{CONTACT_CHANNEL_LABELS.phone[locale]}</SelectItem>
+                  <SelectItem value="other">{CONTACT_CHANNEL_LABELS.other[locale]}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder={t(
+                  "Ghi chú (VD: link LinkedIn, số điện thoại)",
+                  "Note (e.g. LinkedIn profile, phone number)",
+                )}
+                value={form.contactChannelNote}
+                onChange={(e) => setForm((f) => ({ ...f, contactChannelNote: e.target.value }))}
+              />
+            </div>
+          ) : (
+            engagement.contact_channel && (
+              <p className="text-xs text-muted-foreground">
+                {t("Đã liên hệ qua: ", "Contacted via: ")}
+                <span className="text-foreground font-medium">
+                  {CONTACT_CHANNEL_LABELS[engagement.contact_channel]?.[locale] ?? engagement.contact_channel}
+                </span>
+                {engagement.contact_channel_note ? ` — ${engagement.contact_channel_note}` : ""}
+              </p>
+            )
+          )}
           <div>
             <Label>{t("Sản phẩm / quy cách", "Product / spec")}</Label>
             <Textarea

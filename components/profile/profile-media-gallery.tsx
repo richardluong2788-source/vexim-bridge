@@ -2,9 +2,8 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight, Expand, Factory, Play, ShieldCheck } from "lucide-react"
+import { ChevronLeft, ChevronRight, Factory, Play, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileMediaGalleryProps {
@@ -56,6 +55,10 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
 
   const [activeIndex, setActiveIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+
+  const showPrevious = () => setActiveIndex((index) => (index - 1 + items.length) % items.length)
+  const showNext = () => setActiveIndex((index) => (index + 1) % items.length)
 
   if (items.length === 0) return null
 
@@ -69,7 +72,19 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
   return (
     <div className="flex flex-col gap-2.5">
       {/* Main viewer */}
-      <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted border border-border">
+      <div
+        role="button"
+        tabIndex={isPlaying ? -1 : 0}
+        onClick={() => !isPlaying && setIsLightboxOpen(true)}
+        onKeyDown={(event) => {
+          if (!isPlaying && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault()
+            setIsLightboxOpen(true)
+          }
+        }}
+        className={`relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-muted border border-border text-left ${!isPlaying ? "cursor-zoom-in" : ""}`}
+        aria-label="Open factory media full screen"
+      >
         {isVerified && (
           <div className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-md bg-foreground/85 px-2 py-1 text-xs font-medium text-background">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -156,6 +171,43 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
           ))}
         </div>
       )}
+
+      <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
+        <DialogContent className="max-w-6xl border-border bg-background p-3 sm:p-5">
+          <DialogTitle className="sr-only">Factory media preview</DialogTitle>
+          <div className="relative flex min-h-[50vh] items-center justify-center rounded-lg bg-muted/30">
+            {active.type === "image" ? (
+              <Image
+                src={active.url || "/placeholder.svg"}
+                alt="Factory"
+                width={1600}
+                height={1200}
+                className="max-h-[75vh] w-auto max-w-full object-contain"
+              />
+            ) : youtubeId ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
+                title="Factory Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="aspect-video w-full"
+              />
+            ) : (
+              <video src={active.url} controls autoPlay className="max-h-[75vh] max-w-full" />
+            )}
+            {items.length > 1 && (
+              <>
+                <button type="button" onClick={showPrevious} aria-label="Previous factory media" className="absolute left-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button type="button" onClick={showNext} aria-label="Next factory media" className="absolute right-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

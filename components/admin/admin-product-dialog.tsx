@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MarkdownTextarea } from '@/components/admin/markdown-textarea';
 import {
   Select,
   SelectContent,
@@ -399,11 +399,11 @@ export function AdminProductDialog({
 
             <div className="space-y-2">
               <Label htmlFor="description">Mô tả</Label>
-              <Textarea
+              <MarkdownTextarea
                 id="description"
                 name="description"
                 value={formData.description}
-                onChange={handleInputChange}
+                onChange={(value) => setFormData((prev) => ({ ...prev, description: value }))}
                 placeholder="Mô tả chi tiết về sản phẩm"
                 rows={3}
               />
@@ -437,11 +437,11 @@ export function AdminProductDialog({
 
             <div className="space-y-2">
               <Label htmlFor="usp">Điểm bán hàng nổi bật (USP)</Label>
-              <Textarea
+              <MarkdownTextarea
                 id="usp"
                 name="usp"
                 value={formData.usp}
-                onChange={handleInputChange}
+                onChange={(value) => setFormData((prev) => ({ ...prev, usp: value }))}
                 placeholder="VD: Canh tác bền vững, truy xuất nguồn gốc trực tiếp từ nông trại, giá cạnh tranh so với thị trường"
                 rows={2}
               />

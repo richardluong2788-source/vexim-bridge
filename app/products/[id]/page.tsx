@@ -16,6 +16,7 @@ import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
+import { ProductMarkdown } from "@/components/product"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -289,13 +290,22 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* Description Section */}
-        {typedProduct.description && (
-          <div className="mt-12 pt-8 border-t">
-            <h2 className="text-xl font-semibold mb-4">Product Description</h2>
-            <div className="prose prose-sm max-w-none text-muted-foreground">
-              <p className="whitespace-pre-wrap leading-relaxed">{typedProduct.description}</p>
-            </div>
+        {/* Description & USP Section */}
+        {(typedProduct.description || typedProduct.usp) && (
+          <div className="mt-12 pt-8 border-t space-y-10">
+            {typedProduct.description && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Product Description</h2>
+                <ProductMarkdown content={typedProduct.description} />
+              </div>
+            )}
+
+            {typedProduct.usp && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Key Highlights</h2>
+                <ProductMarkdown content={typedProduct.usp} />
+              </div>
+            )}
           </div>
         )}
       </div>

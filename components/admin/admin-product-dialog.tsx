@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MarkdownTextarea } from '@/components/admin/markdown-textarea';
 import {
   Select,
   SelectContent,
@@ -31,6 +31,7 @@ import {
   type ProductCategory,
 } from '@/app/admin/clients/categories-actions';
 import { AddProductCategoryDialog } from '@/components/admin/add-product-category-dialog';
+import { toast } from 'sonner';
 import {
   PRODUCT_UNITS as UNITS,
   PRODUCT_CURRENCIES as CURRENCIES,
@@ -298,9 +299,13 @@ export function AdminProductDialog({
         setComplianceBadges([]);
         onOpenChange(false);
         onSaved();
+        toast.success(isEditing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm mới');
+      } else {
+        toast.error(result.error || 'Không thể lưu sản phẩm. Vui lòng thử lại.');
       }
     } catch (error) {
       console.error('[v0] Error saving product:', error);
+      toast.error('Đã xảy ra lỗi khi lưu sản phẩm');
     } finally {
       setLoading(false);
     }
@@ -399,11 +404,11 @@ export function AdminProductDialog({
 
             <div className="space-y-2">
               <Label htmlFor="description">Mô tả</Label>
-              <Textarea
+              <MarkdownTextarea
                 id="description"
                 name="description"
                 value={formData.description}
-                onChange={handleInputChange}
+                onChange={(value) => setFormData((prev) => ({ ...prev, description: value }))}
                 placeholder="Mô tả chi tiết về sản phẩm"
                 rows={3}
               />
@@ -437,11 +442,11 @@ export function AdminProductDialog({
 
             <div className="space-y-2">
               <Label htmlFor="usp">Điểm bán hàng nổi bật (USP)</Label>
-              <Textarea
+              <MarkdownTextarea
                 id="usp"
                 name="usp"
                 value={formData.usp}
-                onChange={handleInputChange}
+                onChange={(value) => setFormData((prev) => ({ ...prev, usp: value }))}
                 placeholder="VD: Canh tác bền vững, truy xuất nguồn gốc trực tiếp từ nông trại, giá cạnh tranh so với thị trường"
                 rows={2}
               />

@@ -31,6 +31,7 @@ import {
   type ProductCategory,
 } from '@/app/admin/clients/categories-actions';
 import { AddProductCategoryDialog } from '@/components/admin/add-product-category-dialog';
+import { toast } from 'sonner';
 import {
   PRODUCT_UNITS as UNITS,
   PRODUCT_CURRENCIES as CURRENCIES,
@@ -298,9 +299,13 @@ export function AdminProductDialog({
         setComplianceBadges([]);
         onOpenChange(false);
         onSaved();
+        toast.success(isEditing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm mới');
+      } else {
+        toast.error(result.error || 'Không thể lưu sản phẩm. Vui lòng thử lại.');
       }
     } catch (error) {
       console.error('[v0] Error saving product:', error);
+      toast.error('Đã xảy ra lỗi khi lưu sản phẩm');
     } finally {
       setLoading(false);
     }

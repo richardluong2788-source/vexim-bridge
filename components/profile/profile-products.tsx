@@ -5,6 +5,7 @@ import { Package, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import type { ClientProfileWithRelations, ClientProduct } from "@/lib/supabase/types"
+import { markdownToPlainText } from "@/lib/markdown-preview"
 
 interface ProfileProductsProps {
   profile: ClientProfileWithRelations
@@ -99,7 +100,7 @@ export function ProfileProducts({ profile }: ProfileProductsProps) {
 
                 {product.description && (
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                    {product.description}
+                    {markdownToPlainText(product.description)}
                   </p>
                 )}
 

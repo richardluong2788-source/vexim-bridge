@@ -125,6 +125,8 @@ export async function claimBuyer(
 // Save the buyer's stated requirements (recorded by the AE)
 // ---------------------------------------------------------------------------
 
+export type ContactChannel = "system_email" | "linkedin" | "whatsapp" | "phone" | "other"
+
 export interface SaveRequirementsInput {
   engagementId: string
   requestedProducts?: string
@@ -133,6 +135,13 @@ export interface SaveRequirementsInput {
   paymentTerms?: string
   packagingRequirements?: string
   otherRequirements?: string
+  // How the AE actually reached the buyer to gather these requirements.
+  // Required when the engagement is still at "claimed" — i.e. the AE
+  // never sent the in-system requirement-inquiry email and instead
+  // reached out via LinkedIn/WhatsApp/phone/etc. Optional otherwise,
+  // since it's implicitly "system_email" once that email was sent.
+  contactChannel?: ContactChannel
+  contactChannelNote?: string
 }
 
 export async function saveBuyerRequirements(
@@ -141,6 +150,21 @@ export async function saveBuyerRequirements(
   const guard = await requireCap(CAPS.BUYER_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin } = guard
+
+  // Buyers can be reached outside the in-system email flow (LinkedIn,
+  // WhatsApp, phone) before their requirements are known. Look up the
+  // current stage so we know whether a contact channel must be recorded
+  // now, and don't silently overwrite one already set by the email flow.
+  const { data: existing, error: fetchErr } = await admin
+    .from("buyer_engagements")
+    .select("stage, contact_channel")
+    .eq("id", input.engagementId)
+    .single()
+  if (fetchErr || !existing) return { ok: false, error: fetchErr?.message ?? "engagement_not_found" }
+
+  if (existing.stage === "claimed" && !existing.contact_channel && !input.contactChannel) {
+    return { ok: false, error: "contact_channel_required" }
+  }
 
   const { error } = await admin
     .from("buyer_engagements")
@@ -152,6 +176,12 @@ export async function saveBuyerRequirements(
       packaging_requirements: input.packagingRequirements?.trim() || null,
       other_requirements: input.otherRequirements?.trim() || null,
       stage: "requirements_received",
+      ...(existing.contact_channel
+        ? {}
+        : {
+            contact_channel: input.contactChannel ?? "system_email",
+            contact_channel_note: input.contactChannelNote?.trim() || null,
+          }),
     })
     .eq("id", input.engagementId)
 
@@ -824,6 +854,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
       id, lead_id, account_manager_id, stage,
       requested_products, target_price_range, moq, payment_terms,
       packaging_requirements, other_requirements,
+      contact_channel, contact_channel_note,
       created_at, updated_at,
       leads ( id, company_name, contact_person, contact_email, country, industry, main_product, hs_code, hs_codes, product_keywords ),
       buyer_engagement_shortlist_versions (

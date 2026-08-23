@@ -136,8 +136,8 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] grid-rows-[auto_1fr_auto] gap-0 p-0">
+        <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Gửi cập nhật cho Client</DialogTitle>
           <DialogDescription>
             Thông báo cho {opportunity.profiles?.company_name ?? "client"} về tiến độ cơ hội với{" "}
@@ -145,7 +145,7 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 overflow-y-auto px-6 py-4">
           {/* To field (read-only) */}
           <Field>
             <FieldLabel>Gửi đến</FieldLabel>
@@ -179,7 +179,7 @@ export function ClientUpdateEmailDialog({ open, onOpenChange, opportunity }: Pro
           </Field>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Hủy
           </Button>

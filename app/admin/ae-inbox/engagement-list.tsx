@@ -73,6 +73,7 @@ import {
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
+import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1497,23 +1498,51 @@ function ShortlistBuilderDialog({
         ) : error && matches.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">{error}</p>
         ) : (
-          <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto">
-            {matches.map((m, idx) => (
-              <label
-                key={m.clientId}
-                className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
-              >
-                <Checkbox
-                  checked={selected.has(m.clientId)}
-                  onCheckedChange={() => toggle(m.clientId)}
-                />
-                <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
-                <span className="flex-1 truncate text-sm font-medium">{m.clientName}</span>
-                <Badge variant="outline" className="shrink-0 text-[10px]">
-                  {m.finalScore}
-                </Badge>
-              </label>
-            ))}
+          <div className="flex flex-col gap-2">
+            {matches.length > 0 && matches.every((m) => m.finalScore < LOW_MATCH_SCORE_THRESHOLD) && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "Chưa có supplier nào thực sự phù hợp với nhu cầu buyer (điểm khớp đều dưới " +
+                      LOW_MATCH_SCORE_THRESHOLD +
+                      "/100). Cân nhắc báo buyer chờ thêm thời gian tìm supplier, mở rộng tiêu chí tìm kiếm, hoặc bổ sung supplier mới vào hệ thống trước khi gửi shortlist.",
+                    "No supplier is a strong fit for this buyer's requirements (all match scores are below " +
+                      LOW_MATCH_SCORE_THRESHOLD +
+                      "/100). Consider telling the buyer you need more time to source, broadening the search criteria, or onboarding a new supplier before sending a shortlist.",
+                  )}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto">
+              {matches.map((m, idx) => {
+                const scoreTone =
+                  m.finalScore < LOW_MATCH_SCORE_THRESHOLD
+                    ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+                    : m.finalScore < MEDIUM_MATCH_SCORE_THRESHOLD
+                      ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                return (
+                  <label
+                    key={m.clientId}
+                    className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
+                  >
+                    <Checkbox
+                      checked={selected.has(m.clientId)}
+                      onCheckedChange={() => toggle(m.clientId)}
+                    />
+                    <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
+                    <span className="flex-1 truncate text-sm font-medium">{m.clientName}</span>
+                    {m.finalScore < LOW_MATCH_SCORE_THRESHOLD && (
+                      <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
+                    )}
+                    <Badge variant="outline" className={cn("shrink-0 text-[10px]", scoreTone)}>
+                      {m.finalScore}
+                    </Badge>
+                  </label>
+                )
+              })}
+            </div>
           </div>
         )}
 

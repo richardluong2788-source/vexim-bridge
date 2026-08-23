@@ -285,7 +285,7 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
               {showPerf && (
                 <TabsTrigger value="blackbox" className="gap-1.5">
                   <Activity className="h-3.5 w-3.5" />
-                  <span>Hộp đen</span>
+                  <span>Phân tích</span>
                 </TabsTrigger>
               )}
               <TabsTrigger value="products" className="gap-1.5">

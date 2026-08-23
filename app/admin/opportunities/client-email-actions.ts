@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendMail } from "@/lib/mail"
 import { buildPersonalizedSender, getSenderEmail } from "@/lib/email/mailer"
-import { normaliseRole } from "@/lib/auth/permissions"
+import { normaliseRole, can, CAPS } from "@/lib/auth/permissions"
 import { ownershipScopeFor, assertOpportunityOwned } from "@/lib/auth/scope"
 
 export interface SendClientUpdateEmailInput {
@@ -23,7 +23,8 @@ export type SendClientUpdateEmailResult =
  * Send a manual update email from AE to the client (Vietnamese exporter).
  *
  * Security:
- *   - Caller must be authenticated AND have role admin/staff/super_admin.
+ *   - Caller must be authenticated AND hold CAPS.CLIENT_WRITE (account_executive,
+ *     staff, admin, super_admin — see lib/auth/permissions.ts).
  *   - Ownership gate: AE can only email clients on opportunities they own.
  */
 export async function sendClientUpdateEmail(
@@ -47,26 +48,28 @@ export async function sendClientUpdateEmail(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Chưa đăng nhập" }
 
-  // Role check
+  // Role check — use the shared capability map (CAPS.CLIENT_WRITE) instead
+  // of a hardcoded role list, so this stays in sync with the rest of the
+  // RBAC system. account_executive, staff, admin, and super_admin all hold
+  // CLIENT_WRITE; finance/lead_researcher do not (by design — see
+  // lib/auth/permissions.ts).
   const { data: callerProfile } = await supabase
     .from("profiles")
     .select("role, full_name, work_email")
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  const role = normaliseRole(callerProfile?.role)
+  if (!role || !can(role, CAPS.CLIENT_WRITE)) {
     return { ok: false, error: "Không có quyền" }
   }
 
   const admin = createAdminClient()
 
   // Ownership gate: AE can only send emails for opportunities they own
-  const role = normaliseRole(callerProfile.role)
-  if (role) {
-    const scope = ownershipScopeFor(role, user.id)
-    const own = await assertOpportunityOwned(scope, admin, input.opportunityId)
-    if (!own.ok) return { ok: false, error: "Không có quyền truy cập opportunity này" }
-  }
+  const scope = ownershipScopeFor(role, user.id)
+  const own = await assertOpportunityOwned(scope, admin, input.opportunityId)
+  if (!own.ok) return { ok: false, error: "Không có quyền truy cập opportunity này" }
 
   // Verify the client_id matches the opportunity
   const { data: opp } = await admin

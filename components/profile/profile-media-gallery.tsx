@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Factory, Play, ShieldCheck } from "lucide-react"
+import { ChevronLeft, ChevronRight, Expand, Factory, Play, ShieldCheck } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileMediaGalleryProps {

@@ -25,6 +25,7 @@ import { ShieldAlert, Clock, Building2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { InterestButton } from "./interest-button"
+import { DwellTracker } from "./dwell-tracker"
 
 export const dynamic = "force-dynamic"
 
@@ -187,6 +188,7 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
       </header>
 
       <main className="flex-1">
+        <DwellTracker token={token} itemIds={suppliers.map((s) => s.id)} />
         <div className="max-w-4xl mx-auto px-6 py-10 flex flex-col gap-8">
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold text-foreground text-balance">
@@ -226,6 +228,7 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                 return (
                   <div
                     key={s.id}
+                    data-shortlist-item-id={s.id}
                     className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5"
                   >
                     <div className="flex items-start justify-between gap-3">

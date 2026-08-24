@@ -245,6 +245,54 @@ async function findOpportunityByEmail(
     }
   }
 
+  // Method 3: Match by the recipient address of a SENT email_drafts row
+  // tied to an opportunity. Mirrors findEngagementByEmail's Method 3 below
+  // — catches replies from the exact address we emailed (e.g.
+  // leads.contact_email) even when that address was never added to
+  // buyer_contacts. Without this, an opportunity-stage reply from an
+  // address not yet in the contact directory silently fell through to
+  // "no_match", even though we know EXACTLY who we sent it to.
+  const { data: matchingDrafts } = await admin
+    .from("email_drafts")
+    .select("opportunity_id")
+    .eq("status", "sent")
+    .not("opportunity_id", "is", null)
+    .ilike("recipient_email", fromEmail)
+    .order("created_at", { ascending: false })
+
+  const draftOpportunityIds = Array.from(
+    new Set((matchingDrafts ?? []).map((d) => d.opportunity_id as string)),
+  )
+
+  for (const oppId of draftOpportunityIds) {
+    const { data: opp } = await admin
+      .from("opportunities")
+      .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
+      .eq("id", oppId)
+      .not("stage", "in", '("won","lost")')
+      .maybeSingle()
+
+    if (opp) {
+      const lead = opp.leads as { company_name?: string; industry?: string } | null
+      const leadId = (opp as { lead_id: string | null }).lead_id
+      const matchedContact = leadId ? await findContactForLead(leadId) : null
+
+      return {
+        opportunityId: opp.id,
+        leadId,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        oppStage: opp.stage,
+        matchSource: "sender_email",
+        matchConfidence: 0.8,
+        matchedContactId: matchedContact?.id ?? null,
+        // Not "unrecognized" — we deliberately emailed this exact address,
+        // it's just missing from the structured contact directory.
+        isUnrecognizedSender: false,
+      }
+    }
+  }
+
   return null
 }
 
@@ -481,8 +529,40 @@ export async function POST(req: NextRequest) {
 
     if (!match && !engagementMatch) {
       console.log("[v0] No matching opportunity or engagement found for:", fromEmail)
-      // Could store in a "unmatched_emails" table for manual review
-      return NextResponse.json({ ok: true, skipped: "no_match" })
+
+      // Previously this email was silently dropped here — accepted with
+      // 200 OK (so Resend never retries) but never written anywhere, which
+      // is how a real buyer reply disappears with zero trace even though
+      // Resend's Receiving log shows it arrived. Persist it instead so an
+      // admin can triage and manually attach it (see /admin/unmatched-emails).
+      let bodyForLog = data.text || ""
+      if (!bodyForLog && data.html) {
+        bodyForLog = data.html
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n\n")
+          .replace(/<[^>]+>/g, "")
+          .trim()
+      }
+
+      const { error: unmatchedErr } = await admin.from("unmatched_inbound_emails").insert({
+        resend_email_id: data.email_id,
+        message_id: data.message_id,
+        from_email: fromEmail,
+        to_emails: data.to ?? [],
+        subject: data.subject,
+        in_reply_to: data.in_reply_to ?? null,
+        raw_content: extractReplyBody(bodyForLog) || bodyForLog || null,
+        match_attempt_note:
+          "No buyer_contacts entry, no email_drafts.recipient_email match, and no In-Reply-To match against a sent draft.",
+        received_at: data.created_at,
+      })
+      if (unmatchedErr) {
+        // Ignore unique-violation on message_id (Resend re-delivery) — anything
+        // else is worth logging since this is our last line of defense.
+        console.error("[v0] Failed to store unmatched inbound email:", unmatchedErr)
+      }
+
+      return NextResponse.json({ ok: true, skipped: "no_match", stored: !unmatchedErr })
     }
 
     if (match) {

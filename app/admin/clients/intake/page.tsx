@@ -25,6 +25,9 @@ export default async function ClientIntakeQueuePage() {
     q = q.eq("ae_id", scope.userId)
   }
 
+  // Hide unused expired links immediately; the daily cron removes them from DB.
+  q = q.or(`status.neq.pending,expires_at.gt.${new Date().toISOString()}`)
+
   const { data } = await q
 
   const rows = (data ?? []) as unknown as IntakeSubmissionRow[]

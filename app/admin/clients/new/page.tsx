@@ -2,6 +2,13 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getDictionary } from "@/lib/i18n/server"
 import { NewClientForm } from "@/components/admin/new-client-form"
+import { IntakeLinkGenerator } from "@/components/admin/intake-link-generator"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 export default async function NewClientPage() {
   const supabase = await createClient()
@@ -45,7 +52,23 @@ export default async function NewClientPage() {
               : "Provision an account for a Vietnamese exporter so they can track their export pipeline."}
         </p>
       </div>
-      <NewClientForm locale={locale} />
+
+      <Tabs defaultValue="direct" className="mx-auto w-full max-w-2xl">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="direct">
+            {locale === "vi" ? "Tạo trực tiếp" : "Create Directly"}
+          </TabsTrigger>
+          <TabsTrigger value="link">
+            {locale === "vi" ? "Gửi link cho khách hàng" : "Send Client Link"}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="direct" className="mt-6">
+          <NewClientForm locale={locale} />
+        </TabsContent>
+        <TabsContent value="link" className="mt-6">
+          <IntakeLinkGenerator locale={locale} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

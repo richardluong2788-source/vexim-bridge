@@ -1,5 +1,6 @@
 "use server"
 
+import { randomBytes } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -227,5 +228,65 @@ export async function createClientAccount(
     ok: true,
     userId: newUserId,
     inviteLink: null,
+  }
+}
+
+export interface CreateIntakeLinkResult {
+  ok: boolean
+  url?: string
+  expiresAt?: string
+  error?: string
+}
+
+/**
+ * Admin/AE-only: generate a single-use public intake link
+ * (/client-intake/[token]) that a prospective client can fill in without
+ * logging in. The row lives in `client_intake_submissions` — fully
+ * decoupled from `profiles` — until an AE reviews and approves it in
+ * "Hồ sơ chờ duyệt".
+ */
+export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
+  const supabase = await createClient()
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser()
+  if (!caller) return { ok: false, error: "unauthenticated" }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", caller.id)
+    .single()
+
+  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const token = randomBytes(24).toString("base64url")
+  const admin = createAdminClient()
+
+  const { data: row, error } = await admin
+    .from("client_intake_submissions")
+    .insert({ token, ae_id: caller.id })
+    .select("expires_at")
+    .single()
+
+  if (error) {
+    return { ok: false, error: error.message }
+  }
+
+  await admin.from("activities").insert({
+    user_id: caller.id,
+    action: "client_intake_link_created",
+    details: { token_prefix: token.slice(0, 8) },
+  })
+
+  revalidatePath("/admin/clients/intake")
+
+  return {
+    ok: true,
+    url: `${siteConfig.url}/client-intake/${token}`,
+    expiresAt: row?.expires_at,
   }
 }

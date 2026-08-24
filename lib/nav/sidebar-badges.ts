@@ -36,6 +36,12 @@ export interface SidebarBadgeCounts {
   buyers: number
   /** Unreviewed rows in unmatched_inbound_emails — org-wide, not per-AE. */
   unmatchedEmails: number
+  /**
+   * Client intake submissions with status = 'submitted' (client filled the
+   * public form, awaiting AE review in "Hồ sơ chờ duyệt"). AE/staff see only
+   * links they generated (ae_id = self); admin/super_admin see every one.
+   */
+  pendingIntake: number
 }
 
 const EMPTY_COUNTS: SidebarBadgeCounts = {
@@ -44,6 +50,7 @@ const EMPTY_COUNTS: SidebarBadgeCounts = {
   pipeline: 0,
   buyers: 0,
   unmatchedEmails: 0,
+  pendingIntake: 0,
 }
 
 export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
@@ -53,15 +60,37 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
   const scope = ownershipScopeFor(role, userId)
   const isAE = role === "account_executive"
 
-  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails] = await Promise.all([
-    countMyBuyers(admin, isAE, userId),
-    countInProgressWithUnread(admin, isAE, userId),
-    countPipelineWithUnread(admin, scope),
-    countBuyers(admin, role, userId),
-    countUnmatchedEmails(admin, role),
-  ])
+  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake] =
+    await Promise.all([
+      countMyBuyers(admin, isAE, userId),
+      countInProgressWithUnread(admin, isAE, userId),
+      countPipelineWithUnread(admin, scope),
+      countBuyers(admin, role, userId),
+      countUnmatchedEmails(admin, role),
+      countPendingIntake(admin, role, userId),
+    ])
 
-  return { myBuyers, inProgress, pipeline, buyers, unmatchedEmails }
+  return { myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake }
+}
+
+// ---------------------------------------------------------------------------
+// 6. "Hồ sơ chờ duyệt" — client_intake_submissions with status = 'submitted'.
+//    AE/staff only see their own generated links; admin/super_admin/
+//    lead_researcher see every pending submission org-wide.
+// ---------------------------------------------------------------------------
+async function countPendingIntake(
+  admin: AdminSB,
+  role: string,
+  userId: string,
+): Promise<number> {
+  const isAE = role === "account_executive" || role === "staff"
+  let q = admin
+    .from("client_intake_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "submitted")
+  if (isAE) q = q.eq("ae_id", userId)
+  const { count } = await q
+  return count ?? 0
 }
 
 // ---------------------------------------------------------------------------

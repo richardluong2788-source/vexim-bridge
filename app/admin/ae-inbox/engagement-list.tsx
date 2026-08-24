@@ -1171,6 +1171,15 @@ function ResendFollowUpDialog({
       : `/shortlist/${shareLink.token}`
     : undefined
 
+  // If the buyer has ever replied in this engagement, thread this follow-up
+  // onto their most recent message (In-Reply-To/References) instead of
+  // starting a brand-new conversation. Gmail is far more likely to keep an
+  // email in the Primary tab when it's a reply within an existing,
+  // already-read thread than when it opens a new thread from scratch.
+  const latestReplyMessageId = [...(engagement.buyer_replies ?? [])].sort(
+    (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
+  )[0]?.message_id
+
   const handleGenerate = async () => {
     setGenerating(true)
     const result = await generateRequirementInquiryEmailAction({
@@ -1202,7 +1211,10 @@ function ResendFollowUpDialog({
       return
     }
     setSending(true)
-    const sendResult = await sendEmailDraftAction({ draftId: draft.draftId })
+    const sendResult = await sendEmailDraftAction({
+      draftId: draft.draftId,
+      replyToMessageId: latestReplyMessageId,
+    })
     if (!sendResult.ok) {
       setSending(false)
       toast.error(sendResult.message || sendResult.error)
@@ -1921,6 +1933,14 @@ function SendShortlistDialog({
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
 
+  // The shortlist is almost always sent after the buyer already replied to
+  // the opening/requirement email — thread it onto their most recent
+  // message so Gmail keeps it in the same (already Primary) conversation
+  // instead of starting a brand-new thread that gets re-classified.
+  const latestReplyMessageId = [...(engagement.buyer_replies ?? [])].sort(
+    (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
+  )[0]?.message_id
+
   const handleCreateLink = async () => {
     if (!draftVersion) {
       toast.error(t("Không tìm thấy bản nháp shortlist", "No draft shortlist version found"))
@@ -1969,7 +1989,10 @@ function SendShortlistDialog({
       return
     }
     setSending(true)
-    const result = await sendEmailDraftAction({ draftId: draft.draftId })
+    const result = await sendEmailDraftAction({
+      draftId: draft.draftId,
+      replyToMessageId: latestReplyMessageId,
+    })
     setSending(false)
     if (!result.ok) {
       toast.error(result.message || result.error)

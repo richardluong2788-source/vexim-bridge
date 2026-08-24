@@ -26,6 +26,40 @@ export interface ClientIntakePayload {
   video_url?: string
   certifications?: string[]
   certifications_other?: string
+  quality_systems?: string[]
+  quality_systems_other?: string
+  oem_odm?: string[]
+  company_scale?: string
+  export_since_year?: string
+  export_markets?: string[]
+  export_markets_other?: string
+  traceability?: string[]
+  fda_status?: string
+  fda_number?: string
+  fda_expires_at?: string
+  staff_engineers_count?: string
+  staff_workers_count?: string
+  work_hours_start?: string
+  work_hours_end?: string
+  work_days_per_week?: string
+  food_safety_training_regular?: boolean
+  equipment_calibration_regular?: boolean
+  water_source?: string[]
+  water_source_other?: string
+  water_testing?: boolean
+  near_pollution_source?: boolean
+  pollution_source_note?: string
+  audit_readiness?: string[]
+  audit_owner?: string
+  incoterms?: string[]
+  payment_policy?: string
+  oem_policy?: string
+  odm_policy?: string
+  has_export_dept?: boolean
+  has_english_staff?: boolean
+  pricing_decision_maker?: string
+  commitments?: string[]
+  project_priority?: string
 }
 
 export interface SubmitClientIntakeResult {
@@ -89,6 +123,40 @@ export async function submitClientIntake(
       video_url: data.video_url?.trim() || null,
       certifications: data.certifications ?? [],
       certifications_other: data.certifications_other?.trim() || null,
+      quality_systems: data.quality_systems ?? [],
+      quality_systems_other: data.quality_systems_other?.trim() || null,
+      oem_odm: data.oem_odm ?? [],
+      company_scale: data.company_scale?.trim() || null,
+      export_since_year: data.export_since_year?.trim() || null,
+      export_markets: data.export_markets ?? [],
+      export_markets_other: data.export_markets_other?.trim() || null,
+      traceability: data.traceability ?? [],
+      fda_status: data.fda_status?.trim() || null,
+      fda_number: data.fda_number?.trim() || null,
+      fda_expires_at: data.fda_expires_at?.trim() || null,
+      staff_engineers_count: data.staff_engineers_count?.trim() || null,
+      staff_workers_count: data.staff_workers_count?.trim() || null,
+      work_hours_start: data.work_hours_start?.trim() || null,
+      work_hours_end: data.work_hours_end?.trim() || null,
+      work_days_per_week: data.work_days_per_week?.trim() || null,
+      food_safety_training_regular: data.food_safety_training_regular ?? null,
+      equipment_calibration_regular: data.equipment_calibration_regular ?? null,
+      water_source: data.water_source ?? [],
+      water_source_other: data.water_source_other?.trim() || null,
+      water_testing: data.water_testing ?? null,
+      near_pollution_source: data.near_pollution_source ?? null,
+      pollution_source_note: data.pollution_source_note?.trim() || null,
+      audit_readiness: data.audit_readiness ?? [],
+      audit_owner: data.audit_owner?.trim() || null,
+      incoterms: data.incoterms ?? [],
+      payment_policy: data.payment_policy?.trim() || null,
+      oem_policy: data.oem_policy?.trim() || null,
+      odm_policy: data.odm_policy?.trim() || null,
+      has_export_dept: data.has_export_dept ?? null,
+      has_english_staff: data.has_english_staff ?? null,
+      pricing_decision_maker: data.pricing_decision_maker?.trim() || null,
+      commitments: data.commitments ?? [],
+      project_priority: data.project_priority?.trim() || null,
     },
   })
 

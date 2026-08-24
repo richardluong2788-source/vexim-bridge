@@ -30,6 +30,40 @@ interface IntakeSubmissionRow {
   video_url: string | null
   certifications: string[] | null
   certifications_other: string | null
+  quality_systems: string[] | null
+  quality_systems_other: string | null
+  oem_odm: string[] | null
+  company_scale: string | null
+  export_since_year: number | null
+  export_markets: string[] | null
+  export_markets_other: string | null
+  traceability: string[] | null
+  fda_status: string | null
+  fda_number: string | null
+  fda_expires_at: string | null
+  staff_engineers_count: number | null
+  staff_workers_count: number | null
+  work_hours_start: string | null
+  work_hours_end: string | null
+  work_days_per_week: number | null
+  food_safety_training_regular: boolean | null
+  equipment_calibration_regular: boolean | null
+  water_source: string[] | null
+  water_source_other: string | null
+  water_testing: boolean | null
+  near_pollution_source: boolean | null
+  pollution_source_note: string | null
+  audit_readiness: string[] | null
+  audit_owner: string | null
+  incoterms: string[] | null
+  payment_policy: string | null
+  oem_policy: string | null
+  odm_policy: string | null
+  has_export_dept: boolean | null
+  has_english_staff: boolean | null
+  pricing_decision_maker: string | null
+  commitments: string[] | null
+  project_priority: string | null
 }
 
 export default async function ClientIntakePage({

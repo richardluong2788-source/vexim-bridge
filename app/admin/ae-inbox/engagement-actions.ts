@@ -925,3 +925,141 @@ export async function markEngagementRepliesReadAction(
   revalidatePath("/admin/engagements")
   return { ok: true, data: { success: true } }
 }
+
+// ---------------------------------------------------------------------------
+// Lightweight, paginated summary list for the "Đang xử lý" page. Full
+// nested data (shortlist versions/items, reply bodies) is intentionally
+// left out here — the list only needs enough to render a small summary
+// card. Each card fetches its own full detail lazily on
+// /admin/engagements/[id] via getEngagementByIdAction, keeping the list's
+// DOM small no matter how many buyers an AE is working (a full render of
+// every buyer's replies/shortlist inline doesn't scale past a handful of
+// cards).
+// ---------------------------------------------------------------------------
+
+export interface EngagementSummary {
+  id: string
+  companyName: string | null
+  industry: string | null
+  country: string | null
+  stage: string
+  updatedAt: string
+  daysInStage: number
+  unreadRepliesCount: number
+  isSilentTooLong: boolean
+  silentDays: number
+}
+
+export interface EngagementSummaryPage {
+  items: EngagementSummary[]
+  hasMore: boolean
+}
+
+const ENGAGEMENTS_PAGE_SIZE = 15
+
+export async function getMyEngagementsSummary(
+  page = 0,
+): Promise<ActionResult<EngagementSummaryPage>> {
+  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId, role } = guard
+
+  const from = page * ENGAGEMENTS_PAGE_SIZE
+  const to = from + ENGAGEMENTS_PAGE_SIZE - 1
+
+  let query = admin
+    .from("buyer_engagements")
+    .select(
+      `
+      id, stage, updated_at,
+      leads ( company_name, industry, country ),
+      buyer_replies ( received_at, read_at )
+      `,
+    )
+    .not("stage", "in", "(converted,dropped)")
+    .order("updated_at", { ascending: false })
+    .range(from, to)
+
+  if (role === "account_executive") {
+    query = query.eq("account_manager_id", userId)
+  }
+
+  const { data, error } = await query
+  if (error) return { ok: false, error: error.message }
+
+  const rows = data ?? []
+  const items: EngagementSummary[] = rows.map((row: any) => {
+    const lead = Array.isArray(row.leads) ? row.leads[0] : row.leads
+    const replies = row.buyer_replies ?? []
+    const unreadRepliesCount = replies.filter((r: any) => !r.read_at).length
+    const daysInStage = Math.floor(
+      (Date.now() - new Date(row.updated_at).getTime()) / (24 * 60 * 60 * 1000),
+    )
+    const silentDays =
+      (row.stage === "requirement_email_sent" || row.stage === "shortlist_sent") &&
+      replies.every((r: any) => new Date(r.received_at).getTime() <= new Date(row.updated_at).getTime())
+        ? daysInStage
+        : 0
+    return {
+      id: row.id,
+      companyName: lead?.company_name ?? null,
+      industry: lead?.industry ?? null,
+      country: lead?.country ?? null,
+      stage: row.stage,
+      updatedAt: row.updated_at,
+      daysInStage,
+      unreadRepliesCount,
+      isSilentTooLong: silentDays >= 14,
+      silentDays,
+    }
+  })
+
+  return {
+    ok: true,
+    data: { items, hasMore: rows.length === ENGAGEMENTS_PAGE_SIZE },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Full detail for a single engagement — everything the (single) card on
+// /admin/engagements/[id] needs, scoped to the same role/ownership rule
+// as getMyEngagements.
+// ---------------------------------------------------------------------------
+
+export async function getEngagementByIdAction(engagementId: string): Promise<ActionResult<any>> {
+  const guard = await requireCap(CAPS.MATCH_INBOX_VIEW)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId, role } = guard
+
+  const { data, error } = await admin
+    .from("buyer_engagements")
+    .select(
+      `
+      id, lead_id, account_manager_id, stage,
+      requested_products, target_price_range, moq, payment_terms,
+      packaging_requirements, other_requirements,
+      contact_channel, contact_channel_note,
+      created_at, updated_at,
+      leads ( id, company_name, contact_person, contact_email, country, industry, main_product, hs_code, hs_codes, product_keywords ),
+      buyer_engagement_shortlist_versions (
+        id, version_number, status, scoring_engine_version, created_at, sent_at, superseded_at,
+        buyer_engagement_shortlist_items ( id, client_id, position, match_score, buyer_interested, buyer_action, buyer_responded_at,
+          total_dwell_ms, first_viewed_at, last_dwell_at,
+          profiles:client_id ( id, company_name, full_name ) )
+      ),
+      shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),
+      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at, message_id, responded_email_draft_id, responded_at )
+      `,
+    )
+    .eq("id", engagementId)
+    .not("stage", "in", "(converted,dropped)")
+    .single()
+
+  if (error || !data) return { ok: false, error: error?.message ?? "engagement_not_found" }
+
+  if (role === "account_executive" && (data as any).account_manager_id !== userId) {
+    return { ok: false, error: "not_your_engagement" }
+  }
+
+  return { ok: true, data }
+}

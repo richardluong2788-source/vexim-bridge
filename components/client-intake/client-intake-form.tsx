@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   FileCheck2,
   Loader2,
   Plus,
@@ -37,6 +38,12 @@ import {
 } from "@/lib/constants/industries"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { submitClientIntake } from "@/app/client-intake/[token]/actions"
+import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
+import {
+  ASSESSMENT_LABELS,
+  EMPTY_FACTORY_CAPABILITY_ANSWERS,
+  type FactoryCapabilityAnswers,
+} from "@/lib/assessment/constants"
 
 const CERTIFICATION_OPTIONS = [
   "HACCP",
@@ -75,6 +82,40 @@ interface IntakeInitialData {
   video_url: string | null
   certifications: string[] | null
   certifications_other: string | null
+  quality_systems: string[] | null
+  quality_systems_other: string | null
+  oem_odm: string[] | null
+  company_scale: string | null
+  export_since_year: number | null
+  export_markets: string[] | null
+  export_markets_other: string | null
+  traceability: string[] | null
+  fda_status: string | null
+  fda_number: string | null
+  fda_expires_at: string | null
+  staff_engineers_count: number | null
+  staff_workers_count: number | null
+  work_hours_start: string | null
+  work_hours_end: string | null
+  work_days_per_week: number | null
+  food_safety_training_regular: boolean | null
+  equipment_calibration_regular: boolean | null
+  water_source: string[] | null
+  water_source_other: string | null
+  water_testing: boolean | null
+  near_pollution_source: boolean | null
+  pollution_source_note: string | null
+  audit_readiness: string[] | null
+  audit_owner: string | null
+  incoterms: string[] | null
+  payment_policy: string | null
+  oem_policy: string | null
+  odm_policy: string | null
+  has_export_dept: boolean | null
+  has_english_staff: boolean | null
+  pricing_decision_maker: string | null
+  commitments: string[] | null
+  project_priority: string | null
 }
 
 interface ClientIntakeFormProps {
@@ -105,12 +146,14 @@ interface FormState {
   videoUrl: string
   certifications: string[]
   certificationsOther: string
+  assessment: FactoryCapabilityAnswers
 }
 
 const STEPS = [
   { key: "contact", label: "Liên hệ & đăng ký", icon: User },
   { key: "company", label: "Giới thiệu doanh nghiệp", icon: Building2 },
   { key: "capability", label: "Năng lực & chứng nhận", icon: FileCheck2 },
+  { key: "assessment", label: "Đánh giá năng lực nhà máy", icon: ClipboardCheck },
   { key: "review", label: "Xem lại & gửi", icon: CheckCircle2 },
 ] as const
 
@@ -146,7 +189,65 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
     videoUrl: initial.video_url ?? "",
     certifications: initial.certifications ?? [],
     certificationsOther: initial.certifications_other ?? "",
+    assessment: {
+      quality_systems: initial.quality_systems ?? [],
+      quality_systems_other: initial.quality_systems_other ?? "",
+      oem_odm: initial.oem_odm ?? [],
+      company_scale: initial.company_scale ?? "",
+      export_since_year: initial.export_since_year?.toString() ?? "",
+      export_markets: initial.export_markets ?? [],
+      export_markets_other: initial.export_markets_other ?? "",
+      traceability: initial.traceability ?? [],
+      fda_status: initial.fda_status ?? "",
+      fda_number: initial.fda_number ?? "",
+      fda_expires_at: initial.fda_expires_at ?? "",
+      staff_engineers_count: initial.staff_engineers_count?.toString() ?? "",
+      staff_workers_count: initial.staff_workers_count?.toString() ?? "",
+      work_hours_start: initial.work_hours_start ?? "",
+      work_hours_end: initial.work_hours_end ?? "",
+      work_days_per_week: initial.work_days_per_week?.toString() ?? "",
+      food_safety_training_regular:
+        initial.food_safety_training_regular == null
+          ? ""
+          : initial.food_safety_training_regular
+            ? "yes"
+            : "no",
+      equipment_calibration_regular:
+        initial.equipment_calibration_regular == null
+          ? ""
+          : initial.equipment_calibration_regular
+            ? "yes"
+            : "no",
+      water_source: initial.water_source ?? [],
+      water_source_other: initial.water_source_other ?? "",
+      water_testing:
+        initial.water_testing == null ? "" : initial.water_testing ? "yes" : "no",
+      near_pollution_source:
+        initial.near_pollution_source == null
+          ? ""
+          : initial.near_pollution_source
+            ? "yes"
+            : "no",
+      pollution_source_note: initial.pollution_source_note ?? "",
+      audit_readiness: initial.audit_readiness ?? [],
+      audit_owner: initial.audit_owner ?? "",
+      incoterms: initial.incoterms ?? [],
+      payment_policy: initial.payment_policy ?? "",
+      oem_policy: initial.oem_policy ?? "",
+      odm_policy: initial.odm_policy ?? "",
+      has_export_dept:
+        initial.has_export_dept == null ? "" : initial.has_export_dept ? "yes" : "no",
+      has_english_staff:
+        initial.has_english_staff == null ? "" : initial.has_english_staff ? "yes" : "no",
+      pricing_decision_maker: initial.pricing_decision_maker ?? "",
+      commitments: initial.commitments ?? [],
+      project_priority: initial.project_priority ?? "",
+    },
   })
+
+  function updateAssessment(patch: Partial<FactoryCapabilityAnswers>) {
+    setForm((prev) => ({ ...prev, assessment: { ...prev.assessment, ...patch } }))
+  }
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -275,6 +376,54 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         video_url: form.videoUrl || undefined,
         certifications: form.certifications,
         certifications_other: form.certificationsOther || undefined,
+        quality_systems: form.assessment.quality_systems,
+        quality_systems_other: form.assessment.quality_systems_other || undefined,
+        oem_odm: form.assessment.oem_odm,
+        company_scale: form.assessment.company_scale || undefined,
+        export_since_year: form.assessment.export_since_year || undefined,
+        export_markets: form.assessment.export_markets,
+        export_markets_other: form.assessment.export_markets_other || undefined,
+        traceability: form.assessment.traceability,
+        fda_status: form.assessment.fda_status || undefined,
+        fda_number: form.assessment.fda_number || undefined,
+        fda_expires_at: form.assessment.fda_expires_at || undefined,
+        staff_engineers_count: form.assessment.staff_engineers_count || undefined,
+        staff_workers_count: form.assessment.staff_workers_count || undefined,
+        work_hours_start: form.assessment.work_hours_start || undefined,
+        work_hours_end: form.assessment.work_hours_end || undefined,
+        work_days_per_week: form.assessment.work_days_per_week || undefined,
+        food_safety_training_regular:
+          form.assessment.food_safety_training_regular === ""
+            ? undefined
+            : form.assessment.food_safety_training_regular === "yes",
+        equipment_calibration_regular:
+          form.assessment.equipment_calibration_regular === ""
+            ? undefined
+            : form.assessment.equipment_calibration_regular === "yes",
+        water_source: form.assessment.water_source,
+        water_source_other: form.assessment.water_source_other || undefined,
+        water_testing:
+          form.assessment.water_testing === "" ? undefined : form.assessment.water_testing === "yes",
+        near_pollution_source:
+          form.assessment.near_pollution_source === ""
+            ? undefined
+            : form.assessment.near_pollution_source === "yes",
+        pollution_source_note: form.assessment.pollution_source_note || undefined,
+        audit_readiness: form.assessment.audit_readiness,
+        audit_owner: form.assessment.audit_owner || undefined,
+        incoterms: form.assessment.incoterms,
+        payment_policy: form.assessment.payment_policy || undefined,
+        oem_policy: form.assessment.oem_policy || undefined,
+        odm_policy: form.assessment.odm_policy || undefined,
+        has_export_dept:
+          form.assessment.has_export_dept === "" ? undefined : form.assessment.has_export_dept === "yes",
+        has_english_staff:
+          form.assessment.has_english_staff === ""
+            ? undefined
+            : form.assessment.has_english_staff === "yes",
+        pricing_decision_maker: form.assessment.pricing_decision_maker || undefined,
+        commitments: form.assessment.commitments,
+        project_priority: form.assessment.project_priority || undefined,
       })
 
       if (!result.ok) {
@@ -372,7 +521,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             {step === 1 && "Giúp buyer hiểu rõ hơn về doanh nghiệp của bạn."}
             {step === 2 &&
               "Điểm mạnh, chứng nhận và hình ảnh nhà máy — có thể bổ sung sau."}
-            {step === 3 && "Kiểm tra lại thông tin trước khi gửi."}
+            {step === 3 &&
+              "10 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy — có thể bổ sung sau."}
+            {step === 4 && "Kiểm tra lại thông tin trước khi gửi."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
@@ -747,6 +898,10 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
           )}
 
           {step === 3 && (
+            <FactoryCapabilityStep values={form.assessment} onChange={updateAssessment} />
+          )}
+
+          {step === 4 && (
             <div className="flex flex-col gap-4 text-sm">
               <ReviewSection
                 title="Liên hệ & đăng ký"
@@ -784,6 +939,51 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                       .join("; ") || "—",
                   ],
                   ["Chứng nhận", form.certifications.join(", ") || "—"],
+                ]}
+              />
+              <ReviewSection
+                title="Đánh giá năng lực nhà máy"
+                rows={[
+                  [
+                    "Hệ thống quản lý chất lượng",
+                    form.assessment.quality_systems.map((s) => ASSESSMENT_LABELS[s] ?? s).join(", ") ||
+                      "—",
+                  ],
+                  [
+                    "OEM/ODM",
+                    form.assessment.oem_odm.map((s) => ASSESSMENT_LABELS[s] ?? s).join(", ") || "—",
+                  ],
+                  [
+                    "Thị trường xuất khẩu",
+                    form.assessment.export_markets
+                      .map((s) => ASSESSMENT_LABELS[s] ?? s)
+                      .join(", ") || "—",
+                  ],
+                  [
+                    "Truy xuất nguồn gốc",
+                    form.assessment.traceability.map((s) => ASSESSMENT_LABELS[s] ?? s).join(", ") ||
+                      "—",
+                  ],
+                  [
+                    "Trạng thái FDA",
+                    form.assessment.fda_status ? ASSESSMENT_LABELS[form.assessment.fda_status] : "—",
+                  ],
+                  [
+                    "Sẵn sàng Buyer Audit",
+                    form.assessment.audit_readiness
+                      .map((s) => ASSESSMENT_LABELS[s] ?? s)
+                      .join(", ") || "—",
+                  ],
+                  [
+                    "Incoterms",
+                    form.assessment.incoterms.map((s) => ASSESSMENT_LABELS[s] ?? s).join(", ") ||
+                      "—",
+                  ],
+                  [
+                    "Cam kết",
+                    form.assessment.commitments.map((s) => ASSESSMENT_LABELS[s] ?? s).join(", ") ||
+                      "—",
+                  ],
                 ]}
               />
               {error && (

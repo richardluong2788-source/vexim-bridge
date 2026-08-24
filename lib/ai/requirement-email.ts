@@ -171,7 +171,7 @@ function buildFallbackEmail(
         "",
         "Cảm ơn bạn đã chia sẻ nhu cầu sourcing với chúng tôi. Chúng tôi đã xem xét và chuẩn bị một shortlist các nhà cung cấp đã được kiểm tra kỹ để bạn tham khảo.",
         "",
-        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""} — cho chúng tôi biết bạn quan tâm đến nhà cung cấp nào nhé.`,
+        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""} — cho chúng tôi biết bạn quan tâm đến nhà cung c��p nào nhé.`,
         "",
         "Chúng tôi mong nhận được phản hồi từ bạn.",
         signature_vi,
@@ -313,6 +313,15 @@ export async function generateRequirementInquiryEmail(
 
   const recipient = (lead["contact_email"] as string | null) ?? null
   const emailType: EngagementEmailType = input.emailType ?? "requirement_inquiry"
+  // The `email_drafts.email_type` column has a DB-level CHECK constraint that only
+  // allows a fixed set of values ('introduction', 'follow_up', 'quotation',
+  // 'sample_offer', 'negotiation', 'custom', 'requirement_inquiry',
+  // 'shortlist_delivery') — it does NOT include "requirement_followup", which is
+  // an internal-only variant of EngagementEmailType used to select the right AI
+  // prompt/subject above. Map it to the closest allowed DB value before insert,
+  // or every requirement_followup draft violates the constraint and the whole
+  // send fails.
+  const dbEmailType = emailType === "requirement_followup" ? "follow_up" : emailType
 
   if (emailType === "shortlist_delivery" && !input.shortlistUrl) {
     throw new Error("shortlistUrl is required for shortlist_delivery emails")
@@ -327,7 +336,7 @@ export async function generateRequirementInquiryEmail(
       .insert({
         lead_id: engagement.lead_id,
         engagement_id: input.engagementId,
-        email_type: emailType,
+        email_type: dbEmailType,
         ai_prompt: "[MANUAL]",
         generated_subject: input.manualSubject,
         generated_content_en: input.manualContent,
@@ -550,7 +559,7 @@ export async function generateRequirementInquiryEmail(
     .insert({
       lead_id: engagement.lead_id,
       engagement_id: input.engagementId,
-      email_type: emailType,
+      email_type: dbEmailType,
       ai_prompt: usedFallback ? `[FALLBACK TEMPLATE] ${input.viPrompt}` : input.viPrompt,
       generated_subject: generated.subject_en,
       generated_content_en: generated.content_en,

@@ -470,6 +470,15 @@ async function isDuplicate(messageId: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  // Created once up-front — the unmatched-email persistence branch below
+  // runs BEFORE the opportunity/engagement match is resolved, so `admin`
+  // must exist before that branch, not after it (a `const admin` declared
+  // further down throws "Cannot access 'admin' before initialization" the
+  // moment an unmatched email comes in, which was silently turning the
+  // "persist it instead of dropping it" fix into a 500 that dropped it
+  // anyway).
+  const admin = createAdminClient()
+
   console.log("[v0] Resend webhook POST received at", new Date().toISOString())
   console.log("[v0] Request URL:", req.url)
   console.log("[v0] Request method:", req.method)
@@ -634,7 +643,6 @@ export async function POST(req: NextRequest) {
 
     // Insert buyer reply — either against an opportunity (mid-pipeline) or
     // a pre-opportunity buyer_engagement (still gathering requirements).
-    const admin = createAdminClient()
     const { data: reply, error: insertErr } = await admin
       .from("buyer_replies")
       .insert({

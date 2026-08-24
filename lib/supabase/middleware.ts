@@ -41,11 +41,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Protect /admin, /client, and /settings — unauthenticated users go to login.
-  // /unsubscribe is intentionally excluded: the email-based token link must
-  // work even when the user isn't logged in.
+  // /unsubscribe and /client-intake are intentionally excluded: these are
+  // token-based public links that must work even when the user isn't logged in.
+  // Note: match "/client" and "/client/" (not just startsWith) so "/client-intake"
+  // isn't accidentally treated as a protected /client route.
   if (
     (pathname.startsWith("/admin") ||
-      pathname.startsWith("/client") ||
+      pathname === "/client" ||
+      pathname.startsWith("/client/") ||
       pathname.startsWith("/settings")) &&
     !user
   ) {

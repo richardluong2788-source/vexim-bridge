@@ -1071,7 +1071,7 @@ function RequirementEmailDialog({
     if (result.data.usedFallback) {
       toast.warning(
         t(
-          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi g��i",
           "AI is temporarily unavailable — a fallback template was used, please review before sending",
         ),
       )
@@ -1493,7 +1493,9 @@ function ResendFollowUpDialog({
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {t("Soạn bằng AI", "Generate with AI")}
+              {mode === "manual"
+                ? t("Xem lại email", "Review email")
+                : t("Soạn bằng AI", "Generate with AI")}
             </Button>
           ) : (
             <Button onClick={handleSend} disabled={sending} className="gap-2">

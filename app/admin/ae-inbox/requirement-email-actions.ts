@@ -10,7 +10,7 @@ import {
   type GenerateFollowUpReplyResult,
 } from "@/lib/ai/requirement-email"
 import { createClient } from "@/lib/supabase/server"
-import { markRequirementEmailSent } from "@/app/admin/ae-inbox/engagement-actions"
+import { markRequirementEmailSent, markFollowUpResent } from "@/app/admin/ae-inbox/engagement-actions"
 
 export type GenerateRequirementEmailActionResult =
   | { ok: true; data: GenerateRequirementEmailResult }
@@ -66,6 +66,16 @@ export async function generateFollowUpReplyEmailAction(
 
 export async function markEngagementEmailSentAction(engagementId: string) {
   return markRequirementEmailSent(engagementId)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Called right after sendEmailDraftAction succeeds for a requirement_followup
+// draft, to reset the silent-buyer clock without changing the engagement's
+// stage (the AE is still waiting on the same email/shortlist, just resent).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function markFollowUpResentAction(engagementId: string) {
+  return markFollowUpResent(engagementId)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -105,6 +105,58 @@ function buildFallbackEmail(
     ctx.senderEmail,
   ].join("\n")
 
+  if (emailType === "requirement_followup") {
+    return ctx.shortlistUrl
+      ? {
+          subject_en: `Following up — supplier shortlist for ${ctx.buyerCompany || "your company"}`,
+          content_en: [
+            `Hi ${greetingName},`,
+            "",
+            "I wanted to follow up on the supplier shortlist we shared earlier — I haven't heard back yet and wanted to check if you had a chance to review it.",
+            "",
+            "You can view it again here:",
+            ctx.shortlistUrl,
+            "",
+            "Happy to answer any questions or provide more detail on any of the suppliers.",
+            signature_en,
+          ]
+            .filter((l) => l !== undefined)
+            .join("\n"),
+          content_vi: [
+            `Xin chào ${greetingName},`,
+            "",
+            "Tôi muốn theo dõi lại về shortlist nhà cung cấp đã gửi trước đó — tôi chưa nhận được phản hồi và muốn hỏi bạn đã có dịp xem qua chưa.",
+            "",
+            "Bạn có thể xem lại tại đây:",
+            ctx.shortlistUrl,
+            "",
+            "Rất vui được giải đáp thêm hoặc cung cấp thông tin chi tiết hơn về các nhà cung cấp.",
+            signature_vi,
+          ]
+            .filter((l) => l !== undefined)
+            .join("\n"),
+        }
+      : {
+          subject_en: `Following up — sourcing from Vietnam for ${topic}`,
+          content_en: [
+            `Hi ${greetingName},`,
+            "",
+            `I reached out previously about evaluating additional sourcing for ${topic} from Vietnam, and wanted to follow up in case my earlier message didn't reach you.`,
+            "",
+            "Would you be open to a brief conversation on this? Happy to share more information if there's interest.",
+            signature_en,
+          ].join("\n"),
+          content_vi: [
+            `Xin chào ${greetingName},`,
+            "",
+            `Tôi đã liên hệ trước đó về việc đánh giá thêm nguồn cung ${topic} từ Việt Nam, và muốn theo dõi lại trong trường hợp email trước chưa đến được bạn.`,
+            "",
+            "Bạn có muốn trao đổi ngắn về việc này không? Rất vui được chia sẻ thêm thông tin nếu bạn quan tâm.",
+            signature_vi,
+          ].join("\n"),
+        }
+  }
+
   if (emailType === "shortlist_delivery") {
     return {
       subject_en: `Supplier shortlist prepared for ${ctx.buyerCompany || "your company"}`,
@@ -206,13 +258,17 @@ const outputSchema = z.object({
     .describe("Faithful Vietnamese translation of the English email so the Vietnamese AE can verify intent before sending."),
 })
 
-export type EngagementEmailType = "requirement_inquiry" | "shortlist_delivery"
+export type EngagementEmailType = "requirement_inquiry" | "shortlist_delivery" | "requirement_followup"
 
 export type GenerateRequirementEmailInput = {
   engagementId: string
   viPrompt: string
   emailType?: EngagementEmailType
-  /** Required when emailType === "shortlist_delivery" — the public link the buyer opens. */
+  /**
+   * Required when emailType === "shortlist_delivery" — the public link the buyer opens.
+   * Optional when emailType === "requirement_followup" — if the buyer was already sent a
+   * shortlist link, pass it so the follow-up references it instead of the earlier opening email.
+   */
   shortlistUrl?: string
   isManual?: boolean
   manualSubject?: string
@@ -324,6 +380,7 @@ export async function generateRequirementInquiryEmail(
             shortlist_url: input.shortlistUrl,
           }
         : {}),
+      ...(emailType === "requirement_followup" ? { shortlist_url: input.shortlistUrl ?? null } : {}),
     },
     null,
     2,
@@ -340,6 +397,33 @@ export async function generateRequirementInquiryEmail(
           "Keep it short (80-140 words), confident, and action-oriented. End with a complete",
           "signature using sender_name / exporter_company / sender_email from context — never use",
           "placeholders. Never invent facts not present in context. No emoji.",
+        ].join("\n")
+      : emailType === "requirement_followup"
+      ? [
+          "You write short, polite follow-up B2B emails for a Vietnamese export sales team (Vexim).",
+          "The AE previously reached out to this buyer (either a light opening email, or a shortlist",
+          "of suppliers — see shortlist_url in context) and has NOT received a reply yet.",
+          "",
+          "GOAL OF THIS EMAIL: gently check in, in case the earlier message did not reach the buyer",
+          "or was missed. Keep exactly the same single ask as before:",
+          "- If shortlist_url is present in context: ask them to open the link and review the",
+          "  supplier shortlist, and mention the link again in the email body.",
+          "- If shortlist_url is null: ask again whether they are open to evaluating additional",
+          "  sourcing from Vietnam for their product/industry. Do not ask about MOQ/price/payment/",
+          "  packaging in this email.",
+          "",
+          "RULES:",
+          "1. Tone must be light and low-pressure — this is a gentle nudge, never pushy, never",
+          "   implying the buyer ignored the AE on purpose.",
+          "2. Do NOT repeat the full pitch from the first email — assume the buyer already read it;",
+          "   briefly reference that a previous message was sent, nothing more.",
+          "3. Do NOT invent facts, do not name specific suppliers in the body, no forbidden claims",
+          "   (no 'guaranteed', 'best', 'cheapest', 'FDA approved', etc.), no emoji.",
+          "4. Keep it short: 60-110 words for the body (excluding signature).",
+          "5. Subject should read as a follow-up (e.g. prefix with 'Following up' or 'Re:') — not",
+          "   a brand-new first contact.",
+          "6. End with a complete signature using sender_name / exporter_company / sender_email /",
+          "   sender_phone from context — never a placeholder.",
         ].join("\n")
       : [
           "You write the FIRST, LIGHT-TOUCH opening email a Vietnamese export sales team (Vexim)",
@@ -418,6 +502,10 @@ export async function generateRequirementInquiryEmail(
     input.viPrompt ||
       (emailType === "shortlist_delivery"
         ? "Thông báo cho buyer là đã có shortlist supplier phù hợp, mời họ bấm link xem profile và chọn supplier quan tâm."
+        : emailType === "requirement_followup"
+        ? input.shortlistUrl
+          ? "Nhắc lại nhẹ nhàng về shortlist supplier đã gửi trước đó, hỏi buyer đã xem chưa và mời họ mở lại link."
+          : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
         : `Giới thiệu ngắn gọn về Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung ${
             (lead["industry"] as string | null) || (lead["main_product"] as string | null) || "sản phẩm liên quan"
           } từ Việt Nam không. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này — những điểm đó sẽ hỏi ở bước follow-up sau khi buyer phản hồi đồng ý.`),

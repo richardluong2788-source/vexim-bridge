@@ -176,12 +176,22 @@ export async function saveBuyerRequirements(
       packaging_requirements: input.packagingRequirements?.trim() || null,
       other_requirements: input.otherRequirements?.trim() || null,
       stage: "requirements_received",
-      ...(existing.contact_channel
-        ? {}
-        : {
-            contact_channel: input.contactChannel ?? "system_email",
+      // The AE can update the contact channel at any time — e.g. the
+      // in-system email never reached the buyer and they were actually
+      // reached via LinkedIn/WhatsApp/phone instead. An explicit
+      // contactChannel from the form always wins; only fall back to the
+      // "system_email" default when nothing has ever been recorded.
+      ...(input.contactChannel
+        ? {
+            contact_channel: input.contactChannel,
             contact_channel_note: input.contactChannelNote?.trim() || null,
-          }),
+          }
+        : existing.contact_channel
+          ? {}
+          : {
+              contact_channel: "system_email",
+              contact_channel_note: input.contactChannelNote?.trim() || null,
+            }),
     })
     .eq("id", input.engagementId)
 
@@ -211,6 +221,33 @@ export async function markRequirementEmailSent(
     .update({ stage: "requirement_email_sent", stale_reminder_sent_at: null })
     .eq("id", engagementId)
     .eq("stage", "claimed")
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/admin/ae-inbox")
+  return { ok: true, data: { success: true } }
+}
+
+// ---------------------------------------------------------------------------
+// Mark that a manual follow-up ("gửi lại email") was sent to a buyer who
+// hasn't replied yet, while the engagement stage itself doesn't change
+// (still waiting on the same email/shortlist). Resets stale_reminder_sent_at
+// so the 14-day stale-check cron (app/api/cron/engagement-stale-check) warns
+// again only after another 14 days of silence following this follow-up,
+// instead of re-warning immediately or never warning again.
+// ---------------------------------------------------------------------------
+
+export async function markFollowUpResent(
+  engagementId: string,
+): Promise<ActionResult<{ success: true }>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { error } = await admin
+    .from("buyer_engagements")
+    .update({ stale_reminder_sent_at: null })
+    .eq("id", engagementId)
+    .in("stage", ["requirement_email_sent", "shortlist_sent", "buyer_viewed"])
 
   if (error) return { ok: false, error: error.message }
   revalidatePath("/admin/ae-inbox")

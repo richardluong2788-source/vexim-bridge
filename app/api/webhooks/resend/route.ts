@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { getEmailDomain, isPublicEmailDomain } from "@/lib/email/public-domains"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -293,6 +294,54 @@ async function findOpportunityByEmail(
     }
   }
 
+  // Method 4: Loosened domain match (low confidence, last resort). Covers a
+  // buyer replying from a colleague's mailbox at the SAME company domain
+  // (e.g. a contact is jane@acme-imports.com, reply comes from
+  // procurement@acme-imports.com). Never applied to free webmail domains
+  // (gmail.com, yahoo.com, ...) — matching those by domain would attach
+  // replies from unrelated buyers to the wrong opportunity.
+  const fromDomain = getEmailDomain(fromEmail)
+  if (fromDomain && !isPublicEmailDomain(fromDomain)) {
+    const { data: domainContacts } = await admin
+      .from("buyer_contacts")
+      .select("id, lead_id, email")
+      .eq("status", "active")
+      .ilike("email", `%@${fromDomain}`)
+
+    const domainMatches = (domainContacts ?? []) as {
+      id: string
+      lead_id: string
+      email: string | null
+    }[]
+
+    for (const contactMatch of domainMatches) {
+      const { data: opp } = await admin
+        .from("opportunities")
+        .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
+        .eq("lead_id", contactMatch.lead_id)
+        .not("stage", "in", '("won","lost")')
+        .order("last_updated", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (opp) {
+        const lead = opp.leads as { company_name?: string; industry?: string } | null
+        return {
+          opportunityId: opp.id,
+          leadId: contactMatch.lead_id,
+          leadCompany: lead?.company_name ?? null,
+          leadIndustry: lead?.industry ?? null,
+          oppStage: opp.stage,
+          matchSource: "sender_email",
+          matchConfidence: 0.5,
+          matchedContactId: null,
+          // Different mailbox than the one on file — flag for AE review.
+          isUnrecognizedSender: true,
+        }
+      }
+    }
+  }
+
   return null
 }
 
@@ -448,6 +497,50 @@ async function findEngagementByEmail(
         // Not "unrecognized" — we deliberately emailed this address, it's
         // just missing from the structured contact directory.
         isUnrecognizedSender: false,
+      }
+    }
+  }
+
+  // Method 4: Loosened domain match (low confidence, last resort) — same
+  // rationale as findOpportunityByEmail's Method 4 above. Never applied to
+  // free webmail domains.
+  const fromDomain = getEmailDomain(fromEmail)
+  if (fromDomain && !isPublicEmailDomain(fromDomain)) {
+    const { data: domainContacts } = await admin
+      .from("buyer_contacts")
+      .select("id, lead_id, email")
+      .eq("status", "active")
+      .ilike("email", `%@${fromDomain}`)
+
+    const domainMatches = (domainContacts ?? []) as {
+      id: string
+      lead_id: string
+      email: string | null
+    }[]
+
+    for (const contactMatch of domainMatches) {
+      const { data: eng } = await admin
+        .from("buyer_engagements")
+        .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+        .eq("lead_id", contactMatch.lead_id)
+        .not("stage", "in", '("converted","dropped")')
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (eng) {
+        const lead = eng.leads as { company_name?: string; industry?: string } | null
+        return {
+          engagementId: eng.id,
+          leadId: contactMatch.lead_id,
+          leadCompany: lead?.company_name ?? null,
+          leadIndustry: lead?.industry ?? null,
+          accountManagerId: eng.account_manager_id,
+          matchSource: "sender_email",
+          matchConfidence: 0.5,
+          matchedContactId: null,
+          isUnrecognizedSender: true,
+        }
       }
     }
   }

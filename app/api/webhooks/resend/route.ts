@@ -781,13 +781,22 @@ export async function POST(req: NextRequest) {
       let notifyLinkPath = ""
 
       if (match) {
+        // NOTE: opportunities has no "owner_id" column — the AE assigned to
+        // an opportunity is tracked in "account_manager_id". Querying the
+        // wrong column silently 400s here (RLS/PostgREST returns an error,
+        // not a throw), which was making notifyUserId stay null forever —
+        // no in-app notification AND no email ever reached the AE for any
+        // opportunity-stage buyer reply.
         const { data: opp, error: oppErr } = await admin
           .from("opportunities")
-          .select("owner_id")
+          .select("account_manager_id")
           .eq("id", match.opportunityId)
           .single()
-        if (!oppErr && opp?.owner_id) {
-          notifyUserId = opp.owner_id
+        if (oppErr) {
+          console.error("[v0] Failed to load opportunity account_manager_id for notification:", oppErr)
+        }
+        if (!oppErr && opp?.account_manager_id) {
+          notifyUserId = opp.account_manager_id
           notifyOpportunityId = match.opportunityId
           notifyLinkPath = `/admin/opportunities/${match.opportunityId}?tab=replies`
         }

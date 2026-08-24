@@ -8,6 +8,7 @@ import {
   type WeeklyReportData,
 } from "@/lib/email/weekly-report"
 import type { Stage } from "@/lib/supabase/types"
+import { siteConfig } from "@/lib/site-config"
 
 // Run on the Node.js runtime because nodemailer uses Node APIs.
 export const runtime = "nodejs"
@@ -64,11 +65,10 @@ export async function GET(request: Request) {
     )
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://example.com"
+  // Use the stable production domain, never the per-deployment VERCEL_URL —
+  // that one sits behind Vercel's Deployment Protection SSO wall and would
+  // 403 recipients clicking the link in this email.
+  const appUrl = siteConfig.url
 
   const from = getFromAddress()
   const results: Array<{ clientId: string; status: "sent" | "skipped" | "failed"; reason?: string }> = []

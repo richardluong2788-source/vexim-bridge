@@ -4,13 +4,19 @@
  */
 
 function resolveBaseUrl(): string {
-  // Prefer an explicit canonical URL. Fall back to Vercel's runtime URL
-  // so previews work, then localhost for dev.
+  // Prefer an explicit canonical URL. Fall back to Vercel's stable
+  // production domain (VERCEL_PROJECT_PRODUCTION_URL) so previews and
+  // emails work, then localhost for dev.
+  //
+  // Never fall back to VERCEL_URL / NEXT_PUBLIC_VERCEL_URL — that's the
+  // per-deployment hash URL (e.g. my-app-ixygy95f1-team.vercel.app), which
+  // sits behind Vercel's Deployment Protection SSO wall for anyone outside
+  // the team and breaks links sent to end users (emails, etc.).
   const explicit = process.env.NEXT_PUBLIC_SITE_URL
   if (explicit) return explicit.replace(/\/$/, "")
 
-  const vercel = process.env.NEXT_PUBLIC_VERCEL_URL ?? process.env.VERCEL_URL
-  if (vercel) return `https://${vercel.replace(/\/$/, "")}`
+  const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  if (productionUrl) return `https://${productionUrl.replace(/\/$/, "")}`
 
   return "http://localhost:3000"
 }

@@ -28,6 +28,7 @@ import {
   renderMonthlyDigestHtml,
   type MonthlyDigestData,
 } from "@/lib/email/monthly-digest"
+import { siteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -186,9 +187,10 @@ export async function GET(request: Request) {
   const monthBefore = previousMonthRange(prevRefDate)
 
   // ---- 3. Build app URL --------------------------------------------------
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://example.com")
+  // Use the stable production domain, never the per-deployment VERCEL_URL —
+  // that one sits behind Vercel's Deployment Protection SSO wall and would
+  // 403 recipients clicking the link in this email.
+  const appUrl = siteConfig.url
 
   // ---- 4. Pull every client + their notification preference -------------
   const [{ data: clients }, { data: prefs }] = await Promise.all([

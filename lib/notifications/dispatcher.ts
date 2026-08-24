@@ -96,14 +96,19 @@ function escapeTelegramHtml(value: string): string {
 }
 
 /**
- * Resolve the absolute app URL, falling back to Vercel's VERCEL_URL in
- * deploy-preview environments. Used for both the CTA and the unsubscribe link.
+ * Resolve the absolute app URL. Used for both the CTA and the unsubscribe link.
+ *
+ * IMPORTANT: never fall back to `VERCEL_URL` — that's the per-deployment
+ * hash URL (e.g. my-app-ixygy95f1-team.vercel.app), which is gated behind
+ * Vercel's Deployment Protection SSO wall for anyone outside the team.
+ * `VERCEL_PROJECT_PRODUCTION_URL` is the stable production domain and is
+ * safe to send to end users.
  */
 function getAppBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL
   if (explicit) return explicit.replace(/\/+$/, "")
-  const vercelUrl = process.env.VERCEL_URL
-  if (vercelUrl) return `https://${vercelUrl}`
+  const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  if (productionUrl) return `https://${productionUrl.replace(/\/+$/, "")}`
   return "http://localhost:3000"
 }
 

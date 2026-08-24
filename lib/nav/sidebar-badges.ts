@@ -34,6 +34,8 @@ export interface SidebarBadgeCounts {
   inProgress: number
   pipeline: number
   buyers: number
+  /** Unreviewed rows in unmatched_inbound_emails — org-wide, not per-AE. */
+  unmatchedEmails: number
 }
 
 const EMPTY_COUNTS: SidebarBadgeCounts = {
@@ -41,6 +43,7 @@ const EMPTY_COUNTS: SidebarBadgeCounts = {
   inProgress: 0,
   pipeline: 0,
   buyers: 0,
+  unmatchedEmails: 0,
 }
 
 export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
@@ -50,14 +53,30 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
   const scope = ownershipScopeFor(role, userId)
   const isAE = role === "account_executive"
 
-  const [myBuyers, inProgress, pipeline, buyers] = await Promise.all([
+  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails] = await Promise.all([
     countMyBuyers(admin, isAE, userId),
     countInProgressWithUnread(admin, isAE, userId),
     countPipelineWithUnread(admin, scope),
     countBuyers(admin, role, userId),
+    countUnmatchedEmails(admin, role),
   ])
 
-  return { myBuyers, inProgress, pipeline, buyers }
+  return { myBuyers, inProgress, pipeline, buyers, unmatchedEmails }
+}
+
+// ---------------------------------------------------------------------------
+// 5. "Unmatched Emails" — unreviewed rows in unmatched_inbound_emails.
+//    Only admin/super_admin see this queue (matches CAPS.ACTIVITY_LOG_VIEW
+//    scoping used by app/admin/unmatched-emails), so skip the query for
+//    every other role.
+// ---------------------------------------------------------------------------
+async function countUnmatchedEmails(admin: AdminSB, role: string): Promise<number> {
+  if (role !== "admin" && role !== "super_admin") return 0
+  const { count } = await admin
+    .from("unmatched_inbound_emails")
+    .select("id", { count: "exact", head: true })
+    .eq("reviewed", false)
+  return count ?? 0
 }
 
 // ---------------------------------------------------------------------------

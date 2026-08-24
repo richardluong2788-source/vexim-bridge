@@ -16,16 +16,19 @@ interface ImageUploadFieldProps {
   max?: number
   /** Optional id used to associate an external label. */
   id?: string
+  /** Recommended pixel dimensions shown as a hint, e.g. "1200 x 1200px (vuông)". */
+  recommendedSize?: string
 }
 
 const ACCEPTED = "image/jpeg,image/png,image/webp,image/gif,image/avif"
-const MAX_BYTES = 10 * 1024 * 1024
+const MAX_BYTES = 5 * 1024 * 1024
 
 export function ImageUploadField({
   value,
   onChange,
   max = 5,
   id,
+  recommendedSize,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -45,7 +48,7 @@ export function ImageUploadField({
 
     const oversized = files.find((f) => f.size > MAX_BYTES)
     if (oversized) {
-      setError("Mỗi ảnh không được vượt quá 10MB.")
+      setError("Mỗi ảnh không được vượt quá 5MB.")
       return
     }
 
@@ -137,8 +140,14 @@ export function ImageUploadField({
       />
 
       <p className="text-xs text-muted-foreground">
-        {value.length}/{max} ảnh · JPG, PNG, WEBP — tối đa 10MB mỗi ảnh
+        {value.length}/{max} ảnh · JPG, PNG, WEBP — tối đa 5MB mỗi ảnh
+        {max > 1 && " · có thể chọn nhiều ảnh cùng lúc"}
       </p>
+      {recommendedSize && (
+        <p className="text-xs text-muted-foreground">
+          Kích thước đề xuất: {recommendedSize}
+        </p>
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )

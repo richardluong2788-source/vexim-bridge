@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
+import { notifyAeOfIntakeSubmission } from "@/lib/notifications/intake-submitted-email"
 
 export interface ClientIntakePayload {
   contact_name: string
@@ -167,6 +168,12 @@ export async function submitClientIntake(
   if (!success) {
     return { ok: false, error: "link_expired" }
   }
+
+  // Best-effort: let the AE know a submission just came in. Never fail the
+  // client's submission over this — the row is already saved above.
+  notifyAeOfIntakeSubmission(token).catch((err) => {
+    console.error("[v0] notifyAeOfIntakeSubmission unexpected error:", err)
+  })
 
   return { ok: true }
 }

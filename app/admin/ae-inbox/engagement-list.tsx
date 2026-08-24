@@ -26,6 +26,7 @@ import {
   Tag,
   Clock,
   ArrowLeftRight,
+  RotateCw,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -69,6 +70,7 @@ import {
   generateRequirementInquiryEmailAction,
   markEngagementEmailSentAction,
   generateFollowUpReplyEmailAction,
+  markFollowUpResentAction,
 } from "@/app/admin/ae-inbox/requirement-email-actions"
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
@@ -250,6 +252,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [pending, startTransition] = useTransition()
 
   const [reqEmailDialogFor, setReqEmailDialogFor] = useState<Engagement | null>(null)
+  const [resendDialogFor, setResendDialogFor] = useState<Engagement | null>(null)
   const [replyDialogFor, setReplyDialogFor] = useState<{ engagement: Engagement; reply: EngagementReplyRow } | null>(
     null,
   )
@@ -756,10 +759,21 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                     </>
                   )}
                   {eng.stage === "requirement_email_sent" && (
-                    <Button size="sm" className="gap-2" onClick={() => setReqFormDialogFor(eng)}>
-                      <ClipboardList className="h-4 w-4" />
-                      {t("Ghi nhận nhu cầu buyer", "Record buyer requirements")}
-                    </Button>
+                    <>
+                      <Button size="sm" className="gap-2" onClick={() => setReqFormDialogFor(eng)}>
+                        <ClipboardList className="h-4 w-4" />
+                        {t("Ghi nhận nhu cầu buyer", "Record buyer requirements")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setResendDialogFor(eng)}
+                      >
+                        <RotateCw className="h-4 w-4" />
+                        {t("Gửi lại email", "Resend email")}
+                      </Button>
+                    </>
                   )}
                   {(eng.stage === "requirements_received" ||
                     (eng.stage === "shortlist_ready" && !!draftVersion)) && (
@@ -779,6 +793,17 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                   )}
                   {["shortlist_sent", "buyer_viewed", "buyer_responded", "qualified_interest"].includes(eng.stage) && (
                     <>
+                      {(eng.stage === "shortlist_sent" || eng.stage === "buyer_viewed") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => setResendDialogFor(eng)}
+                        >
+                          <RotateCw className="h-4 w-4" />
+                          {t("Gửi lại email", "Resend email")}
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" className="gap-2" onClick={() => setShortlistDialogFor(eng)}>
                         <Sparkles className="h-4 w-4" />
                         {t("Tạo phiên bản shortlist mới", "Create new shortlist version")}
@@ -811,6 +836,18 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
           onClose={() => setReqEmailDialogFor(null)}
           onSent={() => {
             setReqEmailDialogFor(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {resendDialogFor && (
+        <ResendFollowUpDialog
+          engagement={resendDialogFor}
+          locale={locale}
+          onClose={() => setResendDialogFor(null)}
+          onSent={() => {
+            setResendDialogFor(null)
             router.refresh()
           }}
         />
@@ -1028,6 +1065,196 @@ function RequirementEmailDialog({
               placeholder={t(
                 "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
                 "E.g. emphasize Vexim works with export-certified factories...",
+              )}
+              rows={3}
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {draft.usedFallback && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
+                <span>
+                  {t(
+                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
+                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
+                  )}
+                </span>
+              </div>
+            )}
+            <div>
+              <Label>{t("Chủ đề", "Subject")}</Label>
+              <Input
+                value={draft.subject_en}
+                onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>{t("Nội dung (English)", "Content (English)")}</Label>
+              <Textarea
+                value={draft.content_en}
+                onChange={(e) => setDraft({ ...draft, content_en: e.target.value })}
+                rows={8}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t("Người nhận: ", "Recipient: ")}
+              {draft.recipient_email || t("(chưa có email)", "(no email on file)")}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          {!draft ? (
+            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {t("Soạn bằng AI", "Generate with AI")}
+            </Button>
+          ) : (
+            <Button onClick={handleSend} disabled={sending} className="gap-2">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {t("Gửi email", "Send email")}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog: Manually resend a follow-up when the buyer has gone quiet — either
+// because the earlier email never reached them, or they simply haven't
+// replied yet. Available any time at "requirement_email_sent" /
+// "shortlist_sent" / "buyer_viewed" (not gated behind the 14-day silent
+// warning, so the AE can nudge earlier if they want). AI drafts a short,
+// polite check-in referencing the shortlist link when one was already sent,
+// otherwise a light reminder of the original opening email.
+// ---------------------------------------------------------------------------
+
+function ResendFollowUpDialog({
+  engagement,
+  locale,
+  onClose,
+  onSent,
+}: {
+  engagement: Engagement
+  locale: "vi" | "en"
+  onClose: () => void
+  onSent: () => void
+}) {
+  const [viPrompt, setViPrompt] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [draft, setDraft] = useState<{
+    draftId: string
+    subject_en: string
+    content_en: string
+    recipient_email: string | null
+    usedFallback?: boolean
+  } | null>(null)
+
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  // If a shortlist was already sent to this buyer, the follow-up should
+  // remind them about that link rather than the earlier opening email.
+  const sentVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "sent")
+  const shareLink = sentVersion
+    ? engagement.shortlist_share_links.find((l) => l.version_id === sentVersion.id) ?? null
+    : null
+  const shortlistUrl = shareLink
+    ? typeof window !== "undefined"
+      ? `${window.location.origin}/shortlist/${shareLink.token}`
+      : `/shortlist/${shareLink.token}`
+    : undefined
+
+  // If the buyer has ever replied in this engagement, thread this follow-up
+  // onto their most recent message (In-Reply-To/References) instead of
+  // starting a brand-new conversation. Gmail is far more likely to keep an
+  // email in the Primary tab when it's a reply within an existing,
+  // already-read thread than when it opens a new thread from scratch.
+  const latestReplyMessageId = [...(engagement.buyer_replies ?? [])].sort(
+    (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
+  )[0]?.message_id
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    const result = await generateRequirementInquiryEmailAction({
+      engagementId: engagement.id,
+      viPrompt,
+      emailType: "requirement_followup",
+      shortlistUrl,
+    })
+    setGenerating(false)
+    if (!result.ok) {
+      toast.error(result.message || result.error)
+      return
+    }
+    if (result.data.usedFallback) {
+      toast.warning(
+        t(
+          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi gửi",
+          "AI is temporarily unavailable — a fallback template was used, please review before sending",
+        ),
+      )
+    }
+    setDraft(result.data)
+  }
+
+  const handleSend = async () => {
+    if (!draft) return
+    if (!draft.recipient_email) {
+      toast.error(t("Buyer chưa có email liên hệ", "Buyer has no contact email"))
+      return
+    }
+    setSending(true)
+    const sendResult = await sendEmailDraftAction({
+      draftId: draft.draftId,
+      replyToMessageId: latestReplyMessageId,
+    })
+    if (!sendResult.ok) {
+      setSending(false)
+      toast.error(sendResult.message || sendResult.error)
+      return
+    }
+    await markFollowUpResentAction(engagement.id)
+    setSending(false)
+    toast.success(t("Đã gửi lại email cho buyer", "Follow-up email sent"))
+    onSent()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("Gửi lại email cho buyer", "Resend follow-up email")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              shortlistUrl
+                ? "AI sẽ soạn email nhắc buyer về shortlist đã gửi trước đó, phòng trường hợp họ chưa xem hoặc email trước không đến được."
+                : "AI sẽ soạn email nhắc lại nhẹ nhàng về email mở đầu đã gửi trước đó, phòng trường hợp email đó không đến được buyer.",
+              shortlistUrl
+                ? "AI will draft an email reminding the buyer about the shortlist already sent, in case they missed it or it never arrived."
+                : "AI will draft a light reminder referencing the earlier opening email, in case it never reached the buyer.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!draft ? (
+          <div className="space-y-3">
+            <Label htmlFor="resend-vi-prompt">
+              {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
+            </Label>
+            <Textarea
+              id="resend-vi-prompt"
+              value={viPrompt}
+              onChange={(e) => setViPrompt(e.target.value)}
+              placeholder={t(
+                "VD: hỏi buyer có cần thêm thông tin gì để ra quyết định...",
+                "E.g. ask if the buyer needs any more information to decide...",
               )}
               rows={3}
             />
@@ -1375,19 +1602,19 @@ function RequirementFormDialog({
     paymentTerms: engagement.payment_terms ?? "",
     packagingRequirements: engagement.packaging_requirements ?? "",
     otherRequirements: engagement.other_requirements ?? "",
-    contactChannel: (engagement.contact_channel as SaveRequirementsInput["contactChannel"]) ?? undefined,
+    // Default to "system_email" once the engagement has moved past
+    // "claimed" (i.e. the in-system email was actually sent), otherwise
+    // leave it unset so the AE must pick how they reached the buyer.
+    contactChannel:
+      (engagement.contact_channel as SaveRequirementsInput["contactChannel"]) ??
+      (engagement.stage !== "claimed" ? "system_email" : undefined),
     contactChannelNote: engagement.contact_channel_note ?? "",
   })
   const [saving, setSaving] = useState(false)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
-  // Only ask "how did you reach the buyer" when it isn't known yet.
-  // Once the in-system email step ran (or a channel was already
-  // recorded), it's implicit — don't ask again.
-  const needsContactChannel = !engagement.contact_channel && engagement.stage === "claimed"
-
   const handleSave = async () => {
-    if (needsContactChannel && !form.contactChannel) {
+    if (!form.contactChannel) {
       toast.error(
         t(
           "Vui lòng chọn kênh đã liên hệ với buyer",
@@ -1420,47 +1647,42 @@ function RequirementFormDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          {needsContactChannel ? (
-            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-              <Label>
-                {t("Bạn đã liên hệ với buyer qua đâu?", "How did you reach the buyer?")}
-              </Label>
-              <Select
-                value={form.contactChannel}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, contactChannel: v as SaveRequirementsInput["contactChannel"] }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("Chọn kênh liên hệ", "Select a channel")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="linkedin">{CONTACT_CHANNEL_LABELS.linkedin[locale]}</SelectItem>
-                  <SelectItem value="whatsapp">{CONTACT_CHANNEL_LABELS.whatsapp[locale]}</SelectItem>
-                  <SelectItem value="phone">{CONTACT_CHANNEL_LABELS.phone[locale]}</SelectItem>
-                  <SelectItem value="other">{CONTACT_CHANNEL_LABELS.other[locale]}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder={t(
-                  "Ghi chú (VD: link LinkedIn, số điện thoại)",
-                  "Note (e.g. LinkedIn profile, phone number)",
-                )}
-                value={form.contactChannelNote}
-                onChange={(e) => setForm((f) => ({ ...f, contactChannelNote: e.target.value }))}
-              />
-            </div>
-          ) : (
-            engagement.contact_channel && (
-              <p className="text-xs text-muted-foreground">
-                {t("Đã liên hệ qua: ", "Contacted via: ")}
-                <span className="text-foreground font-medium">
-                  {CONTACT_CHANNEL_LABELS[engagement.contact_channel]?.[locale] ?? engagement.contact_channel}
-                </span>
-                {engagement.contact_channel_note ? ` — ${engagement.contact_channel_note}` : ""}
-              </p>
-            )
-          )}
+          <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+            <Label>
+              {t("Bạn đã liên hệ với buyer qua đâu?", "How did you reach the buyer?")}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "Cập nhật lại nếu email hệ thống không đến được buyer, hoặc bạn (hoặc đồng nghiệp) đã liên hệ qua một kênh khác — kể cả sau khi đã gửi email.",
+                "Update this if the in-system email never reached the buyer, or if you (or a colleague) contacted them through another channel — even after an email was already sent.",
+              )}
+            </p>
+            <Select
+              value={form.contactChannel}
+              onValueChange={(v) =>
+                setForm((f) => ({ ...f, contactChannel: v as SaveRequirementsInput["contactChannel"] }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("Chọn kênh liên hệ", "Select a channel")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system_email">{CONTACT_CHANNEL_LABELS.system_email[locale]}</SelectItem>
+                <SelectItem value="linkedin">{CONTACT_CHANNEL_LABELS.linkedin[locale]}</SelectItem>
+                <SelectItem value="whatsapp">{CONTACT_CHANNEL_LABELS.whatsapp[locale]}</SelectItem>
+                <SelectItem value="phone">{CONTACT_CHANNEL_LABELS.phone[locale]}</SelectItem>
+                <SelectItem value="other">{CONTACT_CHANNEL_LABELS.other[locale]}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder={t(
+                "Ghi chú (VD: link LinkedIn, số điện thoại)",
+                "Note (e.g. LinkedIn profile, phone number)",
+              )}
+              value={form.contactChannelNote}
+              onChange={(e) => setForm((f) => ({ ...f, contactChannelNote: e.target.value }))}
+            />
+          </div>
           <div>
             <Label>{t("Sản phẩm / quy cách", "Product / spec")}</Label>
             <Textarea
@@ -1711,6 +1933,14 @@ function SendShortlistDialog({
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
 
+  // The shortlist is almost always sent after the buyer already replied to
+  // the opening/requirement email — thread it onto their most recent
+  // message so Gmail keeps it in the same (already Primary) conversation
+  // instead of starting a brand-new thread that gets re-classified.
+  const latestReplyMessageId = [...(engagement.buyer_replies ?? [])].sort(
+    (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
+  )[0]?.message_id
+
   const handleCreateLink = async () => {
     if (!draftVersion) {
       toast.error(t("Không tìm thấy bản nháp shortlist", "No draft shortlist version found"))
@@ -1759,7 +1989,10 @@ function SendShortlistDialog({
       return
     }
     setSending(true)
-    const result = await sendEmailDraftAction({ draftId: draft.draftId })
+    const result = await sendEmailDraftAction({
+      draftId: draft.draftId,
+      replyToMessageId: latestReplyMessageId,
+    })
     setSending(false)
     if (!result.ok) {
       toast.error(result.message || result.error)

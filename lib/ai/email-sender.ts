@@ -190,13 +190,22 @@ export async function sendEmailDraft(
     htmlBody += attachmentHtml
   }
 
-  // Generate unique ID for this email to prevent Gmail threading issues
+  // Generate unique ID for this email to prevent Gmail threading issues.
+  // IMPORTANT: only apply this when we are NOT explicitly threading the
+  // email as a reply (replyToMessageId unset). X-Entity-Ref-ID tells Gmail
+  // "treat this as an unrelated, standalone message" — setting it on an
+  // email that also carries In-Reply-To/References works against the
+  // threading we want, and can make a genuine reply in an existing
+  // (already-Primary) buyer conversation get re-evaluated as a new,
+  // unrelated message — one of the reasons AI-drafted follow-ups were
+  // landing in Promotions instead of staying in the buyer's existing thread.
   const uniqueEmailId = `${Date.now()}-${Math.random().toString(36).substring(7)}`
 
   const headers: Record<string, string> = {
-    // X-Entity-Ref-ID: Unique ID to prevent Gmail from incorrectly threading emails
-    // Each email gets its own ID so they appear as separate conversations
-    "X-Entity-Ref-ID": uniqueEmailId,
+    // X-Entity-Ref-ID: Unique ID to prevent Gmail from incorrectly threading
+    // unrelated emails together. Omitted when replying into an existing
+    // thread (see note above).
+    ...(!opts?.replyToMessageId && { "X-Entity-Ref-ID": uniqueEmailId }),
     // NOTE: Deliberately NOT setting "X-Priority: 1" or "X-Campaign: transactional".
     // - X-Priority: 1 is a decades-old classic spam-filter trigger ("urgent" marketing
     //   emails abuse it); it does nothing for real deliverability and only adds risk.

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClientAccount, type CreateClientInput } from "@/app/admin/clients/new/actions"
+import { upsertAssessment, type AssessmentInput } from "@/lib/assessment/actions"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 
 export interface IntakeEditableFields {
@@ -133,6 +134,40 @@ export async function updateIntakeSubmission(
     video_url: fields.video_url?.trim() || null,
     certifications: fields.certifications ?? [],
     certifications_other: fields.certifications_other?.trim() || null,
+    quality_systems: fields.quality_systems ?? [],
+    quality_systems_other: fields.quality_systems_other?.trim() || null,
+    oem_odm: fields.oem_odm ?? [],
+    company_scale: fields.company_scale?.trim() || null,
+    export_since_year: fields.export_since_year ?? null,
+    export_markets: fields.export_markets ?? [],
+    export_markets_other: fields.export_markets_other?.trim() || null,
+    traceability: fields.traceability ?? [],
+    fda_status: fields.fda_status?.trim() || null,
+    fda_number: fields.fda_number?.trim() || null,
+    fda_expires_at: fields.fda_expires_at || null,
+    staff_engineers_count: fields.staff_engineers_count ?? null,
+    staff_workers_count: fields.staff_workers_count ?? null,
+    work_hours_start: fields.work_hours_start || null,
+    work_hours_end: fields.work_hours_end || null,
+    work_days_per_week: fields.work_days_per_week ?? null,
+    food_safety_training_regular: fields.food_safety_training_regular ?? null,
+    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
+    water_source: fields.water_source ?? [],
+    water_source_other: fields.water_source_other?.trim() || null,
+    water_testing: fields.water_testing ?? null,
+    near_pollution_source: fields.near_pollution_source ?? null,
+    pollution_source_note: fields.pollution_source_note?.trim() || null,
+    audit_readiness: fields.audit_readiness ?? [],
+    audit_owner: fields.audit_owner?.trim() || null,
+    incoterms: fields.incoterms ?? [],
+    payment_policy: fields.payment_policy?.trim() || null,
+    oem_policy: fields.oem_policy?.trim() || null,
+    odm_policy: fields.odm_policy?.trim() || null,
+    has_export_dept: fields.has_export_dept ?? null,
+    has_english_staff: fields.has_english_staff ?? null,
+    pricing_decision_maker: fields.pricing_decision_maker?.trim() || null,
+    commitments: fields.commitments ?? [],
+    project_priority: fields.project_priority?.trim() || null,
   }).eq("id", id)
 
   if (isAE) q = q.eq("ae_id", caller.id)
@@ -206,6 +241,52 @@ export async function approveIntakeSubmission(
   }
 
   const clientId = createResult.userId
+
+  // ---- Mirror the complete factory assessment into client_factory_assessments
+  // The assessment action recomputes the internal score and upserts atomically
+  // by client_id, so re-running approval cannot create duplicate assessments.
+  const toNumber = (value: number | null | undefined) => value ?? null
+  const assessmentInput: AssessmentInput = {
+    quality_systems: fields.quality_systems ?? [],
+    quality_systems_other: fields.quality_systems_other ?? null,
+    oem_odm: fields.oem_odm ?? [],
+    company_scale: fields.company_scale ?? null,
+    export_since_year: toNumber(fields.export_since_year),
+    export_markets: fields.export_markets ?? [],
+    export_markets_other: fields.export_markets_other ?? null,
+    traceability: fields.traceability ?? [],
+    audit_readiness: fields.audit_readiness ?? [],
+    audit_owner: fields.audit_owner ?? null,
+    incoterms: fields.incoterms ?? [],
+    payment_policy: fields.payment_policy ?? null,
+    oem_policy: fields.oem_policy ?? null,
+    odm_policy: fields.odm_policy ?? null,
+    has_export_dept: fields.has_export_dept ?? null,
+    has_english_staff: fields.has_english_staff ?? null,
+    pricing_decision_maker: fields.pricing_decision_maker ?? null,
+    commitments: fields.commitments ?? [],
+    project_priority: fields.project_priority ?? null,
+    moq: fields.moq ?? null,
+    lead_time_days: fields.lead_time_days ?? null,
+    production_capacity: fields.production_capacity ?? null,
+    staff_engineers_count: toNumber(fields.staff_engineers_count),
+    staff_workers_count: toNumber(fields.staff_workers_count),
+    work_hours_start: fields.work_hours_start ?? null,
+    work_hours_end: fields.work_hours_end ?? null,
+    work_days_per_week: toNumber(fields.work_days_per_week),
+    food_safety_training_regular: fields.food_safety_training_regular ?? null,
+    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
+    water_source: fields.water_source ?? [],
+    water_source_other: fields.water_source_other ?? null,
+    water_testing: fields.water_testing ?? null,
+    near_pollution_source: fields.near_pollution_source ?? null,
+    pollution_source_note: fields.pollution_source_note ?? null,
+  }
+  const assessmentResult = await upsertAssessment(clientId, assessmentInput)
+  if (!assessmentResult.success) {
+    console.error("[v0] factory assessment mirror after intake approval failed:", assessmentResult.error)
+    return { ok: false, error: "assessment_create_failed" }
+  }
 
   // ---- Mirror capability-profile fields into client_profiles ---------------
   const slugBase = fields.company_name

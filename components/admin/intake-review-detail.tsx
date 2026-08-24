@@ -39,6 +39,11 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { INDUSTRIES, INDUSTRY_LABELS_VI, type Industry } from "@/lib/constants/industries"
+import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
+import {
+  EMPTY_FACTORY_CAPABILITY_ANSWERS,
+  type FactoryCapabilityAnswers,
+} from "@/lib/assessment/constants"
 import {
   approveIntakeSubmission,
   rejectIntakeSubmission,
@@ -89,6 +94,40 @@ export interface IntakeSubmissionDetail {
   created_client_id: string | null
   review_notes: string | null
   rejection_reason: string | null
+  quality_systems?: string[] | null
+  quality_systems_other?: string | null
+  oem_odm?: string[] | null
+  company_scale?: string | null
+  export_since_year?: number | null
+  export_markets?: string[] | null
+  export_markets_other?: string | null
+  traceability?: string[] | null
+  fda_status?: string | null
+  fda_number?: string | null
+  fda_expires_at?: string | null
+  staff_engineers_count?: number | null
+  staff_workers_count?: number | null
+  work_hours_start?: string | null
+  work_hours_end?: string | null
+  work_days_per_week?: number | null
+  food_safety_training_regular?: boolean | null
+  equipment_calibration_regular?: boolean | null
+  water_source?: string[] | null
+  water_source_other?: string | null
+  water_testing?: boolean | null
+  near_pollution_source?: boolean | null
+  pollution_source_note?: string | null
+  audit_readiness?: string[] | null
+  audit_owner?: string | null
+  incoterms?: string[] | null
+  payment_policy?: string | null
+  oem_policy?: string | null
+  odm_policy?: string | null
+  has_export_dept?: boolean | null
+  has_english_staff?: boolean | null
+  pricing_decision_maker?: string | null
+  commitments?: string[] | null
+  project_priority?: string | null
   profiles: { full_name: string | null; email: string | null } | null
 }
 
@@ -147,6 +186,44 @@ export function IntakeReviewDetail({
     certifications: submission.certifications ?? [],
     certificationsOther: submission.certifications_other ?? "",
   })
+
+  const [assessment, setAssessment] = useState<FactoryCapabilityAnswers>(() => ({
+    ...EMPTY_FACTORY_CAPABILITY_ANSWERS,
+    quality_systems: submission.quality_systems ?? [],
+    quality_systems_other: submission.quality_systems_other ?? "",
+    oem_odm: submission.oem_odm ?? [],
+    company_scale: submission.company_scale ?? "",
+    export_since_year: submission.export_since_year?.toString() ?? "",
+    export_markets: submission.export_markets ?? [],
+    export_markets_other: submission.export_markets_other ?? "",
+    traceability: submission.traceability ?? [],
+    fda_status: submission.fda_status ?? "",
+    fda_number: submission.fda_number ?? "",
+    fda_expires_at: submission.fda_expires_at ?? "",
+    staff_engineers_count: submission.staff_engineers_count?.toString() ?? "",
+    staff_workers_count: submission.staff_workers_count?.toString() ?? "",
+    work_hours_start: submission.work_hours_start ?? "",
+    work_hours_end: submission.work_hours_end ?? "",
+    work_days_per_week: submission.work_days_per_week?.toString() ?? "",
+    food_safety_training_regular: submission.food_safety_training_regular === true ? "yes" : submission.food_safety_training_regular === false ? "no" : "",
+    equipment_calibration_regular: submission.equipment_calibration_regular === true ? "yes" : submission.equipment_calibration_regular === false ? "no" : "",
+    water_source: submission.water_source ?? [],
+    water_source_other: submission.water_source_other ?? "",
+    water_testing: submission.water_testing ? "yes" : "",
+    near_pollution_source: submission.near_pollution_source ? "yes" : "",
+    pollution_source_note: submission.pollution_source_note ?? "",
+    audit_readiness: submission.audit_readiness ?? [],
+    audit_owner: submission.audit_owner ?? "",
+    incoterms: submission.incoterms ?? [],
+    payment_policy: submission.payment_policy ?? "",
+    oem_policy: submission.oem_policy ?? "",
+    odm_policy: submission.odm_policy ?? "",
+    has_export_dept: submission.has_export_dept ? "yes" : "",
+    has_english_staff: submission.has_english_staff ? "yes" : "",
+    pricing_decision_maker: submission.pricing_decision_maker ?? "",
+    commitments: submission.commitments ?? [],
+    project_priority: submission.project_priority ?? "",
+  }))
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -224,6 +301,40 @@ export function IntakeReviewDetail({
       video_url: form.videoUrl || null,
       certifications: form.certifications,
       certifications_other: form.certificationsOther || null,
+      quality_systems: assessment.quality_systems,
+      quality_systems_other: assessment.quality_systems_other || null,
+      oem_odm: assessment.oem_odm,
+      company_scale: assessment.company_scale || null,
+      export_since_year: Number(assessment.export_since_year) || null,
+      export_markets: assessment.export_markets,
+      export_markets_other: assessment.export_markets_other || null,
+      traceability: assessment.traceability,
+      fda_status: assessment.fda_status || null,
+      fda_number: assessment.fda_number || null,
+      fda_expires_at: assessment.fda_expires_at || null,
+      staff_engineers_count: Number(assessment.staff_engineers_count) || null,
+      staff_workers_count: Number(assessment.staff_workers_count) || null,
+      work_hours_start: assessment.work_hours_start || null,
+      work_hours_end: assessment.work_hours_end || null,
+      work_days_per_week: Number(assessment.work_days_per_week) || null,
+      food_safety_training_regular: assessment.food_safety_training_regular === "yes" ? true : assessment.food_safety_training_regular === "no" ? false : null,
+      equipment_calibration_regular: assessment.equipment_calibration_regular === "yes" ? true : assessment.equipment_calibration_regular === "no" ? false : null,
+      water_source: assessment.water_source,
+      water_source_other: assessment.water_source_other || null,
+      water_testing: assessment.water_testing === "yes" ? true : assessment.water_testing === "no" ? false : null,
+      near_pollution_source: assessment.near_pollution_source === "yes" ? true : assessment.near_pollution_source === "no" ? false : null,
+      pollution_source_note: assessment.pollution_source_note || null,
+      audit_readiness: assessment.audit_readiness,
+      audit_owner: assessment.audit_owner || null,
+      incoterms: assessment.incoterms,
+      payment_policy: assessment.payment_policy || null,
+      oem_policy: assessment.oem_policy || null,
+      odm_policy: assessment.odm_policy || null,
+      has_export_dept: assessment.has_export_dept === "yes" ? true : assessment.has_export_dept === "no" ? false : null,
+      has_english_staff: assessment.has_english_staff === "yes" ? true : assessment.has_english_staff === "no" ? false : null,
+      pricing_decision_maker: assessment.pricing_decision_maker || null,
+      commitments: assessment.commitments,
+      project_priority: assessment.project_priority || null,
     }
   }
 
@@ -589,6 +700,21 @@ export function IntakeReviewDetail({
                 <Label>{tr("URL video nhà máy", "Factory video URL")}</Label>
                 <Input value={form.videoUrl} onChange={(e) => update("videoUrl", e.target.value)} />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{tr("Đánh giá năng lực nhà máy", "Factory capability assessment")}</CardTitle>
+              <CardDescription>
+                {tr("10 mục thông tin được đánh số lại từ 1 đến 10.", "Ten assessment sections, numbered 1 through 10.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FactoryCapabilityStep
+                values={assessment}
+                onChange={(patch) => setAssessment((previous) => ({ ...previous, ...patch }))}
+              />
             </CardContent>
           </Card>
         </fieldset>

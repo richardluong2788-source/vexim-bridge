@@ -1026,7 +1026,10 @@ function RequirementEmailDialog({
   onClose: () => void
   onSent: () => void
 }) {
+  const [mode, setMode] = useState<"ai" | "manual">("ai")
   const [viPrompt, setViPrompt] = useState("")
+  const [manualSubject, setManualSubject] = useState("")
+  const [manualContent, setManualContent] = useState("")
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
   const [draft, setDraft] = useState<{
@@ -1041,11 +1044,25 @@ function RequirementEmailDialog({
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
   const handleGenerate = async () => {
+    if (mode === "manual" && !manualContent.trim()) {
+      toast.error(t("Vui lòng nhập nội dung email", "Please enter the email content"))
+      return
+    }
     setGenerating(true)
-    const result = await generateRequirementInquiryEmailAction({
-      engagementId: engagement.id,
-      viPrompt,
-    })
+    const result = await generateRequirementInquiryEmailAction(
+      mode === "manual"
+        ? {
+            engagementId: engagement.id,
+            viPrompt: "",
+            isManual: true,
+            manualSubject: manualSubject.trim() || t("(không có chủ đề)", "(no subject)"),
+            manualContent: manualContent.trim(),
+          }
+        : {
+            engagementId: engagement.id,
+            viPrompt,
+          },
+    )
     setGenerating(false)
     if (!result.ok) {
       toast.error(result.message || result.error)
@@ -1096,17 +1113,72 @@ function RequirementEmailDialog({
 
         {!draft ? (
           <div className="space-y-3">
-            <Label htmlFor="vi-prompt">{t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}</Label>
-            <Textarea
-              id="vi-prompt"
-              value={viPrompt}
-              onChange={(e) => setViPrompt(e.target.value)}
-              placeholder={t(
-                "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
-                "E.g. emphasize Vexim works with export-certified factories...",
-              )}
-              rows={3}
-            />
+            <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("ai")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn bằng AI", "AI draft")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn tay", "Write manually")}
+              </button>
+            </div>
+
+            {mode === "ai" ? (
+              <>
+                <Label htmlFor="vi-prompt">
+                  {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
+                </Label>
+                <Textarea
+                  id="vi-prompt"
+                  value={viPrompt}
+                  onChange={(e) => setViPrompt(e.target.value)}
+                  placeholder={t(
+                    "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
+                    "E.g. emphasize Vexim works with export-certified factories...",
+                  )}
+                  rows={3}
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="manual-req-subject">{t("Chủ đề", "Subject")}</Label>
+                  <Input
+                    id="manual-req-subject"
+                    value={manualSubject}
+                    onChange={(e) => setManualSubject(e.target.value)}
+                    placeholder={t(
+                      "VD: Sourcing from Vietnam — coconuts & cashew nuts",
+                      "E.g. Sourcing from Vietnam — coconuts & cashew nuts",
+                    )}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-req-content">{t("Nội dung email", "Email content")}</Label>
+                  <Textarea
+                    id="manual-req-content"
+                    value={manualContent}
+                    onChange={(e) => setManualContent(e.target.value)}
+                    placeholder={t(
+                      "Viết nội dung email mở đầu gửi buyer tại đây...",
+                      "Write the opening email content here...",
+                    )}
+                    rows={8}
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -1149,8 +1221,14 @@ function RequirementEmailDialog({
           </Button>
           {!draft ? (
             <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {t("Soạn bằng AI", "Generate with AI")}
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : mode === "manual" ? (
+                <CornerUpLeft className="h-4 w-4" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {mode === "manual" ? t("Xem lại email", "Review email") : t("Soạn bằng AI", "Generate with AI")}
             </Button>
           ) : (
             <Button onClick={handleSend} disabled={sending} className="gap-2">
@@ -1185,7 +1263,10 @@ function ResendFollowUpDialog({
   onClose: () => void
   onSent: () => void
 }) {
+  const [mode, setMode] = useState<"ai" | "manual">("ai")
   const [viPrompt, setViPrompt] = useState("")
+  const [manualSubject, setManualSubject] = useState("")
+  const [manualContent, setManualContent] = useState("")
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
   const [draft, setDraft] = useState<{
@@ -1220,13 +1301,29 @@ function ResendFollowUpDialog({
   )[0]?.message_id
 
   const handleGenerate = async () => {
+    if (mode === "manual" && !manualContent.trim()) {
+      toast.error(t("Vui lòng nhập nội dung email", "Please enter the email content"))
+      return
+    }
     setGenerating(true)
-    const result = await generateRequirementInquiryEmailAction({
-      engagementId: engagement.id,
-      viPrompt,
-      emailType: "requirement_followup",
-      shortlistUrl,
-    })
+    const result = await generateRequirementInquiryEmailAction(
+      mode === "manual"
+        ? {
+            engagementId: engagement.id,
+            viPrompt: "",
+            emailType: "requirement_followup",
+            shortlistUrl,
+            isManual: true,
+            manualSubject: manualSubject.trim() || t("(không có chủ đề)", "(no subject)"),
+            manualContent: manualContent.trim(),
+          }
+        : {
+            engagementId: engagement.id,
+            viPrompt,
+            emailType: "requirement_followup",
+            shortlistUrl,
+          },
+    )
     setGenerating(false)
     if (!result.ok) {
       toast.error(result.message || result.error)
@@ -1284,19 +1381,69 @@ function ResendFollowUpDialog({
 
         {!draft ? (
           <div className="space-y-3">
-            <Label htmlFor="resend-vi-prompt">
-              {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
-            </Label>
-            <Textarea
-              id="resend-vi-prompt"
-              value={viPrompt}
-              onChange={(e) => setViPrompt(e.target.value)}
-              placeholder={t(
-                "VD: hỏi buyer có cần thêm thông tin gì để ra quyết định...",
-                "E.g. ask if the buyer needs any more information to decide...",
-              )}
-              rows={3}
-            />
+            <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("ai")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn bằng AI", "AI draft")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mode === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {t("Soạn tay", "Write manually")}
+              </button>
+            </div>
+
+            {mode === "ai" ? (
+              <>
+                <Label htmlFor="resend-vi-prompt">
+                  {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
+                </Label>
+                <Textarea
+                  id="resend-vi-prompt"
+                  value={viPrompt}
+                  onChange={(e) => setViPrompt(e.target.value)}
+                  placeholder={t(
+                    "VD: hỏi buyer có cần thêm thông tin gì để ra quyết định...",
+                    "E.g. ask if the buyer needs any more information to decide...",
+                  )}
+                  rows={3}
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="manual-resend-subject">{t("Chủ đề", "Subject")}</Label>
+                  <Input
+                    id="manual-resend-subject"
+                    value={manualSubject}
+                    onChange={(e) => setManualSubject(e.target.value)}
+                    placeholder={t("VD: Following up — ...", "E.g. Following up — ...")}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="manual-resend-content">{t("Nội dung email", "Email content")}</Label>
+                  <Textarea
+                    id="manual-resend-content"
+                    value={manualContent}
+                    onChange={(e) => setManualContent(e.target.value)}
+                    placeholder={t(
+                      "Viết nội dung email nhắc lại gửi buyer tại đây...",
+                      "Write the follow-up email content here...",
+                    )}
+                    rows={8}
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -1339,7 +1486,13 @@ function ResendFollowUpDialog({
           </Button>
           {!draft ? (
             <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : mode === "manual" ? (
+                <CornerUpLeft className="h-4 w-4" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
               {t("Soạn bằng AI", "Generate with AI")}
             </Button>
           ) : (
@@ -1461,7 +1614,7 @@ function ReplyFollowUpDialog({
           <DialogTitle>{t("Trả lời buyer", "Reply to buyer")}</DialogTitle>
           <DialogDescription>
             {t(
-              "AI sẽ soạn email trả lời đúng n���i dung buyer vừa gửi. Bạn có thể chỉnh trước khi gửi.",
+              "AI sẽ soạn email tr��� lời đúng n���i dung buyer vừa gửi. Bạn có thể chỉnh trước khi gửi.",
               "AI will draft a reply grounded in what the buyer just wrote. Review before sending.",
             )}
           </DialogDescription>

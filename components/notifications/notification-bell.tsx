@@ -188,15 +188,7 @@ export function NotificationBell({
         sideOffset={8}
         collisionPadding={16}
         avoidCollisions
-        className="flex w-[380px] flex-col overflow-hidden p-0"
-        style={{
-          // The Radix collision var alone isn't a reliable cap in every host
-          // context (it can report a taller-than-viewport value), so clamp
-          // against an explicit vh fallback too — this is what actually
-          // stops the panel from running behind the OS taskbar.
-          maxHeight:
-            "min(70vh, var(--radix-popover-content-available-height, 70vh))",
-        }}
+        className="flex w-[380px] max-h-[min(520px,var(--radix-popover-content-available-height,520px),70vh)] flex-col overflow-hidden p-0"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">

@@ -453,7 +453,7 @@ export function BuyerDetailView({
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <TrendingDown className="h-3.5 w-3.5 text-chart-5" />
-                      {locale === "vi" ? "Tháng thấp đi�����m" : "Low months"}
+                      {locale === "vi" ? "Tháng thấp điểm" : "Low months"}
                     </div>
                     <p className="text-sm text-foreground">{buyer.top_low_months ?? "—"}</p>
                   </div>
@@ -470,7 +470,7 @@ export function BuyerDetailView({
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <TrendingUp className="h-3.5 w-3.5 text-chart-2" />
-                        {locale === "vi" ? "Xu hướng nh��p khẩu" : "Import trend"}
+                        {locale === "vi" ? "Xu hướng nhập khẩu" : "Import trend"}
                       </div>
                       <Badge 
                         variant="secondary" 

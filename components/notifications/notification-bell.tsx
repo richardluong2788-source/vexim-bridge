@@ -187,7 +187,16 @@ export function NotificationBell({
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        className="flex w-[380px] flex-col overflow-hidden p-0 max-h-[var(--radix-popover-content-available-height)]"
+        avoidCollisions
+        className="flex w-[380px] flex-col overflow-hidden p-0"
+        style={{
+          // The Radix collision var alone isn't a reliable cap in every host
+          // context (it can report a taller-than-viewport value), so clamp
+          // against an explicit vh fallback too — this is what actually
+          // stops the panel from running behind the OS taskbar.
+          maxHeight:
+            "min(70vh, var(--radix-popover-content-available-height, 70vh))",
+        }}
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
@@ -236,28 +245,28 @@ export function NotificationBell({
                     )}
                   >
                     <UnreadDot read={Boolean(n.read_at)} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex min-w-0 items-center gap-2">
                         <p
                           className={cn(
-                            "text-sm leading-snug text-foreground truncate",
+                            "min-w-0 flex-1 truncate text-sm leading-snug text-foreground",
                             !n.read_at && "font-semibold",
                           )}
                         >
                           {n.title}
                         </p>
                         {!n.read_at && (
-                          <span className="ml-auto shrink-0 inline-flex items-center rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
+                          <span className="shrink-0 inline-flex items-center rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
                             {t.notifications.newBadge}
                           </span>
                         )}
                       </div>
                       {n.body && (
-                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2 text-pretty">
+                        <p className="mt-0.5 min-w-0 text-xs text-muted-foreground line-clamp-2 text-pretty break-words">
                           {n.body}
                         </p>
                       )}
-                      <p className="mt-1 text-[11px] text-muted-foreground/80">
+                      <p className="mt-1 min-w-0 truncate text-[11px] text-muted-foreground/80">
                         <CategoryLabel category={n.category} />
                         <span aria-hidden="true" className="px-1">·</span>
                         {formatRelative(n.created_at, locale, t.notifications.timeAgo)}

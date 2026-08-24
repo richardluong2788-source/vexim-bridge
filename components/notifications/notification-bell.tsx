@@ -134,8 +134,27 @@ export function NotificationBell({
   }
 
   function handleItemClick(n: Notification) {
-    if (!n.read_at) handleMarkOne(n.id)
     setOpen(false)
+    if (!n.read_at) {
+      // Optimistic UI update happens instantly (see handleMarkOne), but we
+      // wait for the server write to land before navigating. Otherwise the
+      // destination page's server-rendered topbar can refetch the unread
+      // count before the "mark as read" write has committed, showing a
+      // stale (non-decremented) badge.
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === n.id && !item.read_at
+            ? { ...item, read_at: new Date().toISOString() }
+            : item,
+        ),
+      )
+      setUnread((c) => Math.max(0, c - 1))
+      startTransition(async () => {
+        await markNotificationRead(n.id)
+        if (n.link_path) router.push(n.link_path)
+      })
+      return
+    }
     if (n.link_path) router.push(n.link_path)
   }
 
@@ -167,10 +186,11 @@ export function NotificationBell({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[380px] p-0 overflow-hidden"
+        collisionPadding={16}
+        className="flex w-[380px] flex-col overflow-hidden p-0 max-h-[var(--radix-popover-content-available-height)]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">{t.notifications.title}</h3>
@@ -203,7 +223,7 @@ export function NotificationBell({
             </p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[420px]">
+          <ScrollArea className="min-h-0 flex-1">
             <ul className="flex flex-col">
               {items.map((n) => (
                 <li key={n.id} className="border-b border-border last:border-b-0">
@@ -215,7 +235,7 @@ export function NotificationBell({
                       !n.read_at && "bg-accent/20",
                     )}
                   >
-                    <CategoryDot category={n.category} />
+                    <UnreadDot read={Boolean(n.read_at)} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p
@@ -273,18 +293,18 @@ export function NotificationBell({
 // Category presentation
 // -----------------------------------------------------------------------------
 
-function CategoryDot({ category }: { category: Notification["category"] }) {
-  const color: Record<Notification["category"], string> = {
-    action_required: "bg-destructive",
-    status_update: "bg-chart-1",
-    deal_closed: "bg-chart-4",
-    new_assignment: "bg-primary",
-    system: "bg-muted-foreground",
-  }
+// Indicates unread status only. Category is already conveyed via the label
+// text below each item, so this dot must not double as a category marker —
+// otherwise "action_required" notifications keep showing a colored dot even
+// after being read, which looks like an unread marker that never clears.
+function UnreadDot({ read }: { read: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", color[category])}
+      className={cn(
+        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+        read ? "bg-transparent" : "bg-destructive",
+      )}
     />
   )
 }

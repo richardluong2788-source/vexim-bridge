@@ -925,6 +925,139 @@ export type Database = {
           }
         ]
       }
+      client_intake_submissions: {
+        Row: {
+          id: string
+          token: string
+          ae_id: string
+          status: "pending" | "submitted" | "approved" | "rejected"
+          expires_at: string
+          contact_name: string | null
+          email: string | null
+          phone: string | null
+          company_name: string | null
+          industries: string[]
+          country: string | null
+          address: string | null
+          website: string | null
+          tax_code: string | null
+          tagline: string | null
+          company_description: string | null
+          main_products: string | null
+          production_capacity: string | null
+          moq: string | null
+          lead_time_days: string | null
+          usp_points: Record<string, unknown>[]
+          logo_url: string | null
+          cover_image_url: string | null
+          factory_image_urls: string[]
+          video_url: string | null
+          certifications: string[]
+          certifications_other: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          review_notes: string | null
+          rejection_reason: string | null
+          created_client_id: string | null
+          submitted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          token: string
+          ae_id: string
+          status?: "pending" | "submitted" | "approved" | "rejected"
+          expires_at?: string
+          contact_name?: string | null
+          email?: string | null
+          phone?: string | null
+          company_name?: string | null
+          industries?: string[]
+          country?: string | null
+          address?: string | null
+          website?: string | null
+          tax_code?: string | null
+          tagline?: string | null
+          company_description?: string | null
+          main_products?: string | null
+          production_capacity?: string | null
+          moq?: string | null
+          lead_time_days?: string | null
+          usp_points?: Record<string, unknown>[]
+          logo_url?: string | null
+          cover_image_url?: string | null
+          factory_image_urls?: string[]
+          video_url?: string | null
+          certifications?: string[]
+          certifications_other?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_notes?: string | null
+          rejection_reason?: string | null
+          created_client_id?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          token?: string
+          ae_id?: string
+          status?: "pending" | "submitted" | "approved" | "rejected"
+          expires_at?: string
+          contact_name?: string | null
+          email?: string | null
+          phone?: string | null
+          company_name?: string | null
+          industries?: string[]
+          country?: string | null
+          address?: string | null
+          website?: string | null
+          tax_code?: string | null
+          tagline?: string | null
+          company_description?: string | null
+          main_products?: string | null
+          production_capacity?: string | null
+          moq?: string | null
+          lead_time_days?: string | null
+          usp_points?: Record<string, unknown>[]
+          logo_url?: string | null
+          cover_image_url?: string | null
+          factory_image_urls?: string[]
+          video_url?: string | null
+          certifications?: string[]
+          certifications_other?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_notes?: string | null
+          rejection_reason?: string | null
+          created_client_id?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_intake_submissions_ae_id_fkey"
+            columns: ["ae_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_intake_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_intake_submissions_created_client_id_fkey"
+            columns: ["created_client_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       client_factory_assessments: {
         Row: {
           id: string

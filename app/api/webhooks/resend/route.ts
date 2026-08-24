@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { getEmailDomain, isPublicEmailDomain } from "@/lib/email/public-domains"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -245,6 +246,102 @@ async function findOpportunityByEmail(
     }
   }
 
+  // Method 3: Match by the recipient address of a SENT email_drafts row
+  // tied to an opportunity. Mirrors findEngagementByEmail's Method 3 below
+  // — catches replies from the exact address we emailed (e.g.
+  // leads.contact_email) even when that address was never added to
+  // buyer_contacts. Without this, an opportunity-stage reply from an
+  // address not yet in the contact directory silently fell through to
+  // "no_match", even though we know EXACTLY who we sent it to.
+  const { data: matchingDrafts } = await admin
+    .from("email_drafts")
+    .select("opportunity_id")
+    .eq("status", "sent")
+    .not("opportunity_id", "is", null)
+    .ilike("recipient_email", fromEmail)
+    .order("created_at", { ascending: false })
+
+  const draftOpportunityIds = Array.from(
+    new Set((matchingDrafts ?? []).map((d) => d.opportunity_id as string)),
+  )
+
+  for (const oppId of draftOpportunityIds) {
+    const { data: opp } = await admin
+      .from("opportunities")
+      .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
+      .eq("id", oppId)
+      .not("stage", "in", '("won","lost")')
+      .maybeSingle()
+
+    if (opp) {
+      const lead = opp.leads as { company_name?: string; industry?: string } | null
+      const leadId = (opp as { lead_id: string | null }).lead_id
+      const matchedContact = leadId ? await findContactForLead(leadId) : null
+
+      return {
+        opportunityId: opp.id,
+        leadId,
+        leadCompany: lead?.company_name ?? null,
+        leadIndustry: lead?.industry ?? null,
+        oppStage: opp.stage,
+        matchSource: "sender_email",
+        matchConfidence: 0.8,
+        matchedContactId: matchedContact?.id ?? null,
+        // Not "unrecognized" — we deliberately emailed this exact address,
+        // it's just missing from the structured contact directory.
+        isUnrecognizedSender: false,
+      }
+    }
+  }
+
+  // Method 4: Loosened domain match (low confidence, last resort). Covers a
+  // buyer replying from a colleague's mailbox at the SAME company domain
+  // (e.g. a contact is jane@acme-imports.com, reply comes from
+  // procurement@acme-imports.com). Never applied to free webmail domains
+  // (gmail.com, yahoo.com, ...) — matching those by domain would attach
+  // replies from unrelated buyers to the wrong opportunity.
+  const fromDomain = getEmailDomain(fromEmail)
+  if (fromDomain && !isPublicEmailDomain(fromDomain)) {
+    const { data: domainContacts } = await admin
+      .from("buyer_contacts")
+      .select("id, lead_id, email")
+      .eq("status", "active")
+      .ilike("email", `%@${fromDomain}`)
+
+    const domainMatches = (domainContacts ?? []) as {
+      id: string
+      lead_id: string
+      email: string | null
+    }[]
+
+    for (const contactMatch of domainMatches) {
+      const { data: opp } = await admin
+        .from("opportunities")
+        .select("id, stage, lead_id, leads:lead_id ( company_name, industry )")
+        .eq("lead_id", contactMatch.lead_id)
+        .not("stage", "in", '("won","lost")')
+        .order("last_updated", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (opp) {
+        const lead = opp.leads as { company_name?: string; industry?: string } | null
+        return {
+          opportunityId: opp.id,
+          leadId: contactMatch.lead_id,
+          leadCompany: lead?.company_name ?? null,
+          leadIndustry: lead?.industry ?? null,
+          oppStage: opp.stage,
+          matchSource: "sender_email",
+          matchConfidence: 0.5,
+          matchedContactId: null,
+          // Different mailbox than the one on file — flag for AE review.
+          isUnrecognizedSender: true,
+        }
+      }
+    }
+  }
+
   return null
 }
 
@@ -404,6 +501,50 @@ async function findEngagementByEmail(
     }
   }
 
+  // Method 4: Loosened domain match (low confidence, last resort) — same
+  // rationale as findOpportunityByEmail's Method 4 above. Never applied to
+  // free webmail domains.
+  const fromDomain = getEmailDomain(fromEmail)
+  if (fromDomain && !isPublicEmailDomain(fromDomain)) {
+    const { data: domainContacts } = await admin
+      .from("buyer_contacts")
+      .select("id, lead_id, email")
+      .eq("status", "active")
+      .ilike("email", `%@${fromDomain}`)
+
+    const domainMatches = (domainContacts ?? []) as {
+      id: string
+      lead_id: string
+      email: string | null
+    }[]
+
+    for (const contactMatch of domainMatches) {
+      const { data: eng } = await admin
+        .from("buyer_engagements")
+        .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+        .eq("lead_id", contactMatch.lead_id)
+        .not("stage", "in", '("converted","dropped")')
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (eng) {
+        const lead = eng.leads as { company_name?: string; industry?: string } | null
+        return {
+          engagementId: eng.id,
+          leadId: contactMatch.lead_id,
+          leadCompany: lead?.company_name ?? null,
+          leadIndustry: lead?.industry ?? null,
+          accountManagerId: eng.account_manager_id,
+          matchSource: "sender_email",
+          matchConfidence: 0.5,
+          matchedContactId: null,
+          isUnrecognizedSender: true,
+        }
+      }
+    }
+  }
+
   return null
 }
 
@@ -422,6 +563,15 @@ async function isDuplicate(messageId: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  // Created once up-front — the unmatched-email persistence branch below
+  // runs BEFORE the opportunity/engagement match is resolved, so `admin`
+  // must exist before that branch, not after it (a `const admin` declared
+  // further down throws "Cannot access 'admin' before initialization" the
+  // moment an unmatched email comes in, which was silently turning the
+  // "persist it instead of dropping it" fix into a 500 that dropped it
+  // anyway).
+  const admin = createAdminClient()
+
   console.log("[v0] Resend webhook POST received at", new Date().toISOString())
   console.log("[v0] Request URL:", req.url)
   console.log("[v0] Request method:", req.method)
@@ -481,8 +631,40 @@ export async function POST(req: NextRequest) {
 
     if (!match && !engagementMatch) {
       console.log("[v0] No matching opportunity or engagement found for:", fromEmail)
-      // Could store in a "unmatched_emails" table for manual review
-      return NextResponse.json({ ok: true, skipped: "no_match" })
+
+      // Previously this email was silently dropped here — accepted with
+      // 200 OK (so Resend never retries) but never written anywhere, which
+      // is how a real buyer reply disappears with zero trace even though
+      // Resend's Receiving log shows it arrived. Persist it instead so an
+      // admin can triage and manually attach it (see /admin/unmatched-emails).
+      let bodyForLog = data.text || ""
+      if (!bodyForLog && data.html) {
+        bodyForLog = data.html
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n\n")
+          .replace(/<[^>]+>/g, "")
+          .trim()
+      }
+
+      const { error: unmatchedErr } = await admin.from("unmatched_inbound_emails").insert({
+        resend_email_id: data.email_id,
+        message_id: data.message_id,
+        from_email: fromEmail,
+        to_emails: data.to ?? [],
+        subject: data.subject,
+        in_reply_to: data.in_reply_to ?? null,
+        raw_content: extractReplyBody(bodyForLog) || bodyForLog || null,
+        match_attempt_note:
+          "No buyer_contacts entry, no email_drafts.recipient_email match, and no In-Reply-To match against a sent draft.",
+        received_at: data.created_at,
+      })
+      if (unmatchedErr) {
+        // Ignore unique-violation on message_id (Resend re-delivery) — anything
+        // else is worth logging since this is our last line of defense.
+        console.error("[v0] Failed to store unmatched inbound email:", unmatchedErr)
+      }
+
+      return NextResponse.json({ ok: true, skipped: "no_match", stored: !unmatchedErr })
     }
 
     if (match) {
@@ -554,7 +736,6 @@ export async function POST(req: NextRequest) {
 
     // Insert buyer reply — either against an opportunity (mid-pipeline) or
     // a pre-opportunity buyer_engagement (still gathering requirements).
-    const admin = createAdminClient()
     const { data: reply, error: insertErr } = await admin
       .from("buyer_replies")
       .insert({

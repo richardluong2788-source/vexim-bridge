@@ -21,6 +21,7 @@ import {
   Target,
   Inbox,
   ClipboardList,
+  MailQuestion,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -80,6 +81,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.BUYER_MANUAL_INTAKE },
     // { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.BUYER_MANUAL_INTAKE },
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
+    { href: "/admin/unmatched-emails",  label: t.admin.unmatchedEmails.title,             icon: MailQuestion,           cap: CAPS.ACTIVITY_LOG_VIEW, badgeKey: "unmatchedEmails" },
     { href: "/admin/analytics",         label: locale === "vi" ? "Phân tích" : "Analytics", icon: PieChart,              cap: [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN] },
     { href: "/admin/sla",               label: locale === "vi" ? "SLA" : "SLA",            icon: ShieldCheck,            cap: [CAPS.SLA_VIEW_ALL, CAPS.SLA_VIEW_OWN] },
     { href: "/admin/country-risk",      label: t.nav.countryRisk ?? "Country Risk",       icon: Globe2,                 cap: CAPS.COUNTRY_RISK_READ },

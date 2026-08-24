@@ -27,11 +27,13 @@ import {
   Clock,
   ArrowLeftRight,
   RotateCw,
+  ChevronDown,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -264,11 +266,31 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [transferDialogFor, setTransferDialogFor] = useState<Engagement | null>(null)
   const [markingReadFor, setMarkingReadFor] = useState<string | null>(null)
 
+  // Which cards have their full details (buyer replies, requirements,
+  // shortlist, stage actions) expanded. Each card is a per-buyer accordion:
+  // collapsed by default so a long list of buyers stays scannable, and
+  // expands on click instead of always rendering every reply thread inline
+  // (which otherwise makes the DOM grow unbounded as buyers reply more).
+  // Buyers with an unread reply start expanded so nothing new gets missed.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(engagements.filter((e) => (e.buyer_replies ?? []).some((r) => !r.read_at)).map((e) => e.id)),
+  )
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   // Deep link from a "buyer replied" notification: /admin/engagements?focus=<id>
   const focusId = searchParams.get("focus")
 
   useEffect(() => {
     if (!focusId) return
+    setExpandedIds((prev) => (prev.has(focusId) ? prev : new Set(prev).add(focusId)))
     const el = document.getElementById(`engagement-${focusId}`)
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" })
@@ -370,6 +392,8 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
             ),
           )
 
+          const isExpanded = expandedIds.has(eng.id)
+
           return (
             <Card
               key={eng.id}
@@ -379,10 +403,21 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                 focusId === eng.id && "ring-2 ring-primary",
               )}
             >
+              <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(eng.id)}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-1">
+                  <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex flex-col gap-1 min-w-0 flex-1 text-left appearance-none bg-transparent border-none p-0 cursor-pointer"
+                  >
                     <div className="flex items-center gap-2">
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                          isExpanded && "rotate-180",
+                        )}
+                      />
                       <h3 className="font-semibold text-lg">{lead?.company_name || "—"}</h3>
                       <Badge variant="outline" className={cn(stageInfo.tone)}>
                         {locale === "vi" ? stageInfo.vi : stageInfo.en}
@@ -439,8 +474,9 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                         )}
                       </div>
                     )}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
+                  </button>
+                  </CollapsibleTrigger>
+                  <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <Button
                         type="button"
@@ -481,6 +517,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                 </div>
               </CardHeader>
 
+              <CollapsibleContent>
               <CardContent className="space-y-4">
                 {/* Buyer replies — arrive via the Resend inbound webhook
                     while the AE is still gathering requirements, i.e.
@@ -824,6 +861,8 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                   )}
                 </div>
               </CardContent>
+              </CollapsibleContent>
+              </Collapsible>
             </Card>
           )
         })}

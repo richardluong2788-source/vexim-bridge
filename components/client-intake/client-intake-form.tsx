@@ -39,6 +39,7 @@ import {
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { submitClientIntake } from "@/app/client-intake/[token]/actions"
 import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
+import { ImageUploadField } from "@/components/client-intake/image-upload-field"
 import {
   ASSESSMENT_LABELS,
   EMPTY_FACTORY_CAPABILITY_ANSWERS,
@@ -520,9 +521,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
               "5 thông tin bắt buộc để nhân viên kinh doanh tạo tài khoản cho bạn."}
             {step === 1 && "Giúp buyer hiểu rõ hơn về doanh nghiệp của bạn."}
             {step === 2 &&
-              "Điểm mạnh, chứng nhận và hình ảnh nhà máy — có thể bổ sung sau."}
+              "Điểm mạnh, chứng nhận và hình ảnh nhà máy."}
             {step === 3 &&
-              "10 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy — có thể bổ sung sau."}
+              "10 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy."}
             {step === 4 && "Kiểm tra lại thông tin trước khi gửi."}
           </CardDescription>
         </CardHeader>
@@ -858,31 +859,31 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="logoUrl">URL logo</Label>
-                  <Input
-                    id="logoUrl"
-                    value={form.logoUrl}
-                    onChange={(e) => update("logoUrl", e.target.value)}
-                    placeholder="https://..."
+                  <Label>Logo doanh nghiệp</Label>
+                  <ImageUploadField
+                    max={1}
+                    value={form.logoUrl ? [form.logoUrl] : []}
+                    onChange={(urls) => update("logoUrl", urls[0] ?? "")}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="coverImageUrl">URL ảnh bìa</Label>
-                  <Input
-                    id="coverImageUrl"
-                    value={form.coverImageUrl}
-                    onChange={(e) => update("coverImageUrl", e.target.value)}
-                    placeholder="https://..."
+                  <Label>Ảnh bìa</Label>
+                  <ImageUploadField
+                    max={1}
+                    value={form.coverImageUrl ? [form.coverImageUrl] : []}
+                    onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
                   />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="factoryImageUrls">Ảnh nhà máy / sản phẩm</Label>
-                <Input
-                  id="factoryImageUrls"
-                  value={form.factoryImageUrls}
-                  onChange={(e) => update("factoryImageUrls", e.target.value)}
-                  placeholder="Dán nhiều URL, ngăn cách bởi dấu phẩy"
+                <Label>Ảnh nhà máy / sản phẩm</Label>
+                <ImageUploadField
+                  max={5}
+                  value={form.factoryImageUrls
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)}
+                  onChange={(urls) => update("factoryImageUrls", urls.join(", "))}
                 />
               </div>
               <div className="flex flex-col gap-2">

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           "image/gif",
           "image/avif",
         ],
-        maximumSizeInBytes: 10 * 1024 * 1024, // 10MB per file
+        maximumSizeInBytes: 5 * 1024 * 1024, // 5MB per file
         addRandomSuffix: true,
       }),
       onUploadCompleted: async () => {

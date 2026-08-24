@@ -859,33 +859,36 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label>Logo doanh nghiệp</Label>
-                  <ImageUploadField
-                    max={1}
-                    value={form.logoUrl ? [form.logoUrl] : []}
-                    onChange={(urls) => update("logoUrl", urls[0] ?? "")}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Ảnh bìa</Label>
-                  <ImageUploadField
-                    max={1}
-                    value={form.coverImageUrl ? [form.coverImageUrl] : []}
-                    onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Ảnh nhà máy / sản phẩm</Label>
-                <ImageUploadField
-                  max={5}
-                  value={form.factoryImageUrls
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)}
-                  onChange={(urls) => update("factoryImageUrls", urls.join(", "))}
-                />
-              </div>
+              <Label>Logo doanh nghiệp</Label>
+              <ImageUploadField
+                max={1}
+                value={form.logoUrl ? [form.logoUrl] : []}
+                onChange={(urls) => update("logoUrl", urls[0] ?? "")}
+                recommendedSize="400 x 400px (vuông, nền trong suốt hoặc trắng)"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Ảnh bìa</Label>
+              <ImageUploadField
+                max={1}
+                value={form.coverImageUrl ? [form.coverImageUrl] : []}
+                onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
+                recommendedSize="1600 x 900px (tỉ lệ 16:9)"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Ảnh nhà máy / sản phẩm</Label>
+            <ImageUploadField
+              max={5}
+              value={form.factoryImageUrls
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)}
+              onChange={(urls) => update("factoryImageUrls", urls.join(", "))}
+              recommendedSize="1200 x 1200px trở lên, ảnh ngang hoặc vuông rõ nét"
+            />
+          </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="videoUrl">URL video nhà máy (YouTube)</Label>
                 <Input

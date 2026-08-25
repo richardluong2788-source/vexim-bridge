@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { siteConfig } from "@/lib/site-config"
-import { sendMail, getFromAddress } from "@/lib/email/mailer"
+import { sendClientInviteEmail } from "@/lib/email/client-invite-email"
 
 export interface ResendInviteResult {
   ok: boolean
@@ -89,90 +89,17 @@ export async function resendClientInvite(
 
   const actionLink = linkData.properties.action_link
 
-  // --- 4. Send via Zoho SMTP -------------------------------------------
+  // --- 4. Send the branded activation email via Resend ------------------
   const displayName =
     target.full_name?.trim() ||
     target.company_name?.trim() ||
     target.email.split("@")[0]
 
-  const subject = "Vexim Trade — Kích hoạt tài khoản của bạn"
-
-  const html = `<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-            <tr>
-              <td style="padding:32px 32px 24px 32px;">
-                <p style="margin:0 0 8px 0;font-size:14px;color:#64748b;letter-spacing:0.08em;text-transform:uppercase;">Vexim Trade</p>
-                <h1 style="margin:0 0 16px 0;font-size:24px;font-weight:600;line-height:1.3;color:#0f172a;">
-                  Kích hoạt tài khoản Vexim Trade
-                </h1>
-                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">
-                  Xin chào ${escapeHtml(displayName)},
-                </p>
-                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">
-                  Quản trị viên Vexim Trade vừa gửi lại liên kết kích hoạt tài khoản của bạn.
-                  Nhấn vào nút bên dưới để đặt mật khẩu và đăng nhập vào hệ thống:
-                </p>
-                <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
-                  <tr>
-                    <td style="background:#0f172a;border-radius:8px;">
-                      <a href="${actionLink}"
-                         style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;">
-                        Kích hoạt tài khoản
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#64748b;">
-                  Nếu nút không hoạt động, copy liên kết sau vào trình duyệt:
-                </p>
-                <p style="margin:0 0 24px 0;font-size:12px;line-height:1.5;color:#475569;word-break:break-all;">
-                  ${actionLink}
-                </p>
-                <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b;">
-                  Liên kết có hiệu lực trong 24 giờ. Nếu bạn không yêu cầu kích hoạt,
-                  vui lòng bỏ qua email này.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:12px;color:#94a3b8;">
-                  Vexim Trade · Cầu nối xuất khẩu Việt – Mỹ<br/>
-                  hello@veximtrade.com
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`
-
-  const text = [
-    `Xin chào ${displayName},`,
-    "",
-    "Quản trị viên Vexim Trade vừa gửi lại liên kết kích hoạt tài khoản của bạn.",
-    "Mở liên kết sau để đặt mật khẩu và đăng nhập:",
-    "",
+  const { error: sendErr } = await sendClientInviteEmail({
+    email: target.email,
+    displayName,
     actionLink,
-    "",
-    "Liên kết có hiệu lực trong 24 giờ. Nếu bạn không yêu cầu, vui lòng bỏ qua email này.",
-    "",
-    "— Vexim Trade",
-  ].join("\n")
-
-  const { error: sendErr } = await sendMail({
-    from: getFromAddress(),
-    to: target.email,
-    subject,
-    html,
-    text,
+    variant: "resend",
   })
 
   if (sendErr) {
@@ -190,13 +117,4 @@ export async function resendClientInvite(
   })
 
   return { ok: true }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
 }

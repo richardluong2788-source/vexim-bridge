@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 import { siteConfig } from "@/lib/site-config"
 import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
+import { sendClientInviteEmail } from "@/lib/email/client-invite-email"
 
 export interface CreateClientInput {
   email: string
@@ -116,35 +117,50 @@ export async function createClientAccount(
   // ---- 3. Provision auth user via service role ------------------------------
   const admin = createAdminClient()
 
-  const { data: inviteData, error: inviteErr } =
-    await admin.auth.admin.inviteUserByEmail(email, {
+  // IMPORTANT: we deliberately do NOT use `admin.inviteUserByEmail()` here.
+  // That call both creates the auth user AND auto-sends Supabase Auth's
+  // own built-in invite email — a generic, unbranded "You have been
+  // invited" message that Gmail/Outlook frequently route to Spam or
+  // Promotions for first-time recipients (Resend/SMTP will still report
+  // it as "Delivered", which only means the receiving mail server
+  // accepted it — not that it reached the inbox).
+  //
+  // `generateLink({ type: "invite" })` performs the exact same user
+  // creation but returns the action link WITHOUT sending any email,
+  // letting us deliver it ourselves via `sendClientInviteEmail()` on our
+  // own verified veximtrade.com Resend domain — the same channel that
+  // already reliably reaches AE inboxes.
+  //
+  // The resulting link still points at the client-side /auth/accept-invite
+  // page (not the server route /auth/callback): this flow doesn't use
+  // PKCE, so Supabase returns the session tokens in the URL hash fragment
+  // (`#access_token=...`), which only a browser-side client can read.
+  // This URL must also match an entry in Supabase Dashboard →
+  // Authentication → URL Configuration → Redirect URLs, otherwise
+  // Supabase silently falls back to "Site URL".
+  const redirectTo = `${siteConfig.url}/auth/accept-invite`
+
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: {
       data: {
         role: "client",
         full_name: fullName,
         company_name: company,
       },
-      // IMPORTANT: point at the client-side /auth/accept-invite page,
-      // NOT the server route /auth/callback.
-      //
-      // `admin.inviteUserByEmail` does not use PKCE, so Supabase returns
-      // the session tokens in the URL hash fragment (`#access_token=...`).
-      // Hash fragments are not sent to the server, so a Route Handler
-      // cannot read them — they must be parsed client-side by the
-      // Supabase browser client (which auto-detects `detectSessionInUrl`).
-      //
-      // This URL must also match an entry in Supabase Dashboard →
-      // Authentication → URL Configuration → Redirect URLs, otherwise
-      // Supabase silently falls back to "Site URL".
-      redirectTo: `${siteConfig.url}/auth/accept-invite`,
-    })
+      redirectTo,
+    },
+  })
 
-  if (inviteErr || !inviteData?.user) {
-    const msg = inviteErr?.message ?? "invite_failed"
+  if (linkErr || !linkData?.user || !linkData?.properties?.action_link) {
+    const msg = linkErr?.message ?? "invite_failed"
     if (/already/i.test(msg)) return { ok: false, error: "email_exists" }
     return { ok: false, error: msg }
   }
 
-  const newUserId = inviteData.user.id
+  const newUserId = linkData.user.id
+  const actionLink = linkData.properties.action_link
 
   // ---- 4. Upsert profile with business metadata -----------------------------
   // We write `industries` (the multi-value column). The BEFORE trigger
@@ -179,6 +195,23 @@ export async function createClientAccount(
     // Roll back auth user so admin can retry cleanly.
     await admin.auth.admin.deleteUser(newUserId)
     return { ok: false, error: profileErr.message }
+  }
+
+  // ---- 4b. Send the branded activation email ourselves ---------------------
+  // Not wrapped in try/rollback: the account already exists at this point,
+  // and an admin/AE can always fall back to "Gửi lại link" (resendClientInvite)
+  // if this send happens to fail — same pattern as the AE-notification email.
+  const { error: inviteSendErr } = await sendClientInviteEmail({
+    email,
+    displayName: fullName || company,
+    actionLink,
+    variant: "invite",
+  })
+  if (inviteSendErr) {
+    console.error(
+      "[v0] createClientAccount: failed to send branded invite email:",
+      inviteSendErr.message,
+    )
   }
 
   // ---- 5. Audit trail -------------------------------------------------------

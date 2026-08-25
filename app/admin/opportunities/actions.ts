@@ -9,7 +9,7 @@ import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import type { Stage } from "@/lib/supabase/types"
 import { stageRequiresSwift } from "@/lib/risk/country-risk"
 import { assessCountryRiskDb } from "@/lib/risk/country-risk-db"
-import { normaliseRole } from "@/lib/auth/permissions"
+import { normaliseRole, canAny, CAPS } from "@/lib/auth/permissions"
 import { ownershipScopeFor, assertOpportunityOwned } from "@/lib/auth/scope"
 
 export interface UpdateOpportunityInput {
@@ -64,7 +64,15 @@ export async function updateOpportunityDetails(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  const detailsRole = normaliseRole(callerProfile?.role)
+  if (
+    !detailsRole ||
+    !canAny(detailsRole, [
+      CAPS.DEAL_SELLING_PRICE_WRITE,
+      CAPS.DEAL_QUANTITY_WRITE,
+      CAPS.DEAL_COMPLIANCE_WRITE,
+    ])
+  ) {
     return { ok: false, error: "forbidden" }
   }
 
@@ -72,12 +80,9 @@ export async function updateOpportunityDetails(
   // edit opportunities snapshotted to them. Bypass roles (super_admin /
   // admin / finance) skip the check.
   {
-    const role = normaliseRole(callerProfile.role)
-    if (role) {
-      const scope = ownershipScopeFor(role, user.id)
-      const own = await assertOpportunityOwned(scope, createAdminClient(), input.id)
-      if (!own.ok) return { ok: false, error: own.error }
-    }
+    const scope = ownershipScopeFor(detailsRole, user.id)
+    const own = await assertOpportunityOwned(scope, createAdminClient(), input.id)
+    if (!own.ok) return { ok: false, error: own.error }
   }
 
   // Build update payload with normalised values
@@ -345,7 +350,15 @@ export async function updateOpportunityStage(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  const stageRole = normaliseRole(callerProfile?.role)
+  if (
+    !stageRole ||
+    !canAny(stageRole, [
+      CAPS.DEAL_SELLING_PRICE_WRITE,
+      CAPS.DEAL_QUANTITY_WRITE,
+      CAPS.DEAL_COMPLIANCE_WRITE,
+    ])
+  ) {
     return { ok: false, error: "forbidden" }
   }
 
@@ -355,12 +368,9 @@ export async function updateOpportunityStage(
   // kanban. Without this an AE could move another AE's deal into "won" and
   // hijack the commission snapshot.
   {
-    const role = normaliseRole(callerProfile.role)
-    if (role) {
-      const scope = ownershipScopeFor(role, user.id)
-      const own = await assertOpportunityOwned(scope, admin, opportunityId)
-      if (!own.ok) return { ok: false, error: own.error }
-    }
+    const scope = ownershipScopeFor(stageRole, user.id)
+    const own = await assertOpportunityOwned(scope, admin, opportunityId)
+    if (!own.ok) return { ok: false, error: own.error }
   }
 
   // Fetch BEFORE state for notification context + activity log.
@@ -555,7 +565,11 @@ export async function notifyLeadAssigned(
     .select("role")
     .eq("id", user.id)
     .single()
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  // NOTE: manual lead intake (the flow this notifies for) is restricted to
+  // lead_researcher + super_admin — see CAPS.BUYER_MANUAL_INTAKE and the
+  // gate in app/admin/leads/new/page.tsx. Keep this in sync with that gate.
+  const assignRole = normaliseRole(callerProfile?.role)
+  if (!assignRole || !canAny(assignRole, [CAPS.BUYER_MANUAL_INTAKE])) {
     return { ok: false }
   }
 
@@ -661,7 +675,15 @@ export async function suggestClientAction(
     .eq("id", user.id)
     .single()
 
-  if (!callerProfile || !["admin", "staff", "super_admin"].includes(callerProfile.role)) {
+  const suggestRole = normaliseRole(callerProfile?.role)
+  if (
+    !suggestRole ||
+    !canAny(suggestRole, [
+      CAPS.DEAL_SELLING_PRICE_WRITE,
+      CAPS.DEAL_QUANTITY_WRITE,
+      CAPS.DEAL_COMPLIANCE_WRITE,
+    ])
+  ) {
     return { ok: false, error: "forbidden" }
   }
 

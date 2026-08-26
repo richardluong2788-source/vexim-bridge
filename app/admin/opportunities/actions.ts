@@ -421,7 +421,14 @@ export async function updateOpportunityStage(
 
   const { error: updateErr } = await admin
     .from("opportunities")
-    .update({ stage: newStage, last_updated: new Date().toISOString() })
+    .update({
+      stage: newStage,
+      last_updated: new Date().toISOString(),
+      // Clear the auto-archive marker whenever a card leaves "lost" — an
+      // opportunity reopened by an AE should reappear on the Kanban board
+      // immediately rather than staying hidden until it hits "lost" again.
+      archived_at: newStage === "lost" ? undefined : null,
+    })
     .eq("id", opportunityId)
 
   if (updateErr) {

@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/client-intake-expiry",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/archive-lost-opportunities",
+      "schedule": "0 6 * * *"
     }
   ]
 }

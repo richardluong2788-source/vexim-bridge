@@ -28,6 +28,11 @@ export default async function AdminPipelinePage() {
       profiles:client_id (*, client_profiles(display_name)),
       leads:lead_id (*)
     `)
+    // Opportunities auto-archived after sitting 7 days in "lost" (migration
+    // 066 + cron /api/cron/archive-lost-opportunities) are hidden from the
+    // Kanban board. They still exist for history/analytics — this only
+    // affects what renders here.
+    .is("archived_at", null)
     .order("last_updated", { ascending: false })
   if (scope.kind === "owned") {
     oppQ = oppQ.eq("account_manager_id", scope.userId)

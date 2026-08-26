@@ -369,6 +369,7 @@ export type Database = {
           client_action_due_date: string | null
           last_updated: string
           created_at: string
+          archived_at: string | null
         }
         Insert: {
           id?: string
@@ -391,6 +392,7 @@ export type Database = {
           client_action_due_date?: string | null
           last_updated?: string
           created_at?: string
+          archived_at?: string | null
         }
         Update: {
           id?: string
@@ -413,6 +415,7 @@ export type Database = {
           client_action_due_date?: string | null
           last_updated?: string
           created_at?: string
+          archived_at?: string | null
         }
       }
       activities: {

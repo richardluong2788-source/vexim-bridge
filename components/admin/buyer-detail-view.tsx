@@ -378,7 +378,7 @@ export function BuyerDetailView({
           <TabsList className="self-start">
             <TabsTrigger value="importyeti" className="gap-2">
               <Ship className="h-4 w-4" />
-              {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
+              {locale === "vi" ? "Phân tích dữ liệu" : "Data Analysis"}
             </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Users className="h-4 w-4" />

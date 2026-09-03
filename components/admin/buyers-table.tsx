@@ -119,8 +119,11 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [industryFilter, setIndustryFilter] = useState<string>("all")
+  // "newest" / "oldest" are ordering modes surfaced in the same dropdown for
+  // convenience: they show every buyer, but sort strictly by created_at
+  // instead of the default triage order (unassigned + priority first).
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "has_open" | "has_any" | "never_assigned"
+    "all" | "has_open" | "has_any" | "never_assigned" | "newest" | "oldest"
   >("all")
   const [page, setPage] = useState(1)
 
@@ -158,6 +161,17 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
         false
       )
     })
+
+    // Explicit chronological modes: ignore the triage ordering below and
+    // sort purely by creation date so LR can review the most recently
+    // imported buyers (or the oldest backlog) in one pass.
+    if (statusFilter === "newest" || statusFilter === "oldest") {
+      const dir = statusFilter === "newest" ? -1 : 1
+      return [...matches].sort(
+        (a, b) =>
+          dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      )
+    }
 
     // Default row order: 1) buyers never assigned to any client come first,
     // ranked by LR priority rating high -> low (unrated buyers sink to the
@@ -293,6 +307,12 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                 </SelectItem>
                 <SelectItem value="never_assigned">
                   {locale === "vi" ? "Chưa gán lần nào" : "Never assigned"}
+                </SelectItem>
+                <SelectItem value="newest">
+                  {locale === "vi" ? "Mới nhất" : "Newest first"}
+                </SelectItem>
+                <SelectItem value="oldest">
+                  {locale === "vi" ? "Cũ nhất" : "Oldest first"}
                 </SelectItem>
               </SelectContent>
             </Select>

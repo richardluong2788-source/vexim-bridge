@@ -61,10 +61,11 @@ function formatRelativeTime(iso: string): string {
   return `${days} ngày trước`
 }
 
-// Full Phase-2 pipeline: 10 columns reflecting the export-sales SOP.
+// Full Phase-2 pipeline: 8 columns reflecting the export-sales SOP.
+// "new"/"contacted" retired (migration 071): deals created from the
+// engagement flow already start at sample_requested, and public quote
+// forms now route through AI matching instead of creating cold deals.
 const STAGE_IDS: Stage[] = [
-  "new",
-  "contacted",
   "sample_requested",
   "sample_sent",
   "negotiation",

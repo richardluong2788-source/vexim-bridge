@@ -48,8 +48,6 @@ export async function BottleneckTab({ scope }: Props) {
     "sample_sent",
     "price_agreed",
     "sample_requested",
-    "contacted",
-    "new",
   ]
 
   const usd = (n: number | null) =>

@@ -465,6 +465,7 @@ export type Database = {
           source_engagement_id: string | null
           source_role: string | null
           last_updated: string
+          updated_at: string
           created_at: string
           archived_at: string | null
         }

@@ -164,7 +164,7 @@ export async function getAEKPIs(userId: string, period: PeriodWindow): Promise<A
     .from("opportunities")
     .select("id")
     .in("client_id", clientIds)
-    .in("stage", ["new", "contacted", "qualified", "proposal_sent", "negotiation"])
+    .in("stage", ["sample_requested", "sample_sent", "negotiation", "price_agreed", "production", "shipped"])
 
   const dealsInProgress = inProgressOpps?.length ?? 0
 
@@ -173,7 +173,7 @@ export async function getAEKPIs(userId: string, period: PeriodWindow): Promise<A
     .from("opportunities")
     .select("client_id")
     .in("client_id", clientIds)
-    .in("stage", ["new", "contacted", "qualified", "proposal_sent", "negotiation"])
+    .in("stage", ["sample_requested", "sample_sent", "negotiation", "price_agreed", "production", "shipped"])
 
   const activeClientIds = new Set((activeClientData ?? []).map((o) => o.client_id))
   const activeClients = activeClientIds.size

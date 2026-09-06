@@ -63,8 +63,6 @@ export default async function AdminDashboardPage() {
 
   const stageData = (
     [
-      "new",
-      "contacted",
       "sample_requested",
       "sample_sent",
       "negotiation",

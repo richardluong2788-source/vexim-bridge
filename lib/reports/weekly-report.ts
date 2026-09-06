@@ -21,8 +21,6 @@ import type { Stage, WeeklyReportPayload } from "@/lib/supabase/types"
 type AdminSB = ReturnType<typeof createAdminClient>
 
 export const PIPELINE_STAGES: Stage[] = [
-  "new",
-  "contacted",
   "sample_requested",
   "sample_sent",
   "negotiation",

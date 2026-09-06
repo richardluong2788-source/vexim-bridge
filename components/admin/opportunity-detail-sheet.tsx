@@ -101,7 +101,7 @@ function stageColor(stage: Stage): string {
 
 function stageIndex(stage: Stage): number {
   const flow: Stage[] = [
-    "new", "contacted", "sample_requested", "sample_sent",
+    "sample_requested", "sample_sent",
     "negotiation", "price_agreed", "production", "shipped", "won",
   ]
   const idx = flow.indexOf(stage)

@@ -148,6 +148,37 @@ Word count: 140-220 words. Subject line: "Your [Product] Quote — Valid until [
 5. If the admin's intent is unclear, ask for clarification in the Vietnamese translation note.
 
 Follow the admin's intent precisely while applying these principles. Tone: professional, warm, US-business English.`,
+
+  sample_offer: `SAMPLE OFFER — gửi/chốt mẫu (deal đã qua giai đoạn đầu, buyer đã quan tâm supplier):
+1. Mục tiêu duy nhất: chốt việc gửi mẫu — spec, số lượng mẫu, thời gian nhận.
+2. Xác nhận đúng sản phẩm + spec từ deal_commercial trong context; nếu buyer đã đồng ý
+   điều gì trong conversation_history thì xây trên đó, KHÔNG hỏi lại.
+3. Hỏi đúng 1 nhóm thông tin còn thiếu để gửi mẫu (địa chỉ nhận / DHL-FedEx account / cert cần kèm).
+4. Nêu rõ next step + timeline (VD: "DHL 3-4 days after confirmation").
+Tone: gọn, operational — buyer giai đoạn này cần logistics, không cần pitch.`,
+
+  negotiation: `NEGOTIATION — đàm phán giá & điều khoản (deal ở giai đoạn negotiation/price_agreed):
+1. NEO GIÁ TRỊ trước khi nói giá: chất lượng ổn định, cert, capacity, compliance — rồi mới số.
+2. TUYỆT ĐỐI không mâu thuẫn với bất kỳ con số nào đã nói trong conversation_history
+   hoặc buyer_intel_notes — đó là sự thật mới nhất.
+3. Khi buyer ép giá: đừng giảm ngay — đề xuất phương án thay thế (tăng volume, đổi incoterm,
+   điều chỉnh spec/đóng gói, tách lô). Chỉ nhượng khi có cái đổi lại (commit volume, thanh toán tốt hơn).
+4. Kết bằng 1 câu chốt cụ thể (confirm số + deadline), không để mở.
+Tone: bình đẳng đối tác, tự tin, không van nài.`,
+
+  requirement_inquiry: `REQUIREMENT INQUIRY — hỏi nhu cầu (giai đoạn engagement, chưa bán gì):
+1. Mục tiêu duy nhất: hiểu specification hiện tại của buyer — sản phẩm, volume, target price,
+   packaging, cert yêu cầu, điểm giao.
+2. Dùng dữ liệu ImportYeti trong context để hỏi THÔNG MINH (VD volume they historically import),
+   chứng tỏ đã nghiên cứu nhưng không theo dõi kiểu giám sát.
+3. KHÔNG pitch supplier, KHÔNG quote giá ở email này.
+4. Kết bằng câu hỏi mở đơn giản để buyer dễ trả lời.`,
+
+  shortlist_delivery: `SHORTLIST DELIVERY — gửi danh sách supplier đã chọn (buyer đã trả lời nhu cầu):
+1. Mục tiêu duy nhất: đưa buyer mở shortlist link và phản hồi supplier quan tâm.
+2. 2-3 câu khác biệt hóa NGẮN cho từng supplier (điểm mạnh thật từ context, không phóng đại).
+3. Nhắc buyer bấm nút quan tâm trên từng supplier trong link — hành động cụ thể, không phải "let me know".
+4. KHÔNG nhắc giá ở email này (giá nằm trong shortlist).`,
 }
 
 /**
@@ -394,6 +425,14 @@ export async function generateEmailDraft(
         stage,
         potential_value,
         notes,
+        products_interested,
+        quantity_required,
+        target_price_usd,
+        price_unit,
+        incoterms,
+        payment_terms,
+        destination_port,
+        next_step,
         leads:leads(*),
         profiles:profiles!opportunities_client_id_fkey(
           id,
@@ -411,8 +450,8 @@ export async function generateEmailDraft(
     throw new Error(oppError?.message ?? "Opportunity not found")
   }
 
-  const lead = (opportunity as { leads: Record<string, unknown> | null }).leads
-  const exporter = (opportunity as { profiles: Record<string, unknown> | null }).profiles
+  const lead = (opportunity as unknown as { leads: Record<string, unknown> | null }).leads
+  const exporter = (opportunity as unknown as { profiles: Record<string, unknown> | null }).profiles
 
   if (!lead) {
     throw new Error("Opportunity has no associated lead")
@@ -454,6 +493,70 @@ export async function generateEmailDraft(
       "→ Cannot detect Vietnam supplier leverage"
     )
   }
+
+  // ------------------------------------------------------------
+  // 2b) Ngữ cảnh SỐNG của deal: email đã gửi, phản hồi buyer gần
+  // nhất, và intel AE đã thu được. Không có 3 thứ này, AI soạn email
+  // "mù hội thoại" — có thể trích giá khác với giá đã báo trong email
+  // trước, hoặc hỏi lại điều buyer đã trả lời.
+  // ------------------------------------------------------------
+  const [sentDraftsRes, buyerRepliesRes, intelNotesRes] = await Promise.all([
+    supabase
+      .from("email_drafts")
+      .select("generated_subject, generated_content_en, created_at")
+      .eq("opportunity_id", input.opportunityId)
+      .eq("status", "sent")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("buyer_replies")
+      .select("raw_content, received_at")
+      .eq("opportunity_id", input.opportunityId)
+      .order("received_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("buyer_intel_notes")
+      .select("category, ai_summary, raw_note, created_at")
+      .eq("opportunity_id", input.opportunityId)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ])
+
+  type Opp = {
+    products_interested?: string | null
+    quantity_required?: string | null
+    target_price_usd?: number | null
+    price_unit?: string | null
+    incoterms?: string | null
+    payment_terms?: string | null
+    destination_port?: string | null
+    next_step?: string | null
+  }
+  const opp = opportunity as unknown as Opp
+
+  // Chronological (oldest -> newest) để AI đọc như một cuộc hội thoại.
+  const conversationHistory = [
+    ...(sentDraftsRes.data ?? []).map((d) => ({
+      direction: "sent_to_buyer" as const,
+      at: d.created_at,
+      subject: d.generated_subject,
+      excerpt: (d.generated_content_en ?? "").slice(0, 700),
+    })),
+    ...(buyerRepliesRes.data ?? []).map((r) => ({
+      direction: "buyer_replied" as const,
+      at: r.received_at,
+      subject: null as string | null,
+      excerpt: String(r.raw_content ?? "").slice(0, 700),
+    })),
+  ]
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    .slice(-8) // 8 lượt trao đổi gần nhất — đủ ngữ cảnh, không phình token
+
+  const buyerIntel = (intelNotesRes.data ?? []).map((n) => ({
+    category: n.category,
+    summary: n.ai_summary ?? String(n.raw_note ?? "").slice(0, 200),
+    at: n.created_at,
+  }))
 
   const contextBlock = JSON.stringify(
     {
@@ -526,6 +629,22 @@ export async function generateEmailDraft(
       potential_value_usd: (opportunity as { potential_value: number | null })
         .potential_value,
       opportunity_notes: (opportunity as { notes: string | null }).notes,
+
+      // === DEAL COMMERCIAL TERMS (thông tin deal hiện tại) ===
+      deal_products_interested: opp.products_interested ?? null,
+      deal_quantity_required: opp.quantity_required ?? null,
+      deal_target_price_usd: opp.target_price_usd ?? null,
+      deal_price_unit: opp.price_unit ?? null,
+      deal_incoterms: opp.incoterms ?? null,
+      deal_payment_terms: opp.payment_terms ?? null,
+      deal_destination_port: opp.destination_port ?? null,
+      deal_next_step: opp.next_step ?? null,
+
+      // === CONVERSATION HISTORY (8 lượt gần nhất, cũ -> mới) ===
+      conversation_history: conversationHistory,
+
+      // === LIVE BUYER INTEL (AE thu được khi liên hệ trực tiếp) ===
+      buyer_intel_notes: buyerIntel,
     },
     null,
     2,
@@ -548,9 +667,27 @@ export async function generateEmailDraft(
   const isFirstContact = input.emailType === "introduction"
   const includeThreePillars = input.emailType === "follow_up"
 
+  // Quy tắc nhất quán hội thoại: bắt buộc khi đã có lịch sử trao đổi.
+  const conversationGuidance =
+    conversationHistory.length > 0
+      ? `
+CONVERSATION CONTINUITY (CRITICAL): the context's "conversation_history" contains the most
+recent emails BOTH WAYS in this thread (oldest -> newest). Your draft MUST stay consistent
+with everything already said:
+- NEVER contradict a price, quantity, lead time, term, or date from an earlier email.
+- Do NOT re-ask a question the buyer already answered; build on their answer instead.
+- Match the evolving tone: if the buyer is warm and specific, skip cold-open formality.
+- If "buyer_intel_notes" is present, it is verified live intel from calls/chats (e.g. the
+  negotiated target price) — treat it as the most current truth when it conflicts with
+  older emails.`
+      : `
+CONVERSATION CONTINUITY: no prior emails recorded for this deal — write a fresh, appropriate
+touch for the chosen email type, using deal_commercial terms and buyer intel if present.`
+
   const system = [
     `You are a world-class B2B sales copywriter trained in the methods of Gary Halbert, Dan Kennedy, and Eugene Schwartz.`,
     industryLine,
+    conversationGuidance,
     `
 VEXIM POSITIONING - WHO WE ARE (never contradict this):
 Vexim Trade is a sourcing/export PARTNER that connects US buyers with vetted Vietnamese manufacturers

@@ -5,6 +5,7 @@ import { ActivityList, type ActivityListItem } from "@/components/admin/activity
 import { ScopeBanner } from "@/components/admin/scope-banner"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { ownershipScopeFor } from "@/lib/auth/scope"
+import { CAPS, can } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,10 @@ export default async function ActivitiesPage() {
 
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
+  // Capability gate (defense-in-depth) — same rationale as the pipeline
+  // page: OWNERSHIP_BYPASS roles without ACTIVITY_LOG_VIEW (e.g.
+  // supplier_researcher) must not reach the audit log via direct URL.
+  if (!can(current.role, CAPS.ACTIVITY_LOG_VIEW)) redirect("/admin")
   const { admin, role, userId } = current
   const scope = ownershipScopeFor(role, userId)
 

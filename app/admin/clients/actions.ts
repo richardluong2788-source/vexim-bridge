@@ -85,7 +85,7 @@ export async function updateFdaRegistration(
 
   if (
     !callerProfile ||
-    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "supplier_researcher", "finance"].includes(
       callerProfile.role,
     )
   ) {
@@ -178,7 +178,7 @@ export async function updateClientCountry(
 
   if (
     !callerProfile ||
-    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "supplier_researcher", "finance"].includes(
       callerProfile.role,
     )
   ) {
@@ -268,7 +268,7 @@ export async function updateClientEmail(
 
   if (
     !callerProfile ||
-    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "finance"].includes(
+    !["admin", "staff", "super_admin", "account_executive", "lead_researcher", "supplier_researcher", "finance"].includes(
       callerProfile.role,
     )
   ) {

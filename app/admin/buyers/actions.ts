@@ -107,7 +107,7 @@ export async function updateBuyer(
 //     the user to the sheet instead of creating a duplicate.
 //
 // Side effects:
-//   - Writes 1 row into `opportunities` (stage = "new").
+//   - Writes 1 row into `opportunities` (stage = "sample_requested" — the buyer has already been contacted through the engagement flow).
 //   - Logs 1 row into `activities` for audit trail.
 //
 export async function assignBuyerToClient(
@@ -218,7 +218,7 @@ async function assignOneClient(
     .insert({
       client_id: clientId,
       lead_id: buyer.id,
-      stage: "new",
+      stage: "sample_requested",
       potential_value: potentialValue,
       account_manager_id: userId,
     })

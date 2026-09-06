@@ -1,38 +1,35 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getFromAddress, sendMail } from "@/lib/email/mailer"
-import {
-  renderWeeklyReportHtml,
-  type RecentLead,
-  type StageSummary,
-  type WeeklyReportData,
-} from "@/lib/email/weekly-report"
-import type { Stage } from "@/lib/supabase/types"
+import { renderWeeklyReportHtml } from "@/lib/email/weekly-report"
 import { siteConfig } from "@/lib/site-config"
+import {
+  buildWeeklyReportPayload,
+  markReportEmailStatus,
+  previousWeekStart,
+  upsertWeeklyReport,
+} from "@/lib/reports/weekly-report"
+import type { StageSummary } from "@/lib/email/weekly-report"
+import type { PreferredLanguage } from "@/lib/supabase/types"
 
 // Run on the Node.js runtime because nodemailer uses Node APIs.
 export const runtime = "nodejs"
 // Never cache — always send fresh data.
 export const dynamic = "force-dynamic"
 
-const STAGES: Stage[] = [
-  "new",
-  "contacted",
-  "sample_requested",
-  "sample_sent",
-  "negotiation",
-  "price_agreed",
-  "production",
-  "shipped",
-  "won",
-  "lost",
-]
-
 /**
  * Weekly pipeline report cron.
  *
- * Triggered by vercel.json at 09:00 UTC every Monday.
- * Must be called with `Authorization: Bearer <CRON_SECRET>`.
+ * Triggered by vercel.json at 09:00 UTC every Monday and reports on the
+ * PREVIOUS week (Monday → Sunday). Must be called with
+ * `Authorization: Bearer <CRON_SECRET>`.
+ *
+ * Per client (that has at least one opportunity) this job:
+ *   1. Builds the report payload (buyer names pre-masked per R-07).
+ *   2. Upserts a snapshot row into client_weekly_reports (migration 067)
+ *      so the client dashboard + AE download views have history.
+ *   3. Sends the report email (as before).
+ *   4. Creates an in-app notification linking to /client/reports.
  */
 export async function GET(request: Request) {
   // ---- 1. Authenticate the call ----------------------------------------
@@ -51,11 +48,12 @@ export async function GET(request: Request) {
 
   // ---- 2. Use the admin client to bypass RLS ---------------------------
   const supabase = createAdminClient()
+  const weekStart = previousWeekStart()
 
-  // ---- 3. Fetch all clients that have at least one opportunity ---------
+  // ---- 3. Fetch all clients ---------------------------------------------
   const { data: clients, error: clientsErr } = await supabase
     .from("profiles")
-    .select("id, email, full_name, company_name")
+    .select("id, email, full_name, company_name, preferred_language")
     .eq("role", "client")
 
   if (clientsErr) {
@@ -71,84 +69,129 @@ export async function GET(request: Request) {
   const appUrl = siteConfig.url
 
   const from = getFromAddress()
-  const results: Array<{ clientId: string; status: "sent" | "skipped" | "failed"; reason?: string }> = []
+  const results: Array<{
+    clientId: string
+    status: "sent" | "skipped" | "failed"
+    persisted?: boolean
+    notified?: boolean
+    reason?: string
+  }> = []
 
-  // ---- 4. For each client, aggregate pipeline + send email -------------
+  // ---- 4. For each client: build → persist → email → notify -------------
   for (const client of clients ?? []) {
     if (!client.email) {
       results.push({ clientId: client.id, status: "skipped", reason: "no email" })
       continue
     }
 
-    // Fetch this client's opportunities with joined lead info
-    const { data: opps } = await supabase
-      .from("opportunities")
-      .select("stage, last_updated, leads(company_name)")
-      .eq("client_id", client.id)
-      .order("last_updated", { ascending: false })
+    // Build the snapshot. Buyer names inside are already masked (R-07).
+    const payload = await buildWeeklyReportPayload(supabase, client, weekStart)
 
-    const opportunities = (opps ?? []) as Array<{
-      stage: Stage
-      last_updated: string
-      leads: { company_name: string } | null
-    }>
-
-    if (opportunities.length === 0) {
-      results.push({ clientId: client.id, status: "skipped", reason: "no opportunities" })
+    if (payload.totalLeads === 0) {
+      results.push({
+        clientId: client.id,
+        status: "skipped",
+        reason: "no opportunities",
+      })
       continue
     }
 
-    const stageCounts: StageSummary[] = STAGES.map((stage) => ({
-      stage,
-      count: opportunities.filter((o) => o.stage === stage).length,
-    }))
+    // Persist so dashboards + AE downloads have the exact same snapshot.
+    const persisted = await upsertWeeklyReport(supabase, payload)
 
-    // Recent leads updated in the last 7 days
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-    const recentLeads: RecentLead[] = opportunities
-      .filter((o) => new Date(o.last_updated).getTime() >= sevenDaysAgo)
-      .slice(0, 5)
-      .map((o) => ({
-        companyName: o.leads?.company_name ?? "Unknown",
-        stage: o.stage,
-        updatedAt: o.last_updated,
-      }))
-
-    const payload: WeeklyReportData = {
-      clientName: client.company_name ?? client.full_name ?? "there",
-      totalLeads: opportunities.length,
-      stageCounts,
-      recentLeads,
-      appUrl,
-    }
+    // ---- Email (unchanged shape, now with masked names) ---------------
+    const stageCounts: StageSummary[] = payload.stageCounts
+    let emailStatus: "sent" | "failed" = "sent"
+    let emailError: string | undefined
 
     try {
       const { error: sendErr } = await sendMail({
         from,
         to: client.email,
         subject: "Your weekly pipeline report — Vexim Trade",
-        html: renderWeeklyReportHtml(payload),
+        html: renderWeeklyReportHtml({
+          clientName: payload.clientName,
+          totalLeads: payload.totalLeads,
+          stageCounts,
+          recentLeads: payload.recentLeads,
+          appUrl,
+        }),
       })
       if (sendErr) {
-        results.push({ clientId: client.id, status: "failed", reason: sendErr.message })
-      } else {
-        results.push({ clientId: client.id, status: "sent" })
+        emailStatus = "failed"
+        emailError = sendErr.message
       }
     } catch (err) {
-      results.push({
-        clientId: client.id,
-        status: "failed",
-        reason: err instanceof Error ? err.message : "unknown",
-      })
+      emailStatus = "failed"
+      emailError = err instanceof Error ? err.message : "unknown"
     }
+
+    if (persisted.ok) {
+      await markReportEmailStatus(
+        supabase,
+        client.id,
+        weekStart,
+        emailStatus === "sent",
+        emailStatus === "failed" ? (emailError ?? null) : null,
+      )
+    }
+
+    // ---- In-app notification (bell feed) -------------------------------
+    // Inserted directly — the email was already sent above, so we must NOT
+    // go through dispatchNotification (it would double-email).
+    const locale: PreferredLanguage = client.preferred_language ?? "vi"
+    const title =
+      locale === "vi"
+        ? `Báo cáo tuần ${formatWeekRangeVi(payload.periodStart, payload.periodEnd)} đã sẵn sàng`
+        : `Your weekly report for ${formatWeekRangeEn(payload.periodStart, payload.periodEnd)} is ready`
+    const body =
+      locale === "vi"
+        ? `Tuần này có ${payload.newThisWeek} lead mới và ${payload.updatedThisWeek} lead có tiến triển. Xem chi tiết và tải PDF tại đây.`
+        : `${payload.newThisWeek} new leads and ${payload.updatedThisWeek} progressed this week. View details and download the PDF.`
+
+    const { error: notifErr } = await supabase.from("notifications").insert({
+      user_id: client.id,
+      category: "status_update",
+      title,
+      body,
+      link_path: "/client/reports",
+    })
+    if (notifErr && notifErr.code !== "42P01") {
+      console.error("[weekly-report] notification insert failed:", notifErr.message)
+    }
+
+    results.push({
+      clientId: client.id,
+      status: emailStatus === "sent" ? "sent" : "failed",
+      persisted: persisted.ok,
+      notified: !notifErr,
+      ...(emailError ? { reason: emailError } : {}),
+    })
   }
 
   const summary = {
+    week: weekStart,
     total: results.length,
     sent: results.filter((r) => r.status === "sent").length,
     skipped: results.filter((r) => r.status === "skipped").length,
     failed: results.filter((r) => r.status === "failed").length,
+    persisted: results.filter((r) => r.persisted).length,
   }
 
   return NextResponse.json({ summary, results })
+}
+
+function formatWeekRangeVi(start: string, end: string): string {
+  const s = new Date(`${start}T00:00:00`)
+  const e = new Date(`${end}T00:00:00`)
+  const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`
+  return `${fmt(s)}–${fmt(e)}`
+}
+
+function formatWeekRangeEn(start: string, end: string): string {
+  const s = new Date(`${start}T00:00:00`)
+  const e = new Date(`${end}T00:00:00`)
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  return `${fmt(s)} – ${fmt(e)}`
 }

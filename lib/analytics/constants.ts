@@ -90,8 +90,6 @@ export function resolvePeriod(period: PeriodValue, locale: "vi" | "en" = "vi"): 
 // Stage metadata
 // ---------------------------------------------------------------------------
 export const ALL_STAGES: Stage[] = [
-  "new",
-  "contacted",
   "sample_requested",
   "sample_sent",
   "negotiation",
@@ -103,8 +101,6 @@ export const ALL_STAGES: Stage[] = [
 ]
 
 export const IN_PROGRESS_STAGES: Stage[] = [
-  "new",
-  "contacted",
   "sample_requested",
   "sample_sent",
   "negotiation",

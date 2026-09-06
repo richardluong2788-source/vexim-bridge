@@ -104,9 +104,19 @@ export async function createClientAccount(
     .eq("id", caller.id)
     .single()
 
-  // Allow admin/staff/super_admin and account_executive to create clients
-  // AE can create clients and will auto-become their account manager
-  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  // Allow admin/staff/super_admin, account_executive and supplier_researcher
+  // to create clients.
+  // AE can create clients and will auto-become their account manager.
+  // SR (supplier researcher) creates UNASSIGNED supplier profiles — the
+  // AE assignment happens later via admin / AI matching, keeping the
+  // sourcing and relationship-management responsibilities separate.
+  const allowedRoles = [
+    "admin",
+    "staff",
+    "super_admin",
+    "account_executive",
+    "supplier_researcher",
+  ]
   if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }

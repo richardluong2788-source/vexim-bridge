@@ -153,67 +153,6 @@ export async function getAEInbox(): Promise<
 }
 
 // ---------------------------------------------------------------------------
-// Accept Match from Inbox
-// ---------------------------------------------------------------------------
-
-export interface AcceptMatchInput {
-  inboxItemId: string
-  clientId: string
-}
-
-export async function acceptMatch(
-  input: AcceptMatchInput
-): Promise<ActionResult<{ opportunityId: string }>> {
-  const user = await getCurrentRole()
-  if (!user) return { ok: false, error: "unauthorized" }
-
-  // AEs can accept their own matches; admins can accept any.
-  // Lead Researcher has read-only access to the inbox (monitoring) and
-  // MUST NOT be able to claim a buyer — they have no client portfolio
-  // and would bypass the AI-driven assignment workflow.
-  const supabase = await createClient()
-
-  if (user.role === "account_executive") {
-    // Verify the AE owns the inbox item.
-    const { data: inbox } = await supabase
-      .from("ae_match_inbox")
-      .select("account_manager_id")
-      .eq("id", input.inboxItemId)
-      .single()
-
-    if (!inbox || inbox.account_manager_id !== user.userId) {
-      return { ok: false, error: "not_your_inbox_item" }
-    }
-  } else if (user.role !== "admin" && user.role !== "super_admin") {
-    return { ok: false, error: "forbidden" }
-  }
-
-  try {
-    const result = await acceptInboxItem(
-      input.inboxItemId,
-      input.clientId,
-      user.userId
-    )
-
-    if (result.error) {
-      return { ok: false, error: result.error }
-    }
-
-    revalidatePath("/admin/ae-inbox")
-    revalidatePath("/admin/buyers")
-    revalidatePath("/admin/pipeline")
-
-    return { ok: true, data: { opportunityId: result.opportunityId! } }
-  } catch (error) {
-    console.error("[v0] acceptMatch error:", error)
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "accept_failed",
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Reject Match from Inbox
 // ---------------------------------------------------------------------------
 

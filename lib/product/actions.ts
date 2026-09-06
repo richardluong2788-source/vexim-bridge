@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
+import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 export interface ProductQuoteRequest {
@@ -30,7 +31,7 @@ export async function submitProductQuoteRequest(
   // Get client info
   const { data: client } = await adminSupabase
     .from("profiles")
-    .select("account_manager_id")
+    .select("account_manager_id, industry")
     .eq("id", request.client_id)
     .single()
 
@@ -44,6 +45,7 @@ export async function submitProductQuoteRequest(
       contact_phone: request.phone || null,
       region: "North America",
       country: "United States",
+      industry: client?.industry ?? null,
       source: "product_page",
       notes: `Quote request from product page.\n\nProduct: ${request.product_name}\nQuantity/Volume: ${request.quantity_volume || "Not specified"}\n\nNotes: ${request.notes || "None"}`,
     })
@@ -107,26 +109,17 @@ export async function submitProductQuoteRequest(
     }
   }
 
-  // Create new opportunity only if not linking to existing one
+  // New inquiries go through the AI matching pipeline (same gate as every
+  // other lead) instead of creating a cold opportunity at a retired stage.
   if (!isExistingOpportunity) {
-    const { data: newOpp, error: oppError } = await adminSupabase
-      .from("opportunities")
-      .insert({
-        client_id: request.client_id,
-        lead_id: lead.id,
-        stage: "new",
-        products_interested: request.product_name,
-        quantity_required: request.quantity_volume || null,
-        notes: `Inquiry via product page for: ${request.product_name}`,
-      })
-      .select()
-      .single()
-
-    if (oppError) {
-      console.error("[v0] submitProductQuoteRequest opportunity error:", oppError)
-      // Don't fail - lead was still created
-    }
-    opportunity = newOpp
+  try {
+    await runMatchingPipeline(
+      { leadId: lead.id, triggeredBy: "public_quote_form" },
+      { client: adminSupabase }
+    )
+  } catch (err) {
+    console.error("[v0] matching pipeline error (lead still created):", err)
+  }
   }
 
   // Create notification for account manager; if none assigned AND it's a new opportunity, notify all admins
@@ -138,7 +131,7 @@ export async function submitProductQuoteRequest(
         userId: notifyUserId,
         category: "new_assignment",
         opportunityId: opportunity?.id || undefined,
-        linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+        linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/buyers/${lead.id}`,
         dedupKey: `new_quote_request:${lead.id}`,
         title: {
           vi: "Yêu cầu báo giá mới",
@@ -170,7 +163,7 @@ export async function submitProductQuoteRequest(
               userId: admin.id,
               category: "new_assignment",
               opportunityId: opportunity?.id || undefined,
-              linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`,
+              linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/buyers/${lead.id}`,
               dedupKey: `new_quote_request:${lead.id}:${admin.id}`,
               title: {
                 vi: "Yêu cầu báo giá mới",

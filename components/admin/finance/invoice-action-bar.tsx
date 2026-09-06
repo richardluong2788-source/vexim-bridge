@@ -11,6 +11,7 @@ import {
   Send,
   Trash2,
   XCircle,
+  FileDown,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -205,6 +206,18 @@ export function InvoiceActionBar({ invoice, publicUrl }: Props) {
         >
           <Check className="h-3.5 w-3.5" />
           Xác nhận đã thanh toán
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() =>
+            window.open(`/api/finance/invoice/${invoice.id}/pdf`, "_blank")
+          }
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Tải PDF
         </Button>
 
         <Button

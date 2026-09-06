@@ -9,11 +9,14 @@ import {
   AlertTriangle,
   Lock,
   HandCoins,
+  FileText,
+  FileDown,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { getDictionary } from "@/lib/i18n/server"
 import { ClientCommissionTimeline } from "@/components/client/client-commission-timeline"
+import type { WeeklyReportPayload } from "@/lib/supabase/types"
 
 const STAGE_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   new: "secondary",
@@ -64,6 +67,19 @@ export default async function ClientDashboardPage() {
     .select("paid_on, commission_amount, invoice_value")
     .eq("client_id", user!.id)
     .order("paid_on", { ascending: true })
+
+  // Weekly report snapshot (latest first). Degrades to null when migration
+  // 067 hasn't been applied yet — the download button still works because
+  // the API route rebuilds the report live.
+  const { data: latestReportRows } = await supabase
+    .from("client_weekly_reports")
+    .select("id, week_start, payload")
+    .eq("client_id", user!.id)
+    .order("week_start", { ascending: false })
+    .limit(1)
+  const latestReport = (latestReportRows?.[0] as
+    | { id: string; week_start: string; payload: WeeklyReportPayload }
+    | undefined) ?? null
 
   const total = opportunities?.length ?? 0
   const won = opportunities?.filter((o) => o.stage === "won").length ?? 0
@@ -155,6 +171,37 @@ export default async function ClientDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Weekly report card — latest snapshot + PDF download */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              {t.client.reports.latestCard.title}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {latestReport
+                ? t.client.reports.latestCard.summary
+                    .replace("{n}", String(latestReport.payload.totalLeads))
+                    .replace("{w}", String(latestReport.payload.wonCount))
+                    .replace("{p}", String(latestReport.payload.winRate))
+                : t.client.reports.emptyDesc}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/client/reports">{t.client.reports.latestCard.viewAll}</Link>
+            </Button>
+            <Button size="sm" asChild>
+              <a href={`/api/reports/weekly/${user!.id}`}>
+                <FileDown className="h-4 w-4" />
+                {t.client.reports.downloadPdf}
+              </a>
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Sprint D — cumulative revenue / commission chart */}
       <ClientCommissionTimeline

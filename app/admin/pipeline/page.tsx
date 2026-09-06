@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation"
+import { CalendarClock } from "lucide-react"
 import { KanbanBoard, type NeedsReplyItem } from "@/components/admin/kanban-board"
 import { ScopeBanner } from "@/components/admin/scope-banner"
-import type { OpportunityWithClient } from "@/lib/supabase/types"
+import type { NextMeetingInfo, OpportunityWithClient } from "@/lib/supabase/types"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { ownershipScopeFor } from "@/lib/auth/scope"
+import { CAPS, can } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +16,11 @@ export default async function AdminPipelinePage() {
   // Use the role-aware client so we can scope by ownership snapshot.
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
+  // Capability gate (defense-in-depth): the ownership scope alone is NOT a
+  // sufficient gate — roles with OWNERSHIP_BYPASS that are not supposed to
+  // see deals (e.g. supplier_researcher) would otherwise reach this page
+  // via direct URL.
+  if (!can(current.role, CAPS.DEAL_VIEW)) redirect("/admin")
   const { admin, role, userId } = current
   const scope = ownershipScopeFor(role, userId)
 
@@ -66,6 +73,52 @@ export default async function AdminPipelinePage() {
       }
     }
   }
+  // Cuộc gặp & tham quan sắp tới (migration 070) — badge 📅 trên thẻ
+  // + dải "sắp tới" phía trên bảng: đây là lịch của deal (video call,
+  // factory tour, buyer trip), không phải giai đoạn pipeline.
+  const meetingsByOpp: Record<string, NextMeetingInfo> = {}
+  const upcomingMeetings: Array<{
+    title: string
+    kind: string
+    scheduledAt: string
+    buyerName: string
+  }> = []
+  if (oppIds.length > 0) {
+    const { data: meetings } = await admin
+      .from("opportunity_meetings")
+      .select("opportunity_id, kind, title, scheduled_at")
+      .in("opportunity_id", oppIds)
+      .gte("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: true })
+    if (meetings) {
+      const oppById = new Map(
+        ((opportunities ?? []) as unknown as OpportunityWithClient[]).map((o) => [o.id, o]),
+      )
+      for (const row of meetings as Array<{
+        opportunity_id: string
+        kind: string
+        title: string
+        scheduled_at: string
+      }>) {
+        const cur = meetingsByOpp[row.opportunity_id]
+        if (!cur) {
+          meetingsByOpp[row.opportunity_id] = { count: 1, nextAt: row.scheduled_at }
+        } else {
+          cur.count += 1
+        }
+        if (upcomingMeetings.length < 8) {
+          const opp = oppById.get(row.opportunity_id)
+          upcomingMeetings.push({
+            title: row.title,
+            kind: row.kind,
+            scheduledAt: row.scheduled_at,
+            buyerName: opp?.leads?.company_name ?? "—",
+          })
+        }
+      }
+    }
+  }
+
   if (oppIds.length > 0) {
     const { data: unreadReplies } = await admin
       .from("buyer_replies")
@@ -75,7 +128,7 @@ export default async function AdminPipelinePage() {
       .order("received_at", { ascending: false })
     if (unreadReplies) {
       const oppById = new Map(
-        ((opportunities ?? []) as OpportunityWithClient[]).map((o) => [o.id, o]),
+        ((opportunities ?? []) as unknown as OpportunityWithClient[]).map((o) => [o.id, o]),
       )
       const seenOpp = new Set<string>()
       for (const row of unreadReplies as Array<{
@@ -121,12 +174,49 @@ export default async function AdminPipelinePage() {
           />
         )}
       </div>
+      {upcomingMeetings.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] px-4 py-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+            {locale === "vi" ? "Lịch sắp tới" : "Upcoming"}
+          </span>
+          {upcomingMeetings.map((m, i) => (
+            <span
+              key={i}
+              className="flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs text-muted-foreground shadow-sm"
+            >
+              <CalendarClock className="h-3.5 w-3.5 text-primary" />
+              <span className="font-medium text-foreground">{m.buyerName}</span>
+              <span>· {kindLabelVi(m.kind)}</span>
+              <span>
+                ·{" "}
+                {new Date(m.scheduledAt).toLocaleString(locale === "vi" ? "vi-VN" : "en-US", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
       <KanbanBoard
-        opportunities={(opportunities as OpportunityWithClient[]) ?? []}
+        opportunities={(opportunities as unknown as OpportunityWithClient[]) ?? []}
         unreadReplyCountByOpp={unreadByOpp}
         needsReplyItems={needsReplyItems}
         daysInStageByOpp={daysInStageByOpp}
+        meetingsByOpp={meetingsByOpp}
       />
     </div>
   )
+}
+
+function kindLabelVi(kind: string): string {
+  switch (kind) {
+    case "video_call": return "Video call"
+    case "factory_tour": return "Tham quan nhà máy"
+    case "buyer_trip": return "Buyer sang VN"
+    case "trade_fair": return "Hội chợ"
+    default: return "Họp"
+  }
 }

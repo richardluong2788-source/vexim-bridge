@@ -490,8 +490,15 @@ function calculateLogisticsMatch(buyer: BuyerContext, ae: AEContext): number {
 /**
  * Priority Bonus (0-100) - Weight: 5%
  * Based on LR priority rating (1-5 scale).
+ *
+ * Migration 068: a buyer with an ACTIVE direct inquiry (has_active_inquiry)
+ * always gets the maximum bonus — they reached out with real demand from
+ * outside the platform, so every candidate AE should rank them above
+ * pure-research buyers regardless of the LR star rating.
  */
 function calculatePriorityBonus(buyer: BuyerContext): number {
+  if (buyer.lead.has_active_inquiry) return 100
+
   const priority = buyer.lead.priority_rating
   if (!priority || priority <= 0) return 0
 
@@ -693,6 +700,7 @@ function getLogisticsMatchDetails(buyer: BuyerContext, ae: AEContext): string {
 }
 
 function getPriorityDetails(buyer: BuyerContext): string {
+  if (buyer.lead.has_active_inquiry) return "ACTIVE INQUIRY — buyer reached out with real demand"
   const priority = buyer.lead.priority_rating
   if (!priority) return "No priority set"
   return `LR Priority: ${priority}/5`

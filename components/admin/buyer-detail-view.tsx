@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
   Building2,
   Globe2,
@@ -39,6 +40,7 @@ import {
   ShieldCheck,
   Factory,
   BadgeCheck,
+  Flame,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -111,6 +113,8 @@ export interface BuyerDetailData {
   avg_teu_per_month: number | null
   top_peak_months: string | null
   top_low_months: string | null
+  peak_months_data_year: number | null
+  import_trend: string | null
   
   // Section 3: MA HS & SAN PHAM
   hs_code: string | null
@@ -131,6 +135,16 @@ export interface BuyerDetailData {
   bol_description: string | null
   purchase_history: string | null
   priority_rating: number | null
+
+  // Section 7: NHU CAU THUC TE (direct inquiry — migration 068)
+  has_active_inquiry: boolean | null
+  inquiry_products: string | null
+  inquiry_quantity: string | null
+  inquiry_target_price: string | null
+  inquiry_timeline: string | null
+  inquiry_channel: string | null
+  inquiry_notes: string | null
+  inquiry_received_at: string | null
 }
 
 export interface BuyerOpportunity {
@@ -338,6 +352,70 @@ export function BuyerDetailView({
           </div>
         )}
       </div>
+
+      {/* --- Active inquiry banner (migration 068) ------------------------ */}
+      {buyer.has_active_inquiry && (
+        <div className="rounded-lg border border-chart-4/40 bg-chart-4/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-chart-4">
+            <Flame className="h-4 w-4" />
+            {locale === "vi"
+              ? "BUYER ĐANG CÓ NHU CẦU THỰC TẾ"
+              : "ACTIVE BUYER INQUIRY"}
+            {buyer.inquiry_channel && (
+              <span className="font-normal text-muted-foreground">
+                · {locale === "vi" ? "kênh" : "via"}{" "}
+                {inquiryChannelLabel(buyer.inquiry_channel, locale)}
+              </span>
+            )}
+            {buyer.inquiry_received_at && (
+              <span className="font-normal text-muted-foreground">
+                · {formatRelative(buyer.inquiry_received_at, locale)}
+              </span>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            {buyer.inquiry_products && (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi" ? "Sản phẩm cần mua" : "Products needed"}
+                </p>
+                <p className="font-medium text-foreground text-pretty">
+                  {buyer.inquiry_products}
+                </p>
+              </div>
+            )}
+            {buyer.inquiry_quantity && (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi" ? "Số lượng / MOQ" : "Quantity / MOQ"}
+                </p>
+                <p className="font-medium text-foreground">{buyer.inquiry_quantity}</p>
+              </div>
+            )}
+            {buyer.inquiry_target_price && (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi" ? "Giá mục tiêu" : "Target price"}
+                </p>
+                <p className="font-medium text-foreground">{buyer.inquiry_target_price}</p>
+              </div>
+            )}
+            {buyer.inquiry_timeline && (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "vi" ? "Timeline cần hàng" : "Timeline"}
+                </p>
+                <p className="font-medium text-foreground">{buyer.inquiry_timeline}</p>
+              </div>
+            )}
+          </div>
+          {buyer.inquiry_notes && (
+            <p className="mt-3 text-sm text-muted-foreground text-pretty">
+              “{buyer.inquiry_notes}”
+            </p>
+          )}
+        </div>
+      )}
 
       {/* --- Stat strip -------------------------------------------------- */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

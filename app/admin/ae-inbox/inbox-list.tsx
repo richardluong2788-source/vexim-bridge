@@ -6,6 +6,7 @@ import {
   Building2,
   Check,
   Clock,
+  Flame,
   Globe,
   Sparkles,
   User,
@@ -16,6 +17,7 @@ import {
   Tag,
 } from "lucide-react"
 import { toast } from "sonner"
+import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -62,6 +64,12 @@ interface InboxItem {
     hs_code: string | null
     hs_codes: string[] | null
     product_keywords: string[] | null
+    has_active_inquiry: boolean | null
+    inquiry_products: string | null
+    inquiry_quantity: string | null
+    inquiry_target_price: string | null
+    inquiry_timeline: string | null
+    inquiry_channel: string | null
   } | null
   profiles: {
     id: string
@@ -243,6 +251,15 @@ export function InboxList({
                               ? "Thấp"
                               : "Low"}
                       </Badge>
+                      {lead?.has_active_inquiry && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-chart-4/50 bg-chart-4/10 text-chart-4 font-medium"
+                        >
+                          <Flame className="h-3 w-3" />
+                          {locale === "vi" ? "Có nhu cầu ngay" : "Active inquiry"}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       {lead?.industry && (
@@ -298,6 +315,67 @@ export function InboxList({
                         </div>
                       )
                     })()}
+                    {lead?.has_active_inquiry && (
+                      <div className="mt-2 rounded-md border border-chart-4/40 bg-chart-4/5 p-3">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-chart-4">
+                          <Flame className="h-3.5 w-3.5" />
+                          {locale === "vi"
+                            ? "NHU CẦU THỰC TẾ TỪ BUYER"
+                            : "ACTIVE BUYER INQUIRY"}
+                          {lead.inquiry_channel && (
+                            <span className="font-normal text-muted-foreground">
+                              ·{" "}
+                              {locale === "vi"
+                                ? "kênh"
+                                : "via"}{" "}
+                              {inquiryChannelLabel(lead.inquiry_channel, locale)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+                          {lead.inquiry_products && (
+                            <div>
+                              <span className="text-muted-foreground">
+                                {locale === "vi" ? "Sản phẩm: " : "Products: "}
+                              </span>
+                              <span className="font-medium text-foreground text-pretty">
+                                {lead.inquiry_products}
+                              </span>
+                            </div>
+                          )}
+                          {lead.inquiry_quantity && (
+                            <div>
+                              <span className="text-muted-foreground">
+                                {locale === "vi" ? "Số lượng: " : "Quantity: "}
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {lead.inquiry_quantity}
+                              </span>
+                            </div>
+                          )}
+                          {lead.inquiry_target_price && (
+                            <div>
+                              <span className="text-muted-foreground">
+                                {locale === "vi" ? "Giá mục tiêu: " : "Target price: "}
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {lead.inquiry_target_price}
+                              </span>
+                            </div>
+                          )}
+                          {lead.inquiry_timeline && (
+                            <div>
+                              <span className="text-muted-foreground">
+                                {locale === "vi" ? "Timeline: " : "Timeline: "}
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {lead.inquiry_timeline}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {score ? (

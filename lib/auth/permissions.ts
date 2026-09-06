@@ -1,12 +1,13 @@
 /**
  * RBAC capability map for Vexim Trade — single source of truth.
  *
- * Roles (see migration 020):
- *   - super_admin       : Founder / system owner
- *   - admin             : Operations lead
- *   - account_executive : Sales rep (R-06: cannot touch cost_price)
- *   - lead_researcher   : Researcher (buyer PII must be masked)
- *   - finance           : Bookkeeper
+ * Roles (see migration 020 / 069):
+ *   - super_admin        : Founder / system owner
+ *   - admin              : Operations lead
+ *   - account_executive  : Sales rep (R-06: cannot touch cost_price)
+ *   - lead_researcher    : Researcher (buyer PII must be masked)
+ *   - supplier_researcher: Sourcing — finds & qualifies SUPPLIERS (clients)
+ *   - finance            : Bookkeeper
  *   - staff (legacy)    : Treated as account_executive
  *   - client            : External portal user (not RBAC-enforced here)
  *
@@ -193,6 +194,36 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // buyer pages (read-through DB), they just can't open the register.
   ],
 
+  supplier_researcher: [
+    // Supplier Researcher is the mirror of lead_researcher on the SUPPLY
+    // side of the marketplace: source Vietnamese suppliers, qualify them,
+    // and pour them into the system as clients so AI matching can pair
+    // them with incoming buyers.
+    //
+    // Buyer DEMAND visibility: SR must know what buyers need in order to
+    // source the right suppliers — they get BUYER_VIEW like LR, WITHOUT
+    // BUYER_PII_VIEW (contact email/phone/person stay masked) and without
+    // BUYER_WRITE (creating/editing buyers stays LR's job).
+    CAPS.BUYER_VIEW,
+
+    // They do NOT see the pipeline (no DEAL_VIEW), the AE inbox, SLA,
+    // finance, or the buyer-lead intake screens.
+    CAPS.CLIENT_VIEW,
+    CAPS.CLIENT_WRITE,
+
+    // Pool-wide visibility of the supplier list is the whole point of the
+    // role — SR must see every existing supplier to avoid duplicate
+    // sourcing and to enrich stale profiles. OWNERSHIP_BYPASS grants
+    // "see all clients" the same way it does for finance.
+    // NOTE: pipeline/activities pages are additionally hard-gated on
+    // DEAL_VIEW / ACTIVITY_LOG_VIEW (which SR lacks) so the bypass cannot
+    // leak deal data via direct URLs.
+    CAPS.OWNERSHIP_BYPASS,
+
+    // Demand signals for sourcing priorities (aggregate-only page —
+    // /admin/sourcing is gated on CLIENT_VIEW and never shows buyer PII).
+  ],
+
   finance: [
     CAPS.FINANCE_READ,
     CAPS.INVOICE_WRITE,
@@ -259,6 +290,7 @@ export function normaliseRole(raw: string | null | undefined): Role | null {
     "admin",
     "account_executive",
     "lead_researcher",
+    "supplier_researcher",
     "finance",
     "staff",
     "client",
@@ -275,6 +307,7 @@ const ADMIN_SHELL_ROLES: readonly Role[] = [
   "admin",
   "account_executive",
   "lead_researcher",
+  "supplier_researcher",
   "finance",
   "staff",
 ]
@@ -355,6 +388,12 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     label: "Lead Researcher",
     labelVi: "Lead Researcher",
     description: "Sources buyers — buyer contact info is masked",
+  },
+  supplier_researcher: {
+    value: "supplier_researcher",
+    label: "Supplier Researcher",
+    labelVi: "Supplier Researcher",
+    description: "Sources suppliers based on buyer demand — buyer contacts masked",
   },
   finance: {
     value: "finance",

@@ -14,6 +14,7 @@ import { ClientComplianceWorkspace } from "@/components/admin/client-compliance-
 import { AdminClientProductsManager } from "@/components/admin/admin-client-products-manager"
 import { ClientPerformanceCard } from "@/components/admin/analytics/client-performance-card"
 import { ClientBlackboxPanel } from "@/components/admin/clients/client-blackbox-panel"
+import { ClientWeeklyReportsCard } from "@/components/admin/clients/weekly-reports-card"
 import { getFdaStatus, formatFdaDate } from "@/lib/fda/status"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, canAny } from "@/lib/auth/permissions"
@@ -357,6 +358,12 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
           </Tabs>
         )
       })()}
+
+      {/* Weekly reports — stored snapshots + PDF downloads for the AE to
+          forward to this client. Kept at the bottom of the page so the
+          header + tabs stay the primary focus. Ownership was already
+          404-gated above. */}
+      <ClientWeeklyReportsCard clientId={client.id} />
     </div>
   )
 }

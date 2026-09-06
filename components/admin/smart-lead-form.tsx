@@ -10,7 +10,11 @@
  *   4. CHUỖI CUNG ỨNG - Suppliers, import countries
  *   5. LOGISTICS - Ports, containers
  *   6. GHI CHÚ CHO AI - BOL description, notes, priority
- *   7. AI auto-matches to best AE based on all signals
+ *   7. NHU CẦU THỰC TẾ - Direct inquiry from outside the platform
+ *      (email/phone/Zalo/trade fair...): products, quantity, target price,
+ *      timeline, channel. Sets leads.source = 'direct_inquiry' and gets
+ *      top AI-matching priority.
+ *   → AI auto-matches to best AE based on all signals
  */
 
 import { useState } from "react"
@@ -28,10 +32,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { 
-  CheckCircle2, 
-  AlertCircle, 
-  Sparkles, 
+import {
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
   Loader2,
   Building2,
   BarChart3,
@@ -44,6 +48,7 @@ import {
   Wand2,
   UserPlus,
   X,
+  Flame,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/components/i18n/language-provider"
@@ -137,10 +142,29 @@ export function SmartLeadForm() {
   const [purchaseHistory, setPurchaseHistory] = useState("")
   const [notes, setNotes] = useState("")
   const [priorityRating, setPriorityRating] = useState<string>("")
-  
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Section 7: NHU CẦU THỰC TẾ CỦA BUYER (direct inquiry — migration 068)
+  // Buyer chủ động có nhu cầu từ bên ngoài (email/phone/Zalo/hội chợ...),
+  // ngược với buyer thuần research từ ImportYeti.
+  // ══════════════════════════════════════════════════════════════════════════
+  const [hasActiveInquiry, setHasActiveInquiry] = useState(false)
+  const [inquiryProducts, setInquiryProducts] = useState("")
+  const [inquiryQuantity, setInquiryQuantity] = useState("")
+  const [inquiryTargetPrice, setInquiryTargetPrice] = useState("")
+  const [inquiryTimeline, setInquiryTimeline] = useState("")
+  const [inquiryChannel, setInquiryChannel] = useState<string>("")
+  const [inquiryNotes, setInquiryNotes] = useState("")
+
   // Data quality checks
   const isPurchaseHistoryEmpty = !purchaseHistory.trim()
   const isTopSuppliersEmpty = !topSuppliers.trim()
+
+  const isInquiryMissingDetails =
+    hasActiveInquiry &&
+    !inquiryProducts.trim() &&
+    !inquiryQuantity.trim() &&
+    !inquiryNotes.trim()
 
   // ══════════════════════════════════════════════════════════════════════════
   // Legacy fields for AI matching (backward compatibility)
@@ -368,7 +392,16 @@ export function SmartLeadForm() {
       purchaseHistory: purchaseHistory || null,
       notes: notes || null,
       priorityRating: priorityRating ? parseInt(priorityRating, 10) : null,
-      
+
+      // Section 7: NHU CẦU THỰC TẾ
+      hasActiveInquiry,
+      inquiryProducts: inquiryProducts || null,
+      inquiryQuantity: inquiryQuantity || null,
+      inquiryTargetPrice: inquiryTargetPrice || null,
+      inquiryTimeline: inquiryTimeline || null,
+      inquiryChannel: inquiryChannel || null,
+      inquiryNotes: inquiryNotes || null,
+
       // Legacy
       capacityNeeded: needsCapacity ? parseFloat(needsCapacity) : null,
       potentialValue: potentialValue ? parseFloat(potentialValue) : null,
@@ -1223,6 +1256,181 @@ export function SmartLeadForm() {
             </div>
           </div>
         </CardContent>
+      </Card>
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* Section 7: NHU CẦU THỰC TẾ CỦA BUYER (direct inquiry) */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      <Card
+        className={cn(
+          "border-border transition-colors",
+          hasActiveInquiry && "border-chart-4/50 bg-chart-4/5",
+        )}
+      >
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Flame className="h-4 w-4 text-chart-4" />
+                {locale === "vi" ? "7. Nhu cầu thực tế của Buyer" : "7. Active Buyer Inquiry"}
+              </CardTitle>
+              <CardDescription>
+                {locale === "vi"
+                  ? "Bật khi buyer CHỦ ĐỘNG có nhu cầu từ bên ngoài (email, điện thoại, Zalo, hội chợ, giới thiệu...) — không phải buyer research từ ImportYeti"
+                  : "Turn on when the buyer ACTIVELY reached out with demand (email, phone, Zalo, trade fair, referral...) — not an ImportYeti research buyer"}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Label htmlFor="hasActiveInquiry" className="text-sm font-medium">
+                {hasActiveInquiry
+                  ? locale === "vi"
+                    ? "Đang có nhu cầu"
+                    : "Active inquiry"
+                  : locale === "vi"
+                    ? "Không có"
+                    : "Off"}
+              </Label>
+              <Switch
+                id="hasActiveInquiry"
+                checked={hasActiveInquiry}
+                onCheckedChange={setHasActiveInquiry}
+              />
+            </div>
+          </div>
+          {hasActiveInquiry && (
+            <div className="flex gap-2 rounded-sm bg-chart-4/10 p-2 text-xs text-chart-4 mt-3">
+              <Flame className="h-4 w-4 flex-shrink-0" />
+              <p>
+                {locale === "vi"
+                  ? "Buyer này sẽ được đánh dấu nguồn \"direct_inquiry\", AI matching ưu tiên cao nhất và hiện badge \"Có nhu cầu ngay\" trong inbox của AE."
+                  : "This buyer will be tagged \"direct_inquiry\", get top AI-matching priority and show an \"Active inquiry\" badge in the AE inbox."}
+              </p>
+            </div>
+          )}
+        </CardHeader>
+        {hasActiveInquiry && (
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Products */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="inquiryProducts">
+                  {locale === "vi" ? "Sản phẩm buyer cần mua" : "Products the buyer needs"}
+                </Label>
+                <Input
+                  id="inquiryProducts"
+                  placeholder={
+                    locale === "vi"
+                      ? 'VD: "Cà phê Robusta rang mộc 500g, 200 tấn/tháng"'
+                      : 'E.g. "Robusta roasted coffee 500g, 200 MT/month"'
+                  }
+                  value={inquiryProducts}
+                  onChange={(e) => setInquiryProducts(e.target.value)}
+                  className="border-border"
+                />
+              </div>
+
+              {/* Quantity */}
+              <div className="space-y-2">
+                <Label htmlFor="inquiryQuantity">
+                  {locale === "vi" ? "Số lượng / MOQ" : "Quantity / MOQ"}
+                </Label>
+                <Input
+                  id="inquiryQuantity"
+                  placeholder={locale === "vi" ? "VD: 2 container/tháng" : "E.g. 2 containers/month"}
+                  value={inquiryQuantity}
+                  onChange={(e) => setInquiryQuantity(e.target.value)}
+                  className="border-border"
+                />
+              </div>
+
+              {/* Target price */}
+              <div className="space-y-2">
+                <Label htmlFor="inquiryTargetPrice">
+                  {locale === "vi" ? "Giá mục tiêu" : "Target price"}
+                </Label>
+                <Input
+                  id="inquiryTargetPrice"
+                  placeholder={locale === "vi" ? "VD: 2.100 USD/tấn FOB" : "E.g. 2,100 USD/MT FOB"}
+                  value={inquiryTargetPrice}
+                  onChange={(e) => setInquiryTargetPrice(e.target.value)}
+                  className="border-border"
+                />
+              </div>
+
+              {/* Timeline */}
+              <div className="space-y-2">
+                <Label htmlFor="inquiryTimeline">
+                  {locale === "vi" ? "Timeline cần hàng" : "Timeline"}
+                </Label>
+                <Input
+                  id="inquiryTimeline"
+                  placeholder={locale === "vi" ? "VD: Cần chốt trong 2 tuần, giao Q4" : "E.g. Close within 2 weeks, ship Q4"}
+                  value={inquiryTimeline}
+                  onChange={(e) => setInquiryTimeline(e.target.value)}
+                  className="border-border"
+                />
+              </div>
+
+              {/* Channel */}
+              <div className="space-y-2">
+                <Label htmlFor="inquiryChannel">
+                  {locale === "vi" ? "Kênh nhận nhu cầu" : "Inquiry channel"}
+                </Label>
+                <Select value={inquiryChannel} onValueChange={setInquiryChannel}>
+                  <SelectTrigger id="inquiryChannel" className="border-border">
+                    <SelectValue
+                      placeholder={locale === "vi" ? "Chọn kênh..." : "Select channel..."}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="phone">{locale === "vi" ? "Điện thoại" : "Phone"}</SelectItem>
+                    <SelectItem value="zalo">Zalo</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="linkedin">LinkedIn</SelectItem>
+                    <SelectItem value="trade_fair">
+                      {locale === "vi" ? "Hội chợ / Triển lãm" : "Trade fair"}
+                    </SelectItem>
+                    <SelectItem value="referral">
+                      {locale === "vi" ? "Giới thiệu" : "Referral"}
+                    </SelectItem>
+                    <SelectItem value="other">{locale === "vi" ? "Khác" : "Other"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="inquiryNotes">
+                  {locale === "vi" ? "Ghi chú nhu cầu" : "Inquiry notes"}
+                </Label>
+                <Textarea
+                  id="inquiryNotes"
+                  placeholder={
+                    locale === "vi"
+                      ? 'VD: "Buyer gọi điện trực tiếp, đang thiếu nguồn cung gấp do supplier Chile trễ hàng. Ưu tiên sample nhanh."'
+                      : 'E.g. "Buyer called directly, urgently short on supply because their Chilean supplier is late. Prioritize fast samples."'
+                  }
+                  value={inquiryNotes}
+                  onChange={(e) => setInquiryNotes(e.target.value)}
+                  rows={2}
+                  className="resize-none border-border"
+                />
+              </div>
+            </div>
+
+            {isInquiryMissingDetails && (
+              <div className="flex gap-2 rounded-sm bg-chart-5/10 p-2 text-xs text-chart-5">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <p>
+                  {locale === "vi"
+                    ? "⚠️ Nên nhập ít nhất sản phẩm, số lượng hoặc ghi chú — AE sẽ dựa vào dữ liệu này thay vì phải hỏi lại buyer."
+                    : "⚠️ Enter at least products, quantity or notes — the AE will rely on this instead of re-asking the buyer."}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* ════════════════════════════════════════════════════════════════════ */}

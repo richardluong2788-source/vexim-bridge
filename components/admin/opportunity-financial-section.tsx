@@ -43,6 +43,8 @@ export function OpportunityFinancialSection({ opportunityId, open }: Props) {
   const [selling, setSelling] = useState("")
   const [qty, setQty] = useState("")
   const [unitLabel, setUnitLabel] = useState("")
+  const [invoiceValue, setInvoiceValue] = useState("")
+  const [commissionRate, setCommissionRate] = useState("")
 
   // Load financials on open — scope to opportunity so switching cards refreshes.
   useEffect(() => {
@@ -57,6 +59,8 @@ export function OpportunityFinancialSection({ opportunityId, open }: Props) {
       setSelling(data?.suggested_selling_price?.toString() ?? "")
       setQty(data?.quantity_units?.toString() ?? "")
       setUnitLabel(data?.unit_label ?? "")
+      setInvoiceValue(data?.invoice_value?.toString() ?? "")
+      setCommissionRate(data?.commission_rate?.toString() ?? "")
       setLoading(false)
     })()
     return () => {
@@ -66,6 +70,14 @@ export function OpportunityFinancialSection({ opportunityId, open }: Props) {
 
   // Live margin calculation using parsed inputs — mirrors the SQL formula:
   //   (selling - cost) * COALESCE(quantity, 1)
+  const invoiceValueN = invoiceValue === "" ? null : Number(invoiceValue)
+  const rateN = commissionRate === "" ? null : Number(commissionRate)
+  // Preview hoa hồng: nếu admin chưa nhập % thì dùng mặc định từ gói hợp đồng.
+  const effRate = rateN ?? loaded?.default_commission_rate ?? null
+  const commissionPreview =
+    invoiceValueN != null && effRate != null
+      ? (invoiceValueN * effRate) / 100
+      : null
   const costN = cost === "" ? null : Number(cost)
   const sellingN = selling === "" ? null : Number(selling)
   const qtyN = qty === "" ? null : Number(qty)
@@ -89,6 +101,8 @@ export function OpportunityFinancialSection({ opportunityId, open }: Props) {
         suggestedSellingPrice: sellingN,
         quantityUnits: qtyN,
         unitLabel: unitLabel.trim() || null,
+        invoiceValue: invoiceValue === "" ? null : Number(invoiceValue),
+        commissionRate: commissionRate === "" ? null : Number(commissionRate),
       })
       if (!res.ok) {
         toast.error(s.errorSave)
@@ -172,6 +186,77 @@ export function OpportunityFinancialSection({ opportunityId, open }: Props) {
                 placeholder="kg"
               />
             </Field>
+          </div>
+
+          {/* Hoa hồng thành công — FOB × %, mặc định theo gói hợp đồng */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel htmlFor="invoice_value">{s.invoiceValue}</FieldLabel>
+              <Input
+                id="invoice_value"
+                type="number"
+                min={0}
+                step="any"
+                inputMode="decimal"
+                value={invoiceValue}
+                onChange={(e) => setInvoiceValue(e.target.value)}
+                placeholder="50000"
+              />
+              <FieldDescription>{s.invoiceValueHint}</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="commission_rate">{s.commissionRate}</FieldLabel>
+              <Input
+                id="commission_rate"
+                type="number"
+                min={0}
+                max={100}
+                step="any"
+                inputMode="decimal"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+                placeholder={
+                  loaded?.default_commission_rate != null
+                    ? String(loaded.default_commission_rate)
+                    : "5"
+                }
+              />
+              <FieldDescription>
+                {s.commissionRateHint}
+                {loaded?.default_commission_rate != null &&
+                  ` (${s.commissionPlanDefault}: ${loaded.default_commission_rate}%)`}
+              </FieldDescription>
+            </Field>
+          </div>
+
+          {/* Hoa hồng live preview */}
+          <div className="rounded-lg border border-teal-600/30 bg-teal-600/5 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                {s.commissionPreview}
+              </p>
+              {commissionPreview != null ? (
+                <p className="text-lg font-bold tabular-nums text-teal-700">
+                  ${commissionPreview.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    ({invoiceValueN!.toLocaleString("en-US")} × {effRate}%)
+                  </span>
+                </p>
+              ) : loaded?.commission_amount != null ? (
+                <p className="text-sm font-semibold tabular-nums text-teal-700">
+                  {s.commissionSaved}: $
+                  {loaded.commission_amount.toLocaleString("en-US", {
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {s.invoiceValueHint}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Live preview card */}

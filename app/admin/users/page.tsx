@@ -19,7 +19,9 @@ export default async function UsersPage() {
   // recursion on profiles.
   const { data: profiles } = await current.admin
     .from("profiles")
-    .select("id, email, full_name, role, company_name, industry, work_email, created_at")
+    .select(
+      "id, email, full_name, role, company_name, industry, industries, work_email, created_at",
+    )
     .order("created_at", { ascending: false })
 
   const rows = (profiles ?? []).map((p) => ({
@@ -30,6 +32,7 @@ export default async function UsersPage() {
     role: (normaliseRole(p.role) ?? "client") as Role,
     company_name: p.company_name,
     industry: p.industry,
+    industries: p.industries ?? [],
     work_email: p.work_email,
     created_at: p.created_at,
   }))
@@ -45,6 +48,7 @@ export default async function UsersPage() {
       admin: 0,
       account_executive: 0,
       lead_researcher: 0,
+      supplier_researcher: 0,
       finance: 0,
       staff: 0,
       client: 0,
@@ -56,6 +60,7 @@ export default async function UsersPage() {
     "admin",
     "account_executive",
     "lead_researcher",
+    "supplier_researcher",
     "finance",
     "client",
   ]

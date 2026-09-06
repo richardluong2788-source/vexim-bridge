@@ -29,6 +29,7 @@ import { CAPS } from "@/lib/auth/permissions"
 import { assignBuyerToClients } from "@/app/admin/buyers/actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import { SCORING_ENGINE_VERSION } from "@/lib/matching/client-types"
+import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -48,7 +49,18 @@ export async function claimBuyer(
 
   const { data: inbox, error: inboxErr } = await admin
     .from("ae_match_inbox")
-    .select("id, lead_id, account_manager_id, status")
+    .select(
+      `id, lead_id, account_manager_id, status,
+       leads (
+         has_active_inquiry,
+         inquiry_products,
+         inquiry_quantity,
+         inquiry_target_price,
+         inquiry_timeline,
+         inquiry_channel,
+         inquiry_notes
+       )`,
+    )
     .eq("id", inboxItemId)
     .single()
   if (inboxErr || !inbox) return { ok: false, error: "inbox_item_not_found" }
@@ -71,6 +83,40 @@ export async function claimBuyer(
     return { ok: true, data: { engagementId: existing.id } }
   }
 
+  // Migration 068 — inherit the LR-recorded direct inquiry (if any) into
+  // the engagement so the AE doesn't re-ask the buyer what they already
+  // told us through the out-of-band channel.
+  const lead = (inbox as {
+    leads: {
+      has_active_inquiry: boolean | null
+      inquiry_products: string | null
+      inquiry_quantity: string | null
+      inquiry_target_price: string | null
+      inquiry_timeline: string | null
+      inquiry_channel: string | null
+      inquiry_notes: string | null
+    } | null
+  }).leads
+
+  const inquiryPrefill =
+    lead?.has_active_inquiry
+      ? {
+          requested_products: lead.inquiry_products ?? null,
+          moq: lead.inquiry_quantity ?? null,
+          target_price_range: lead.inquiry_target_price ?? null,
+          other_requirements: [
+            "Nhu cầu thực tế do LR nhập lúc tạo buyer",
+            lead.inquiry_channel
+              ? `Kênh: ${inquiryChannelLabel(lead.inquiry_channel, "vi")}`
+              : null,
+            lead.inquiry_timeline ? `Timeline: ${lead.inquiry_timeline}` : null,
+            lead.inquiry_notes ? `Ghi chú: ${lead.inquiry_notes}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        }
+      : {}
+
   const { data: engagement, error: insertErr } = await admin
     .from("buyer_engagements")
     .insert({
@@ -79,6 +125,7 @@ export async function claimBuyer(
       inbox_item_id: inbox.id,
       stage: "claimed",
       created_by: userId,
+      ...inquiryPrefill,
     })
     .select("id")
     .single()

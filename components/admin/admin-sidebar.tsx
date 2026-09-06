@@ -23,6 +23,7 @@ import {
   ClipboardList,
   MailQuestion,
   FileCheck2,
+  Boxes,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -75,13 +76,13 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     { href: "/admin/engagements",       label: locale === "vi" ? "Đang xử lý" : "In progress", icon: ClipboardList,      cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "inProgress" },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/clients/intake",    label: locale === "vi" ? "Hồ sơ chờ duyệt" : "Pending Profiles", icon: FileCheck2, cap: CAPS.CLIENT_VIEW, badgeKey: "pendingIntake" },
+    { href: "/admin/sourcing",          label: locale === "vi" ? "Nhu cầu & Nguồn cung" : "Demand & Supply", icon: Boxes,   cap: CAPS.CLIENT_VIEW },
     { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW, badgeKey: "pipeline" },
     { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW, badgeKey: "buyers" },
     // Manual buyer intake — legacy flow that bypasses AI matching.
     // Restricted to Lead Researcher + Super Admin via BUYER_MANUAL_INTAKE.
     // Account Executives must use the AE Inbox (AI auto-assign) instead.
     { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.BUYER_MANUAL_INTAKE },
-    // { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.BUYER_MANUAL_INTAKE },
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
     { href: "/admin/unmatched-emails",  label: t.admin.unmatchedEmails.title,             icon: MailQuestion,           cap: CAPS.ACTIVITY_LOG_VIEW, badgeKey: "unmatchedEmails" },
     { href: "/admin/analytics",         label: locale === "vi" ? "Phân tích" : "Analytics", icon: PieChart,              cap: [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN] },

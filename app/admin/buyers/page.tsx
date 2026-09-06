@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { PlusCircle, Sparkles, Upload } from "lucide-react"
+import { PlusCircle, Sparkles } from "lucide-react"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, can } from "@/lib/auth/permissions"
@@ -29,11 +29,16 @@ export default async function BuyersDirectoryPage() {
   const isLR = role === "lead_researcher"
   const isAE = role === "account_executive" || role === "staff"
   const isAdmin = can(role, CAPS.OWNERSHIP_BYPASS)
+  // Supplier Researchers have OWNERSHIP_BYPASS (they must see the whole
+  // buyer pool for demand-driven sourcing) but must stay READ-ONLY on the
+  // buyer side — creating/editing buyers and running AI matching is LR /
+  // admin territory.
+  const isSR = role === "supplier_researcher"
 
   // LR can write (create/import) buyers; AE cannot
-  const canWriteBuyer = isLR || isAdmin
+  const canWriteBuyer = (isLR || isAdmin) && !isSR
   // LR and Admin can trigger AI matching for buyers
-  const canRunMatch = isLR || isAdmin
+  const canRunMatch = (isLR || isAdmin) && !isSR
 
   // Scope logic:
   // - AE: Only see buyers assigned to them via opportunities
@@ -207,12 +212,6 @@ export default async function BuyersDirectoryPage() {
               <Link href="/admin/buyers/import-importyeti">
                 <Sparkles className="mr-2 h-4 w-4" />
                 {locale === "vi" ? "Import từ ImportYeti" : "Import from ImportYeti"}
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin/leads/import">
-                <Upload className="mr-2 h-4 w-4" />
-                {locale === "vi" ? "Import hàng loạt" : "Bulk import"}
               </Link>
             </Button>
             <Button asChild>

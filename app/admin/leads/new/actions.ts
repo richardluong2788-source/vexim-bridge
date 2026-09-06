@@ -136,7 +136,18 @@ export interface CreateLeadWithAIMatchingInput {
   purchaseHistory?: string | null
   competitors?: string | null
   priorityRating?: number | null
-  
+
+  // Section 7: NHU CẦU THỰC TẾ (direct inquiry — migration 068)
+  // TRUE khi buyer chủ động có nhu cầu từ bên ngoài (email/phone/Zalo/hội
+  // chợ/giới thiệu) — không phải buyer research từ ImportYeti.
+  hasActiveInquiry?: boolean
+  inquiryProducts?: string | null
+  inquiryQuantity?: string | null
+  inquiryTargetPrice?: string | null
+  inquiryTimeline?: string | null
+  inquiryChannel?: string | null
+  inquiryNotes?: string | null
+
   // Legacy fields for AI matching
   productKeyword?: string | null
   capacityNeeded?: number | null
@@ -195,7 +206,13 @@ export async function createLeadWithAIMatchingAction(
       // Section 1: THÔNG TIN ĐỊNH DANH
       import_address: input.importAddress?.trim() ?? null,
       source_ref: input.importYetiLink?.trim() ?? null,
-      source: input.importYetiLink ? "importyeti" : null,
+      // Direct inquiry (nhu cầu thực tế) được ưu tiên nhận diện hơn
+      // ImportYeti — link ImportYeti vẫn lưu ở source_ref.
+      source: input.hasActiveInquiry
+        ? "direct_inquiry"
+        : input.importYetiLink
+          ? "importyeti"
+          : null,
       
       // Section 2: DỮ LIỆU ĐỊNH LƯỢNG
       total_shipments: input.totalShipments ?? null,
@@ -227,7 +244,29 @@ export async function createLeadWithAIMatchingAction(
       competitors: input.competitors?.trim() ?? null,
       peak_months: input.peakMonths?.trim() ?? null,
       priority_rating: input.priorityRating ?? null,
-      
+
+      // Section 7: NHU CẦU THỰC TẾ (direct inquiry — migration 068)
+      has_active_inquiry: input.hasActiveInquiry ?? false,
+      inquiry_products: input.hasActiveInquiry
+        ? (input.inquiryProducts?.trim() ?? null)
+        : null,
+      inquiry_quantity: input.hasActiveInquiry
+        ? (input.inquiryQuantity?.trim() ?? null)
+        : null,
+      inquiry_target_price: input.hasActiveInquiry
+        ? (input.inquiryTargetPrice?.trim() ?? null)
+        : null,
+      inquiry_timeline: input.hasActiveInquiry
+        ? (input.inquiryTimeline?.trim() ?? null)
+        : null,
+      inquiry_channel: input.hasActiveInquiry
+        ? (input.inquiryChannel ?? null)
+        : null,
+      inquiry_notes: input.hasActiveInquiry
+        ? (input.inquiryNotes?.trim() ?? null)
+        : null,
+      inquiry_received_at: input.hasActiveInquiry ? new Date().toISOString() : null,
+
       created_by: user.id,
     })
     .select()

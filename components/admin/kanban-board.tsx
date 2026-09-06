@@ -61,10 +61,11 @@ function formatRelativeTime(iso: string): string {
   return `${days} ngày trước`
 }
 
-// Full Phase-2 pipeline: 10 columns reflecting the export-sales SOP.
+// Full Phase-2 pipeline: 8 columns reflecting the export-sales SOP.
+// "new"/"contacted" retired (migration 071): deals created from the
+// engagement flow already start at sample_requested, and public quote
+// forms now route through AI matching instead of creating cold deals.
 const STAGE_IDS: Stage[] = [
-  "new",
-  "contacted",
   "sample_requested",
   "sample_sent",
   "negotiation",
@@ -113,6 +114,9 @@ interface KanbanBoardProps {
    *  (from `opportunity_metrics_v`), rendered on the card so an AE can
    *  spot a buyer that's gone stale without recalling when it was moved. */
   daysInStageByOpp?: Record<string, number>
+  /** Map of opportunity_id → { count, nextAt } cuộc gặp sắp tới
+   *  (migration 070), render badge 📅 trên thẻ. */
+  meetingsByOpp?: Record<string, { count: number; nextAt: string }>
 }
 
 export function KanbanBoard({
@@ -120,6 +124,7 @@ export function KanbanBoard({
   unreadReplyCountByOpp = {},
   needsReplyItems = [],
   daysInStageByOpp = {},
+  meetingsByOpp = {},
 }: KanbanBoardProps) {
   const { t } = useTranslation()
   const router = useRouter()
@@ -429,6 +434,7 @@ export function KanbanBoard({
                     opportunity={opp}
                     unreadReplyCount={unreadReplyCountByOpp[opp.id] ?? 0}
                     daysInStage={daysInStageByOpp[opp.id]}
+                    nextMeeting={meetingsByOpp[opp.id] ?? null}
                     onEdit={(o) => {
                       setEditingSection("status")
                       setEditingId(o.id)

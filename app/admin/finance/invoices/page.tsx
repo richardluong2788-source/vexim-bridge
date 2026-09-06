@@ -6,6 +6,7 @@ import { can, CAPS } from "@/lib/auth/permissions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { InvoiceRowActions } from "@/components/admin/finance/invoice-row-actions"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty"
 import { formatDate, formatUsd, formatVnd } from "@/lib/finance/format"
 import {
@@ -194,9 +195,10 @@ function InvoiceRowLink({ inv }: { inv: InvoiceRow }) {
     inv.profiles?.company_name ?? inv.profiles?.full_name ?? inv.profiles?.email ?? "—"
   const vnd = usdToVnd(Number(inv.net_amount_usd), Number(inv.fx_rate_vnd_per_usd))
   return (
+    <div className="flex items-center gap-2 p-0 pr-3 hover:bg-muted/40 transition-colors border-b border-border last:border-b-0">
     <Link
       href={`/admin/finance/invoices/${inv.id}`}
-      className="flex items-center justify-between gap-4 p-4 hover:bg-muted/40 transition-colors"
+      className="flex flex-1 items-center justify-between gap-4 p-4 hover:bg-muted/40 transition-colors"
     >
       <div className="flex items-center gap-4 min-w-0">
         <span className="flex h-10 w-10 items-center justify-center rounded-md bg-muted shrink-0">
@@ -230,5 +232,13 @@ function InvoiceRowLink({ inv }: { inv: InvoiceRow }) {
         )}
       </div>
     </Link>
+    <InvoiceRowActions
+      invoiceId={inv.id}
+      invoiceNumber={inv.invoice_number}
+      status={inv.status}
+      emailSentAt={inv.email_sent_at}
+      paidAt={inv.paid_at}
+    />
+    </div>
   )
 }

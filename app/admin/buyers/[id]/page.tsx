@@ -48,10 +48,16 @@ export default async function BuyerDetailPage({ params }: PageProps) {
   const contacts: BuyerContact[] = contactsResult.success ? contactsResult.data ?? [] : []
 
   // --- 2) Opportunities attached to this buyer ---------------------------
-  const { data: opps } = await current.admin
-    .from("opportunities")
-    .select(
-      `
+  // DEAL_VIEW gate: roles without the capability (lead_researcher,
+  // supplier_researcher) must not see deal stages/values on the buyer
+  // profile — they see the research + demand sections only. Replies are
+  // joined off opportunity ids, so they resolve to empty automatically.
+  const canSeeDeals = can(current.role, CAPS.DEAL_VIEW)
+  const { data: opps } = canSeeDeals
+    ? await current.admin
+        .from("opportunities")
+        .select(
+          `
       id,
       stage,
       potential_value,
@@ -73,6 +79,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     )
     .eq("lead_id", id)
     .order("last_updated", { ascending: false })
+    : { data: null }
 
   const oppRows: BuyerOpportunity[] = (opps ?? []).map((o: any) => ({
     id: o.id,
@@ -183,6 +190,8 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     avg_teu_per_month: buyer.avg_teu_per_month ?? null,
     top_peak_months: buyer.top_peak_months ?? null,
     top_low_months: buyer.top_low_months ?? null,
+    peak_months_data_year: buyer.peak_months_data_year ?? null,
+    import_trend: buyer.import_trend ?? null,
     // Section 3: MA HS & SAN PHAM
     hs_code: buyer.hs_code ?? null,
     main_product: buyer.main_product ?? null,
@@ -199,6 +208,15 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     bol_description: buyer.bol_description ?? null,
     purchase_history: buyer.purchase_history ?? null,
     priority_rating: buyer.priority_rating ?? null,
+    // Section 7: NHU CAU THUC TE (direct inquiry — migration 068)
+    has_active_inquiry: buyer.has_active_inquiry ?? false,
+    inquiry_products: buyer.inquiry_products ?? null,
+    inquiry_quantity: buyer.inquiry_quantity ?? null,
+    inquiry_target_price: buyer.inquiry_target_price ?? null,
+    inquiry_timeline: buyer.inquiry_timeline ?? null,
+    inquiry_channel: buyer.inquiry_channel ?? null,
+    inquiry_notes: buyer.inquiry_notes ?? null,
+    inquiry_received_at: buyer.inquiry_received_at ?? null,
   }
 
   return (

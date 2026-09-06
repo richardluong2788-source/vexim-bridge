@@ -6,6 +6,7 @@ import { formatUsd, formatVnd, formatDate } from "@/lib/finance/format"
 import { INVOICE_KIND_LABELS } from "@/lib/finance/types"
 import { loadFinanceSettings } from "@/lib/finance/settings"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { renderInvoicePdf } from "@/lib/finance/invoice-pdf"
 import type { FinanceSettings, Invoice, Profile } from "@/lib/supabase/types"
 
 type InvoiceWithRecipient = Invoice & {
@@ -128,11 +129,31 @@ export async function sendInvoiceEmail(args: {
     publicUrl: publicInvoiceUrl(invoice.public_token),
   })
 
+  // Đính kèm PDF hóa đơn chuyên nghiệp. Nếu render/fetch QR lỗi thì vẫn gửi
+  // email (khối QR tự bỏ qua trong PDF) — đừng để PDF làm hỏng việc gửi mail.
+  let attachments: Array<{ filename: string; content: string }> | undefined
+  try {
+    const pdfBytes = await renderInvoicePdf({
+      invoice: invoice as never,
+      client: invoice.profiles ?? null,
+      settings,
+    })
+    attachments = [
+      {
+        filename: `Hoa-don-${invoice.invoice_number}.pdf`,
+        content: Buffer.from(pdfBytes).toString("base64"),
+      },
+    ]
+  } catch (err) {
+    console.error("[v0] invoice PDF attachment failed — sending without PDF", err)
+  }
+
   const res = await sendMail({
     from: getFromAddress(),
     to: toEmail,
     subject,
     html,
+    attachments,
   })
   if (res.error) {
     console.error("[v0] sendInvoiceEmail failed", res.error.message)

@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import type {
   ClientProfile,
   ClientProfileWithRelations,
@@ -494,7 +495,7 @@ export async function submitQuoteRequest(
   // Get client info
   const { data: client } = await adminSupabase
     .from("profiles")
-    .select("account_manager_id")
+    .select("account_manager_id, industry")
     .eq("id", profile.client_id)
     .single()
 
@@ -508,6 +509,7 @@ export async function submitQuoteRequest(
       contact_phone: request.phone || null,
       region: null,
       country: request.country || null,
+      industry: client?.industry ?? null,
       source: "profile_page",
       notes: `Quote request from profile page.\n\nProducts interested: ${request.products_interested.join(", ")}\nQuantity/Volume: ${request.quantity_volume || "Not specified"}\n\nNotes: ${request.notes || "None"}`,
     })
@@ -519,30 +521,24 @@ export async function submitQuoteRequest(
     return { success: false, error: "Failed to create lead" }
   }
 
-  // Create opportunity
-  const { data: opportunity, error: oppError } = await adminSupabase
-    .from("opportunities")
-    .insert({
-      client_id: profile.client_id,
-      lead_id: lead.id,
-      stage: "new",
-      products_interested: request.products_interested.join(", "),
-      quantity_required: request.quantity_volume || null,
-      notes: `Inquiry via ${profile.display_name || "Supplier"} profile page`,
-    })
-    .select()
-    .single()
-
-  if (oppError) {
-    console.error("[v0] submitQuoteRequest opportunity error:", oppError)
-    // Don't fail - lead was still created
+  // Run the AI matching pipeline so this buyer enters through the SAME
+  // gate as every other lead (AE inbox -> engagement -> opportunity).
+  // Public quote forms no longer create opportunities directly — the
+  // pipeline stages "new"/"contacted" are retired (migration 071).
+  try {
+    await runMatchingPipeline(
+      { leadId: lead.id, triggeredBy: "public_quote_form" },
+      { client: adminSupabase }
+    )
+  } catch (err) {
+    console.error("[v0] matching pipeline error (lead still created):", err)
   }
 
   // Determine who should be notified: the client's assigned account manager,
   // or — if the client has no AE assigned yet — every admin/super_admin so the
   // lead is never silently dropped.
-  const linkPath = opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/leads`
-  const dedupKeySuffix = opportunity?.id || lead.id
+  const linkPath = `/admin/buyers/${lead.id}`
+  const dedupKeySuffix = lead.id
 
   let notifyUserIds: string[] = []
   if (client?.account_manager_id) {

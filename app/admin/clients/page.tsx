@@ -30,6 +30,7 @@ const ROLE_SHORT: Record<Role, string> = {
   admin: "Admin",
   account_executive: "AE",
   lead_researcher: "Researcher",
+  supplier_researcher: "Sourcing",
   finance: "Finance",
   staff: "Staff",
   client: "Client",
@@ -47,7 +48,11 @@ export default async function AdminClientsPage() {
   const { admin, role, userId } = current
   // Only roles with OWNERSHIP_BYPASS may reassign — see
   // setAccountManager() server action for the matching server-side check.
-  const canAssignManager = canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
+  // Supplier Researchers have the bypass (pool-wide read) but must NOT
+  // reassign AEs — supplier → AE assignment belongs to admin / matching.
+  const canAssignManager =
+    canAll(role, [CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS]) &&
+    role !== "supplier_researcher"
   // The clients query below is already scoped to owned clients for
   // AE/Lead Researcher, so CLIENT_WRITE alone is enough to let them edit
   // fields (email, FDA, country) on the rows they can see.

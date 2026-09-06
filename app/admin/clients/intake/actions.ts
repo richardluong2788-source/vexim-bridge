@@ -87,7 +87,16 @@ async function getCallerOrForbidden() {
   return { caller, callerProfile, supabase }
 }
 
-const REVIEWER_ROLES = ["admin", "staff", "super_admin", "account_executive"]
+// Reviewers: admin/super_admin (oversight), AE (own submissions) and
+// Supplier Researcher — SR owns the supplier pipeline end-to-end in the
+// new operating model (LR sources buyers, SR sources suppliers, AE connects).
+const REVIEWER_ROLES = [
+  "admin",
+  "staff",
+  "super_admin",
+  "account_executive",
+  "supplier_researcher",
+]
 
 /**
  * AE-only: save edits made while reviewing a submission (e.g. AE contacted

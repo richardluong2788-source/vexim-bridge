@@ -60,8 +60,13 @@ export async function setAccountManager(
   // CLIENT_WRITE (so they can update other client fields) but they do NOT
   // have OWNERSHIP_BYPASS, which means only admin/super_admin/finance can
   // change ownership.
+  // Supplier Researchers DO have the bypass (pool-wide supplier read) but
+  // must not reassign — mirror of the client-side check in /admin/clients.
   const guard = await requireAllCaps([CAPS.CLIENT_WRITE, CAPS.OWNERSHIP_BYPASS])
   if (!guard.ok) return { ok: false, error: guard.error }
+  if (guard.role === "supplier_researcher") {
+    return { ok: false, error: "forbidden" }
+  }
   const { admin } = guard
 
   // Target must be a client row.

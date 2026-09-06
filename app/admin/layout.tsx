@@ -13,6 +13,7 @@ const ADMIN_SHELL_ROLES: Role[] = [
   "admin",
   "account_executive",
   "lead_researcher",
+  "supplier_researcher",
   "finance",
   "staff",
 ]

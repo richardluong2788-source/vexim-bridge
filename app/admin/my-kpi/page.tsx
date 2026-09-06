@@ -37,6 +37,10 @@ export default async function MyKPIPage({ searchParams }: PageProps) {
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
 
+  // Supplier Researchers have no personal KPI dashboard yet — their working
+  // view is the demand/supply board.
+  if (current.role === "supplier_researcher") redirect("/admin/sourcing")
+
   const { locale } = await getDictionary()
   const role = current.role
 

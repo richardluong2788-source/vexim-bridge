@@ -47,7 +47,13 @@ export default async function AEInboxPage() {
         main_product,
         hs_code,
         hs_codes,
-        product_keywords
+        product_keywords,
+        has_active_inquiry,
+        inquiry_products,
+        inquiry_quantity,
+        inquiry_target_price,
+        inquiry_timeline,
+        inquiry_channel
       ),
       profiles:account_manager_id (
         id,

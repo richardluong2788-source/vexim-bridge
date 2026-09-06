@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { inviteTeamMember } from "@/app/admin/users/actions"
-import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
+import { AeIndustryPicker } from "@/components/admin/ae-industry-picker"
 import type { Role } from "@/lib/supabase/types"
 
 interface Props {
@@ -42,6 +42,12 @@ const INTERNAL_ROLES: { value: Role; labelEn: string; labelVi: string; descripti
     labelEn: "Lead Researcher",
     labelVi: "Lead Researcher",
     description: "Researches and imports buyer leads",
+  },
+  {
+    value: "supplier_researcher",
+    labelEn: "Supplier Researcher",
+    labelVi: "Supplier Researcher",
+    description: "Sources and qualifies suppliers into the pool",
   },
   {
     value: "finance",
@@ -67,10 +73,11 @@ const MESSAGES = {
     fullNamePlaceholder: "John Doe",
     role: "Role",
     rolePlaceholder: "Select a role",
-    industry: "Primary Industry",
-    industryPlaceholder: "Select an industry",
+    industry: "Industries",
     industryHint:
-      "AI matching only routes buyers to AEs whose industry matches — required for Account Executives.",
+      "AI matching only routes buyers to AEs covering the buyer's industry — required for Account Executives. Select multiple if needed; the starred one is primary.",
+    industryHintSr:
+      "Optional — the sourcing board will prioritize these industries for this researcher. Leave empty to cover all industries.",
     cancel: "Cancel",
     invite: "Send Invitation",
     inviting: "Sending...",
@@ -82,7 +89,7 @@ const MESSAGES = {
       invalid_email: "Please enter a valid email address",
       full_name_required: "Full name is required",
       invalid_role: "Please select a valid role",
-      invalid_industry: "Please select an industry for this Account Executive",
+      invalid_industry: "Please select at least one industry for this Account Executive",
       email_exists: "This email is already registered",
       super_admin_only: "Only Super Admin can invite Admin users",
       forbidden: "You don't have permission to invite users",
@@ -98,10 +105,11 @@ const MESSAGES = {
     fullNamePlaceholder: "Nguyen Van A",
     role: "Vai trò",
     rolePlaceholder: "Chọn vai trò",
-    industry: "Ngành hàng chính",
-    industryPlaceholder: "Chọn ngành hàng",
+    industry: "Ngành hàng",
     industryHint:
-      "AI chỉ đưa buyer vào inbox của AE cùng ngành hàng — bắt buộc đối với Account Executive.",
+      "AI chỉ đưa buyer vào inbox của AE phụ trách ngành hàng của buyer — bắt buộc đối với Account Executive. Chọn được nhiều ngành; ngành có dấu sao là ngành chính.",
+    industryHintSr:
+      "Tùy chọn — bảng Nhu cầu & Nguồn cung sẽ mặc định lọc theo các ngành này cho SR. Bỏ trống nếu SR phụ trách tất cả các ngành.",
     cancel: "Hủy",
     invite: "Gửi lời mời",
     inviting: "Đang gửi...",
@@ -113,7 +121,7 @@ const MESSAGES = {
       invalid_email: "Vui lòng nhập địa chỉ email hợp lệ",
       full_name_required: "Họ tên là bắt buộc",
       invalid_role: "Vui lòng chọn vai trò hợp lệ",
-      invalid_industry: "Vui lòng chọn ngành hàng cho Account Executive này",
+      invalid_industry: "Vui lòng chọn ít nhất một ngành hàng cho Account Executive này",
       email_exists: "Email này đã được đăng ký",
       super_admin_only: "Chỉ Super Admin mới có thể mời Admin",
       forbidden: "Bạn không có quyền mời người dùng",
@@ -130,12 +138,16 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
   const [role, setRole] = useState<Role | "">("")
-  const [industry, setIndustry] = useState<string>("")
+  const [industries, setIndustries] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [generatedWorkEmail, setGeneratedWorkEmail] = useState<string | null>(null)
 
   const isAccountExecutive = role === "account_executive"
+  const isSupplierResearcher = role === "supplier_researcher"
+  // Industries are REQUIRED for AEs (matching hard-gate) and OPTIONAL for
+  // SRs (their sourcing patch on /admin/sourcing — empty = see everything).
+  const needsIndustries = isAccountExecutive || isSupplierResearcher
 
   // Filter roles based on current user's permissions
   const availableRoles = INTERNAL_ROLES.filter((r) => {
@@ -150,7 +162,7 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
     setEmail("")
     setFullName("")
     setRole("")
-    setIndustry("")
+    setIndustries([])
     setError(null)
     setSuccess(false)
     setGeneratedWorkEmail(null)
@@ -161,7 +173,7 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
       setError(t.errors.invalid_role)
       return
     }
-    if (isAccountExecutive && !industry) {
+    if (isAccountExecutive && industries.length === 0) {
       setError(t.errors.invalid_industry)
       return
     }
@@ -172,7 +184,7 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
         email,
         full_name: fullName,
         role: role as Role,
-        industry: isAccountExecutive ? industry : undefined,
+        industries: needsIndustries ? industries : undefined,
       })
 
       if (result.ok) {
@@ -279,26 +291,28 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
             </Select>
           </div>
 
-          {/* Industry — only relevant (and required) for Account Executives */}
-          {isAccountExecutive && (
+          {/* Industries — required for AE (matching gate), optional for SR */}
+          {needsIndustries && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="invite-industry" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
                 {t.industry}
+                {isSupplierResearcher && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({locale === "vi" ? "tùy chọn" : "optional"})
+                  </span>
+                )}
               </Label>
-              <Select value={industry} onValueChange={setIndustry} disabled={isPending}>
-                <SelectTrigger id="invite-industry">
-                  <SelectValue placeholder={t.industryPlaceholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {INDUSTRIES.map((ind) => (
-                    <SelectItem key={ind} value={ind}>
-                      {locale === "vi" ? `${ind} · ${INDUSTRY_LABELS_VI[ind]}` : ind}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{t.industryHint}</p>
+              <AeIndustryPicker
+                id="invite-industry"
+                value={industries}
+                onChange={setIndustries}
+                disabled={isPending}
+                locale={locale}
+              />
+              <p className="text-xs text-muted-foreground">
+                {isSupplierResearcher ? t.industryHintSr : t.industryHint}
+              </p>
             </div>
           )}
 

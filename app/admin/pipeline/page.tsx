@@ -5,6 +5,7 @@ import type { OpportunityWithClient } from "@/lib/supabase/types"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { ownershipScopeFor } from "@/lib/auth/scope"
+import { CAPS, can } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +15,11 @@ export default async function AdminPipelinePage() {
   // Use the role-aware client so we can scope by ownership snapshot.
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
+  // Capability gate (defense-in-depth): the ownership scope alone is NOT a
+  // sufficient gate — roles with OWNERSHIP_BYPASS that are not supposed to
+  // see deals (e.g. supplier_researcher) would otherwise reach this page
+  // via direct URL.
+  if (!can(current.role, CAPS.DEAL_VIEW)) redirect("/admin")
   const { admin, role, userId } = current
   const scope = ownershipScopeFor(role, userId)
 

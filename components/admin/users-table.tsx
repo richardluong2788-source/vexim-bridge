@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { updateUserRole, updateUserIndustry, generateWorkEmailForUser } from "@/app/admin/users/actions"
+import { updateUserRole, updateUserIndustries, generateWorkEmailForUser } from "@/app/admin/users/actions"
 import { ROLE_META, assignableRoles } from "@/lib/auth/permissions"
-import { INDUSTRIES, INDUSTRY_LABELS_VI } from "@/lib/constants/industries"
+import { AeIndustryPicker } from "@/components/admin/ae-industry-picker"
 import type { Role } from "@/lib/supabase/types"
 import type { Locale } from "@/lib/i18n/config"
 
@@ -22,6 +22,8 @@ interface UserRow {
   role: Role
   company_name: string | null
   industry: string | null
+  /** Ordered industries the AE covers — [0] is the primary (AI matching). */
+  industries: string[]
   work_email: string | null
   created_at: string
 }
@@ -39,6 +41,7 @@ const ROLE_BADGE_CLASS: Record<Role, string> = {
   admin:             "bg-primary/80 text-primary-foreground",
   account_executive: "bg-accent text-accent-foreground",
   lead_researcher:   "bg-secondary text-secondary-foreground",
+  supplier_researcher: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
   finance:           "bg-muted text-foreground border border-border",
   staff:             "bg-muted text-muted-foreground border border-dashed border-border",
   client:            "bg-secondary/60 text-secondary-foreground",
@@ -120,10 +123,10 @@ export function UsersTable({
       day: "numeric",
     })
 
-  function handleIndustryChange(userId: string, nextIndustry: string) {
+  function handleIndustriesChange(userId: string, nextIndustries: string[]) {
     setIndustryPendingId(userId)
     industryStartTransition(async () => {
-      const res = await updateUserIndustry(userId, nextIndustry)
+      const res = await updateUserIndustries(userId, nextIndustries)
       setIndustryPendingId(null)
       if (res.ok) {
         toast.success(t.admin.users.industryUpdated)
@@ -191,7 +194,7 @@ export function UsersTable({
               </th>
               <th className="px-6 py-3">{t.admin.users.role}</th>
               <th className="w-48 px-6 py-3">
-                {locale === "vi" ? "Ngành hàng (AE)" : "Industry (AE)"}
+                {locale === "vi" ? "Ngành phụ trách (AE/SR)" : "Industries (AE/SR)"}
               </th>
               <th className="px-6 py-3">{t.admin.users.joined}</th>
               <th className="w-56 px-6 py-3">{t.admin.users.changeRole}</th>
@@ -265,27 +268,20 @@ export function UsersTable({
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {u.role === "account_executive" ? (
-                      <Select
-                        value={u.industry ?? ""}
+                    {u.role === "account_executive" ||
+                    u.role === "supplier_researcher" ? (
+                      <AeIndustryPicker
+                        value={
+                          u.industries.length > 0
+                            ? u.industries
+                            : u.industry
+                              ? [u.industry]
+                              : []
+                        }
+                        onChange={(next) => handleIndustriesChange(u.id, next)}
                         disabled={industryPending && industryPendingId === u.id}
-                        onValueChange={(v) => handleIndustryChange(u.id, v)}
-                      >
-                        <SelectTrigger className="h-8 w-full">
-                          <SelectValue
-                            placeholder={
-                              locale === "vi" ? "Chưa đặt ngành" : "Not set"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INDUSTRIES.map((ind) => (
-                            <SelectItem key={ind} value={ind}>
-                              {locale === "vi" ? `${ind} · ${INDUSTRY_LABELS_VI[ind]}` : ind}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        locale={locale}
+                      />
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

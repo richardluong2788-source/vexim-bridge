@@ -4,6 +4,7 @@ export type Role =
   | "client"
   | "super_admin"
   | "lead_researcher"
+  | "supplier_researcher"
   | "account_executive"
   | "finance"
 
@@ -69,6 +70,39 @@ export type NotificationCategory =
   | "system"
 
 export type NotificationEmailStatus = "sent" | "failed" | "skipped"
+
+/**
+ * Snapshot stored in client_weekly_reports.payload (migration 067).
+ * Built by lib/reports/weekly-report.ts — buyer display names are already
+ * MASKED at build time following the same disclosure rules as
+ * client_leads_masked (identity hidden before price_agreed, contacts hidden
+ * before shipped), so this payload is safe to render for clients and inside
+ * PDFs that AEs download and forward.
+ */
+export interface WeeklyReportPayload {
+  clientId: string
+  clientName: string
+  /** Monday of the reported week (YYYY-MM-DD). */
+  weekStart: string
+  periodStart: string
+  periodEnd: string
+  totalLeads: number
+  activeLeads: number
+  wonCount: number
+  lostCount: number
+  winRate: number
+  /** Opportunities created during the reported week. */
+  newThisWeek: number
+  /** Opportunities with any activity (last_updated) during the week. */
+  updatedThisWeek: number
+  stageCounts: Array<{ stage: Stage; count: number }>
+  recentLeads: Array<{
+    /** Pre-masked: real company name OR buyer_code when identity is hidden. */
+    displayName: string
+    stage: Stage
+    updatedAt: string
+  }>
+}
 
 export type Database = {
   public: {
@@ -189,6 +223,15 @@ export type Database = {
           bol_description: string | null
           purchase_history: string | null
           priority_rating: number | null
+          // Section 7: NHU CAU THUC TE (direct inquiry — migration 068)
+          has_active_inquiry: boolean
+          inquiry_products: string | null
+          inquiry_quantity: string | null
+          inquiry_target_price: string | null
+          inquiry_timeline: string | null
+          inquiry_channel: string | null
+          inquiry_notes: string | null
+          inquiry_received_at: string | null
         }
         Insert: {
           id?: string
@@ -232,6 +275,15 @@ export type Database = {
           bol_description?: string | null
           purchase_history?: string | null
           priority_rating?: number | null
+          // Section 7: NHU CAU THUC TE (direct inquiry — migration 068)
+          has_active_inquiry?: boolean
+          inquiry_products?: string | null
+          inquiry_quantity?: string | null
+          inquiry_target_price?: string | null
+          inquiry_timeline?: string | null
+          inquiry_channel?: string | null
+          inquiry_notes?: string | null
+          inquiry_received_at?: string | null
         }
         Update: {
           id?: string
@@ -275,6 +327,15 @@ export type Database = {
           bol_description?: string | null
           purchase_history?: string | null
           priority_rating?: number | null
+          // Section 7: NHU CAU THUC TE (direct inquiry — migration 068)
+          has_active_inquiry?: boolean
+          inquiry_products?: string | null
+          inquiry_quantity?: string | null
+          inquiry_target_price?: string | null
+          inquiry_timeline?: string | null
+          inquiry_channel?: string | null
+          inquiry_notes?: string | null
+          inquiry_received_at?: string | null
         }
       }
       buyer_contacts: {
@@ -774,6 +835,41 @@ export type Database = {
           telegram_link_token?: string
           telegram_link_token_expires_at?: string | null
           updated_at?: string
+        }
+      }
+      client_weekly_reports: {
+        Row: {
+          id: string
+          client_id: string
+          week_start: string
+          period_start: string
+          period_end: string
+          payload: WeeklyReportPayload
+          email_sent: boolean
+          email_error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          week_start: string
+          period_start: string
+          period_end: string
+          payload: WeeklyReportPayload
+          email_sent?: boolean
+          email_error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          week_start?: string
+          period_start?: string
+          period_end?: string
+          payload?: WeeklyReportPayload
+          email_sent?: boolean
+          email_error?: string | null
+          created_at?: string
         }
       }
       notification_email_log: {

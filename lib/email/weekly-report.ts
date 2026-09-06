@@ -6,7 +6,11 @@ export interface StageSummary {
 }
 
 export interface RecentLead {
-  companyName: string
+  /**
+   * Pre-masked buyer name (R-07): the real company name only once a deal
+   * reaches price_agreed+, otherwise the opaque buyer_code.
+   */
+  displayName: string
   stage: Stage
   updatedAt: string
 }
@@ -74,7 +78,7 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
           (l) => `
             <tr>
               <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;font:14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
-                ${escapeHtml(l.companyName)}
+                ${escapeHtml(l.displayName)}
               </td>
               <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:right;">
                 <span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:${STAGE_COLOR[l.stage]};color:#fff;font:600 12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -124,8 +128,8 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
                   ${recentRows}
                 </table>
 
-                <a href="${escapeHtml(appUrl)}/client" style="display:inline-block;background:#14b8a6;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font:600 14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-                  Open your dashboard
+                <a href="${escapeHtml(appUrl)}/client/reports" style="display:inline-block;background:#14b8a6;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font:600 14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                  View report &amp; download PDF
                 </a>
               </td>
             </tr>

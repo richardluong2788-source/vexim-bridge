@@ -14,6 +14,7 @@ import { AEPersonalDashboard } from "@/components/admin/dashboard/ae-personal-da
 import { LRPersonalDashboard } from "@/components/admin/dashboard/lr-personal-dashboard"
 import { FinanceDashboard } from "@/components/admin/dashboard/finance-dashboard"
 import { ScopeBanner } from "@/components/admin/scope-banner"
+import { getDemandSupplyBoard } from "@/lib/sourcing/demand-supply"
 
 export const dynamic = "force-dynamic"
 
@@ -83,6 +84,7 @@ export default async function AdminDashboardPage() {
   const isAdmin = role === "super_admin" || role === "admin"
   const isAE = role === "account_executive"
   const isLR = role === "lead_researcher"
+  const isSR = role === "supplier_researcher"
   const isFinance = role === "finance"
 
   // Get the appropriate KPIs based on role
@@ -147,6 +149,91 @@ export default async function AdminDashboardPage() {
         userName={userName}
       />
     )
+  } else if (isSR) {
+    // Supplier Researcher sees the sourcing board — demand vs supply.
+    // (Rendered inline: it is a single aggregate table, not a full
+    // dashboard component. The detailed board lives at /admin/sourcing.)
+    const board = await getDemandSupplyBoard(admin)
+    // The SR's assigned patch — priorities below default to these when set.
+    const srIndustries: string[] = (profile?.industries as string[] | null) ?? []
+    const priorityRows = board.rows.filter(
+      (r) => srIndustries.length === 0 || srIndustries.includes(r.industry),
+    )
+
+    dashboardContent = (
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[
+            {
+              label: locale === "vi" ? "Buyer đã nghiên cứu" : "Buyers researched",
+              value: board.totalBuyers,
+            },
+            {
+              label: locale === "vi" ? "Nhu cầu thực" : "Active inquiries",
+              value: board.totalActiveInquiries,
+            },
+            {
+              label: locale === "vi" ? "Supplier trong hệ thống" : "Suppliers in pool",
+              value: board.totalSuppliers,
+            },
+            {
+              label: locale === "vi" ? "Ngành cần supplier gấp" : "Industries needing supply",
+              value: board.urgentIndustries,
+            },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-lg border border-border bg-card p-4"
+            >
+              <p className="text-2xl font-semibold text-foreground">{s.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{s.label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-border">
+          <div className="border-b border-border bg-muted/50 px-4 py-2 text-sm font-medium text-foreground">
+            {locale === "vi"
+              ? "Ưu tiên tìm supplier theo ngành"
+              : "Sourcing priorities by industry"}
+          </div>
+          <ul className="divide-y divide-border">
+            {priorityRows
+              .filter((r) => r.activeInquiries > 0)
+              .slice(0, 8)
+              .map((r) => (
+                <li
+                  key={r.industry}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                >
+                  <span className="font-medium text-foreground">{r.industry}</span>
+                  <span className="flex items-center gap-3 text-muted-foreground">
+                    <span>
+                      {r.activeInquiries}{" "}
+                      {locale === "vi" ? "nhu cầu" : "inquiries"}
+                    </span>
+                    <span>
+                      {r.suppliers}{" "}
+                      {locale === "vi" ? "supplier" : "suppliers"}
+                    </span>
+                    {r.suppliers === 0 && (
+                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                        {locale === "vi" ? "Cần tìm gấp" : "Urgent"}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            {priorityRows.filter((r) => r.activeInquiries > 0).length === 0 && (
+              <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+                {locale === "vi"
+                  ? "Chưa có nhu cầu thực nào — Lead Researcher chưa nhập buyer có inquiry."
+                  : "No active inquiries yet — no buyer with a real inquiry has been imported."}
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+    )
   } else if (isFinance) {
     // Finance sees revenue/invoice dashboard
     const teamKPIs = await getTeamKPIs(period)
@@ -178,6 +265,7 @@ export default async function AdminDashboardPage() {
     admin: locale === "vi" ? "Tổng quan Team" : "Team Overview",
     account_executive: locale === "vi" ? "Dashboard của tôi" : "My Dashboard",
     lead_researcher: locale === "vi" ? "Dashboard của tôi" : "My Dashboard",
+    supplier_researcher: locale === "vi" ? "Nguồn cung & Nhu cầu" : "Sourcing Board",
     finance: locale === "vi" ? "Tổng quan Tài chính" : "Finance Overview",
     staff: locale === "vi" ? "Tổng quan" : "Overview",
   }
@@ -187,6 +275,7 @@ export default async function AdminDashboardPage() {
     admin: locale === "vi" ? "Hiệu suất team bán hàng xuất khẩu" : "Export sales team performance",
     account_executive: locale === "vi" ? "Hiệu suất và KPIs cá nhân" : "Your personal performance & KPIs",
     lead_researcher: locale === "vi" ? "Tiến độ import buyers" : "Buyer import progress",
+    supplier_researcher: locale === "vi" ? "Nhu cầu buyer vs nguồn cung supplier" : "Buyer demand vs supplier pool",
     finance: locale === "vi" ? "Doanh thu và hóa đơn" : "Revenue & invoices overview",
     staff: locale === "vi" ? "Tổng quan pipeline" : "Pipeline overview",
   }

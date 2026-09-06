@@ -14,8 +14,10 @@ export default async function NewClientPage() {
   const supabase = await createClient()
   const { locale } = await getDictionary()
 
-  // Server-side guard: admin/staff/super_admin and account_executive can access.
+  // Server-side guard: admin/staff/super_admin, account_executive and
+  // supplier_researcher can access.
   // AEs can create clients and will auto-become their account manager.
+  // SRs create unassigned supplier profiles (sourcing-only role).
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -27,7 +29,13 @@ export default async function NewClientPage() {
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  const allowedRoles = [
+    "admin",
+    "staff",
+    "super_admin",
+    "account_executive",
+    "supplier_researcher",
+  ]
   if (!profile || !allowedRoles.includes(profile.role)) {
     redirect("/client")
   }

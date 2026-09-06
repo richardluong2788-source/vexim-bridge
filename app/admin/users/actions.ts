@@ -36,6 +36,7 @@ const ASSIGNABLE: Role[] = [
   "admin",
   "account_executive",
   "lead_researcher",
+  "supplier_researcher",
   "finance",
   "client",
 ]
@@ -157,7 +158,7 @@ export async function generateWorkEmailForUser(
 }
 
 // ============================================================================
-// Update AE Industry
+// Update AE Industries
 // ============================================================================
 
 export interface UpdateIndustryResult {
@@ -166,19 +167,46 @@ export interface UpdateIndustryResult {
 }
 
 /**
- * Update an Account Executive's primary industry.
+ * Update the industries a person covers (ordered — [0] is the primary).
  *
- * The AI matching hard-filter only scores AEs whose industry matches the
- * buyer's industry, so this is the lever admins use to decide which AE
- * covers which vertical. Restricted to account_executive targets only.
+ * Works for BOTH account_executive and supplier_researcher:
+ *   - AE:  industries feed the AI-matching hard filter — the buyer inbox
+ *          only ever receives buyers whose industry the AE covers.
+ *   - SR:  industries mark the verticals this researcher sources suppliers
+ *          for. The /admin/sourcing demand board defaults to filtering the
+ *          buyer-demand list by the SR's assigned industries, so with
+ *          multiple SRs each sees their own patch (equipment vs food never
+ *          mix in one work queue) — and can toggle to view everything.
+ *
+ * IMPORTANT — why this writes the `industries` ARRAY and not `industry`:
+ * the migration-018 trigger `profiles_sync_primary_industry` runs BEFORE
+ * UPDATE and force-sets `NEW.industry := NEW.industries[1]` whenever the
+ * array is non-empty. The previous implementation only updated the scalar
+ * `industry` column, so the trigger silently reverted the admin's change
+ * back to industries[1] (set once at invite time) — once an AE's industry
+ * was set it could never be changed. Writing the array fixes that: the
+ * trigger then syncs `industry` to the new first element for us. To clear
+ * everything we must null BOTH fields in the same statement, otherwise the
+ * trigger's ELSIF branch would lift the stale `industry` back into a
+ * single-element array.
+ *
+ * The AI matching hard-filter gates AEs on the full `industries` array
+ * (lib/matching/orchestrator.ts), so an AE can cover several verticals.
  */
-export async function updateUserIndustry(
+export async function updateUserIndustries(
   userId: string,
-  industry: string,
+  industries: string[],
 ): Promise<UpdateIndustryResult> {
-  const normalized = normalizeIndustry(industry)
-  if (!normalized) {
-    return { ok: false, error: "invalid_industry" }
+  // Normalize every entry, dedupe while preserving the caller's order.
+  const normalized: string[] = []
+  for (const raw of industries ?? []) {
+    const n = normalizeIndustry(raw)
+    if (!n) {
+      return { ok: false, error: "invalid_industry" }
+    }
+    if (!normalized.includes(n)) {
+      normalized.push(n)
+    }
   }
 
   const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
@@ -191,13 +219,18 @@ export async function updateUserIndustry(
     .eq("id", userId)
     .single<{ role: string | null }>()
 
-  if (normaliseRole(target?.role) !== "account_executive") {
+  const targetRole = normaliseRole(target?.role)
+  if (targetRole !== "account_executive" && targetRole !== "supplier_researcher") {
     return { ok: false, error: "invalid_role" }
   }
 
   const { error } = await admin
     .from("profiles")
-    .update({ industry: normalized })
+    .update(
+      normalized.length > 0
+        ? { industries: normalized }
+        : { industries: [], industry: null },
+    )
     .eq("id", userId)
 
   if (error) {
@@ -205,17 +238,21 @@ export async function updateUserIndustry(
   }
 
   revalidatePath("/admin/users")
+  revalidatePath("/admin/sourcing")
 
-  // This AE now covers `normalized` — re-run matching for any buyer stuck
-  // in the shared inbox for that industry (no AE covered it before). Best
-  // effort: never fail the industry update because of this.
-  try {
-    await rematchOpenSharedInboxLeads({
-      industries: [normalized],
-      triggeredBy: guard.userId,
-    })
-  } catch (err) {
-    console.error("[v0] rematchOpenSharedInboxLeads failed after industry update:", err)
+  // Only AE coverage drives buyer routing — re-run matching for any buyer
+  // stuck in the shared inbox for those industries (no AE covered them
+  // before). SR industries have NO matching implication.
+  // Best effort: never fail the industries update because of this.
+  if (targetRole === "account_executive" && normalized.length > 0) {
+    try {
+      await rematchOpenSharedInboxLeads({
+        industries: normalized,
+        triggeredBy: guard.userId,
+      })
+    } catch (err) {
+      console.error("[v0] rematchOpenSharedInboxLeads failed after industries update:", err)
+    }
   }
 
   return { ok: true }
@@ -230,6 +267,7 @@ const INTERNAL_ROLES: Role[] = [
   "admin",
   "account_executive",
   "lead_researcher",
+  "supplier_researcher",
   "finance",
 ]
 
@@ -238,12 +276,12 @@ export interface InviteTeamMemberInput {
   full_name: string
   role: Role
   /**
-   * Primary industry the AE will cover. Required for account_executive —
-   * the AI matching hard-filter only ever scores AEs whose industry
-   * matches the buyer's, so an AE invited without one would never receive
-   * any buyer via matching.
+   * All industries the AE will cover, in priority order — [0] is the
+   * primary industry. Required for account_executive: the AI matching
+   * hard-filter only ever scores AEs covering the buyer's industry, so an
+   * AE invited without one would never receive any buyer via matching.
    */
-  industry?: string
+  industries?: string[]
 }
 
 export interface InviteTeamMemberResult {
@@ -289,10 +327,25 @@ export async function inviteTeamMember(
   }
 
   // Account Executives are hard-gated by industry in AI matching — an AE
-  // with no industry would never be scored for any buyer, so require one.
-  const industry = role === "account_executive" ? normalizeIndustry(input.industry) : null
-  if (role === "account_executive" && !industry) {
-    return { ok: false, error: "invalid_industry" }
+  // with no industry would never be scored for any buyer, so require at
+  // least one. Supplier Researchers MAY be assigned industries (their
+  // sourcing patch on /admin/sourcing) but it is optional — an SR with no
+  // industries sees the full demand board.
+  // Normalize + dedupe while preserving the caller's order.
+  const industries: string[] = []
+  if (role === "account_executive" || role === "supplier_researcher") {
+    for (const raw of input.industries ?? []) {
+      const n = normalizeIndustry(raw)
+      if (!n) {
+        return { ok: false, error: "invalid_industry" }
+      }
+      if (!industries.includes(n)) {
+        industries.push(n)
+      }
+    }
+    if (role === "account_executive" && industries.length === 0) {
+      return { ok: false, error: "invalid_industry" }
+    }
   }
 
   // ---- 2. Check caller permissions ------------------------------------------
@@ -341,7 +394,7 @@ export async function inviteTeamMember(
         role,
         email,
         full_name: fullName,
-        industry,
+        industries: industries.length > 0 ? industries : [],
         work_email: workEmail,
       },
       { onConflict: "id" },
@@ -363,7 +416,7 @@ export async function inviteTeamMember(
       email,
       full_name: fullName,
       role,
-      industry,
+      industries: industries.length > 0 ? industries : undefined,
       work_email: workEmail,
       invited_by_role: callerRole,
     },
@@ -371,13 +424,14 @@ export async function inviteTeamMember(
 
   revalidatePath("/admin/users")
 
-  // A new AE covering `industry` may unblock buyers stranded in the shared
-  // inbox because no AE covered that vertical yet. Best effort — never
-  // fail the invite because of this.
-  if (industry) {
+  // A new AE covering these industries may unblock buyers stranded in the
+  // shared inbox because no AE covered those verticals yet. SR industries
+  // have no matching implication — skip the rematch for them.
+  // Best effort — never fail the invite because of this.
+  if (role === "account_executive" && industries.length > 0) {
     try {
       await rematchOpenSharedInboxLeads({
-        industries: [industry],
+        industries,
         triggeredBy: guard.userId,
       })
     } catch (err) {

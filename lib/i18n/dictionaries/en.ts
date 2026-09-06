@@ -134,6 +134,22 @@ export const en = {
         products: "Products",
         compliance: "Compliance",
       },
+      weeklyReports: {
+        title: "Weekly reports",
+        subtitle:
+          "Auto-generated weekly pipeline reports. Download the PDF and send it to your client.",
+        download: "Download PDF",
+        downloadLatest: "Download latest",
+        week: "Week",
+        totalLeads: "Leads",
+        won: "Won",
+        winRate: "Win rate",
+        emailed: "Emailed",
+        notEmailed: "Not emailed",
+        empty: "No weekly reports yet",
+        emptyDesc:
+          "Reports are generated automatically every Monday morning. You can already download the latest one below.",
+      },
       empty: "No clients yet",
       emptyDesc: "Vietnamese exporter accounts will appear here once registered.",
       oppSheet: {
@@ -787,6 +803,33 @@ emailSectionHint:
         daily: "Day total",
       },
     },
+    reports: {
+      navLabel: "Reports",
+      title: "Weekly Reports",
+      subtitle:
+        "Your pipeline report for every week, ready to view or download as a PDF.",
+      week: "Week",
+      period: "Period",
+      totalLeads: "Total leads",
+      activeLeads: "In progress",
+      won: "Won",
+      winRate: "Win rate",
+      newThisWeek: "New this week",
+      updatedThisWeek: "Progressed",
+      downloadPdf: "Download PDF",
+      downloadLatest: "Download latest report",
+      generated: "Generated",
+      emailSent: "Emailed",
+      emailNotSent: "Not emailed",
+      emptyTitle: "No weekly reports yet",
+      emptyDesc:
+        "Your first weekly report will appear here after the next Monday morning run. You can also download the latest report below.",
+      latestCard: {
+        title: "Latest weekly report",
+        viewAll: "All reports",
+        summary: "{n} leads · {w} won · {p}% win rate",
+      },
+    },
     leads: {
       title: "My Leads",
       subtitle: "US buyers assigned to your company",
@@ -984,6 +1027,7 @@ emailSectionHint:
     client: "Client",
     super_admin: "Super Admin",
     lead_researcher: "Lead Researcher",
+    supplier_researcher: "Supplier Researcher",
     account_executive: "Account Executive",
   },
   notifications: {

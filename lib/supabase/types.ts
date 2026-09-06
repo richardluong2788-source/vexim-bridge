@@ -20,6 +20,37 @@ export type Stage =
   | "won"
   | "lost"
 
+// ---------------------------------------------------------------------------
+// Opportunity meetings — Cuộc gặp & Tham quan gắn với deal (migration 070).
+// Sự kiện có lịch (video call, tham quan nhà máy, buyer trip...), KHÔNG phải
+// giai đoạn pipeline: một deal có thể có nhiều cuộc gặp ở nhiều giai đoạn.
+// ---------------------------------------------------------------------------
+export type MeetingKind =
+  | "video_call"
+  | "factory_tour"
+  | "buyer_trip"
+  | "meeting"
+  | "trade_fair"
+
+export interface OpportunityMeeting {
+  id: string
+  opportunity_id: string
+  kind: MeetingKind | string
+  title: string
+  scheduled_at: string
+  location: string | null
+  outcome: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+/** Badge trên thẻ Kanban: số cuộc gặp sắp tới + cuộc gần nhất. */
+export interface NextMeetingInfo {
+  count: number
+  nextAt: string
+}
+
 /** Stages that require the client to have a valid FDA registration. */
 export const COMPLIANCE_REQUIRED_STAGES: Stage[] = [
   "sample_requested",
@@ -179,6 +210,7 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
         }
+        Relationships: []
       }
       leads: {
         Row: {
@@ -337,6 +369,7 @@ export type Database = {
           inquiry_notes?: string | null
           inquiry_received_at?: string | null
         }
+        Relationships: []
       }
       buyer_contacts: {
         Row: {
@@ -428,6 +461,9 @@ export type Database = {
           next_step: string | null
           client_action_required: string | null
           client_action_due_date: string | null
+          account_manager_id: string | null
+          source_engagement_id: string | null
+          source_role: string | null
           last_updated: string
           created_at: string
           archived_at: string | null
@@ -451,6 +487,9 @@ export type Database = {
           next_step?: string | null
           client_action_required?: string | null
           client_action_due_date?: string | null
+          account_manager_id?: string | null
+          source_engagement_id?: string | null
+          source_role?: string | null
           last_updated?: string
           created_at?: string
           archived_at?: string | null
@@ -474,10 +513,14 @@ export type Database = {
           next_step?: string | null
           client_action_required?: string | null
           client_action_due_date?: string | null
+          account_manager_id?: string | null
+          source_engagement_id?: string | null
+          source_role?: string | null
           last_updated?: string
           created_at?: string
           archived_at?: string | null
         }
+        Relationships: []
       }
       activities: {
         Row: {
@@ -504,6 +547,7 @@ export type Database = {
           performed_by?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       deals: {
         Row: {
@@ -594,6 +638,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       compliance_docs: {
         Row: {
@@ -644,6 +689,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       compliance_doc_history: {
         Row: {
@@ -682,6 +728,7 @@ export type Database = {
           notes?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       tokenized_share_links: {
         Row: {
@@ -722,6 +769,7 @@ export type Database = {
           note?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       tokenized_share_link_docs: {
         Row: {
@@ -742,6 +790,7 @@ export type Database = {
           position?: number
           created_at?: string
         }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -777,6 +826,7 @@ export type Database = {
           read_at?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       notification_preferences: {
         Row: {
@@ -836,6 +886,7 @@ export type Database = {
           telegram_link_token_expires_at?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       client_weekly_reports: {
         Row: {
@@ -871,6 +922,7 @@ export type Database = {
           email_error?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       notification_email_log: {
         Row: {
@@ -900,6 +952,7 @@ export type Database = {
           error?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       notification_telegram_log: {
         Row: {
@@ -929,6 +982,7 @@ export type Database = {
           error?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       client_profiles: {
         Row: {
@@ -1423,6 +1477,60 @@ export type Database = {
           sent_at?: string | null
           created_at?: string
         }
+        Relationships: []
+      }
+      // Migration 070 — Cuộc gặp & Tham quan gắn với deal (sự kiện có lịch,
+      // không phải giai đoạn pipeline).
+      opportunity_meetings: {
+        Row: {
+          id: string
+          opportunity_id: string
+          kind: string
+          title: string
+          scheduled_at: string
+          location: string | null
+          outcome: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          opportunity_id: string
+          kind?: string
+          title: string
+          scheduled_at: string
+          location?: string | null
+          outcome?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          opportunity_id?: string
+          kind?: string
+          title?: string
+          scheduled_at?: string
+          location?: string | null
+          outcome?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_key: string]: {
+        Row: Record<string, unknown>
+        Relationships: []
+      }
+    }
+    Functions: {
+      [_key: string]: {
+        Args: Record<string, unknown>
+        Returns: unknown
       }
     }
   }

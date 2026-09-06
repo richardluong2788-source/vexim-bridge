@@ -159,6 +159,7 @@ export const en = {
         sectionStatus: "Status & expectations",
         sectionDeal: "Commercial details",
         sectionReplies: "Buyer replies",
+        sectionMeetings: "Meetings & Tours",
         sectionCI: "Commercial intel",
         sectionFinancials: "Financials",
         sectionCompliance: "Compliance",

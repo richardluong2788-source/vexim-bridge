@@ -160,6 +160,7 @@ export const vi: Dictionary = {
         sectionStatus: "Trạng thái & kỳ vọng",
         sectionDeal: "Thông tin thương mại",
         sectionReplies: "Phản hồi Buyer",
+        sectionMeetings: "Cuộc gặp & Tham quan",
         sectionCI: "Tình báo TM",
         sectionFinancials: "Tài chính",
         sectionCompliance: "Tuân thủ",

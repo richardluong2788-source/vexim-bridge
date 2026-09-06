@@ -6,6 +6,7 @@ import {
   Save, X, Target, Package, StickyNote, Sparkles,
   Mail, MessageSquare, BarChart2, DollarSign, ShieldCheck, Landmark,
   ChevronLeft, CheckCircle2, Building2, Send, Lock, FileCheck2,
+  Video,
 } from "lucide-react"
 import {
   Sheet,
@@ -32,6 +33,7 @@ import type { Stage } from "@/lib/supabase/types"
 import { OpportunityComplianceSection } from "@/components/admin/opportunity-compliance-section"
 import { OpportunityFinancialSection } from "@/components/admin/opportunity-financial-section"
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
+import { OpportunityMeetingsSection } from "@/components/admin/opportunity-meetings-section"
 import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
@@ -64,6 +66,7 @@ type SectionId =
   | "documents"
   | "email"
   | "replies"
+  | "meetings"
   | "intelligence"
   | "financials"
   | "compliance"
@@ -82,6 +85,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "documents",    icon: FileCheck2,    labelKey: "sectionDocs" },
   { id: "email",        icon: Mail,          labelKey: "sectionEmail" },
   { id: "replies",      icon: MessageSquare, labelKey: "sectionReplies" },
+  { id: "meetings",     icon: Video,         labelKey: "sectionMeetings" },
   { id: "intelligence", icon: BarChart2,     labelKey: "sectionCI" },
   { id: "financials",   icon: DollarSign,    labelKey: "sectionFinancials" },
   { id: "compliance",   icon: ShieldCheck,   labelKey: "sectionCompliance" },
@@ -306,6 +310,7 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
     documents:    "Hồ sơ & Tài liệu",
     email:        t.admin.clients.email?.sectionTitle ?? "Email Buyer",
     replies:      s.sectionReplies ?? "Phản hồi Buyer",
+    meetings:     s.sectionMeetings ?? "Cuộc gặp & Tham quan",
     intelligence: s.sectionCI ?? "Tình báo TM",
     financials:   s.sectionFinancials ?? "Tài chính",
     compliance:   s.sectionCompliance ?? "Tuân thủ",
@@ -630,6 +635,16 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
                         emailSectionRef.current?.scrollIntoView({ behavior: "smooth" })
                       }, 0)
                     }}
+                  />
+                </section>
+              )}
+
+              {/* MEETINGS & FACTORY TOURS */}
+              {activeSection === "meetings" && (
+                <section className="space-y-4">
+                  <OpportunityMeetingsSection
+                    opportunityId={opportunity.id}
+                    open={open}
                   />
                 </section>
               )}

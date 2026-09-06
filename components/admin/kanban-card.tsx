@@ -18,8 +18,7 @@ import {
   Package,
   Star,
   TrendingDown,
-  Clock,
-} from "lucide-react"
+  Clock, CalendarClock } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTranslation } from "@/components/i18n/language-provider"
@@ -32,6 +31,8 @@ interface KanbanCardProps {
   onEdit?: (opportunity: OpportunityWithClient) => void
   /** Number of unread buyer replies for this opportunity */
   unreadReplyCount?: number
+  /** Sắp tới: số cuộc gặp/tham quan đã lên lịch cho deal này (migration 070) */
+  nextMeeting?: { count: number; nextAt: string } | null
   /** Days spent in the current stage (from `opportunity_metrics_v`).
    *  Undefined while metrics haven't loaded — the line is simply omitted
    *  rather than showing a misleading "0 ngày". */
@@ -43,6 +44,7 @@ export function KanbanCard({
   isDragging,
   onEdit,
   unreadReplyCount = 0,
+  nextMeeting,
   daysInStage,
 }: KanbanCardProps) {
   const { t, locale } = useTranslation()
@@ -227,6 +229,35 @@ export function KanbanCard({
                   </p>
                   <p className="text-xs opacity-80 mt-1 leading-relaxed">
                     {risk.reasons[locale][0]}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {nextMeeting && nextMeeting.count > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="flex h-6 items-center gap-1 rounded-md bg-primary/10 px-1.5 text-[11px] font-medium text-primary"
+                    aria-label={
+                      locale === "vi"
+                        ? `${nextMeeting.count} cuộc gặp sắp tới — gần nhất ${new Date(nextMeeting.nextAt).toLocaleString("vi-VN")}`
+                        : `${nextMeeting.count} upcoming meeting(s) — next ${new Date(nextMeeting.nextAt).toLocaleString()}`
+                    }
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    {nextMeeting.count > 9 ? "9+" : nextMeeting.count}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] whitespace-normal">
+                  <p className="text-xs font-medium">
+                    {locale === "vi" ? "Cuộc gặp sắp tới" : "Upcoming meetings"}
+                  </p>
+                  <p className="text-xs opacity-80 mt-1">
+                    {new Date(nextMeeting.nextAt).toLocaleString(
+                      locale === "vi" ? "vi-VN" : "en-US",
+                      { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+                    )}
                   </p>
                 </TooltipContent>
               </Tooltip>

@@ -19,7 +19,6 @@ export {
 // Orchestrator
 export {
   runMatchingPipeline,
-  acceptInboxItem,
   rejectInboxItem,
   getMatchScoresForBuyer,
   getInboxItemsForAE,

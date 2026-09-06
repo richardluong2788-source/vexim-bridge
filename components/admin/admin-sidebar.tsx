@@ -83,7 +83,6 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     // Restricted to Lead Researcher + Super Admin via BUYER_MANUAL_INTAKE.
     // Account Executives must use the AE Inbox (AI auto-assign) instead.
     { href: "/admin/leads/new",         label: t.nav.addLead,                             icon: PlusCircle,             cap: CAPS.BUYER_MANUAL_INTAKE },
-    // { href: "/admin/leads/import",      label: t.nav.bulkImport,                          icon: Upload,                 cap: CAPS.BUYER_MANUAL_INTAKE },
     { href: "/admin/activities",        label: t.nav.activities,                          icon: Activity,               cap: CAPS.ACTIVITY_LOG_VIEW },
     { href: "/admin/unmatched-emails",  label: t.admin.unmatchedEmails.title,             icon: MailQuestion,           cap: CAPS.ACTIVITY_LOG_VIEW, badgeKey: "unmatchedEmails" },
     { href: "/admin/analytics",         label: locale === "vi" ? "Phân tích" : "Analytics", icon: PieChart,              cap: [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN] },

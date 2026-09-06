@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
@@ -478,6 +479,18 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                   </CollapsibleTrigger>
                   <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
+                      <Link href={`/admin/buyers/${eng.lead_id}`} target="_blank" tabIndex={-1}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-muted-foreground hover:text-foreground"
+                          title={t("Hồ sơ đầy đủ + dữ liệu ImportYeti", "Full profile + ImportYeti data")}
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          {t("Hồ sơ", "Profile")}
+                        </Button>
+                      </Link>
                       <Button
                         type="button"
                         variant="ghost"

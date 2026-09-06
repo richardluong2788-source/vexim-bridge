@@ -1482,6 +1482,43 @@ export type Database = {
       }
       // Migration 070 — Cuộc gặp & Tham quan gắn với deal (sự kiện có lịch,
       // không phải giai đoạn pipeline).
+      // Migration 050 — Intel AE thu được khi liên hệ trực tiếp buyer.
+      buyer_intel_notes: {
+        Row: {
+          id: string
+          opportunity_id: string
+          category: string
+          raw_note: string
+          ai_summary: string | null
+          ai_extracted: Record<string, unknown> | null
+          applied_to_opportunity: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          opportunity_id: string
+          category?: string
+          raw_note: string
+          ai_summary?: string | null
+          ai_extracted?: Record<string, unknown> | null
+          applied_to_opportunity?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          opportunity_id?: string
+          category?: string
+          raw_note?: string
+          ai_summary?: string | null
+          ai_extracted?: Record<string, unknown> | null
+          applied_to_opportunity?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      },
       opportunity_meetings: {
         Row: {
           id: string

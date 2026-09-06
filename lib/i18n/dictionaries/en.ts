@@ -152,6 +152,38 @@ export const en = {
       },
       empty: "No clients yet",
       emptyDesc: "Vietnamese exporter accounts will appear here once registered.",
+      buyerIntel: {
+        sectionTitle: "Intel from Buyer (live)",
+        sectionDesc: "Log what you learn from direct contact — negotiated prices, payment terms, requested documents, testing. AI summarizes and can apply the fields to this deal.",
+        notePlaceholder: "e.g. Buyer said target price $2.85/kg CFR, 30% deposit, needs CO + phytosanitary",
+        submit: "Log note",
+        submitting: "Logging…",
+        empty: "No intel logged yet",
+        emptyDesc: "ImportYeti only shows past imports — the live info you gather belongs here.",
+        suggestedFields: "Suggested field updates",
+        noSuggestions: "No suggested fields in this note",
+        applyButton: "Apply to deal",
+        applying: "Applying…",
+        applied: "Applied",
+        applySuccess: "Applied to deal fields",
+        confirmDelete: "Delete this note?",
+        deleted: "Deleted",
+        error: "Error",
+        errorEmpty: "Please enter a note first",
+        errorForbidden: "You don't have permission for this action",
+        errorGeneric: "Something went wrong",
+        categories: {
+          pricing: "Pricing",
+          payment: "Payment",
+          documents: "Documents",
+          testing: "Testing",
+          general: "General",
+        },
+        fieldPrice: "Price",
+        fieldPriceUnit: "Unit",
+        fieldIncoterms: "Incoterms",
+        fieldPaymentTerms: "Payment terms",
+      },
       oppSheet: {
         title: "Deal details",
         subtitle: "Update commercial details and next steps for {company}.",
@@ -1135,6 +1167,6 @@ emailSectionHint:
     bundleSubtitle: "{count} documents in this bundle",
     bundleTocLabel: "Documents in this bundle",
   },
-} as const
+}
 
 export type Dictionary = typeof en

@@ -34,6 +34,7 @@ import { OpportunityComplianceSection } from "@/components/admin/opportunity-com
 import { OpportunityFinancialSection } from "@/components/admin/opportunity-financial-section"
 import { OpportunityBuyerRepliesSection } from "@/components/admin/opportunity-buyer-replies-section"
 import { OpportunityMeetingsSection } from "@/components/admin/opportunity-meetings-section"
+import { OpportunityBuyerIntelSection } from "@/components/admin/opportunity-buyer-intel-section"
 import { OpportunityCISection } from "@/components/admin/opportunity-ci-section"
 import { OpportunityLCSection } from "@/components/admin/opportunity-lc-section"
 import { OpportunityEmailSection } from "@/components/admin/opportunity-email-section"
@@ -79,15 +80,23 @@ interface NavItem {
   labelKey: string
 }
 
+// Thứ tự theo workflow thật của AE trên một deal:
+//   1. Nắm hồ sơ deal (status + commercial)
+//   2. Liên hệ buyer (email -> replies -> meetings)
+//   3. Nghiên cứu (tình báo LR đã xác minh + thông tin AE tự thu)
+//   4. Báo giá (financials)
+//   5. Hồ sơ + tuân thủ (documents + compliance) — chỉ cần khi deal sâu
+//   6. Thanh toán (L/C, SWIFT) — giai đoạn muộn
+//   7. Ghi chú nội bộ
 const NAV_ITEMS: NavItem[] = [
   { id: "status",       icon: Target,        labelKey: "sectionStatus" },
   { id: "commercial",   icon: Package,       labelKey: "sectionDeal" },
-  { id: "documents",    icon: FileCheck2,    labelKey: "sectionDocs" },
   { id: "email",        icon: Mail,          labelKey: "sectionEmail" },
   { id: "replies",      icon: MessageSquare, labelKey: "sectionReplies" },
   { id: "meetings",     icon: Video,         labelKey: "sectionMeetings" },
   { id: "intelligence", icon: BarChart2,     labelKey: "sectionCI" },
   { id: "financials",   icon: DollarSign,    labelKey: "sectionFinancials" },
+  { id: "documents",    icon: FileCheck2,    labelKey: "sectionDocs" },
   { id: "compliance",   icon: ShieldCheck,   labelKey: "sectionCompliance" },
   { id: "lc",           icon: Landmark,      labelKey: "sectionLC" },
   { id: "notes",        icon: StickyNote,    labelKey: "sectionInternal" },
@@ -651,8 +660,9 @@ export function OpportunityDetailSheet({ opportunity, open, onOpenChange, onSave
 
               {/* INTELLIGENCE */}
               {activeSection === "intelligence" && (
-                <section className="space-y-4 max-w-3xl">
+                <section className="space-y-6 max-w-3xl">
                   <OpportunityCISection opportunityId={opportunity.id} open={open} />
+                  <OpportunityBuyerIntelSection opportunityId={opportunity.id} open={open} />
                 </section>
               )}
 

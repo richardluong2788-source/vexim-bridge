@@ -95,7 +95,7 @@ export async function createBuyerIntelNote(
   if (error) return { ok: false, error: error.message }
 
   revalidatePath("/admin")
-  return { ok: true, note: data as BuyerIntelNote }
+  return { ok: true, note: data as unknown as BuyerIntelNote }
 }
 
 export async function listBuyerIntelNotes(
@@ -115,7 +115,7 @@ export async function listBuyerIntelNotes(
 
   if (error) return { ok: false, error: error.message }
 
-  return { ok: true, notes: (data ?? []) as BuyerIntelNote[] }
+  return { ok: true, notes: (data ?? []) as unknown as BuyerIntelNote[] }
 }
 
 /**
@@ -137,7 +137,13 @@ export async function applyBuyerIntelToOpportunity(
   const auth = await authorizeForOpportunity(opportunityId)
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const payload: Record<string, unknown> = {}
+  const payload: Partial<{
+    target_price_usd: number | null
+    price_unit: string | null
+    incoterms: string | null
+    payment_terms: string | null
+    last_updated: string
+  }> = {}
   if (fields.target_price_usd !== undefined) payload.target_price_usd = fields.target_price_usd
   if (fields.price_unit !== undefined) payload.price_unit = fields.price_unit
   if (fields.incoterms !== undefined) payload.incoterms = fields.incoterms

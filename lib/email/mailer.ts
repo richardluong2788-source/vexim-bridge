@@ -125,6 +125,11 @@ export interface SendMailInput {
   html?: string
   text?: string
   headers?: Record<string, string>
+  /**
+   * File đính kèm (Resend API): content là chuỗi base64.
+   * VD: hóa đơn PDF đính kèm email gửi khách.
+   */
+  attachments?: Array<{ filename: string; content: string }>
 }
 
 export type SendMailResult =
@@ -147,6 +152,9 @@ export async function sendMail(
       from: input.from ?? getFromAddress(),
       to: toArray,
       subject: input.subject,
+    }
+    if (input.attachments && input.attachments.length > 0) {
+      payload.attachments = input.attachments
     }
 
     if (input.html) payload.html = input.html

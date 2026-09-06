@@ -298,6 +298,13 @@ export const en = {
         saving: "Saving...",
         saved: "Saved.",
         errorSave: "Could not save. Please try again.",
+        invoiceValue: "Order value — FOB (USD)",
+        invoiceValueHint: "Total commercial invoice value (FOB). Base for the success fee.",
+        commissionRate: "Commission (%)",
+        commissionRateHint: "Defaults to the client's billing plan — freely adjustable per deal as agreed (each industry differs).",
+        commissionPreview: "Projected commission",
+        commissionSaved: "Commission on record",
+        commissionPlanDefault: "Billing plan",
       },
       compliance: {
         sectionTitle: "Closing & Compliance",

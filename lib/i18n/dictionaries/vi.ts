@@ -300,6 +300,13 @@ export const vi: Dictionary = {
         saving: "Đang lưu...",
         saved: "Đã lưu.",
         errorSave: "Không lưu được. Vui lòng thử lại.",
+        invoiceValue: "Giá trị đơn hàng — FOB (USD)",
+        invoiceValueHint: "Tổng giá trị commercial invoice (FOB). Cơ sở tính hoa hồng thành công.",
+        commissionRate: "Hoa hồng (%)",
+        commissionRateHint: "Mặc định theo gói hợp đồng của client — chỉnh tự do theo thỏa thuận từng deal (mỗi ngành hàng một mức).",
+        commissionPreview: "Hoa hồng dự kiến",
+        commissionSaved: "Hoa hồng đã ghi nhận",
+        commissionPlanDefault: "Gói hợp đồng",
       },
       compliance: {
         sectionTitle: "Closing & Tuân thủ",

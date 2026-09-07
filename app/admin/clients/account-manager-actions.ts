@@ -5,8 +5,9 @@
  *
  * Allows Admin / Super-Admin to set or unset `profiles.account_manager_id`
  * on a client. The chosen manager must be an Account Executive
- * (`account_executive`) — mirroring the /admin/clients dropdown and the AI
- * matching pipeline, which only ever assign AEs.
+ * (`account_executive`, or legacy `staff` which maps to AE) — mirroring the
+ * /admin/clients dropdown and the AI matching pipeline, which only ever
+ * assign AEs.
  *
  * Why this matters
  * ----------------
@@ -23,7 +24,8 @@
  *   - Target row must currently have role = 'client' (no overwriting
  *     another staff member's row by accident).
  *   - When `managerId` is non-null, the manager row must exist AND have
- *     role `account_executive`. We block setting another client as manager.
+ *     role `account_executive` (or legacy `staff`). We block setting another
+ *     client as manager.
  */
 import { revalidatePath } from "next/cache"
 import { requireAllCaps } from "@/lib/auth/guard"
@@ -80,8 +82,9 @@ export async function setAccountManager(
 
     if (mgrErr || !manager) return { ok: false, error: "managerNotFound" }
     // Account managers must be AEs only — same rule as the /admin/clients
-    // dropdown, which lists account_executive users exclusively.
-    if (manager.role !== "account_executive") {
+    // dropdown. Legacy `staff` maps to account_executive app-wide
+    // (migration 069), so both are accepted here.
+    if (manager.role !== "account_executive" && manager.role !== "staff") {
       return { ok: false, error: "managerNotStaff" }
     }
 

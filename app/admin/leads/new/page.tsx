@@ -4,6 +4,13 @@ import { getDictionary } from "@/lib/i18n/server"
 import { createClient } from "@/lib/supabase/server"
 import { CAPS, can, normaliseRole } from "@/lib/auth/permissions"
 
+// Lead creation runs the AI matching pipeline (semantic embeddings + per-AE
+// scoring) + a Resend email in one request; on the default Vercel function
+// timeout that occasionally exceeded the limit and surfaced as "This page
+// couldn't load". Page-level maxDuration governs every Server Action used on
+// this page (see Next.js route-segment-config docs).
+export const maxDuration = 60
+
 export default async function AddLeadPage() {
   // SECURITY: this is the legacy manual buyer-intake flow that lets the
   // user assign a buyer DIRECTLY to a client, bypassing AI matching.

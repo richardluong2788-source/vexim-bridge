@@ -14,12 +14,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 
-// Lead creation also runs the AI matching pipeline (semantic embeddings +
-// per-AE RPC scoring) and a Resend email, all in one request. On the
-// default Vercel function timeout that occasionally exceeded the limit and
-// surfaced as "This page couldn't load". Give the function headroom.
-export const maxDuration = 60
-
 /**
  * Parse top suppliers string into JSONB array format.
  * Input: "Thao Tam (VN), Tai Nhung (VN), Comextra Majora (Indonesia)"

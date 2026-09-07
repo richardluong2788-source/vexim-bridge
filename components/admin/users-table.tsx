@@ -172,7 +172,7 @@ export function UsersTable({
           <SelectContent>
             <SelectItem value="all">{t.admin.users.filterAllRoles ?? "All roles"}</SelectItem>
             {Object.values(ROLE_META)
-              .filter((m) => !m.legacy)
+              .filter((m) => !m.legacy && m.value !== "client")
               .map((m) => (
                 <SelectItem key={m.value} value={m.value}>
                   {locale === "vi" ? m.labelVi : m.label}

@@ -7,6 +7,21 @@ import { getCurrentRole } from "@/lib/auth/guard"
 import { can, CAPS, ROLE_META, normaliseRole } from "@/lib/auth/permissions"
 import type { Role } from "@/lib/supabase/types"
 
+/**
+ * Internal Vexim operations team — the only accounts shown on this page.
+ * External client accounts live exclusively on /admin/clients (which already
+ * queries `role = 'client'`), so they are deliberately excluded here.
+ */
+const TEAM_ROLES: Role[] = [
+  "super_admin",
+  "admin",
+  "account_executive",
+  "lead_researcher",
+  "supplier_researcher",
+  "finance",
+  "staff",
+]
+
 export default async function UsersPage() {
   const { t, locale } = await getDictionary()
 
@@ -22,6 +37,7 @@ export default async function UsersPage() {
     .select(
       "id, email, full_name, role, company_name, industry, industries, work_email, created_at",
     )
+    .in("role", TEAM_ROLES)
     .order("created_at", { ascending: false })
 
   const rows = (profiles ?? []).map((p) => ({
@@ -29,7 +45,7 @@ export default async function UsersPage() {
     email: p.email,
     full_name: p.full_name,
     // Fall back to a known role so the UI never crashes on legacy values.
-    role: (normaliseRole(p.role) ?? "client") as Role,
+    role: (normaliseRole(p.role) ?? "staff") as Role,
     company_name: p.company_name,
     industry: p.industry,
     industries: p.industries ?? [],
@@ -51,7 +67,6 @@ export default async function UsersPage() {
       supplier_researcher: 0,
       finance: 0,
       staff: 0,
-      client: 0,
     },
   )
 
@@ -62,7 +77,6 @@ export default async function UsersPage() {
     "lead_researcher",
     "supplier_researcher",
     "finance",
-    "client",
   ]
 
   // Check if user can invite team members

@@ -282,11 +282,17 @@ export interface CreateIntakeLinkResult {
 }
 
 /**
- * Admin/AE-only: generate a single-use public intake link
+ * Admin/AE/SR: generate a single-use public intake link
  * (/client-intake/[token]) that a prospective client can fill in without
  * logging in. The row lives in `client_intake_submissions` — fully
- * decoupled from `profiles` — until an AE reviews and approves it in
+ * decoupled from `profiles` — until it's reviewed and approved in
  * "Hồ sơ chờ duyệt".
+ *
+ * supplier_researcher (SR) owns the supplier pipeline end-to-end, so SR is
+ * allowed to generate intake links just like admin/AE. The resulting
+ * submission is owned by the caller (`ae_id = caller.id`), and SR is
+ * already in REVIEWER_ROLES (intake/actions.ts) so they can approve it
+ * later too.
  */
 export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
   const supabase = await createClient()
@@ -301,7 +307,13 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     .eq("id", caller.id)
     .single()
 
-  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  const allowedRoles = [
+    "admin",
+    "staff",
+    "super_admin",
+    "account_executive",
+    "supplier_researcher",
+  ]
   if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }

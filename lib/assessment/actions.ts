@@ -5,7 +5,13 @@ import { createClient } from "@/lib/supabase/server"
 import type { ClientFactoryAssessment } from "@/lib/supabase/types"
 import { computeScore } from "@/lib/assessment/scoring"
 
-const ALLOWED_ROLES = ["admin", "super_admin", "staff", "account_executive"]
+const ALLOWED_ROLES = [
+  "admin",
+  "super_admin",
+  "staff",
+  "account_executive",
+  "supplier_researcher",
+]
 
 async function requireInternalUser() {
   const supabase = await createClient()

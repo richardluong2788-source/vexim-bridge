@@ -229,6 +229,7 @@ export async function approveIntakeSubmission(
   if (isAE && submission.ae_id !== caller.id) {
     return { ok: false, error: "forbidden" }
   }
+  const isSR = callerProfile.role === "supplier_researcher"
 
   // Persist any last-minute AE edits first.
   const editResult = await updateIntakeSubmission(id, fields)
@@ -242,6 +243,9 @@ export async function approveIntakeSubmission(
     industries: fields.industries,
     phone: fields.phone,
     country: fields.country ?? null,
+    // SR owns the supplier pipeline: when an SR approves an intake, they are
+    // the sourcer of record (drives their billing-proposal scope).
+    sourced_by: isSR ? caller.id : null,
   }
 
   const createResult = await createClientAccount(createInput)

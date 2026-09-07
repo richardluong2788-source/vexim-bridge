@@ -51,6 +51,7 @@ export const BILLING_PLAN_STATUS_LABELS: Record<
   BillingPlanStatus,
   { vi: string; en: string }
 > = {
+  draft: { vi: "Đề xuất — chờ duyệt", en: "Proposed" },
   active: { vi: "Đang hoạt động", en: "Active" },
   paused: { vi: "Tạm dừng", en: "Paused" },
   terminated: { vi: "Đã kết thúc", en: "Terminated" },

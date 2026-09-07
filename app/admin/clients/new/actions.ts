@@ -29,6 +29,12 @@ export interface CreateClientInput {
    * can compare against a buyer's country.
    */
   country?: string | null
+  /**
+   * Supplier Researcher who sourced this client. When the caller is an SR,
+   * this defaults to the caller id; pass it explicitly for intake approvals
+   * so the sourcing attribution survives the review step.
+   */
+  sourced_by?: string | null
 }
 
 export interface CreateClientResult {
@@ -121,8 +127,11 @@ export async function createClientAccount(
     return { ok: false, error: "forbidden" }
   }
 
-  // Determine if caller is an AE (for auto-assignment)
+  // Determine if caller is an AE (for auto-assignment) or an SR (sourcing
+  // attribution — SR brings the supplier in; the AE assignment happens later).
   const isAE = callerProfile.role === "account_executive"
+  const isSR = callerProfile.role === "supplier_researcher"
+  const sourcedBy = input.sourced_by ?? (isSR ? caller.id : null)
 
   // ---- 3. Provision auth user via service role ------------------------------
   const admin = createAdminClient()
@@ -197,6 +206,8 @@ export async function createClientAccount(
         fda_expires_at: fdaExpiresAt,
         // Auto-assign AE as account manager when they create the client
         account_manager_id: isAE ? caller.id : null,
+        // SR who sourced this supplier (for billing-proposal / collections)
+        sourced_by: sourcedBy,
       },
       { onConflict: "id" },
     )

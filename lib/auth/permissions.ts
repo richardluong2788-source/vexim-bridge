@@ -30,6 +30,13 @@ export const CAPS = {
   INVOICE_VOID:                "finance:invoice:void",
   EXPENSE_WRITE:               "finance:expense:write",
   BILLING_PLAN_WRITE:          "finance:billing_plan:write",
+  // SR proposes the client's service contract as a draft; Finance approves
+  // and activates it. Separates "chốt điều khoản" (SR, the person working
+  // with the supplier) from "ghi nhận/duyệt doanh thu" (Finance).
+  BILLING_PLAN_PROPOSE:        "finance:billing_plan:propose",
+  // View invoices (read-only) for clients the user sourced/owns — lets SR
+  // chase payment for the suppliers they onboarded without touching numbers.
+  INVOICE_VIEW_OWN:            "finance:invoice:view:own",
   FINANCE_SETTINGS_WRITE:      "finance:settings:write",
 
   // --- Deals / Opportunities ---
@@ -216,6 +223,13 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // (CLIENT_COMPLIANCE_WRITE), because SR is the person working directly
     // with the supplier.
     CAPS.CLIENT_COMPLIANCE_WRITE,
+
+    // SR chốt điều khoản thương mại với supplier (setup fee / monthly
+    // retainer / success fee %) và đề xuất hợp đồng ở trạng thái draft;
+    // Finance là người duyệt, kích hoạt, phát hành hoá đơn và mark paid.
+    // SR cũng thấy (read-only) hoá đơn của supplier mình đưa vào để đốc thu.
+    CAPS.BILLING_PLAN_PROPOSE,
+    CAPS.INVOICE_VIEW_OWN,
 
     // Pool-wide visibility of the supplier list is the whole point of the
     // role — SR must see every existing supplier to avoid duplicate

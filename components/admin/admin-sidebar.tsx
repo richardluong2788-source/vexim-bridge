@@ -24,6 +24,7 @@ import {
   MailQuestion,
   FileCheck2,
   Boxes,
+  Receipt,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -56,6 +57,12 @@ interface NavItem {
   cap: Capability | Capability[] | null
   /** Key into SidebarBadgeCounts — shows a count pill when > 0. */
   badgeKey?: keyof SidebarBadgeCounts
+  /**
+   * Optional role allowlist. When set, the item only renders for these roles
+   * (used for role-specific surfaces that would otherwise leak to admin /
+   * super_admin, who inherit every capability via ALL_CAPS).
+   */
+  roles?: Role[]
 }
 
 export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) {
@@ -77,6 +84,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/clients/intake",    label: locale === "vi" ? "Hồ sơ chờ duyệt" : "Pending Profiles", icon: FileCheck2, cap: CAPS.CLIENT_VIEW, badgeKey: "pendingIntake" },
     { href: "/admin/sourcing",          label: locale === "vi" ? "Nhu cầu & Nguồn cung" : "Demand & Supply", icon: Boxes,   cap: CAPS.CLIENT_VIEW },
+    { href: "/admin/sourcing/billing",  label: locale === "vi" ? "Hợp đồng & Đốc thu" : "Contracts & Collections", icon: Receipt, cap: CAPS.INVOICE_VIEW_OWN, roles: ["supplier_researcher"] },
     { href: "/admin/pipeline",          label: t.nav.pipeline,                            icon: Kanban,                 cap: CAPS.DEAL_VIEW, badgeKey: "pipeline" },
     { href: "/admin/buyers",            label: locale === "vi" ? "Buyer" : "Buyers",      icon: Briefcase,              cap: CAPS.BUYER_VIEW, badgeKey: "buyers" },
     // Manual buyer intake — legacy flow that bypasses AI matching.
@@ -94,6 +102,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
   ]
 
   const navItems = allItems.filter((item) => {
+    if (item.roles && !item.roles.includes(role)) return false
     if (item.cap === null) return true
     return Array.isArray(item.cap) ? canAny(role, item.cap) : can(role, item.cap)
   })

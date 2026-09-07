@@ -160,6 +160,9 @@ export type Database = {
           // Populated by Admin / Super-Admin via /admin/clients UI.
           // Drives ANALYTICS_VIEW_OWN scope for AE / Lead Researcher.
           account_manager_id: string | null
+          // Supplier Researcher who sourced/onboarded this client (074).
+          // Drives SR's billing-proposal + collections scope.
+          sourced_by: string | null
           created_at: string
           // AI Match — KYC verification (Trust Score input)
           is_verified: boolean
@@ -183,6 +186,7 @@ export type Database = {
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
+          sourced_by?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null
@@ -205,6 +209,7 @@ export type Database = {
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
+          sourced_by?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null
@@ -1724,7 +1729,7 @@ export type LCVerification = {
 // Finance / Cash-flow (migration 016)
 // ============================================================
 
-export type BillingPlanStatus = "active" | "paused" | "terminated"
+export type BillingPlanStatus = "draft" | "active" | "paused" | "terminated"
 
 export type BillingPlan = {
   id: string
@@ -1741,6 +1746,8 @@ export type BillingPlan = {
   fx_rate_vnd_per_usd: number | null
   notes: string | null
   created_by: string | null
+  approved_by: string | null
+  approved_at: string | null
   created_at: string
   updated_at: string
 }

@@ -40,7 +40,7 @@ function validate(input: BillingPlanInput): string | null {
   ) {
     return "invalid_success_fee"
   }
-  if (!["active", "paused", "terminated"].includes(input.status)) {
+  if (!["draft", "active", "paused", "terminated"].includes(input.status)) {
     return "invalid_status"
   }
   return null
@@ -87,6 +87,120 @@ export async function createBillingPlanAction(
   revalidatePath("/admin/finance/billing-plans")
   revalidatePath(`/admin/clients/${input.client_id}`)
   return { ok: true, id: data?.id }
+}
+
+/**
+ * SR: propose the client's service contract as a DRAFT. SR is the person who
+ * negotiates setup fee / monthly retainer / success fee % with the supplier,
+ * but only Finance can activate a plan (which starts the auto monthly
+ * retainer billing). The proposed plan is forced to status 'draft' and SR can
+ * only propose for clients they sourced (`profiles.sourced_by = caller`).
+ */
+export async function proposeBillingPlanAction(
+  input: BillingPlanInput,
+): Promise<ActionResult> {
+  const guard = await requireCap(CAPS.BILLING_PLAN_PROPOSE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId } = guard
+
+  const v = validate(input)
+  if (v) return { ok: false, error: v }
+
+  // SR scope: only clients the caller actually sourced.
+  const { data: client } = await admin
+    .from("profiles")
+    .select("id, sourced_by")
+    .eq("id", input.client_id)
+    .eq("role", "client")
+    .maybeSingle<{ id: string; sourced_by: string | null }>()
+
+  if (!client) return { ok: false, error: "missing_client" }
+  if (client.sourced_by !== userId) return { ok: false, error: "not_your_client" }
+
+  // One open proposal per client — avoids stacking drafts for Finance.
+  const { data: existingDraft } = await admin
+    .from("billing_plans" as never)
+    .select("id")
+    .eq("client_id", input.client_id)
+    .eq("status", "draft")
+    .maybeSingle<{ id: string }>()
+
+  if (existingDraft) return { ok: false, error: "draft_exists" }
+
+  const { data, error } = await admin
+    .from("billing_plans" as never)
+    .insert({
+      client_id: input.client_id,
+      plan_name: input.plan_name.trim(),
+      setup_fee_usd: input.setup_fee_usd,
+      monthly_retainer_usd: input.monthly_retainer_usd,
+      success_fee_percent: input.success_fee_percent,
+      retainer_credit_percent: input.retainer_credit_percent,
+      contract_start_date: input.contract_start_date,
+      contract_end_date: input.contract_end_date,
+      billing_anchor_day: input.billing_anchor_day,
+      fx_rate_vnd_per_usd: input.fx_rate_vnd_per_usd,
+      status: "draft",
+      notes: input.notes?.trim() || null,
+      created_by: userId,
+    } as never)
+    .select("id")
+    .single<{ id: string }>()
+
+  if (error) {
+    console.error("[v0] proposeBillingPlan failed", error)
+    return { ok: false, error: "db_error" }
+  }
+
+  revalidatePath("/admin/sourcing/billing")
+  revalidatePath("/admin/finance/billing-plans")
+  revalidatePath(`/admin/clients/${input.client_id}`)
+  return { ok: true, id: data?.id }
+}
+
+/**
+ * Finance/Admin: approve a draft billing plan → active. From this moment the
+ * monthly-retainer cron starts generating invoices for the client.
+ */
+export async function approveBillingPlanAction(
+  planId: string,
+): Promise<ActionResult> {
+  const guard = await requireCap(CAPS.BILLING_PLAN_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId } = guard
+
+  if (!planId) return { ok: false, error: "missing_plan" }
+
+  const { data: plan } = await admin
+    .from("billing_plans" as never)
+    .select("id, status")
+    .eq("id", planId)
+    .maybeSingle<{ id: string; status: string }>()
+
+  if (!plan) return { ok: false, error: "missing_plan" }
+  if (plan.status !== "draft") return { ok: false, error: "not_draft" }
+
+  const { error } = await admin
+    .from("billing_plans" as never)
+    .update({
+      status: "active",
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+    } as never)
+    .eq("id", planId)
+
+  if (error) {
+    console.error("[v0] approveBillingPlan failed", error)
+    const msg = error.message.includes("ux_billing_plans_active_per_client")
+      ? "active_plan_exists"
+      : "db_error"
+    return { ok: false, error: msg }
+  }
+
+  revalidatePath("/admin/finance/billing-plans")
+  revalidatePath("/admin/finance")
+  revalidatePath("/admin/sourcing/billing")
+  return { ok: true, id: planId }
 }
 
 export async function updateBillingPlanAction(

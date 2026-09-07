@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty"
 import { formatUsd, formatVnd } from "@/lib/finance/format"
 import { BILLING_PLAN_STATUS_LABELS } from "@/lib/finance/types"
+import { BillingPlanApproveButton } from "@/components/admin/finance/billing-plan-approve-button"
 import type { BillingPlan, BillingPlanStatus, Profile } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
@@ -18,6 +19,7 @@ type PlanWithClient = BillingPlan & {
 }
 
 const STATUS_VARIANT: Record<BillingPlanStatus, "default" | "secondary" | "outline"> = {
+  draft: "outline",
   active: "default",
   paused: "secondary",
   terminated: "outline",
@@ -28,6 +30,7 @@ export default async function BillingPlansPage() {
   if (!current) redirect("/auth/login")
   if (!can(current.role, CAPS.FINANCE_READ)) redirect("/admin")
   const admin = current.admin
+  const canApprove = can(current.role, CAPS.BILLING_PLAN_WRITE)
   const { data: plans } = await admin
     .from("billing_plans" as never)
     .select(
@@ -99,7 +102,7 @@ export default async function BillingPlansPage() {
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {rows.map((p) => (
-                <PlanRow key={p.id} plan={p} />
+                <PlanRow key={p.id} plan={p} canApprove={canApprove} />
               ))}
             </div>
           </CardContent>
@@ -136,7 +139,13 @@ function StatCard({
   )
 }
 
-function PlanRow({ plan }: { plan: PlanWithClient }) {
+function PlanRow({
+  plan,
+  canApprove,
+}: {
+  plan: PlanWithClient
+  canApprove: boolean
+}) {
   const clientLabel =
     plan.profiles?.company_name ??
     plan.profiles?.full_name ??
@@ -147,44 +156,50 @@ function PlanRow({ plan }: { plan: PlanWithClient }) {
   const retainerVnd = fxRate > 0 && retainer > 0 ? retainer * fxRate : null
 
   return (
-    <Link
-      href={`/admin/finance/billing-plans/${plan.id}`}
-      className="flex items-center justify-between gap-4 p-4 hover:bg-muted/40 transition-colors"
-    >
-      <div className="flex items-start gap-4 min-w-0">
-        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
-          <Users className="h-4 w-4" />
-        </span>
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-foreground truncate">
-              {clientLabel}
+    <div className="flex items-center justify-between gap-4 p-4">
+      <Link
+        href={`/admin/finance/billing-plans/${plan.id}`}
+        className="flex flex-1 items-center gap-4 min-w-0 hover:bg-muted/40 transition-colors rounded-md -m-2 p-2"
+      >
+        <div className="flex items-start gap-4 min-w-0 flex-1">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
+            <Users className="h-4 w-4" />
+          </span>
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-foreground truncate">
+                {clientLabel}
+              </span>
+              <Badge variant={STATUS_VARIANT[plan.status]} className="text-xs">
+                {BILLING_PLAN_STATUS_LABELS[plan.status].vi}
+              </Badge>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {plan.plan_name}
+              {plan.contract_start_date && ` · Từ ${plan.contract_start_date}`}
             </span>
-            <Badge variant={STATUS_VARIANT[plan.status]} className="text-xs">
-              {BILLING_PLAN_STATUS_LABELS[plan.status].vi}
-            </Badge>
           </div>
+        </div>
+
+        <div className="hidden md:flex flex-col items-end gap-0.5 shrink-0">
+          <span className="text-sm font-medium text-foreground">
+            {formatUsd(retainer)} / tháng
+          </span>
+          {retainerVnd != null && (
+            <span className="text-xs text-muted-foreground">
+              ≈ {formatVnd(retainerVnd)}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">
-            {plan.plan_name}
-            {plan.contract_start_date && ` · Từ ${plan.contract_start_date}`}
+            Setup {formatUsd(plan.setup_fee_usd ?? 0)} · Success{" "}
+            {Number(plan.success_fee_percent ?? 0)}%
           </span>
         </div>
-      </div>
+      </Link>
 
-      <div className="hidden md:flex flex-col items-end gap-0.5 shrink-0">
-        <span className="text-sm font-medium text-foreground">
-          {formatUsd(retainer)} / tháng
-        </span>
-        {retainerVnd != null && (
-          <span className="text-xs text-muted-foreground">
-            ≈ {formatVnd(retainerVnd)}
-          </span>
-        )}
-        <span className="text-xs text-muted-foreground">
-          Setup {formatUsd(plan.setup_fee_usd ?? 0)} · Success{" "}
-          {Number(plan.success_fee_percent ?? 0)}%
-        </span>
-      </div>
-    </Link>
+      {plan.status === "draft" && canApprove && (
+        <BillingPlanApproveButton planId={plan.id} />
+      )}
+    </div>
   )
 }

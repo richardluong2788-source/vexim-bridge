@@ -17,6 +17,15 @@ import { createAdminClient } from "@/lib/supabase/admin"
 const EMBEDDING_MODEL = "openai/text-embedding-3-small"
 const EMBEDDING_DIMENSIONS = 1536
 
+// Single-flight cache for in-progress buyer embedding generations. The
+// matching pipeline scores every AE in parallel (Promise.all), and each AE
+// calls getBuyerEmbedding(leadId) for the same brand-new lead. Without this,
+// a lead with N eligible AEs triggers N concurrent embedding API calls plus
+// N racing upserts on the same (lead_id, source_type) key — slow and noisy.
+// We only dedupe the in-flight promise (not the result), so a later request
+// for a lead whose data changed still regenerates correctly.
+const buyerEmbeddingInflight = new Map<string, Promise<number[] | null>>()
+
 export interface EmbeddingInput {
   id: string
   text: string
@@ -265,23 +274,36 @@ export async function generateBuyerEmbedding(
 export async function getBuyerEmbedding(
   leadId: string
 ): Promise<number[] | null> {
-  const supabase = createAdminClient()
+  // Dedupe concurrent generation for the same lead within this process.
+  const inflight = buyerEmbeddingInflight.get(leadId)
+  if (inflight) return inflight
 
-  // Try to get cached embedding first
-  const { data: cached } = await supabase
-    .from("buyer_embeddings")
-    .select("embedding")
-    .eq("lead_id", leadId)
-    .eq("source_type", "combined")
-    .single()
+  const promise = (async () => {
+    const supabase = createAdminClient()
 
-  if (cached?.embedding) {
-    // Parse the embedding from pgvector format
-    return cached.embedding as unknown as number[]
+    // Try to get cached embedding first
+    const { data: cached } = await supabase
+      .from("buyer_embeddings")
+      .select("embedding")
+      .eq("lead_id", leadId)
+      .eq("source_type", "combined")
+      .single()
+
+    if (cached?.embedding) {
+      // Parse the embedding from pgvector format
+      return cached.embedding as unknown as number[]
+    }
+
+    // Generate new embedding if not cached
+    return generateBuyerEmbedding(leadId)
+  })()
+
+  buyerEmbeddingInflight.set(leadId, promise)
+  try {
+    return await promise
+  } finally {
+    buyerEmbeddingInflight.delete(leadId)
   }
-
-  // Generate new embedding if not cached
-  return generateBuyerEmbedding(leadId)
 }
 
 /**

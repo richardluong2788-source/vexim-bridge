@@ -58,6 +58,7 @@ import { Switch } from "@/components/ui/switch"
 import {
   createLeadWithAIMatchingAction,
   type CreateLeadWithAIMatchingInput,
+  type CreateLeadWithAIMatchingResult,
   type AdditionalContactInput,
 } from "@/app/admin/leads/new/actions"
 import { toast } from "sonner"
@@ -339,7 +340,12 @@ export function SmartLeadForm() {
     }
 
     // Call server action to create lead + trigger AI matching.
-    const result = await createLeadWithAIMatchingAction({
+    // Wrapped in try/catch so an unexpected rejection (network hiccup,
+    // function timeout, unexpected server error) surfaces as an inline
+    // message instead of the generic "This page couldn't load" page.
+    let result: CreateLeadWithAIMatchingResult
+    try {
+    result = await createLeadWithAIMatchingAction({
       // Section 1
       companyName,
       importAddress: importAddress || null,
@@ -407,6 +413,18 @@ export function SmartLeadForm() {
       potentialValue: potentialValue ? parseFloat(potentialValue) : null,
       peakMonths: topPeakMonths || null,
     })
+    } catch (err) {
+      console.error("[SmartLeadForm] createLeadWithAIMatchingAction threw:", err)
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : locale === "vi"
+            ? "Không thể tạo buyer. Vui lòng thử lại."
+            : "Could not create buyer. Please try again."
+      )
+      setSubmitting(false)
+      return
+    }
 
     if (!result.success) {
       setError(result.error ?? "Failed to create buyer")

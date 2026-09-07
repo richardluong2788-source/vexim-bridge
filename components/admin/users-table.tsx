@@ -188,7 +188,6 @@ export function UsersTable({
           <thead className="border-b border-border bg-muted/50">
             <tr className="text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <th className="px-6 py-3">{t.admin.users.user}</th>
-              <th className="px-6 py-3">{t.admin.users.company}</th>
               <th className="px-6 py-3">
                 {locale === "vi" ? "Email gửi buyer" : "Sender email"}
               </th>
@@ -196,7 +195,7 @@ export function UsersTable({
               <th className="w-48 px-6 py-3">
                 {locale === "vi" ? "Ngành phụ trách (AE/SR)" : "Industries (AE/SR)"}
               </th>
-              <th className="px-6 py-3">{t.admin.users.joined}</th>
+              <th className="whitespace-nowrap px-6 py-3">{t.admin.users.joined}</th>
               <th className="w-56 px-6 py-3">{t.admin.users.changeRole}</th>
             </tr>
           </thead>
@@ -219,7 +218,6 @@ export function UsersTable({
                       <span className="text-xs text-muted-foreground">{u.email ?? ""}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{u.company_name ?? "—"}</td>
                   <td className="px-6 py-4">
                     {u.work_email ? (
                       <div className="flex items-center gap-1.5">
@@ -286,7 +284,7 @@ export function UsersTable({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{formatDate(u.created_at)}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-muted-foreground">{formatDate(u.created_at)}</td>
                   <td className="px-6 py-4">
                     <Select
                       value={u.role}
@@ -325,7 +323,7 @@ export function UsersTable({
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="px-6 py-10 text-center text-sm text-muted-foreground">
                   {t.admin.users.noResults ?? "No users match these filters."}
                 </td>
               </tr>

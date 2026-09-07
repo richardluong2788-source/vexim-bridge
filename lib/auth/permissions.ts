@@ -210,6 +210,12 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // finance, or the buyer-lead intake screens.
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
+    // Supplier qualification is SR's core job: they upload the FDA cert,
+    // COA, price sheet, factory video/photos and issue the tokenized share
+    // links buyers open — the same compliance surface AE has
+    // (CLIENT_COMPLIANCE_WRITE), because SR is the person working directly
+    // with the supplier.
+    CAPS.CLIENT_COMPLIANCE_WRITE,
 
     // Pool-wide visibility of the supplier list is the whole point of the
     // role — SR must see every existing supplier to avoid duplicate

@@ -38,7 +38,14 @@ export async function GET() {
   const current = await getCurrentRole()
   if (!current) return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
 
-  const seeAll = can(current.role, CAPS.ANALYTICS_VIEW_ALL)
+  // Supplier Researcher has pool-wide supplier visibility (CLIENT_VIEW +
+  // OWNERSHIP_BYPASS) but no analytics caps — they still own the supplier
+  // pool, so they get the full supplier CSV (which contains only
+  // supplier/FDA/account-manager fields, never deal or revenue data).
+  const seeAll =
+    can(current.role, CAPS.ANALYTICS_VIEW_ALL) ||
+    (can(current.role, CAPS.CLIENT_VIEW) &&
+      can(current.role, CAPS.OWNERSHIP_BYPASS))
   const seeOwn = can(current.role, CAPS.ANALYTICS_VIEW_OWN)
   if (!seeAll && !seeOwn) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 })

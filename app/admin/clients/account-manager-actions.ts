@@ -4,8 +4,9 @@
  * Sprint 3 — Account Manager assignment.
  *
  * Allows Admin / Super-Admin to set or unset `profiles.account_manager_id`
- * on a client. The chosen manager must be an internal staff role (admin,
- * super_admin, account_executive, lead_researcher, finance, staff).
+ * on a client. The chosen manager must be an Account Executive
+ * (`account_executive`) — mirroring the /admin/clients dropdown and the AI
+ * matching pipeline, which only ever assign AEs.
  *
  * Why this matters
  * ----------------
@@ -22,27 +23,17 @@
  *   - Target row must currently have role = 'client' (no overwriting
  *     another staff member's row by accident).
  *   - When `managerId` is non-null, the manager row must exist AND have
- *     a staff role. We block setting another client as manager.
+ *     role `account_executive`. We block setting another client as manager.
  */
 import { revalidatePath } from "next/cache"
 import { requireAllCaps } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
-import type { Role } from "@/lib/supabase/types"
 import { MAX_CLIENTS_PER_AE } from "@/lib/buyers/constants"
 
 export interface SetAccountManagerResult {
   ok: boolean
   error?: string
 }
-
-const STAFF_ROLES: Role[] = [
-  "super_admin",
-  "admin",
-  "account_executive",
-  "lead_researcher",
-  "finance",
-  "staff",
-]
 
 export async function setAccountManager(
   clientId: string,
@@ -88,7 +79,9 @@ export async function setAccountManager(
       .single<{ id: string; role: string | null }>()
 
     if (mgrErr || !manager) return { ok: false, error: "managerNotFound" }
-    if (!STAFF_ROLES.includes(manager.role as Role)) {
+    // Account managers must be AEs only — same rule as the /admin/clients
+    // dropdown, which lists account_executive users exclusively.
+    if (manager.role !== "account_executive") {
       return { ok: false, error: "managerNotStaff" }
     }
 

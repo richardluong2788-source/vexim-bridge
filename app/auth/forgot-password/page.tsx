@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +15,7 @@ import {
 import { AlertCircle, CheckCircle2, Loader2, TrendingUp } from "lucide-react"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
+import { requestPasswordResetAction } from "@/app/auth/forgot-password/actions"
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation()
@@ -29,17 +29,12 @@ export default function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
 
-    const supabase = createClient()
-    const redirectTo = `${window.location.origin}/auth/reset-password`
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      email,
-      { redirectTo },
-    )
+    const result = await requestPasswordResetAction(email)
 
     // We intentionally show the same success UI whether the email exists
     // or not — prevents email enumeration. Only surface transport errors.
-    if (resetError) {
-      setError(resetError.message)
+    if (!result.ok) {
+      setError(result.error ?? t.auth.forgotPassword.submit)
       setLoading(false)
       return
     }

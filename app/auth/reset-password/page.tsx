@@ -26,31 +26,65 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false)
   const [sessionReady, setSessionReady] = useState<boolean | null>(null)
 
-  // Supabase handles the token-for-session exchange automatically when
-  // the user lands on this page via the reset email link (the link
-  // contains a one-time code in the URL hash). We just need to wait for
-  // the client to establish the session.
+  // The recovery link minted by `admin.auth.admin.generateLink({ type:
+  // "recovery" })` routes through Supabase's /auth/v1/verify endpoint and
+  // redirects back here with the session tokens in the URL hash fragment
+  // (`#access_token=...&refresh_token=...&type=recovery`). The browser
+  // client created by @supabase/ssr forces PKCE and therefore only
+  // auto-detects `?code=` query params — not hash fragments — so we parse
+  // the hash manually (same approach as the accept-invite page) and hand
+  // the tokens to setSession.
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
 
-    // If there's already a session, we're good.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setSessionReady(!!data.session)
-    })
+    async function bootstrap() {
+      if (typeof window !== "undefined" && window.location.hash) {
+        const hash = window.location.hash.startsWith("#")
+          ? window.location.hash.slice(1)
+          : window.location.hash
+        const params = new URLSearchParams(hash)
 
-    // Also listen for PASSWORD_RECOVERY event (fired when Supabase parses
-    // the hash from the email link).
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
-      if (cancelled) return
-      if (event === "PASSWORD_RECOVERY" || session) {
-        setSessionReady(true)
+        const hashError = params.get("error_description") || params.get("error")
+        if (hashError) {
+          if (!cancelled) setSessionReady(false)
+          return
+        }
+
+        const accessToken = params.get("access_token")
+        const refreshToken = params.get("refresh_token")
+
+        if (accessToken && refreshToken) {
+          const { data, error: setErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          // Clean the tokens out of the URL so a refresh doesn't reuse them
+          // and so they don't leak into browser history / referrer.
+          window.history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search,
+          )
+
+          if (!cancelled) {
+            setSessionReady(setErr || !data.session ? false : true)
+          }
+          return
+        }
       }
-    })
+
+      // No hash tokens — fall back to whatever is already in storage (e.g.
+      // after a refresh once we cleared the hash above).
+      const { data } = await supabase.auth.getSession()
+      if (cancelled) return
+      setSessionReady(!!data.session)
+    }
+
+    void bootstrap()
 
     return () => {
       cancelled = true
-      subscription.subscription.unsubscribe()
     }
   }, [])
 

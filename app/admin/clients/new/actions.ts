@@ -235,21 +235,28 @@ export async function createClientAccount(
     )
   }
 
-  // ---- 5. Audit trail -------------------------------------------------------
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_created",
-    details: {
-      new_client_id: newUserId,
-      email,
-      company_name: company,
-      industries,
-      primary_industry: industries[0],
-      has_fda: !!fdaNumber,
-      auto_assigned_ae: isAE ? caller.id : null,
-      created_by_role: callerProfile.role,
-    },
-  })
+  // ---- 5. Audit trail (best-effort) ----------------------------------------
+  // `activities` has no user_id/action/details columns (real schema:
+  // id, opportunity_id, action_type, description, performed_by, created_at).
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_created",
+      description: JSON.stringify({
+        new_client_id: newUserId,
+        email,
+        company_name: company,
+        industries,
+        primary_industry: industries[0],
+        has_fda: !!fdaNumber,
+        auto_assigned_ae: isAE ? caller.id : null,
+        created_by_role: callerProfile.role,
+      }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] createClientAccount: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients")
   revalidatePath("/admin/users")
@@ -342,11 +349,16 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     return { ok: false, error: error.message }
   }
 
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_intake_link_created",
-    details: { token_prefix: token.slice(0, 8) },
-  })
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_intake_link_created",
+      description: JSON.stringify({ token_prefix: token.slice(0, 8) }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] createIntakeLink: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients/intake")
 

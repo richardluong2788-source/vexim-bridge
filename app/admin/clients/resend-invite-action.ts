@@ -106,15 +106,22 @@ export async function resendClientInvite(
     return { ok: false, error: `smtp: ${sendErr.message}` }
   }
 
-  // --- 5. Audit trail --------------------------------------------------
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_invite_resent",
-    details: {
-      client_id: target.id,
-      email: target.email,
-    },
-  })
+  // --- 5. Audit trail (best-effort) ------------------------------------
+  // `activities` has no user_id/action/details columns (real schema:
+  // id, opportunity_id, action_type, description, performed_by, created_at).
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_invite_resent",
+      description: JSON.stringify({
+        client_id: target.id,
+        email: target.email,
+      }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] resendClientInvite: audit log failed:", auditErr)
+  }
 
   return { ok: true }
 }

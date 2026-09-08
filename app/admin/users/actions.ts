@@ -17,7 +17,6 @@
  */
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { CAPS, normaliseRole } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
   import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
@@ -370,7 +369,12 @@ export async function inviteTeamMember(
 
   if (inviteErr || !inviteData?.user) {
     const msg = inviteErr?.message ?? "invite_failed"
+    // Log the raw Supabase Auth error so the real reason (email rate limit,
+    // SMTP not configured, etc.) is visible in the function logs — the UI
+    // only shows a generic message otherwise.
+    console.error("[v0] inviteTeamMember: inviteUserByEmail failed:", inviteErr)
     if (/already/i.test(msg)) return { ok: false, error: "email_exists" }
+    if (/rate limit/i.test(msg)) return { ok: false, error: "email_rate_limit" }
     return { ok: false, error: msg }
   }
 
@@ -401,26 +405,35 @@ export async function inviteTeamMember(
     )
 
   if (profileErr) {
+    console.error("[v0] inviteTeamMember: profile upsert failed:", profileErr)
     // Rollback auth user
     await admin.auth.admin.deleteUser(newUserId)
     return { ok: false, error: profileErr.message }
   }
 
-  // ---- 5. Audit trail -------------------------------------------------------
-  const adminClient = createAdminClient()
-  await adminClient.from("activities").insert({
-    user_id: guard.userId,
-    action: "team_member_invited",
-    details: {
-      new_user_id: newUserId,
-      email,
-      full_name: fullName,
-      role,
-      industries: industries.length > 0 ? industries : undefined,
-      work_email: workEmail,
-      invited_by_role: callerRole,
-    },
-  })
+  // ---- 5. Audit trail (best-effort) ----------------------------------------
+  // `activities` has no user_id/action/details columns — its real schema is
+  // id, opportunity_id, action_type, description, performed_by, created_at.
+  // Encode the invite context into `description` and never let a logging
+  // failure abort an invite that has already succeeded.
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "team_member_invited",
+      description: JSON.stringify({
+        new_user_id: newUserId,
+        email,
+        full_name: fullName,
+        role,
+        industries: industries.length > 0 ? industries : undefined,
+        work_email: workEmail ?? undefined,
+        invited_by_role: callerRole,
+      }),
+      performed_by: guard.userId,
+    })
+  } catch (auditErr) {
+    console.error("[v0] inviteTeamMember: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/users")
 

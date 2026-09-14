@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ImageLinkInput } from '@/components/ui/image-link-input';
 import { MarkdownTextarea } from '@/components/admin/markdown-textarea';
 import {
   Select,
@@ -196,6 +197,13 @@ export function AdminProductDialog({
 
   const removeImageUrl = (index: number) => {
     setImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Thêm ảnh sản phẩm bằng link ngoài: chỉ lưu URL vào DB, không upload
+  // nên không tốn dung lượng/băng thông Vercel Blob. Ảnh thumbnail sẽ
+  // hiện ngay trong lưới ảnh phía dưới.
+  const addImageLinks = (urls: string[]) => {
+    setImageUrls((prev) => [...prev, ...urls]);
   };
 
   const handleComplianceToggle = (badge: string, checked: boolean) => {
@@ -798,8 +806,18 @@ export function AdminProductDialog({
           <div className="space-y-4">
             <h3 className="font-semibold">Ảnh sản phẩm</h3>
             <p className="text-sm text-muted-foreground">
-              Tải lên hình ảnh sản phẩm (tối đa 10 ảnh, mỗi ảnh 10MB)
+              Dán link ảnh từ web (không tốn dung lượng server) hoặc tải file lên từ máy
+              (tối đa 10 ảnh, mỗi ảnh 10MB)
             </p>
+
+            {/* Add by external link — thumbnail appears in the grid below */}
+            <ImageLinkInput
+              existing={imageUrls}
+              max={10 - files.length}
+              onAdd={addImageLinks}
+              disabled={uploading}
+              placeholder="Dán link ảnh sản phẩm (https://...) — có thể dán nhiều link"
+            />
 
             {/* Existing Images */}
             {imageUrls.length > 0 && (
@@ -813,6 +831,10 @@ export function AdminProductDialog({
                     <img
                       src={url}
                       alt={`Product image ${idx + 1}`}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                     <Button

@@ -5,6 +5,7 @@ import { upload } from "@vercel/blob/client"
 import { Loader2, Plus, X, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { ImageLinkInput } from "@/components/ui/image-link-input"
 import { toast } from "sonner"
 
 interface MediaGalleryFieldProps {
@@ -73,6 +74,11 @@ export function MediaGalleryField({
     }
   }
 
+  // Thêm ảnh bằng link ngoài: chỉ lưu URL, không upload nên không tốn dung lượng.
+  const handleLinksAdd = (urls: string[]) => {
+    onChange([...value, ...urls])
+  }
+
   const removeAt = (index: number) => {
     onChange(value.filter((_, i) => i !== index))
   }
@@ -80,6 +86,14 @@ export function MediaGalleryField({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
+
+      {/* Dán link ảnh ngoài — thumbnail hiện ngay bên dưới, không tốn Blob storage */}
+      <ImageLinkInput
+        existing={value}
+        max={maxFiles}
+        onAdd={handleLinksAdd}
+        disabled={uploading}
+      />
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
         {value.map((url, index) => (
@@ -90,6 +104,10 @@ export function MediaGalleryField({
             <img
               src={url || "/placeholder.svg"}
               alt={`${label} ${index + 1}`}
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg"
+              }}
               className="w-full h-full object-cover"
             />
             <Button
@@ -128,7 +146,10 @@ export function MediaGalleryField({
       {value.length === 0 && !uploading && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5" />
-          <span>Chưa có ảnh nào. Bấm &quot;Thêm ảnh&quot; để tải lên (chọn được nhiều ảnh).</span>
+          <span>
+            Chưa có ảnh nào. Dán link ảnh phía trên hoặc bấm &quot;Thêm ảnh&quot; để tải file lên
+            (chọn được nhiều ảnh).
+          </span>
         </div>
       )}
 

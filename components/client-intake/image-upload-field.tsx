@@ -6,6 +6,7 @@ import { ImagePlus, Loader2, X } from "lucide-react"
 import { upload } from "@vercel/blob/client"
 
 import { cn } from "@/lib/utils"
+import { ImageLinkInput } from "@/components/ui/image-link-input"
 
 interface ImageUploadFieldProps {
   /** Current uploaded image URLs. */
@@ -72,6 +73,12 @@ export function ImageUploadField({
     }
   }
 
+  // Thêm ảnh bằng link ngoài: chỉ lưu URL, không upload nên không tốn dung lượng.
+  function handleLinksAdd(urls: string[]) {
+    setError(null)
+    onChange([...value, ...urls])
+  }
+
   function removeAt(index: number) {
     onChange(value.filter((_, i) => i !== index))
     setError(null)
@@ -79,6 +86,15 @@ export function ImageUploadField({
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Cho phép dán link ảnh thay vì tải file lên — thumbnail hiện ngay bên dưới */}
+      <ImageLinkInput
+        existing={value}
+        max={max}
+        onAdd={handleLinksAdd}
+        disabled={isUploading}
+        placeholder="Hoặc dán link ảnh (https://...) — không cần tải file"
+      />
+
       <div className="flex flex-wrap gap-3">
         {value.map((url, i) => (
           <div
@@ -91,6 +107,10 @@ export function ImageUploadField({
               fill
               sizes="96px"
               className="object-cover"
+              onError={(e) => {
+                // Link hỏng/không phải ảnh công khai: hiển thị ảnh placeholder.
+                e.currentTarget.src = "/placeholder.svg"
+              }}
             />
             <button
               type="button"
@@ -140,7 +160,7 @@ export function ImageUploadField({
       />
 
       <p className="text-xs text-muted-foreground">
-        {value.length}/{max} ảnh · JPG, PNG, WEBP — tối đa 5MB mỗi ảnh
+        {value.length}/{max} ảnh · JPG, PNG, WEBP — tối đa 5MB mỗi ảnh, hoặc dán link ảnh phía trên
         {max > 1 && " · có thể chọn nhiều ảnh cùng lúc"}
       </p>
       {recommendedSize && (

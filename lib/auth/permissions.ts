@@ -63,6 +63,15 @@ export const CAPS = {
   // super_admin / lead_researcher also need it for oversight & QA.
   // Finance and staff are intentionally excluded.
   MATCH_INBOX_VIEW:            "match:inbox:view",
+  // BUYER_ASSIGN — manually assign (or re-assign) a BUYER to a specific
+  // AE, overriding the AI matching recommendation. Reserved to
+  // super_admin / admin: AEs must not self-assign (they go through the
+  // inbox/claim flow), and Lead Researcher stays read-only on ownership.
+  // Every manual assignment requires a reason when it contradicts the
+  // AI's top recommendation, is stamped assignment_source='manual', and
+  // is logged as an activity for audit. AE-to-AE handover of an already
+  // claimed buyer uses BUYER_WRITE (transferEngagement) instead.
+  BUYER_ASSIGN:                "buyer:assign",
 
   // --- Clients ---
   CLIENT_VIEW:                 "client:view",

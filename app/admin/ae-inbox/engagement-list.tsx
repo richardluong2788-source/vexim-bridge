@@ -28,6 +28,7 @@ import {
   ArrowLeftRight,
   RotateCw,
   ChevronDown,
+  Inbox,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -69,6 +70,7 @@ import {
   type ConvertRoleAssignment,
   type TransferCandidateAE,
 } from "@/app/admin/ae-inbox/engagement-actions"
+import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
 import {
   generateRequirementInquiryEmailAction,
   markEngagementEmailSentAction,
@@ -265,6 +267,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   const [convertDialogFor, setConvertDialogFor] = useState<Engagement | null>(null)
   const [dropDialogFor, setDropDialogFor] = useState<Engagement | null>(null)
   const [transferDialogFor, setTransferDialogFor] = useState<Engagement | null>(null)
+  const [returnDialogFor, setReturnDialogFor] = useState<Engagement | null>(null)
   const [markingReadFor, setMarkingReadFor] = useState<string | null>(null)
 
   // Which cards have their full details (buyer replies, requirements,
@@ -500,6 +503,20 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                       >
                         <ArrowLeftRight className="h-3.5 w-3.5" />
                         {t("Chuyển buyer", "Transfer")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-muted-foreground hover:text-foreground"
+                        title={t(
+                          "Trả buyer về hộp thư chung để AE khác nhận",
+                          "Return this buyer to the shared inbox for another AE to claim",
+                        )}
+                        onClick={() => setReturnDialogFor(eng)}
+                      >
+                        <Inbox className="h-3.5 w-3.5" />
+                        {t("Trả về inbox", "Return")}
                       </Button>
                       <Button
                         type="button"
@@ -986,6 +1003,18 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
           onClose={() => setTransferDialogFor(null)}
           onTransferred={() => {
             setTransferDialogFor(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {returnDialogFor && (
+        <ReturnToInboxDialog
+          engagement={returnDialogFor}
+          locale={locale}
+          onClose={() => setReturnDialogFor(null)}
+          onReturned={() => {
+            setReturnDialogFor(null)
             router.refresh()
           }}
         />
@@ -2549,7 +2578,17 @@ function TransferDialog({
     const result = await transferEngagement(engagement.id, targetId, reason)
     setSaving(false)
     if (!result.ok) {
-      toast.error(result.error)
+      const transferErrors: Record<string, string> = {
+        ae_at_capacity: t(
+          "AE nhận đã đạt giới hạn buyer đang xử lý",
+          "The receiving AE has reached their active-buyer cap",
+        ),
+        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
+        already_owned_by_target: t("Buyer này đã thuộc về AE được chọn", "This buyer already belongs to the selected AE"),
+        target_not_ae: t("Người được chọn không phải AE", "The selected person is not an AE"),
+        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
+      }
+      toast.error(transferErrors[result.error] ?? result.error)
       return
     }
     toast.success(t("Đã chuyển buyer cho AE khác", "Buyer transferred"))
@@ -2618,6 +2657,86 @@ function TransferDialog({
           <Button onClick={handleTransfer} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
             {t("Chuyển buyer", "Transfer buyer")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog: Return a claimed buyer to the shared inbox — the AE cannot work
+// this buyer (wrong industry/overload) and releases it so any AE can claim
+// it again, instead of just dropping it into a dead end.
+// ---------------------------------------------------------------------------
+
+function ReturnToInboxDialog({
+  engagement,
+  locale,
+  onClose,
+  onReturned,
+}: {
+  engagement: Engagement
+  locale: "vi" | "en"
+  onClose: () => void
+  onReturned: () => void
+}) {
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  const handleReturn = async () => {
+    if (!reason.trim()) {
+      toast.error(t("Vui lòng nhập lý do trả buyer", "Please enter a reason"))
+      return
+    }
+    setSaving(true)
+    const result = await returnBuyerToInbox({
+      engagementId: engagement.id,
+      reason,
+    })
+    setSaving(false)
+    if (!result.ok) {
+      const copy: Record<string, string> = {
+        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
+        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
+        reason_required: t("Vui lòng nhập lý do", "Reason is required"),
+      }
+      toast.error(copy[result.error] ?? result.error)
+      return
+    }
+    toast.success(t("Đã trả buyer về hộp thư chung", "Buyer returned to the shared inbox"))
+    onReturned()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Trả buyer về hộp thư chung?", "Return buyer to shared inbox?")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              `Buyer ${engagement.leads?.company_name ?? ""} sẽ được gỡ khỏi danh sách của bạn và xuất hiện lại trong hộp thư chung để AE khác nhận. Hãy ghi rõ lý do để AE tiếp theo nắm bối cảnh.`,
+              `${engagement.leads?.company_name ?? "This buyer"} will leave your queue and reappear in the shared inbox for another AE to claim. Explain why so the next AE has context.`,
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={t(
+            "Ví dụ: Tôi đang quá tải, buyer cần AE am hiểu ngành gỗ...",
+            "E.g. I am at capacity; this buyer needs an AE covering timber...",
+          )}
+          rows={3}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          <Button onClick={handleReturn} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Inbox className="h-4 w-4" />}
+            {t("Trả về hộp thư", "Return to inbox")}
           </Button>
         </DialogFooter>
       </DialogContent>

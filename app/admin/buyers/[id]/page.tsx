@@ -13,6 +13,7 @@ import {
   type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
+import { AssignBuyerDialog } from "@/components/admin/assign-buyer-dialog"
 import { canAny } from "@/lib/auth/permissions"
 import { listContacts } from "@/lib/buyers/contacts-actions"
 import type { BuyerContact } from "@/lib/supabase/types"
@@ -219,15 +220,25 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     inquiry_received_at: buyer.inquiry_received_at ?? null,
   }
 
+  const canAssignBuyer = can(current.role, CAPS.BUYER_ASSIGN)
+
   return (
     <div className="flex flex-col gap-6 p-8">
-      <div>
+      <div className="flex items-start justify-between gap-4">
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
           <Link href="/admin/buyers">
             <ChevronLeft className="mr-1 h-4 w-4" />
             {locale === "vi" ? "Quay lại danh sách" : "Back to list"}
           </Link>
         </Button>
+        {canAssignBuyer && (
+          <AssignBuyerDialog
+            buyerId={buyer.id}
+            buyerName={buyer.company_name || buyer.contact_person || "Unknown"}
+            currentRole={current.role}
+            locale={locale === "en" ? "en" : "vi"}
+          />
+        )}
       </div>
 
       <BuyerDetailView

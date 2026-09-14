@@ -17,11 +17,11 @@
  */
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { CAPS, normaliseRole } from "@/lib/auth/permissions"
+import { CAPS, normaliseRole, ROLE_META } from "@/lib/auth/permissions"
 import { siteConfig } from "@/lib/site-config"
-  import { INDUSTRIES, normalizeIndustry } from "@/lib/constants/industries"
+  import { normalizeIndustry } from "@/lib/constants/industries"
   import { reserveWorkEmail } from "@/lib/email/work-email"
+  import { sendTeamInviteEmail } from "@/lib/email/team-invite-email"
   import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
   import type { Role } from "@/lib/supabase/types"
 
@@ -358,23 +358,39 @@ export async function inviteTeamMember(
     return { ok: false, error: "super_admin_only" }
   }
 
-  // ---- 3. Invite via Supabase Auth ------------------------------------------
-  const { data: inviteData, error: inviteErr } =
-    await admin.auth.admin.inviteUserByEmail(email, {
+  // ---- 3. Mint the invite link WITHOUT letting Supabase send the email ----
+  // `inviteUserByEmail` creates the auth user AND auto-sends Supabase Auth's
+  // own invite email. That send path fails with "Error sending invite email"
+  // (500 unexpected_failure) whenever the project's Auth SMTP provider is
+  // unconfigured, which breaks team invites entirely. Mirror the client
+  // invite flow instead: `generateLink` creates the user + mints the OTP
+  // link without sending anything, then we deliver it ourselves via Resend
+  // (sendTeamInviteEmail) on our verified veximtrade.com domain.
+  const redirectTo = `${siteConfig.url}/auth/accept-invite`
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: {
       data: {
         role,
         full_name: fullName,
       },
-      redirectTo: `${siteConfig.url}/auth/accept-invite`,
-    })
+      redirectTo,
+    },
+  })
 
-  if (inviteErr || !inviteData?.user) {
-    const msg = inviteErr?.message ?? "invite_failed"
+  if (linkErr || !linkData?.user || !linkData?.properties?.action_link) {
+    const msg = linkErr?.message ?? "invite_failed"
+    // Log the raw Supabase Auth error so the real reason (rate limit, etc.)
+    // is visible in the function logs — the UI shows a friendly message.
+    console.error("[v0] inviteTeamMember: generateLink failed:", linkErr)
     if (/already/i.test(msg)) return { ok: false, error: "email_exists" }
+    if (/rate limit/i.test(msg)) return { ok: false, error: "email_rate_limit" }
     return { ok: false, error: msg }
   }
 
-  const newUserId = inviteData.user.id
+  const newUserId = linkData.user.id
+  const actionLink = linkData.properties.action_link
 
   // ---- 3b. Auto-generate a personal work email for roles that send
   // buyer-facing email, so each person has a stable address the buyer's
@@ -401,26 +417,57 @@ export async function inviteTeamMember(
     )
 
   if (profileErr) {
+    console.error("[v0] inviteTeamMember: profile upsert failed:", profileErr)
     // Rollback auth user
     await admin.auth.admin.deleteUser(newUserId)
     return { ok: false, error: profileErr.message }
   }
 
-  // ---- 5. Audit trail -------------------------------------------------------
-  const adminClient = createAdminClient()
-  await adminClient.from("activities").insert({
-    user_id: guard.userId,
-    action: "team_member_invited",
-    details: {
-      new_user_id: newUserId,
-      email,
-      full_name: fullName,
-      role,
-      industries: industries.length > 0 ? industries : undefined,
-      work_email: workEmail,
-      invited_by_role: callerRole,
-    },
+  // ---- 4b. Send the branded invitation ourselves via Resend -----------------
+  // Roll the account back if the send fails, so the admin can retry cleanly —
+  // the profile row cascades off auth.users on delete (profiles.id references
+  // auth.users ON DELETE CASCADE). Unlike client invites there is no
+  // "resend link" UI for team members, so a silent half-created account would
+  // be unreachable.
+  const { error: inviteSendErr } = await sendTeamInviteEmail({
+    email,
+    fullName,
+    roleLabel: ROLE_META[role].labelVi,
+    industries: industries.length > 0 ? industries : undefined,
+    actionLink,
   })
+  if (inviteSendErr) {
+    console.error(
+      "[v0] inviteTeamMember: failed to send branded invite email:",
+      inviteSendErr.message,
+    )
+    await admin.auth.admin.deleteUser(newUserId)
+    return { ok: false, error: `smtp: ${inviteSendErr.message}` }
+  }
+
+  // ---- 5. Audit trail (best-effort) ----------------------------------------
+  // `activities` has no user_id/action/details columns — its real schema is
+  // id, opportunity_id, action_type, description, performed_by, created_at.
+  // Encode the invite context into `description` and never let a logging
+  // failure abort an invite that has already succeeded.
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "team_member_invited",
+      description: JSON.stringify({
+        new_user_id: newUserId,
+        email,
+        full_name: fullName,
+        role,
+        industries: industries.length > 0 ? industries : undefined,
+        work_email: workEmail ?? undefined,
+        invited_by_role: callerRole,
+      }),
+      performed_by: guard.userId,
+    })
+  } catch (auditErr) {
+    console.error("[v0] inviteTeamMember: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/users")
 

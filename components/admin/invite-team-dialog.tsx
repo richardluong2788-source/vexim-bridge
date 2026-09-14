@@ -21,7 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { inviteTeamMember } from "@/app/admin/users/actions"
+import {
+  inviteTeamMember,
+  type InviteTeamMemberResult,
+} from "@/app/admin/users/actions"
 import { AeIndustryPicker } from "@/components/admin/ae-industry-picker"
 import type { Role } from "@/lib/supabase/types"
 
@@ -91,6 +94,7 @@ const MESSAGES = {
       invalid_role: "Please select a valid role",
       invalid_industry: "Please select at least one industry for this Account Executive",
       email_exists: "This email is already registered",
+      email_rate_limit: "Too many invitation emails sent recently. Please wait a few minutes and try again.",
       super_admin_only: "Only Super Admin can invite Admin users",
       forbidden: "You don't have permission to invite users",
       default: "Failed to send invitation. Please try again.",
@@ -123,6 +127,7 @@ const MESSAGES = {
       invalid_role: "Vui lòng chọn vai trò hợp lệ",
       invalid_industry: "Vui lòng chọn ít nhất một ngành hàng cho Account Executive này",
       email_exists: "Email này đã được đăng ký",
+      email_rate_limit: "Gửi quá nhiều email mời gần đây. Vui lòng đợi vài phút rồi thử lại.",
       super_admin_only: "Chỉ Super Admin mới có thể mời Admin",
       forbidden: "Bạn không có quyền mời người dùng",
       default: "Gửi lời mời thất bại. Vui lòng thử lại.",
@@ -180,12 +185,19 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
 
     setError(null)
     startTransition(async () => {
-      const result = await inviteTeamMember({
-        email,
-        full_name: fullName,
-        role: role as Role,
-        industries: needsIndustries ? industries : undefined,
-      })
+      let result: InviteTeamMemberResult
+      try {
+        result = await inviteTeamMember({
+          email,
+          full_name: fullName,
+          role: role as Role,
+          industries: needsIndustries ? industries : undefined,
+        })
+      } catch (err) {
+        console.error("[InviteTeamDialog] inviteTeamMember threw:", err)
+        setError(t.errors.default)
+        return
+      }
 
       if (result.ok) {
         setSuccess(true)
@@ -201,7 +213,16 @@ export function InviteTeamDialog({ locale, currentUserRole }: Props) {
         )
       } else {
         const errorKey = result.error as keyof typeof t.errors
-        setError(t.errors[errorKey] || t.errors.default)
+        const known = t.errors[errorKey]
+        // When the server returns a raw reason that isn't a known code, show
+        // it in parentheses so the operator can report exactly what failed
+        // instead of a generic message with no diagnostic value.
+        setError(
+          known ||
+            (result.error
+              ? `${t.errors.default} (${result.error})`
+              : t.errors.default),
+        )
       }
     })
   }

@@ -1,8 +1,8 @@
 "use client"
 
 /**
- * Inline dropdown for assigning a staff member as account manager to a
- * client row. Used in /admin/clients table.
+ * Inline dropdown for assigning an Account Executive (AE) as account manager
+ * to a client row. Used in /admin/clients table.
  *
  * Behaviour
  * ---------
@@ -32,7 +32,7 @@ const NONE = "__none__"
 
 const ERROR_LABELS: Record<string, string> = {
   managerAtCapacity: `AE này đã quản lý đủ ${MAX_CLIENTS_PER_AE} công ty. Vui lòng bỏ gán 1 công ty khác trước.`,
-  managerNotStaff: "Người được chọn không phải nhân sự nội bộ.",
+  managerNotStaff: "Chỉ Account Executive (AE) mới có thể làm account manager.",
   managerNotFound: "Không tìm thấy account manager.",
   notAClient: "Hàng này không phải client.",
   notFound: "Không tìm thấy client.",
@@ -64,6 +64,17 @@ export function AccountManagerSelect({
   const [value, setValue] = useState<string>(currentManagerId ?? NONE)
   const [isPending, startTransition] = useTransition()
 
+  // New assignments only offer AEs. But if this client is still assigned to
+  // a legacy non-AE manager, keep that manager in the list so the current
+  // assignment stays visible (and can be unassigned) instead of rendering as
+  // "Chưa gán".
+  const options: ManagerOption[] =
+    currentManagerId &&
+    currentManagerLabel &&
+    !managers.some((m) => m.id === currentManagerId)
+      ? [{ id: currentManagerId, label: currentManagerLabel, roleLabel: "" }, ...managers]
+      : managers
+
   if (!canEdit) {
     return currentManagerLabel ? (
       <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
@@ -94,7 +105,7 @@ export function AccountManagerSelect({
       const newLabel =
         next === NONE
           ? "Đã bỏ gán"
-          : (managers.find((m) => m.id === next)?.label ?? "Đã gán")
+          : (options.find((m) => m.id === next)?.label ?? "Đã gán")
       toast.success(newLabel)
     })
   }
@@ -116,13 +127,15 @@ export function AccountManagerSelect({
         <SelectItem value={NONE}>
           <span className="text-muted-foreground">Chưa gán</span>
         </SelectItem>
-        {managers.map((m) => (
+        {options.map((m) => (
           <SelectItem key={m.id} value={m.id}>
             <span className="flex items-center gap-2">
               <span>{m.label}</span>
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                {m.roleLabel}
-              </span>
+              {m.roleLabel ? (
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {m.roleLabel}
+                </span>
+              ) : null}
             </span>
           </SelectItem>
         ))}

@@ -29,6 +29,12 @@ export interface CreateClientInput {
    * can compare against a buyer's country.
    */
   country?: string | null
+  /**
+   * Supplier Researcher who sourced this client. When the caller is an SR,
+   * this defaults to the caller id; pass it explicitly for intake approvals
+   * so the sourcing attribution survives the review step.
+   */
+  sourced_by?: string | null
 }
 
 export interface CreateClientResult {
@@ -121,8 +127,11 @@ export async function createClientAccount(
     return { ok: false, error: "forbidden" }
   }
 
-  // Determine if caller is an AE (for auto-assignment)
+  // Determine if caller is an AE (for auto-assignment) or an SR (sourcing
+  // attribution — SR brings the supplier in; the AE assignment happens later).
   const isAE = callerProfile.role === "account_executive"
+  const isSR = callerProfile.role === "supplier_researcher"
+  const sourcedBy = input.sourced_by ?? (isSR ? caller.id : null)
 
   // ---- 3. Provision auth user via service role ------------------------------
   const admin = createAdminClient()
@@ -197,6 +206,8 @@ export async function createClientAccount(
         fda_expires_at: fdaExpiresAt,
         // Auto-assign AE as account manager when they create the client
         account_manager_id: isAE ? caller.id : null,
+        // SR who sourced this supplier (for billing-proposal / collections)
+        sourced_by: sourcedBy,
       },
       { onConflict: "id" },
     )
@@ -224,21 +235,28 @@ export async function createClientAccount(
     )
   }
 
-  // ---- 5. Audit trail -------------------------------------------------------
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_created",
-    details: {
-      new_client_id: newUserId,
-      email,
-      company_name: company,
-      industries,
-      primary_industry: industries[0],
-      has_fda: !!fdaNumber,
-      auto_assigned_ae: isAE ? caller.id : null,
-      created_by_role: callerProfile.role,
-    },
-  })
+  // ---- 5. Audit trail (best-effort) ----------------------------------------
+  // `activities` has no user_id/action/details columns (real schema:
+  // id, opportunity_id, action_type, description, performed_by, created_at).
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_created",
+      description: JSON.stringify({
+        new_client_id: newUserId,
+        email,
+        company_name: company,
+        industries,
+        primary_industry: industries[0],
+        has_fda: !!fdaNumber,
+        auto_assigned_ae: isAE ? caller.id : null,
+        created_by_role: callerProfile.role,
+      }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] createClientAccount: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients")
   revalidatePath("/admin/users")
@@ -282,11 +300,17 @@ export interface CreateIntakeLinkResult {
 }
 
 /**
- * Admin/AE-only: generate a single-use public intake link
+ * Admin/AE/SR: generate a single-use public intake link
  * (/client-intake/[token]) that a prospective client can fill in without
  * logging in. The row lives in `client_intake_submissions` — fully
- * decoupled from `profiles` — until an AE reviews and approves it in
+ * decoupled from `profiles` — until it's reviewed and approved in
  * "Hồ sơ chờ duyệt".
+ *
+ * supplier_researcher (SR) owns the supplier pipeline end-to-end, so SR is
+ * allowed to generate intake links just like admin/AE. The resulting
+ * submission is owned by the caller (`ae_id = caller.id`), and SR is
+ * already in REVIEWER_ROLES (intake/actions.ts) so they can approve it
+ * later too.
  */
 export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
   const supabase = await createClient()
@@ -301,7 +325,13 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     .eq("id", caller.id)
     .single()
 
-  const allowedRoles = ["admin", "staff", "super_admin", "account_executive"]
+  const allowedRoles = [
+    "admin",
+    "staff",
+    "super_admin",
+    "account_executive",
+    "supplier_researcher",
+  ]
   if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
     return { ok: false, error: "forbidden" }
   }
@@ -319,11 +349,16 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     return { ok: false, error: error.message }
   }
 
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_intake_link_created",
-    details: { token_prefix: token.slice(0, 8) },
-  })
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_intake_link_created",
+      description: JSON.stringify({ token_prefix: token.slice(0, 8) }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] createIntakeLink: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients/intake")
 

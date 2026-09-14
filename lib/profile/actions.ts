@@ -116,7 +116,7 @@ export async function getProfileByClientId(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }
@@ -158,7 +158,7 @@ export async function getProfileWithRelationsByClientId(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }
@@ -244,7 +244,7 @@ export async function createClientProfile(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }
@@ -334,7 +334,7 @@ export async function updateClientProfile(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }
@@ -397,7 +397,7 @@ export async function publishProfile(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }
@@ -444,7 +444,7 @@ export async function unpublishProfile(
     .eq("id", user.id)
     .single()
 
-  const allowedRoles = ["admin", "super_admin", "staff", "account_executive"]
+  const allowedRoles = ["admin", "super_admin", "staff", "account_executive", "supplier_researcher"]
   if (!userProfile || !allowedRoles.includes(userProfile.role)) {
     return { success: false, error: "Unauthorized" }
   }

@@ -229,6 +229,7 @@ export async function approveIntakeSubmission(
   if (isAE && submission.ae_id !== caller.id) {
     return { ok: false, error: "forbidden" }
   }
+  const isSR = callerProfile.role === "supplier_researcher"
 
   // Persist any last-minute AE edits first.
   const editResult = await updateIntakeSubmission(id, fields)
@@ -242,6 +243,9 @@ export async function approveIntakeSubmission(
     industries: fields.industries,
     phone: fields.phone,
     country: fields.country ?? null,
+    // SR owns the supplier pipeline: when an SR approves an intake, they are
+    // the sourcer of record (drives their billing-proposal scope).
+    sourced_by: isSR ? caller.id : null,
   }
 
   const createResult = await createClientAccount(createInput)
@@ -352,11 +356,16 @@ export async function approveIntakeSubmission(
     })
     .eq("id", id)
 
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_intake_approved",
-    details: { submission_id: id, new_client_id: clientId },
-  })
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_intake_approved",
+      description: JSON.stringify({ submission_id: id, new_client_id: clientId }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] approveIntakeSubmission: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients/intake")
   revalidatePath("/admin/clients")
@@ -397,11 +406,16 @@ export async function rejectIntakeSubmission(
   const { error } = await q
   if (error) return { ok: false, error: error.message }
 
-  await admin.from("activities").insert({
-    user_id: caller.id,
-    action: "client_intake_rejected",
-    details: { submission_id: id, reason },
-  })
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "client_intake_rejected",
+      description: JSON.stringify({ submission_id: id, reason }),
+      performed_by: caller.id,
+    })
+  } catch (auditErr) {
+    console.error("[v0] rejectIntakeSubmission: audit log failed:", auditErr)
+  }
 
   revalidatePath("/admin/clients/intake")
   return { ok: true }

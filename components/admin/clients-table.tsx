@@ -33,7 +33,7 @@ type ClientWithProfile = Profile & {
 
 interface ClientsTableProps {
   clients: ClientWithProfile[]
-  /** Staff list shown in the "Account Manager" dropdown. */
+  /** AE list (account_executive) shown in the "Account Manager" dropdown. */
   managers: ManagerOption[]
   /** Map of managerId -> label, used to render read-only cells. */
   managerLabels: Record<string, string>

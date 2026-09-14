@@ -10,6 +10,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
 
@@ -190,6 +191,7 @@ export async function createLeadWithAIMatchingAction(
   }
 
   // 1. Create the lead with all 7 sections of data
+  try {
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .insert({
@@ -337,15 +339,23 @@ export async function createLeadWithAIMatchingAction(
     }
   }
 
-  // 2. Log activity: lead created
-  await supabase.from("activities").insert([
-    {
-      lead_id: lead.id,
+  // 2. Log activity: lead created (best-effort audit trail).
+  // `activities` has no `lead_id` column (real schema: id, opportunity_id,
+  // action_type, description, performed_by, created_at) and its RLS only
+  // allows admin/staff to write, so we encode the lead id into the
+  // description and insert through the service-role client like every other
+  // audit write in this codebase.
+  try {
+    const admin = createAdminClient()
+    await admin.from("activities").insert({
+      opportunity_id: null,
       action_type: "lead_created",
-      description: lead.company_name,
+      description: `Lead created: ${lead.company_name} (${lead.id})`,
       performed_by: user.id,
-    },
-  ])
+    })
+  } catch (activityErr) {
+    console.error("[v0] createLeadWithAIMatchingAction activity log failed:", activityErr)
+  }
 
   // 3. Trigger AI matching pipeline
   // This will create ae_match_scores, push to ae_match_inbox, etc.
@@ -370,5 +380,17 @@ export async function createLeadWithAIMatchingAction(
   }
 
   return { success: true, leadId: lead.id }
+  } catch (unexpectedErr) {
+    // Never let an unexpected exception escape the server action — an
+    // uncaught throw renders the generic "This page couldn't load" page.
+    console.error("[v0] createLeadWithAIMatchingAction unexpected error:", unexpectedErr)
+    return {
+      success: false,
+      error:
+        unexpectedErr instanceof Error
+          ? unexpectedErr.message
+          : "Unexpected error while creating lead",
+    }
+  }
 }
 

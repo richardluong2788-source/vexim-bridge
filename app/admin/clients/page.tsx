@@ -102,21 +102,34 @@ export default async function AdminClientsPage() {
     email: string | null
     role: string | null
   }>
+
+  // Account Manager = Account Executive only. The dropdown lists AEs
+  // exclusively — a client's account manager is a sales rep, not an admin,
+  // researcher or finance user. This mirrors the AI matching pipeline,
+  // which only ever auto-assigns account_executive users.
+  //
+  // Legacy `staff` is treated as account_executive app-wide (migration 069 +
+  // buyers/page.tsx + sidebar-badges.ts), so we include it here too —
+  // otherwise teams whose AEs still carry the legacy role see an empty
+  // dropdown and cannot assign anyone.
   const managers: ManagerOption[] = staffList
-    .filter((s) => s.role && STAFF_ROLES.includes(s.role as Role))
+    .filter((s) => s.role === "account_executive" || s.role === "staff")
     .map((s) => {
       const r = s.role as Role
       return {
         id: s.id,
         label: s.full_name?.trim() || s.email || "—",
-        roleLabel: ROLE_SHORT[r] ?? ROLE_META[r]?.label ?? r,
+        roleLabel: r === "staff" ? "AE" : (ROLE_SHORT[r] ?? ROLE_META[r]?.label ?? r),
       }
     })
 
-  // Cheap lookup so non-editors see the manager name without hydrating
-  // the full Select component.
+  // Label lookup covers every internal staff member (not just AEs) so a
+  // client still assigned to a legacy non-AE manager keeps showing that
+  // name instead of falling back to "Chưa gán".
   const managerLabels: Record<string, string> = Object.fromEntries(
-    managers.map((m) => [m.id, m.label]),
+    staffList
+      .filter((s) => s.full_name?.trim() || s.email)
+      .map((s) => [s.id, s.full_name?.trim() || s.email || "—"]),
   )
 
   return (

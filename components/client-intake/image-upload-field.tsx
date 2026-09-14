@@ -36,7 +36,6 @@ export function ImageUploadField({
   const [error, setError] = useState<string | null>(null)
 
   const remaining = max - value.length
-  const canAdd = remaining > 0 && !isUploading
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return
@@ -123,7 +122,13 @@ export function ImageUploadField({
           </div>
         ))}
 
-        {canAdd && (
+        {/* Ô chọn file chỉ hiện khi chưa có ảnh nào — đã có ảnh (link) thì
+            ẩn hẳn để người dùng không lỡ bấm tải file lên. */}
+        {isUploading ? (
+          <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : value.length === 0 ? (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -131,22 +136,10 @@ export function ImageUploadField({
               "flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary",
             )}
           >
-            {isUploading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <ImagePlus className="h-5 w-5" />
-                <span>Tải ảnh lên</span>
-              </>
-            )}
+            <ImagePlus className="h-5 w-5" />
+            <span>Tải ảnh lên</span>
           </button>
-        )}
-
-        {isUploading && !canAdd && (
-          <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        )}
+        ) : null}
       </div>
 
       <input

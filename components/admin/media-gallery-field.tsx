@@ -123,7 +123,9 @@ export function MediaGalleryField({
           </div>
         ))}
 
-        {value.length < maxFiles && (
+        {/* Ô chọn file chỉ hiện khi chưa có ảnh nào — đã có ảnh (link) thì
+            ẩn hẳn để tránh người dùng lỡ bấm tải file lên. */}
+        {value.length === 0 && (
           <button
             id={id}
             type="button"

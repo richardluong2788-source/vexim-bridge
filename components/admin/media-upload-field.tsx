@@ -130,6 +130,10 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           placeholder="https://..."
           className="flex-1"
         />
+        {/* Đã có ảnh (link hợp lệ) thì ẩn nút chọn file để tránh tải nhầm;
+            nút X phía trên sẽ xóa ảnh và đưa nút chọn file trở lại.
+            Riêng video vẫn giữ nút chọn file vì video có thể nặng, cần upload. */}
+        {(kind === "video" || !showImagePreview) && (
         <Button
           type="button"
           variant="outline"
@@ -146,6 +150,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           )}
           {uploading ? "Đang tải..." : "Chọn file"}
         </Button>
+        )}
         <input
           ref={inputRef}
           type="file"

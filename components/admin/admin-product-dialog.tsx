@@ -206,6 +206,11 @@ export function AdminProductDialog({
     setImageUrls((prev) => [...prev, ...urls]);
   };
 
+  // Sau khi đã có ảnh (đã dán link hoặc đã chọn file) thì ẩn hẳn các ô
+  // chọn file, tránh người dùng lỡ bấm tải ảnh lên server. Muốn thêm ảnh
+  // thì tiếp tục dán link; muốn đổi cách thêm thì xóa ảnh hiện có trước.
+  const hasAnyImage = imageUrls.length > 0 || files.length > 0;
+
   const handleComplianceToggle = (badge: string, checked: boolean) => {
     if (checked) {
       setComplianceBadges((prev) => [...prev, badge]);
@@ -882,8 +887,8 @@ export function AdminProductDialog({
               </div>
             )}
 
-            {/* Upload Zone */}
-            {(imageUrls.length + files.length) < 10 && (
+            {/* Upload Zone — ô chọn file chỉ hiện khi chưa có ảnh nào */}
+            {!hasAnyImage && (
               <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
                 <input
                   type="file"
@@ -891,7 +896,7 @@ export function AdminProductDialog({
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={handleFileChange}
-                  disabled={(imageUrls.length + files.length) >= 10}
+                  disabled={uploading}
                   className="hidden"
                 />
                 <Label htmlFor="product-images" className="cursor-pointer">
@@ -910,21 +915,24 @@ export function AdminProductDialog({
               Tải lên hình ảnh, video, chứng nhận sản phẩm (tối đa 5 tệp, mỗi tệp 50MB)
             </p>
 
-            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
-              <input
-                type="file"
-                id="files"
-                multiple
-                onChange={handleFileChange}
-                disabled={files.length >= 5}
-                className="hidden"
-              />
-              <Label htmlFor="files" className="cursor-pointer">
-                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="font-medium">Kéo thả tệp vào đây hoặc bấm để chọn</p>
-                <p className="text-sm text-muted-foreground">Hỗ trợ hình ảnh, video và PDF</p>
-              </Label>
-            </div>
+            {/* Ô chọn tệp cũng dùng chung luồng upload ảnh — ẩn khi đã có ảnh */}
+            {!hasAnyImage && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
+                <input
+                  type="file"
+                  id="files"
+                  multiple
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                  className="hidden"
+                />
+                <Label htmlFor="files" className="cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="font-medium">Kéo thả tệp vào đây hoặc bấm để chọn</p>
+                  <p className="text-sm text-muted-foreground">Hỗ trợ hình ảnh, video và PDF</p>
+                </Label>
+              </div>
+            )}
 
             {files.length > 0 && (
               <div className="space-y-2">

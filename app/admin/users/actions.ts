@@ -5,7 +5,8 @@
  *
  * Responsibilities:
  *   - updateUserRole: change another user's role (admin + super_admin only)
- *   - inviteTeamMember: invite internal staff (AE, LR, Finance, Admin)
+ *   - createStaffAccount: provision internal staff directly with a
+ *     username + password (no invite email)
  *
  * Security:
  *   - Caller must have USERS_ASSIGN_ROLE capability.
@@ -17,11 +18,15 @@
  */
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
-import { CAPS, normaliseRole, ROLE_META } from "@/lib/auth/permissions"
-import { siteConfig } from "@/lib/site-config"
+import { CAPS, normaliseRole } from "@/lib/auth/permissions"
   import { normalizeIndustry } from "@/lib/constants/industries"
   import { reserveWorkEmail } from "@/lib/email/work-email"
-  import { sendTeamInviteEmail } from "@/lib/email/team-invite-email"
+  import {
+    STAFF_PASSWORD_MIN_LENGTH,
+    isValidUsername,
+    normalizeUsername,
+    staffAuthEmail,
+  } from "@/lib/auth/staff-login"
   import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
   import type { Role } from "@/lib/supabase/types"
 
@@ -259,10 +264,11 @@ export async function updateUserIndustries(
 }
 
 // ============================================================================
-// Invite Team Member
+// Create staff account (username + password, provisioned directly)
 // ============================================================================
 
-// Internal roles that can be invited (not client)
+// Internal roles that can be provisioned (not client). super_admin is
+// handled separately because only a super_admin may mint one.
 const INTERNAL_ROLES: Role[] = [
   "admin",
   "account_executive",
@@ -271,53 +277,68 @@ const INTERNAL_ROLES: Role[] = [
   "finance",
 ]
 
-export interface InviteTeamMemberInput {
-  email: string
+export interface CreateStaffAccountInput {
+  /** Login username, 3–30 lowercase chars (validated here). */
+  username: string
+  /** Initial password chosen by the admin. Not force-rotated on first login. */
+  password: string
   full_name: string
   role: Role
   /**
-   * All industries the AE will cover, in priority order — [0] is the
-   * primary industry. Required for account_executive: the AI matching
-   * hard-filter only ever scores AEs covering the buyer's industry, so an
-   * AE invited without one would never receive any buyer via matching.
+   * Optional real mailbox for system notifications. The account still
+   * logs in with its username; this is never used as an auth identifier.
+   */
+  contact_email?: string
+  /**
+   * All industries the AE/SR covers, in priority order — [0] is primary.
+   * Required for account_executive (AI matching hard-filter), optional
+   * for supplier_researcher (sourcing-board patch).
    */
   industries?: string[]
 }
 
-export interface InviteTeamMemberResult {
+export interface CreateStaffAccountResult {
   ok: boolean
   userId?: string
-  error?: string
-  /** Auto-generated personal sender address, if this role gets one. Sending
-   * and receiving both go through Resend — no mailbox needs to be created
-   * anywhere for this to work (see lib/email/work-email.ts). */
+  username?: string
+  /** Auto-generated personal sender address, if this role gets one. */
   workEmail?: string | null
+  error?: string
 }
 
 /**
- * Invite a new internal team member (AE, LR, Finance, Admin).
+ * Provision an internal team member directly — no invite email, no
+ * self-set-password step. The super admin hands the username + password
+ * to the employee out of band.
  *
  * Flow:
- *   1. Validate input and check caller permissions
- *   2. Use service-role to invite via Supabase Auth
- *   3. Create profile with the specified role
- *   4. User receives email, clicks link, sets password
- *   5. User enters system with correct role immediately
+ *   1. Validate username / password / role / industries + caller caps
+ *   2. Create the auth user keyed by a synthetic staff email
+ *      (`<username>@staff.veximtrade.com`, see lib/auth/staff-login.ts),
+ *      email_confirm=true so no confirmation mail is ever sent
+ *   3. The handle_new_user trigger opens a profile row; we then fill it
+ *      with the real role, username, industries and optional contact email
+ *   4. Reserve a personal sender address for buyer-facing roles
  *
  * Security:
- *   - Only users with USERS_ASSIGN_ROLE can invite
- *   - Only super_admin can invite admin or super_admin roles
+ *   - Requires USERS_MANAGE (admin + super_admin).
+ *   - Only super_admin may create admin or super_admin accounts.
  */
-export async function inviteTeamMember(
-  input: InviteTeamMemberInput,
-): Promise<InviteTeamMemberResult> {
+export async function createStaffAccount(
+  input: CreateStaffAccountInput,
+): Promise<CreateStaffAccountResult> {
   // ---- 1. Validate input ----------------------------------------------------
-  const email = input.email?.trim().toLowerCase()
+  const username = normalizeUsername(input.username)
   const fullName = input.full_name?.trim()
+  const password = input.password ?? ""
   const role = input.role
+  const contactEmail = input.contact_email?.trim().toLowerCase() || null
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "invalid_email" }
+  if (!isValidUsername(username)) {
+    return { ok: false, error: "invalid_username" }
+  }
+  if (password.length < STAFF_PASSWORD_MIN_LENGTH) {
+    return { ok: false, error: "weak_password" }
   }
   if (!fullName) {
     return { ok: false, error: "full_name_required" }
@@ -325,13 +346,15 @@ export async function inviteTeamMember(
   if (!INTERNAL_ROLES.includes(role) && role !== "super_admin") {
     return { ok: false, error: "invalid_role" }
   }
+  if (
+    contactEmail &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)
+  ) {
+    return { ok: false, error: "invalid_contact_email" }
+  }
 
-  // Account Executives are hard-gated by industry in AI matching — an AE
-  // with no industry would never be scored for any buyer, so require at
-  // least one. Supplier Researchers MAY be assigned industries (their
-  // sourcing patch on /admin/sourcing) but it is optional — an SR with no
-  // industries sees the full demand board.
-  // Normalize + dedupe while preserving the caller's order.
+  // Same industry rules as the old invite flow: required for AE,
+  // optional for SR.
   const industries: string[] = []
   if (role === "account_executive" || role === "supplier_researcher") {
     for (const raw of input.industries ?? []) {
@@ -349,66 +372,83 @@ export async function inviteTeamMember(
   }
 
   // ---- 2. Check caller permissions ------------------------------------------
-  const guard = await requireCap(CAPS.USERS_ASSIGN_ROLE)
+  const guard = await requireCap(CAPS.USERS_MANAGE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin, role: callerRole } = guard
+  const { admin, role: callerRole, userId: callerId } = guard
 
-  // Only super_admin can create admin or super_admin
   if ((role === "admin" || role === "super_admin") && callerRole !== "super_admin") {
     return { ok: false, error: "super_admin_only" }
   }
 
-  // ---- 3. Mint the invite link WITHOUT letting Supabase send the email ----
-  // `inviteUserByEmail` creates the auth user AND auto-sends Supabase Auth's
-  // own invite email. That send path fails with "Error sending invite email"
-  // (500 unexpected_failure) whenever the project's Auth SMTP provider is
-  // unconfigured, which breaks team invites entirely. Mirror the client
-  // invite flow instead: `generateLink` creates the user + mints the OTP
-  // link without sending anything, then we deliver it ourselves via Resend
-  // (sendTeamInviteEmail) on our verified veximtrade.com domain.
-  const redirectTo = `${siteConfig.url}/auth/accept-invite`
-  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: {
-      data: {
-        role,
-        full_name: fullName,
-      },
-      redirectTo,
+  // ---- 3. Uniqueness checks -------------------------------------------------
+  const { data: existingUsername } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("username", username)
+    .maybeSingle()
+  if (existingUsername) {
+    return { ok: false, error: "username_taken" }
+  }
+
+  if (contactEmail) {
+    const { data: existingEmail } = await admin
+      .from("profiles")
+      .select("id")
+      .ilike("email", contactEmail)
+      .maybeSingle()
+    if (existingEmail) {
+      return { ok: false, error: "email_exists" }
+    }
+  }
+
+  const authEmail = staffAuthEmail(username)
+
+  // ---- 4. Create the auth user directly with the chosen password -----------
+  const { data: createData, error: createErr } = await admin.auth.admin.createUser({
+    email: authEmail,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      role,
+      full_name: fullName,
+      username,
+      staff: true,
     },
   })
 
-  if (linkErr || !linkData?.user || !linkData?.properties?.action_link) {
-    const msg = linkErr?.message ?? "invite_failed"
-    // Log the raw Supabase Auth error so the real reason (rate limit, etc.)
-    // is visible in the function logs — the UI shows a friendly message.
-    console.error("[v0] inviteTeamMember: generateLink failed:", linkErr)
-    if (/already/i.test(msg)) return { ok: false, error: "email_exists" }
-    if (/rate limit/i.test(msg)) return { ok: false, error: "email_rate_limit" }
+  if (createErr || !createData?.user) {
+    const msg = createErr?.message ?? "create_failed"
+    console.error("[v0] createStaffAccount: auth createUser failed:", createErr)
+    if (/already|exists|registered|taken/i.test(msg)) {
+      return { ok: false, error: "username_taken" }
+    }
+    if (/password/i.test(msg)) {
+      return { ok: false, error: "weak_password" }
+    }
+    if (/rate limit/i.test(msg)) {
+      return { ok: false, error: "rate_limited" }
+    }
     return { ok: false, error: msg }
   }
 
-  const newUserId = linkData.user.id
-  const actionLink = linkData.properties.action_link
+  const newUserId = createData.user.id
 
-  // ---- 3b. Auto-generate a personal work email for roles that send
-  // buyer-facing email, so each person has a stable address the buyer's
-  // mail provider learns to trust with their real name (see
-  // lib/email/work-email.ts). Sending and receiving both go through
-  // Resend — no mailbox setup is required elsewhere.
+  // ---- 4b. Personal buyer-facing sender address (same roles as before) -----
   const workEmail = ROLES_NEEDING_WORK_EMAIL.includes(role)
     ? await reserveWorkEmail(fullName)
     : null
 
-  // ---- 4. Create profile with role ------------------------------------------
+  // ---- 5. Fill the profile row (trigger already opened a bare one) ---------
   const { error: profileErr } = await admin
     .from("profiles")
     .upsert(
       {
         id: newUserId,
+        username,
+        // Auth email stays synthetic; store the optional real notification
+        // mailbox (or NULL — never the synthetic address).
+        email: contactEmail,
         role,
-        email,
         full_name: fullName,
         industries: industries.length > 0 ? industries : [],
         work_email: workEmail,
@@ -417,78 +457,127 @@ export async function inviteTeamMember(
     )
 
   if (profileErr) {
-    console.error("[v0] inviteTeamMember: profile upsert failed:", profileErr)
-    // Rollback auth user
+    console.error("[v0] createStaffAccount: profile upsert failed:", profileErr)
     await admin.auth.admin.deleteUser(newUserId)
     return { ok: false, error: profileErr.message }
   }
 
-  // ---- 4b. Send the branded invitation ourselves via Resend -----------------
-  // Roll the account back if the send fails, so the admin can retry cleanly —
-  // the profile row cascades off auth.users on delete (profiles.id references
-  // auth.users ON DELETE CASCADE). Unlike client invites there is no
-  // "resend link" UI for team members, so a silent half-created account would
-  // be unreachable.
-  const { error: inviteSendErr } = await sendTeamInviteEmail({
-    email,
-    fullName,
-    roleLabel: ROLE_META[role].labelVi,
-    industries: industries.length > 0 ? industries : undefined,
-    actionLink,
-  })
-  if (inviteSendErr) {
-    console.error(
-      "[v0] inviteTeamMember: failed to send branded invite email:",
-      inviteSendErr.message,
-    )
-    await admin.auth.admin.deleteUser(newUserId)
-    return { ok: false, error: `smtp: ${inviteSendErr.message}` }
-  }
-
-  // ---- 5. Audit trail (best-effort) ----------------------------------------
-  // `activities` has no user_id/action/details columns — its real schema is
-  // id, opportunity_id, action_type, description, performed_by, created_at.
-  // Encode the invite context into `description` and never let a logging
-  // failure abort an invite that has already succeeded.
+  // ---- 6. Audit trail (best-effort) ----------------------------------------
   try {
     await admin.from("activities").insert({
       opportunity_id: null,
-      action_type: "team_member_invited",
+      action_type: "team_member_created",
       description: JSON.stringify({
         new_user_id: newUserId,
-        email,
+        username,
+        contact_email: contactEmail,
         full_name: fullName,
         role,
         industries: industries.length > 0 ? industries : undefined,
         work_email: workEmail ?? undefined,
-        invited_by_role: callerRole,
+        created_by_role: callerRole,
       }),
-      performed_by: guard.userId,
+      performed_by: callerId,
     })
   } catch (auditErr) {
-    console.error("[v0] inviteTeamMember: audit log failed:", auditErr)
+    console.error("[v0] createStaffAccount: audit log failed:", auditErr)
   }
 
   revalidatePath("/admin/users")
 
   // A new AE covering these industries may unblock buyers stranded in the
-  // shared inbox because no AE covered those verticals yet. SR industries
-  // have no matching implication — skip the rematch for them.
-  // Best effort — never fail the invite because of this.
+  // shared inbox (same behaviour the invite flow had). SR industries have
+  // no matching implication. Best effort — never fail creation for this.
   if (role === "account_executive" && industries.length > 0) {
     try {
       await rematchOpenSharedInboxLeads({
         industries,
-        triggeredBy: guard.userId,
+        triggeredBy: callerId,
       })
     } catch (err) {
-      console.error("[v0] rematchOpenSharedInboxLeads failed after invite:", err)
+      console.error("[v0] rematchOpenSharedInboxLeads failed after staff create:", err)
     }
   }
 
-  return {
-    ok: true,
-    userId: newUserId,
-    workEmail,
+  return { ok: true, userId: newUserId, username, workEmail }
+}
+
+// ============================================================================
+// Reset staff password (admin-performed — username accounts can't use the
+// email-based "forgot password" flow)
+// ============================================================================
+
+export interface ResetStaffPasswordResult {
+  ok: boolean
+  error?: string
+}
+
+export async function resetStaffPassword(
+  userId: string,
+  newPassword: string,
+): Promise<ResetStaffPasswordResult> {
+  const password = newPassword ?? ""
+  if (password.length < STAFF_PASSWORD_MIN_LENGTH) {
+    return { ok: false, error: "weak_password" }
   }
+
+  const guard = await requireCap(CAPS.USERS_MANAGE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId: callerId, role: callerRole } = guard
+
+  if (callerId === userId) {
+    // Admins change their own password through the authenticated
+    // change-password / reset-link flow, not this override.
+    return { ok: false, error: "cannotChangeSelf" }
+  }
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("role, username")
+    .eq("id", userId)
+    .single<{ role: string | null; username: string | null }>()
+
+  if (!target) return { ok: false, error: "not_found" }
+
+  const targetRole = normaliseRole(target.role)
+  if (targetRole === "client") {
+    // Clients keep the email-based reset flow; no admin override.
+    return { ok: false, error: "invalid_target" }
+  }
+  if (
+    (targetRole === "admin" || targetRole === "super_admin") &&
+    callerRole !== "super_admin"
+  ) {
+    return { ok: false, error: "super_admin_only" }
+  }
+
+  const { error: updateErr } = await admin.auth.admin.updateUserById(userId, {
+    password,
+  })
+  if (updateErr) {
+    console.error("[v0] resetStaffPassword failed:", updateErr)
+    if (/password/i.test(updateErr.message)) {
+      return { ok: false, error: "weak_password" }
+    }
+    return { ok: false, error: updateErr.message }
+  }
+
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "team_password_reset",
+      description: JSON.stringify({
+        target_user_id: userId,
+        target_username: target.username,
+        target_role: targetRole,
+        reset_by_role: callerRole,
+      }),
+      performed_by: callerId,
+    })
+  } catch (auditErr) {
+    console.error("[v0] resetStaffPassword: audit log failed:", auditErr)
+  }
+
+  revalidatePath("/admin/users")
+  return { ok: true }
 }

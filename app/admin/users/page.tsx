@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getDictionary } from "@/lib/i18n/server"
 import { UsersTable } from "@/components/admin/users-table"
-import { InviteTeamDialog } from "@/components/admin/invite-team-dialog"
+import { CreateStaffDialog } from "@/components/admin/create-staff-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { can, CAPS, ROLE_META, normaliseRole } from "@/lib/auth/permissions"
@@ -35,7 +35,7 @@ export default async function UsersPage() {
   const { data: profiles } = await current.admin
     .from("profiles")
     .select(
-      "id, email, full_name, role, company_name, industry, industries, work_email, created_at",
+      "id, email, username, full_name, role, company_name, industry, industries, work_email, created_at",
     )
     .in("role", TEAM_ROLES)
     .order("created_at", { ascending: false })
@@ -43,6 +43,7 @@ export default async function UsersPage() {
   const rows = (profiles ?? []).map((p) => ({
     id: p.id,
     email: p.email,
+    username: p.username,
     full_name: p.full_name,
     // Fall back to a known role so the UI never crashes on legacy values.
     role: (normaliseRole(p.role) ?? "staff") as Role,
@@ -94,7 +95,7 @@ export default async function UsersPage() {
           </p>
         </div>
         {canInvite && (
-          <InviteTeamDialog locale={locale} currentUserRole={current.role} />
+          <CreateStaffDialog locale={locale} currentUserRole={current.role} />
         )}
       </div>
 

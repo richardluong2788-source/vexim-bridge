@@ -129,7 +129,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
   // Look up recipient + prefs in a single round-trip.
   const { data: profile, error: profileErr } = await admin
     .from("profiles")
-    .select("id, email, full_name, preferred_language")
+    .select("id, email, work_email, full_name, preferred_language")
     .eq("id", input.userId)
     .single()
 
@@ -193,7 +193,7 @@ interface ChannelContext {
 
 async function sendEmailChannel(
   ctx: ChannelContext & {
-    profile: { email: string | null; full_name: string | null }
+    profile: { email: string | null; work_email?: string | null; full_name: string | null }
     subject: string
   },
 ): Promise<void> {
@@ -207,7 +207,10 @@ async function sendEmailChannel(
     if (prefs[column] === false) return
   }
 
-  if (!profile.email) return
+  // Username-provisioned staff have no real mailbox in `email`; fall back
+  // to their personal buyer-facing sender address (which also receives).
+  const recipientEmail = profile.email ?? profile.work_email ?? null
+  if (!recipientEmail) return
 
   // Idempotency: insert a "sent" marker first. If (user_id, dedup_key) already
   // exists we skip — this is what guarantees at-most-once delivery.
@@ -244,7 +247,7 @@ async function sendEmailChannel(
   try {
     const res = await sendMail({
       from: getFromAddress(),
-      to: profile.email,
+      to: recipientEmail,
       subject,
       html,
       text,

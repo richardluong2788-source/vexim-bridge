@@ -175,6 +175,10 @@ export type Database = {
           // Supplier Researcher who sourced/onboarded this client (074).
           // Drives SR's billing-proposal + collections scope.
           sourced_by: string | null
+          /** Personal buyer-facing sender address (migration 053). */
+          work_email: string | null
+          /** Staff login username (migration 076); null for clients and legacy staff. */
+          username: string | null
           created_at: string
           // AI Match — KYC verification (Trust Score input)
           is_verified: boolean
@@ -199,6 +203,8 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          work_email?: string | null
+          username?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null
@@ -222,6 +228,8 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          work_email?: string | null
+          username?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null

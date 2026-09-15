@@ -12,12 +12,14 @@ import { useTranslation } from "@/components/i18n/language-provider"
 import { updateUserRole, updateUserIndustries, generateWorkEmailForUser } from "@/app/admin/users/actions"
 import { ROLE_META, assignableRoles } from "@/lib/auth/permissions"
 import { AeIndustryPicker } from "@/components/admin/ae-industry-picker"
+import { ResetStaffPasswordDialog } from "@/components/admin/reset-staff-password-dialog"
 import type { Role } from "@/lib/supabase/types"
 import type { Locale } from "@/lib/i18n/config"
 
 interface UserRow {
   id: string
   email: string | null
+  username: string | null
   full_name: string | null
   role: Role
   company_name: string | null
@@ -98,6 +100,7 @@ export function UsersTable({
       return (
         (u.full_name ?? "").toLowerCase().includes(q) ||
         (u.email ?? "").toLowerCase().includes(q) ||
+        (u.username ?? "").toLowerCase().includes(q) ||
         (u.company_name ?? "").toLowerCase().includes(q)
       )
     })
@@ -215,7 +218,12 @@ export function UsersTable({
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="font-medium text-foreground">{displayName}</span>
-                      <span className="text-xs text-muted-foreground">{u.email ?? ""}</span>
+                      {u.username ? (
+                        <span className="font-mono text-xs text-foreground/80">@{u.username}</span>
+                      ) : null}
+                      {u.email ? (
+                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -316,7 +324,15 @@ export function UsersTable({
                         {t.admin.users.superAdminLocked ??
                           "Only a super admin can change another super admin."}
                       </p>
-                    ) : null}
+                    ) : (
+                      !(u.role === "admin" && !callerIsSuper) && (
+                        <ResetStaffPasswordDialog
+                          userId={u.id}
+                          targetLabel={u.full_name ?? u.username ?? u.email ?? u.id}
+                          locale={locale}
+                        />
+                      )
+                    )}
                   </td>
                 </tr>
               )

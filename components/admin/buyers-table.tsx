@@ -38,7 +38,8 @@ import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import { RunAIMatchButton } from "@/components/admin/run-ai-match-button"
 import { DeleteBuyerButton } from "@/components/admin/delete-buyer-button"
-import type { Stage } from "@/lib/supabase/types"
+import { AssignBuyerDialog } from "@/components/admin/assign-buyer-dialog"
+import type { Role, Stage } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
 // Shared row shape — page.tsx builds these on the server.
@@ -77,6 +78,9 @@ interface Props {
   canRunMatch?: boolean
   isLeadResearcher?: boolean
   canWriteBuyer?: boolean
+  /** Show the admin-only "Assign to AE" row action. */
+  canAssign?: boolean
+  currentRole?: Role | null
 }
 
 // Compact labels for the "latest stage" badge. Matches the kanban
@@ -115,7 +119,16 @@ const RISK_STYLE: Record<RiskLevel, string> = {
 
 const PAGE_SIZE = 20
 
-export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isLeadResearcher = false, canWriteBuyer = false }: Props) {
+export function BuyersTable({
+  rows,
+  locale,
+  canViewPII,
+  canRunMatch = false,
+  isLeadResearcher = false,
+  canWriteBuyer = false,
+  canAssign = false,
+  currentRole = null,
+}: Props) {
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState<string>("all")
   const [industryFilter, setIndustryFilter] = useState<string>("all")
@@ -594,6 +607,25 @@ export function BuyersTable({ rows, locale, canViewPII, canRunMatch = false, isL
                               {locale === "vi" ? "Chỉnh sửa" : "Edit"}
                             </Link>
                           </DropdownMenuItem>
+                          {canAssign && currentRole && (
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                              className="p-0"
+                            >
+                              <AssignBuyerDialog
+                                buyerId={r.id}
+                                buyerName={r.company_name || r.contact_person || "Unknown"}
+                                currentRole={currentRole}
+                                locale={locale}
+                                variant="ghost"
+                              >
+                                <div className="flex w-full items-center px-2 py-1.5 text-sm">
+                                  <UserCircle2 className="mr-2 h-4 w-4" />
+                                  {locale === "vi" ? "Gán cho AE…" : "Assign to AE…"}
+                                </div>
+                              </AssignBuyerDialog>
+                            </DropdownMenuItem>
+                          )}
                           {canWriteBuyer && (
                             <DropdownMenuItem asChild>
                               <DeleteBuyerButton

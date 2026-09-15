@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { landingPathForRole, normaliseRole } from "@/lib/auth/permissions"
+import { resolveLoginIdentifier } from "@/lib/auth/staff-login"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,7 +15,7 @@ import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 
 export default function LoginPage() {
   const { t } = useTranslation()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,16 +24,33 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    // One field for both account types: staff created after the username
+    // change log in with a username; clients and legacy staff use email.
+    const loginEmail = resolveLoginIdentifier(identifier)
+    if (!loginEmail) {
+      setError(t.auth.login.invalidIdentifier)
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: loginEmail,
       password,
     })
 
     if (signInError) {
-      setError(signInError.message)
+      // Supabase returns a generic "Invalid login credentials" — show a
+      // localised message instead of the raw English string.
+      if (/email not confirmed/i.test(signInError.message)) {
+        setError(t.auth.login.notConfirmed)
+      } else if (/invalid login credentials/i.test(signInError.message)) {
+        setError(t.auth.login.invalidCredentials)
+      } else {
+        setError(signInError.message)
+      }
       setLoading(false)
       return
     }
@@ -108,15 +126,17 @@ export default function LoginPage() {
             <CardContent>
               <form onSubmit={handleLogin} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="email">{t.auth.login.email}</Label>
+                  <Label htmlFor="identifier">{t.auth.login.usernameOrEmail}</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder={t.auth.login.emailPlaceholder}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="identifier"
+                    type="text"
+                    placeholder={t.auth.login.usernameOrEmailPlaceholder}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    autoComplete="email"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -174,6 +194,10 @@ export default function LoginPage() {
                     t.auth.login.submit
                   )}
                 </Button>
+
+                <p className="text-center text-[11px] leading-4 text-muted-foreground">
+                  {t.auth.login.staffForgotHint}
+                </p>
               </form>
             </CardContent>
           </Card>

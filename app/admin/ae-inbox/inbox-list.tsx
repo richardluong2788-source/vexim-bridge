@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Package,
   Tag,
+  UserCheck,
 } from "lucide-react"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/collapsible"
 import { rejectMatch } from "@/app/admin/buyers/matching-actions"
 import { claimBuyer } from "@/app/admin/ae-inbox/engagement-actions"
+import { AssignBuyerDialog } from "@/components/admin/assign-buyer-dialog"
 import type { Role } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -508,6 +510,29 @@ export function InboxList({
                       <X className="h-4 w-4" />
                       {locale === "vi" ? "Từ chối" : "Reject"}
                     </Button>
+
+                    {/* Admin/super_admin can pin the buyer to any AE instead
+                        of accepting the AI-suggested copy. */}
+                    {(currentRole === "admin" ||
+                      currentRole === "super_admin") && (
+                      <AssignBuyerDialog
+                        buyerId={item.lead_id}
+                        buyerName={item.leads?.company_name || "Unknown"}
+                        currentRole={currentRole}
+                        locale={locale}
+                        variant="outline"
+                      >
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={pending}
+                          className="gap-2"
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          {locale === "vi" ? "Gán cho AE…" : "Assign to AE…"}
+                        </Button>
+                      </AssignBuyerDialog>
+                    )}
 
                     <p className="text-xs text-muted-foreground">
                       {locale === "vi"

@@ -40,6 +40,18 @@ export interface MonthlyDigestData {
     winRate: number
     commissionPaidUsd: number
   }
+  /**
+   * Anonymous pre-kanban funnel for the month (shortlist introductions &
+   * buyer reactions). Buyer identity is never included.
+   */
+  preFunnel: {
+    introduced: number
+    viewed: number
+    info: number
+    strong: number
+    pendingResponse: number
+    activeInterest: number
+  }
   appUrl: string
 }
 
@@ -82,7 +94,44 @@ const MUTED = "#64748b"
 const BORDER = "#e2e8f0"
 
 export function renderMonthlyDigestHtml(data: MonthlyDigestData): string {
-  const { clientName, monthLabel, metrics, previous, appUrl } = data
+  const { clientName, monthLabel, metrics, previous, appUrl, preFunnel } = data
+
+  // Anonymous pre-negotiation introductions block. Hidden entirely when
+  // the client wasn't presented to any buyer this month — no point
+  // showing an empty funnel.
+  const preHas =
+    preFunnel.introduced > 0 ||
+    preFunnel.viewed > 0 ||
+    preFunnel.info > 0 ||
+    preFunnel.strong > 0 ||
+    preFunnel.pendingResponse > 0 ||
+    preFunnel.activeInterest > 0
+  const preStat = (label: string, value: number, tone: string) => `
+    <td style="padding:10px 12px;border:1px solid ${BORDER};border-radius:6px;background:#f0fdfa;width:25%;vertical-align:top;">
+      <div style="font:700 18px/22px sans-serif;color:${tone};">${value}</div>
+      <div style="font:500 11px/15px sans-serif;color:${MUTED};margin-top:2px;">${label}</div>
+    </td>`
+  const preBlock = preHas
+    ? `
+      <div style="margin:0 0 20px;">
+        <div style="font:600 11px/14px sans-serif;letter-spacing:0.06em;text-transform:uppercase;color:#0f766e;margin-bottom:8px;">
+          Giai đoạn giới thiệu (trước đàm phán)
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="6" border="0">
+          <tr>
+            ${preStat("Được giới thiệu cho buyer", preFunnel.introduced, "#0284c7")}
+            ${preStat("Buyer đã xem hồ sơ", preFunnel.viewed, "#4f46e5")}
+            ${preStat("Hỏi thông tin / quan tâm", preFunnel.info, "#d97706")}
+            ${preStat("Xin mẫu · họp · bàn đơn", preFunnel.strong, "#0d9488")}
+          </tr>
+        </table>
+        <p style="margin:8px 2px 0;font:12px/17px sans-serif;color:${MUTED};">
+          Cuối tháng: ${preFunnel.pendingResponse} đề xuất đang chờ buyer phản hồi ·
+          ${preFunnel.activeInterest} buyer đang quan tâm, chưa vào đàm phán.
+          Danh tính buyer chỉ được công bố khi vào đàm phán chính thức.
+        </p>
+      </div>`
+    : ""
 
   const kpiRow = (
     label: string,
@@ -180,6 +229,8 @@ export function renderMonthlyDigestHtml(data: MonthlyDigestData): string {
                     )}
                   </tr>
                 </table>
+
+                ${preBlock}
 
                 <p style="margin:0 0 16px;font:13px/20px sans-serif;color:${MUTED};">
                   ${

@@ -9,6 +9,7 @@ import {
   previousWeekStart,
   upsertWeeklyReport,
 } from "@/lib/reports/weekly-report"
+import { isPreFunnelEmpty } from "@/lib/reports/pre-funnel"
 import type { StageSummary } from "@/lib/email/weekly-report"
 import type { PreferredLanguage } from "@/lib/supabase/types"
 
@@ -113,7 +114,10 @@ export async function GET(request: Request) {
     // Build the snapshot. Buyer names inside are already masked (R-07).
     const payload = await buildWeeklyReportPayload(supabase, client, weekStart)
 
-    if (payload.totalLeads === 0) {
+    // A client with zero kanban rows still gets a report when they were
+    // introduced to buyers on a shortlist this week — that IS Vexim's
+    // visible work product during the pre-negotiation phase.
+    if (payload.totalLeads === 0 && isPreFunnelEmpty(payload.preFunnel)) {
       results.push({
         clientId: client.id,
         status: "skipped",
@@ -157,6 +161,7 @@ export async function GET(request: Request) {
             appUrl,
             locale,
             periodLabel,
+            preFunnel: payload.preFunnel,
           }),
         })
         if (sendErr) {
@@ -188,8 +193,12 @@ export async function GET(request: Request) {
         : `Your weekly report for ${formatWeekRangeEn(payload.periodStart, payload.periodEnd)} is ready`
     const body =
       locale === "vi"
-        ? `Tuần này có ${payload.newThisWeek} lead mới và ${payload.updatedThisWeek} lead có tiến triển. Xem chi tiết và tải PDF tại đây.`
-        : `${payload.newThisWeek} new leads and ${payload.updatedThisWeek} progressed this week. View details and download the PDF.`
+        ? payload.totalLeads === 0 && payload.preFunnel.introducedInWindow > 0
+          ? `Tuần này doanh nghiệp của bạn được giới thiệu cho ${payload.preFunnel.introducedInWindow} buyer, có ${payload.preFunnel.strongInWindow} lượt xin mẫu/họp/bàn đơn. Xem chi tiết và tải PDF tại đây.`
+          : `Tuần này có ${payload.newThisWeek} lead mới và ${payload.updatedThisWeek} lead có tiến triển. Xem chi tiết và tải PDF tại đây.`
+        : payload.totalLeads === 0 && payload.preFunnel.introducedInWindow > 0
+          ? `This week your company was introduced to ${payload.preFunnel.introducedInWindow} buyer${payload.preFunnel.introducedInWindow === 1 ? "" : "s"}, with ${payload.preFunnel.strongInWindow} sample/meeting/order request${payload.preFunnel.strongInWindow === 1 ? "" : "s"}. View details and download the PDF.`
+          : `${payload.newThisWeek} new leads and ${payload.updatedThisWeek} progressed this week. View details and download the PDF.`
 
     const { error: notifErr } = await supabase.from("notifications").insert({
       user_id: client.id,

@@ -28,6 +28,7 @@ import {
   renderMonthlyDigestHtml,
   type MonthlyDigestData,
 } from "@/lib/email/monthly-digest"
+import { buildPreFunnelMetrics } from "@/lib/reports/pre-funnel"
 import { siteConfig } from "@/lib/site-config"
 
 export const runtime = "nodejs"
@@ -232,21 +233,35 @@ export async function GET(request: Request) {
       continue
     }
 
-    const [m, prev, inProgress] = await Promise.all([
+    const [m, prev, inProgress, preFunnel] = await Promise.all([
       clientMetricsForMonth(admin, c.id, lastMonth.fromIso, lastMonth.toIso),
       clientMetricsForMonth(admin, c.id, monthBefore.fromIso, monthBefore.toIso),
       inProgressCountAt(admin, c.id),
+      buildPreFunnelMetrics(
+        admin,
+        c.id,
+        new Date(lastMonth.fromIso),
+        // Window is half-open [from, to); the helper treats end as
+        // inclusive but the boundary is midnight on the 1st with no
+        // real events at that exact instant.
+        new Date(lastMonth.toIso),
+      ),
     ])
 
     // Skip the noisy "no activity" emails. We only send if at least one of
-    // the recent months had ANY activity, or there are deals in progress.
+    // the recent months had ANY activity, there are deals in progress, or
+    // the client was actively presented to buyers on shortlists — that is
+    // visible pre-kanban work Vexim did on their behalf.
     const hadActivity =
       m.newOpportunities > 0 ||
       m.won > 0 ||
       m.lost > 0 ||
       m.commissionPaidUsd > 0 ||
       prev.won > 0 ||
-      inProgress > 0
+      inProgress > 0 ||
+      preFunnel.introducedInWindow > 0 ||
+      preFunnel.strongInWindow > 0 ||
+      preFunnel.activeInterest > 0
     if (!hadActivity) {
       results.push({
         clientId: c.id,
@@ -278,6 +293,14 @@ export async function GET(request: Request) {
         won: prev.won,
         winRate: winRatePrev,
         commissionPaidUsd: prev.commissionPaidUsd,
+      },
+      preFunnel: {
+        introduced: preFunnel.introducedInWindow,
+        viewed: preFunnel.viewedInWindow,
+        info: preFunnel.infoInWindow,
+        strong: preFunnel.strongInWindow,
+        pendingResponse: preFunnel.pendingResponse,
+        activeInterest: preFunnel.activeInterest,
       },
       appUrl,
     }

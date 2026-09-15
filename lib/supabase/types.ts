@@ -133,6 +133,18 @@ export interface WeeklyReportPayload {
     stage: Stage
     updatedAt: string
   }>
+  /**
+   * Pre-kanban funnel (shortlist introductions & buyer reactions). Always
+   * anonymous — no buyer identity — see lib/reports/pre-funnel.ts.
+   */
+  preFunnel: {
+    introducedInWindow: number
+    viewedInWindow: number
+    infoInWindow: number
+    strongInWindow: number
+    pendingResponse: number
+    activeInterest: number
+  }
 }
 
 export type Database = {

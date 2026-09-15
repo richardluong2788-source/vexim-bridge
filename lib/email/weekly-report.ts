@@ -15,6 +15,15 @@ export interface RecentLead {
   updatedAt: string
 }
 
+export interface PreFunnelView {
+  introducedInWindow: number
+  viewedInWindow: number
+  infoInWindow: number
+  strongInWindow: number
+  pendingResponse: number
+  activeInterest: number
+}
+
 export interface WeeklyReportData {
   clientName: string
   totalLeads: number
@@ -25,6 +34,8 @@ export interface WeeklyReportData {
   locale?: PreferredLanguage
   /** Optional human-readable period, e.g. "25–31/8" (vi) or "Aug 25 – 31" (en). */
   periodLabel?: string | null
+  /** Anonymous pre-kanban funnel (shortlist introductions & reactions). */
+  preFunnel?: PreFunnelView | null
 }
 
 const STAGE_COLOR: Record<Stage, string> = {
@@ -71,9 +82,17 @@ interface Copy {
   title: string
   greeting: (name: string) => string
   intro: (total: number) => string
+  preFunnelTitle: string
+  preIntroduced: string
+  preViewed: string
+  preInfo: string
+  preStrong: string
+  preStock: (pending: number, active: number) => string
+  preFunnelNote: string
   byStage: string
   recentlyUpdated: string
   noActivity: string
+  emptyKanban: string
   cta: string
   footer: string
 }
@@ -84,9 +103,20 @@ const COPY: Record<PreferredLanguage, Copy> = {
     greeting: (name) => `Kính gửi ${name},`,
     intro: (total) =>
       `Dưới đây là tổng quan pipeline của quý doanh nghiệp trong tuần qua. Hiện đang có <strong>${total}</strong> lead đang hoạt động.`,
+    preFunnelTitle: "Giới thiệu & quan tâm trước đàm phán",
+    preIntroduced: "Lượt được giới thiệu cho buyer",
+    preViewed: "Buyer đã xem hồ sơ",
+    preInfo: "Hỏi thông tin / bày tỏ quan tâm",
+    preStrong: "Xin mẫu · muốn họp · bàn đơn hàng",
+    preStock: (pending, active) =>
+      `Hiện tại: <strong>${pending}</strong> đề xuất đang chờ buyer phản hồi · <strong>${active}</strong> buyer đang quan tâm, chưa vào đàm phán.`,
+    preFunnelNote:
+      "Danh tính buyer chỉ được công bố khi vào đàm phán chính thức.",
     byStage: "Pipeline theo giai đoạn",
     recentlyUpdated: "Cập nhật gần đây",
     noActivity: "Tuần này chưa có hoạt động nào.",
+    emptyKanban:
+      "Các cơ hội sẽ hiển thị tại đây khi buyer chọn doanh nghiệp của bạn và bước vào đàm phán.",
     cta: "Xem báo cáo &amp; tải PDF",
     footer:
       "Quý doanh nghiệp nhận email này vì đã đăng ký là nhà xuất khẩu trên Vexim Trade.",
@@ -96,9 +126,20 @@ const COPY: Record<PreferredLanguage, Copy> = {
     greeting: (name) => `Hi ${name},`,
     intro: (total) =>
       `Here is a summary of your pipeline this week. You currently have <strong>${total}</strong> active leads.`,
+    preFunnelTitle: "Pre-negotiation introductions & interest",
+    preIntroduced: "Introduced to buyers",
+    preViewed: "Buyers viewed your profile",
+    preInfo: "Info requests / interest shown",
+    preStrong: "Sample · meeting · order requests",
+    preStock: (pending, active) =>
+      `Currently: <strong>${pending}</strong> introduction${pending === 1 ? "" : "s"} awaiting a buyer response · <strong>${active}</strong> buyer${active === 1 ? "" : "s"} interested, not yet negotiating.`,
+    preFunnelNote:
+      "Buyer identities are disclosed only once formal negotiations begin.",
     byStage: "Pipeline by stage",
     recentlyUpdated: "Recently updated",
     noActivity: "No activity this week.",
+    emptyKanban:
+      "Deals appear here once a buyer selects your company and negotiations begin.",
     cta: "View report &amp; download PDF",
     footer:
       "You are receiving this email because you are registered as an exporter on Vexim Trade.",
@@ -152,6 +193,46 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
         .join("")
     : `<tr><td style="padding:16px 0;font:14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#64748b;">${t.noActivity}</td></tr>`
 
+  // Pre-kanban funnel block — anonymous counts of shortlist introductions
+  // and buyer reactions before a deal enters the kanban.
+  const pre = data.preFunnel ?? null
+  const preEvents: Array<[string, number, string]> = pre
+    ? [
+        [t.preIntroduced, pre.introducedInWindow, "#0ea5e9"],
+        [t.preViewed, pre.viewedInWindow, "#6366f1"],
+        [t.preInfo, pre.infoInWindow, "#f59e0b"],
+        [t.preStrong, pre.strongInWindow, "#14b8a6"],
+      ]
+    : []
+  const preHasEvents = preEvents.some(([, n]) => n > 0)
+  const preHasStock = pre ? pre.pendingResponse > 0 || pre.activeInterest > 0 : false
+  const preBlock =
+    pre && (preHasEvents || preHasStock)
+      ? `
+        <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:18px 20px;margin-bottom:28px;">
+          <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#0f766e;margin-bottom:10px;">${t.preFunnelTitle}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            ${preEvents
+              .map(
+                ([label, n, color]) => `
+              <tr>
+                <td style="padding:5px 0;font:14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${color};margin-right:8px;vertical-align:middle;"></span>${label}
+                </td>
+                <td style="padding:5px 0;text-align:right;font:700 14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">${n}</td>
+              </tr>`,
+              )
+              .join("")}
+          </table>
+          ${
+            preHasStock
+              ? `<p style="margin:10px 0 0;font:13px/19px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f766e;">${t.preStock(pre.pendingResponse, pre.activeInterest)}</p>`
+              : ""
+          }
+          <p style="margin:8px 0 0;font:11px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#64748b;">🔒 ${t.preFunnelNote}</p>
+        </div>`
+      : ""
+
   const periodSubtitle = data.periodLabel
     ? `<div style="font:500 13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#cbd5e1;margin-top:4px;">${escapeHtml(data.periodLabel)}</div>`
     : ""
@@ -183,7 +264,12 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
                   ${t.intro(totalLeads)}
                 </p>
 
-                <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:8px;">${t.byStage}</div>
+                ${preBlock}
+
+                ${
+                  totalLeads === 0
+                    ? `<p style="margin:0 0 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#64748b;">${t.emptyKanban}</p>`
+                    : `<div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:8px;">${t.byStage}</div>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;border-top:1px solid #e2e8f0;">
                   ${stageRows}
                 </table>
@@ -191,7 +277,8 @@ export function renderWeeklyReportHtml(data: WeeklyReportData): string {
                 <div style="font:600 12px/16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:8px;">${t.recentlyUpdated}</div>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
                   ${recentRows}
-                </table>
+                </table>`
+                }
 
                 <a href="${escapeHtml(appUrl)}/client/reports" style="display:inline-block;background:#14b8a6;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font:600 14px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
                   ${t.cta}

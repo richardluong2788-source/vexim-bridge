@@ -70,6 +70,35 @@ curl -o bao-cao.pdf https://<domain>/api/reports/weekly/<clientId>?week=2026-08-
 - **API route**: client chỉ tải của chính mình (403 nếu khác); AE/researcher/staff bị giới hạn client mình phụ trách (`account_manager_id`); admin/super_admin/finance không giới hạn.
 - PDF embed font subset — file ~20-30KB, sạch, không JS/external resource.
 
+## Phễu trước kanban — giới thiệu & quan tâm (ẩn danh)
+
+Kanban (`opportunities`) chỉ xuất hiện **sau khi** AE convert engagement
+(buyer đã xem shortlist và phản hồi). Để client thấy được công việc của
+Vexim trong giai đoạn trước đó, báo cáo (email + PDF + chuông thông báo) và
+báo cáo tháng còn có khối **"Giới thiệu & quan tâm trước đàm phán"**, lấy từ
+`buyer_engagement_shortlist_versions/items` + `shortlist_share_links`
+(xem `lib/reports/pre-funnel.ts`):
+
+- **Được giới thiệu cho buyer** — số buyer (distinct theo engagement) có
+  shortlist **đã gửi** chứa client trong kỳ.
+- **Buyer đã xem hồ sơ** — buyer mở shortlist có client trong kỳ.
+- **Hỏi thông tin / quan tâm** — `requested_info`, `interested_no_details`.
+- **Xin mẫu / muốn họp / bàn đơn** — `requested_sample`, `requested_meeting`,
+  `requested_order_discussion`.
+- Tồn cuối kỳ: số đề xuất **đang chờ phản hồi** và **đang quan tâm, chưa
+  vào đàm phán** (chỉ tính trên shortlist mới nhất, engagement chưa
+  converted/dropped và chưa có opportunity).
+
+Quy tắc ẩn danh (mở rộng tinh thần R-07): khối này **chỉ có số đếm**, không
+bao giờ kèm tên/mã/quốc gia buyer; danh tính buyer chỉ mở sau khi convert
+vào opportunity và vẫn ẩn đến giai đoạn `price_agreed+` như cũ. Client
+chưa có cơ hội nào vẫn nhận báo cáo nếu trong tuần có hoạt động giới thiệu.
+
+Tín hiệu mạnh (xin mẫu/họp/bàn đơn) từ trang `/shortlist/[token]` đồng thời
+gửi **thông báo real-time**: client nhận bản ẩn danh (điều phối về
+`/client/products`), AE phụ trách nhận bản đầy đủ qua
+`app/shortlist/[token]/actions.ts`.
+
 ## Cấu trúc payload (jsonb)
 
 ```jsonc
@@ -79,6 +108,11 @@ curl -o bao-cao.pdf https://<domain>/api/reports/weekly/<clientId>?week=2026-08-
   "totalLeads": 14, "activeLeads": 9, "wonCount": 3, "lostCount": 2, "winRate": 21,
   "newThisWeek": 4, "updatedThisWeek": 7,
   "stageCounts": [{ "stage": "new", "count": 2 }, /* ... 10 stages */],
-  "recentLeads": [{ "displayName": "BYR-2026-0142", "stage": "negotiation", "updatedAt": "..." }]
+  "recentLeads": [{ "displayName": "BYR-2026-0142", "stage": "negotiation", "updatedAt": "..." }],
+  "preFunnel": {
+    "introducedInWindow": 3, "viewedInWindow": 2,
+    "infoInWindow": 1, "strongInWindow": 1,
+    "pendingResponse": 2, "activeInterest": 1
+  }
 }
 ```

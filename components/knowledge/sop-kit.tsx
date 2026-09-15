@@ -397,6 +397,28 @@ export function AppLink({ href, children }: { href: string; children: React.Reac
   )
 }
 
+/**
+ * Human-facing reference to a screen / menu / button — shows ONLY the label
+ * the employee reads in the UI, never a URL path or code identifier.
+ */
+export function Screen({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border bg-muted/60 px-2 py-0.5 text-[12.5px] font-semibold text-foreground/85">
+      <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+      {children}
+    </span>
+  )
+}
+
+/** Reference to a button / field label the employee clicks. */
+export function Ui({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-teal-300/50 bg-teal-50 px-1.5 py-0.5 text-[12.5px] font-semibold text-teal-700 dark:bg-teal-950/30 dark:text-teal-300">
+      {children}
+    </span>
+  )
+}
+
 export function Pill({ children, tone = "slate" }: { children: React.ReactNode; tone?: FlowNodeProps["tone"] }) {
   const t = TONE[tone]
   return (

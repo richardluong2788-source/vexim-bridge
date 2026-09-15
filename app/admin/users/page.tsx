@@ -5,7 +5,45 @@ import { CreateStaffDialog } from "@/components/admin/create-staff-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { can, CAPS, ROLE_META, normaliseRole } from "@/lib/auth/permissions"
+import { STAFF_EMAIL_DOMAIN } from "@/lib/auth/staff-login"
 import type { Role } from "@/lib/supabase/types"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/lib/supabase/types"
+
+type AdminClient = SupabaseClient<Database>
+
+/**
+ * Self-healing for username-provisioned staff accounts whose auth row is
+ * stuck unconfirmed (some GoTrue setups ignore email_confirm on create).
+ * Such accounts were always meant to be active the moment the super admin
+ * created them, so confirming them here is safe. Runs when a super admin
+ * opens the team page; no-op once every staff row is confirmed.
+ */
+async function healUnconfirmedStaff(admin: AdminClient): Promise<void> {
+  try {
+    // Internal teams are small; a single page is plenty, but loop defensively.
+    let page = 1
+    const perPage = 200
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage })
+      if (error || !data) return
+      const suffix = `@${STAFF_EMAIL_DOMAIN}`
+      const pending = data.users.filter(
+        (u) => u.email?.endsWith(suffix) && !u.email_confirmed_at,
+      )
+      await Promise.all(
+        pending.map((u) =>
+          admin.auth.admin.updateUserById(u.id, { email_confirm: true }),
+        ),
+      )
+      if (page * perPage >= (data.total ?? 0)) break
+      page += 1
+    }
+  } catch (err) {
+    // Never block rendering the users page on this best-effort heal.
+    console.error("[users] healUnconfirmedStaff failed:", err)
+  }
+}
 
 /**
  * Internal Vexim operations team — the only accounts shown on this page.
@@ -29,6 +67,12 @@ export default async function UsersPage() {
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
   if (!can(current.role, CAPS.USERS_VIEW)) redirect("/admin")
+
+  // Page loads by a user manager also activate any staff rows stuck
+  // unconfirmed (heals accounts that hit the "Email not confirmed" error).
+  if (can(current.role, CAPS.USERS_MANAGE)) {
+    await healUnconfirmedStaff(current.admin)
+  }
 
   // Use the service-role client (already inside `current`) to avoid RLS
   // recursion on profiles.

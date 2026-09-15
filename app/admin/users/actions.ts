@@ -433,6 +433,32 @@ export async function createStaffAccount(
 
   const newUserId = createData.user.id
 
+  // ---- 4a. Belt-and-braces: force the email confirmed state ---------------
+  // Some GoTrue configurations ignore `email_confirm` on POST admin/users
+  // (custom auth hooks / older releases), which leaves the account able to
+  // be created but unable to sign in ("Email not confirmed"). The PUT
+  // admin/users/:id endpoint with email_confirm=true always stamps
+  // email_confirmed_at; re-read the user and verify it actually took.
+  if (!createData.user.email_confirmed_at) {
+    const { data: confirmData, error: confirmErr } =
+      await admin.auth.admin.updateUserById(newUserId, { email_confirm: true })
+
+    if (confirmErr) {
+      console.error("[v0] createStaffAccount: email confirm failed:", confirmErr)
+      await admin.auth.admin.deleteUser(newUserId)
+      return { ok: false, error: "confirm_failed" }
+    }
+
+    if (!confirmData?.user?.email_confirmed_at) {
+      console.error(
+        "[v0] createStaffAccount: email still unconfirmed after update",
+        { userId: newUserId },
+      )
+      await admin.auth.admin.deleteUser(newUserId)
+      return { ok: false, error: "confirm_failed" }
+    }
+  }
+
   // ---- 4b. Personal buyer-facing sender address (same roles as before) -----
   const workEmail = ROLES_NEEDING_WORK_EMAIL.includes(role)
     ? await reserveWorkEmail(fullName)
@@ -551,8 +577,11 @@ export async function resetStaffPassword(
     return { ok: false, error: "super_admin_only" }
   }
 
+  // email_confirm:true heals accounts stuck in "Email not confirmed"
+  // (e.g. created before the confirmation hardening shipped).
   const { error: updateErr } = await admin.auth.admin.updateUserById(userId, {
     password,
+    email_confirm: true,
   })
   if (updateErr) {
     console.error("[v0] resetStaffPassword failed:", updateErr)

@@ -68,6 +68,8 @@ export const vi: Dictionary = {
       loading: "Đang đăng nhập...",
       errorTitle: "Đăng nhập thất bại",
       invalidCredentials: "Tên đăng nhập hoặc mật khẩu không đúng.",
+      notConfirmed:
+        "Tài khoản chưa được kích hoạt. Vui lòng liên hệ Super Admin để được kích hoạt.",
       invalidIdentifier: "Vui lòng nhập tên đăng nhập hoặc email hợp lệ.",
       demoTitle: "Demo",
       demoHint: "Liên hệ admin để cấp tài khoản đăng nhập",

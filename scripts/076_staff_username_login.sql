@@ -37,3 +37,19 @@ ALTER TABLE public.profiles
 
 COMMENT ON COLUMN public.profiles.username IS
   'Login username for super-admin-provisioned staff accounts (migration 076). NULL for clients and legacy email-invited staff.';
+
+-- ============================================================
+-- Heal staff accounts created before the confirmation hardening.
+-- These were provisioned with a synthetic staff email and an admin
+-- password, but an unconfirmed auth row blocks sign-in with
+-- "Email not confirmed". Confirm every such account now.
+-- ============================================================
+UPDATE auth.users
+SET
+  email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+  confirmation_token = '',
+  confirmation_sent_at = NULL,
+  recovery_token = COALESCE(recovery_token, ''),
+  updated_at = NOW()
+WHERE email LIKE '%@staff.veximtrade.com'
+  AND email_confirmed_at IS NULL;

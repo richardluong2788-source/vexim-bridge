@@ -44,11 +44,13 @@ export default function LoginPage() {
     if (signInError) {
       // Supabase returns a generic "Invalid login credentials" — show a
       // localised message instead of the raw English string.
-      setError(
-        /invalid login credentials/i.test(signInError.message)
-          ? t.auth.login.invalidCredentials
-          : signInError.message,
-      )
+      if (/email not confirmed/i.test(signInError.message)) {
+        setError(t.auth.login.notConfirmed)
+      } else if (/invalid login credentials/i.test(signInError.message)) {
+        setError(t.auth.login.invalidCredentials)
+      } else {
+        setError(signInError.message)
+      }
       setLoading(false)
       return
     }

@@ -66,6 +66,8 @@ export const en = {
       loading: "Signing in...",
       errorTitle: "Authentication failed",
       invalidCredentials: "Incorrect username or password.",
+      notConfirmed:
+        "This account is not activated yet. Please contact a Super Admin to activate it.",
       invalidIdentifier: "Please enter a valid username or email.",
       demoTitle: "Demo",
       demoHint: "Contact the administrator to grant a login account.",

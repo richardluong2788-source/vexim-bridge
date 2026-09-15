@@ -19,6 +19,9 @@ const GUIDES = [
     role: "account_executive",
     icon: BriefcaseBusiness,
     iconBg: "bg-teal-500/10 text-teal-600",
+    accentHover: "hover:border-teal-400",
+    accentText: "text-teal-600",
+    arrow: "text-teal-500",
     titleVi: "Tài liệu vận hành AE",
     titleEn: "Account Executive",
     tagline:
@@ -45,17 +48,24 @@ const GUIDES = [
     highlights: [],
   },
   {
-    href: "#",
+    href: "/admin/knowledge/sr",
     role: "supplier_researcher",
     icon: Factory,
     iconBg: "bg-amber-500/10 text-amber-600",
+    accentHover: "hover:border-amber-400",
+    accentText: "text-amber-600",
+    arrow: "text-amber-500",
     titleVi: "Tài liệu vận hành SR",
     titleEn: "Supplier Researcher",
     tagline:
-      "Tìm và định danh nhà cung cấp Việt Nam, thu thập hồ sơ năng lực/chứng từ tuân thủ và đưa client lên hệ thống.",
-    status: "soon" as const,
+      "Đọc nhu cầu thị trường, tìm & duyệt nhà cung cấp, đánh giá năng lực nhà máy, xây hồ sơ sản phẩm – chứng từ và đề xuất hợp đồng.",
+    status: "ready" as const,
     audience: ["supplier_researcher", "admin", "super_admin"],
-    highlights: [],
+    highlights: [
+      "Hành trình trọn vẹn một nhà cung cấp: từ nhu cầu đến hợp đồng và đốc thu",
+      "Ngưỡng điểm nhà máy A/B/C/D, chứng từ và link chia sẻ có thời hạn",
+      "Ranh giới quyền SR với AE và Tài chính, bảng thông báo thường gặp",
+    ],
   },
 ]
 
@@ -84,7 +94,9 @@ export default async function KnowledgeHubPage() {
           const card = (
             <div
               className={`flex h-full flex-col rounded-2xl border bg-card p-6 shadow-sm transition ${
-                g.status === "ready" ? "hover:border-teal-400 hover:shadow-md" : "opacity-70"
+                g.status === "ready"
+                  ? `${g.accentHover ?? "hover:border-teal-400"} hover:shadow-md`
+                  : "opacity-70"
               }`}
             >
               <div className="mb-4 flex items-start justify-between">
@@ -110,14 +122,14 @@ export default async function KnowledgeHubPage() {
                 <ul className="mt-4 space-y-1.5 text-sm">
                   {g.highlights.map((h) => (
                     <li key={h} className="flex gap-2 text-foreground/80">
-                      <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-teal-500" />
+                      <ArrowRight className={`mt-1 h-3.5 w-3.5 shrink-0 ${g.arrow ?? "text-teal-500"}`} />
                       {h}
                     </li>
                   ))}
                 </ul>
               )}
               {g.status === "ready" ? (
-                <div className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-600">
+                <div className={`mt-5 inline-flex items-center gap-1.5 text-sm font-semibold ${g.accentText ?? "text-teal-600"}`}>
                   Mở tài liệu <ArrowRight className="h-4 w-4" />
                 </div>
               ) : (
@@ -126,7 +138,7 @@ export default async function KnowledgeHubPage() {
                 </div>
               )}
               {isMine && (
-                <div className="mt-3 text-xs font-semibold text-teal-600">
+                <div className={`mt-3 text-xs font-semibold ${g.accentText ?? "text-teal-600"}`}>
                   ↑ Tài liệu dành cho vai trò của bạn
                 </div>
               )}

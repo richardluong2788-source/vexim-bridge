@@ -28,8 +28,11 @@ export const dynamic = "force-dynamic"
  *   1. Builds the report payload (buyer names pre-masked per R-07).
  *   2. Upserts a snapshot row into client_weekly_reports (migration 067)
  *      so the client dashboard + AE download views have history.
- *   3. Sends the report email (as before).
- *   4. Creates an in-app notification linking to /client/reports.
+ *   3. Sends the report email in the recipient's preferred language — but
+ *      only when they haven't opted out of status_update emails.
+ *   4. Creates an in-app notification linking to /client/reports (always,
+ *      even when the email is opted out — the bell feed has no per-category
+ *      opt-out).
  */
 export async function GET(request: Request) {
   // ---- 1. Authenticate the call ----------------------------------------
@@ -50,17 +53,38 @@ export async function GET(request: Request) {
   const supabase = createAdminClient()
   const weekStart = previousWeekStart()
 
-  // ---- 3. Fetch all clients ---------------------------------------------
-  const { data: clients, error: clientsErr } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, company_name, preferred_language")
-    .eq("role", "client")
+  // ---- 3. Fetch all clients + their email preferences ------------------
+  // The report email rides the status_update category (same as the monthly
+  // digest), so it honours both the master email_enabled switch and the
+  // per-category email_status_update toggle. Missing preference rows default
+  // to opted-in (Trigger creates the row with everything enabled).
+  const [{ data: clients, error: clientsErr }, { data: prefs }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, email, full_name, company_name, preferred_language")
+        .eq("role", "client"),
+      supabase
+        .from("notification_preferences")
+        .select("user_id, email_enabled, email_status_update"),
+    ])
 
   if (clientsErr) {
     return NextResponse.json(
       { error: "Failed to load clients", detail: clientsErr.message },
       { status: 500 },
     )
+  }
+
+  const optedOut = new Set<string>()
+  for (const p of (prefs ?? []) as Array<{
+    user_id: string
+    email_enabled: boolean
+    email_status_update: boolean
+  }>) {
+    if (!p.email_enabled || !p.email_status_update) {
+      optedOut.add(p.user_id)
+    }
   }
 
   // Use the stable production domain, never the per-deployment VERCEL_URL —
@@ -84,6 +108,8 @@ export async function GET(request: Request) {
       continue
     }
 
+    const locale: PreferredLanguage = client.preferred_language ?? "vi"
+
     // Build the snapshot. Buyer names inside are already masked (R-07).
     const payload = await buildWeeklyReportPayload(supabase, client, weekStart)
 
@@ -99,47 +125,63 @@ export async function GET(request: Request) {
     // Persist so dashboards + AE downloads have the exact same snapshot.
     const persisted = await upsertWeeklyReport(supabase, payload)
 
-    // ---- Email (unchanged shape, now with masked names) ---------------
+    // ---- Email -----------------------------------------------------------
+    // Skipped entirely (but not marked failed) when the client turned off
+    // status-update emails. The in-app bell notification below still fires.
     const stageCounts: StageSummary[] = payload.stageCounts
-    let emailStatus: "sent" | "failed" = "sent"
+    let emailStatus: "sent" | "failed" | "opted-out" = optedOut.has(client.id)
+      ? "opted-out"
+      : "sent"
     let emailError: string | undefined
 
-    try {
-      const { error: sendErr } = await sendMail({
-        from,
-        to: client.email,
-        subject: "Your weekly pipeline report — Vexim Trade",
-        html: renderWeeklyReportHtml({
-          clientName: payload.clientName,
-          totalLeads: payload.totalLeads,
-          stageCounts,
-          recentLeads: payload.recentLeads,
-          appUrl,
-        }),
-      })
-      if (sendErr) {
-        emailStatus = "failed"
-        emailError = sendErr.message
-      }
-    } catch (err) {
-      emailStatus = "failed"
-      emailError = err instanceof Error ? err.message : "unknown"
-    }
+    if (emailStatus !== "opted-out") {
+      try {
+        const subject =
+          locale === "vi"
+            ? `Báo cáo pipeline tuần ${formatWeekRangeVi(payload.periodStart, payload.periodEnd)} — Vexim Trade`
+            : "Your weekly pipeline report — Vexim Trade"
+        const periodLabel =
+          locale === "vi"
+            ? `Tuần ${formatWeekRangeVi(payload.periodStart, payload.periodEnd)}`
+            : `Week of ${formatWeekRangeEn(payload.periodStart, payload.periodEnd)}`
 
-    if (persisted.ok) {
-      await markReportEmailStatus(
-        supabase,
-        client.id,
-        weekStart,
-        emailStatus === "sent",
-        emailStatus === "failed" ? (emailError ?? null) : null,
-      )
+        const { error: sendErr } = await sendMail({
+          from,
+          to: client.email,
+          subject,
+          html: renderWeeklyReportHtml({
+            clientName: payload.clientName,
+            totalLeads: payload.totalLeads,
+            stageCounts,
+            recentLeads: payload.recentLeads,
+            appUrl,
+            locale,
+            periodLabel,
+          }),
+        })
+        if (sendErr) {
+          emailStatus = "failed"
+          emailError = sendErr.message
+        }
+      } catch (err) {
+        emailStatus = "failed"
+        emailError = err instanceof Error ? err.message : "unknown"
+      }
+
+      if (persisted.ok) {
+        await markReportEmailStatus(
+          supabase,
+          client.id,
+          weekStart,
+          emailStatus === "sent",
+          emailStatus === "failed" ? (emailError ?? null) : null,
+        )
+      }
     }
 
     // ---- In-app notification (bell feed) -------------------------------
     // Inserted directly — the email was already sent above, so we must NOT
     // go through dispatchNotification (it would double-email).
-    const locale: PreferredLanguage = client.preferred_language ?? "vi"
     const title =
       locale === "vi"
         ? `Báo cáo tuần ${formatWeekRangeVi(payload.periodStart, payload.periodEnd)} đã sẵn sàng`
@@ -162,10 +204,19 @@ export async function GET(request: Request) {
 
     results.push({
       clientId: client.id,
-      status: emailStatus === "sent" ? "sent" : "failed",
+      status:
+        emailStatus === "failed"
+          ? "failed"
+          : emailStatus === "opted-out"
+            ? "skipped"
+            : "sent",
       persisted: persisted.ok,
       notified: !notifErr,
-      ...(emailError ? { reason: emailError } : {}),
+      ...(emailError
+        ? { reason: emailError }
+        : emailStatus === "opted-out"
+          ? { reason: "email opted out" }
+          : {}),
     })
   }
 

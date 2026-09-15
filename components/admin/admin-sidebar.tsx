@@ -25,6 +25,7 @@ import {
   FileCheck2,
   Boxes,
   Receipt,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -98,6 +99,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     { href: "/admin/country-risk",      label: t.nav.countryRisk ?? "Country Risk",       icon: Globe2,                 cap: CAPS.COUNTRY_RISK_READ },
     { href: "/admin/finance",           label: t.nav.finance ?? "Tài chính",              icon: Wallet,                 cap: CAPS.FINANCE_READ },
     { href: "/admin/users",             label: t.nav.users,                               icon: UserCog,                cap: CAPS.USERS_VIEW },
+    { href: "/admin/knowledge",         label: locale === "vi" ? "Kiến thức" : "Knowledge", icon: BookOpen,              cap: null },
     { href: "/settings/notifications",  label: t.nav_extra.settings,                      icon: Settings,               cap: null },
   ]
 

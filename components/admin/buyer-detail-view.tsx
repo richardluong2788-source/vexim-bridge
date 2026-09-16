@@ -1395,29 +1395,30 @@ export function SuggestedApproachCard({
       s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
     )
     
+    const firstName = (buyer.contact_person || "").trim().split(/\s+/)[0]
     const lines: string[] = []
-    lines.push(`Subject: Partnership Opportunity - ${buyer.main_product || "Your Products"}`)
+    lines.push(`Subject: Sourcing ${(buyer.main_product || "your product category").toLowerCase()} from Vietnam`)
     lines.push("")
-    lines.push(`Dear ${buyer.contact_person || "Procurement Team"},`)
+    lines.push(`Hi ${firstName || "there"},`)
     lines.push("")
-    
+
     if (hasVNSupplier) {
-      lines.push(`I noticed ${buyer.company_name} is already sourcing from Vietnam. We'd love to discuss how we can complement your existing supply chain with competitive pricing and reliable quality.`)
+      lines.push(`I came across ${buyer.company_name} while looking into ${(buyer.main_product || "your category").toLowerCase()} buyers, and noticed you already source from Vietnam. I work with manufacturers here, and wondered whether you'd ever be open to evaluating an additional supplier alongside your current ones.`)
     } else {
-      lines.push(`I'm reaching out regarding ${buyer.main_product || "your import needs"}. Our Vietnamese suppliers specialize in HS ${buyer.hs_code || "your product category"} with competitive MOQ and pricing.`)
+      lines.push(`I came across ${buyer.company_name} while looking into ${(buyer.main_product || "your category").toLowerCase()} buyers. I work with Vietnamese manufacturers in the HS ${buyer.hs_code || "same category"} space, and wondered whether you'd ever be open to evaluating sourcing from Vietnam.`)
     }
-    
+
     lines.push("")
-    lines.push("Key highlights:")
-    lines.push(`- ${buyer.total_shipments ? `Volume capability matching your ${buyer.total_shipments}+ shipments history` : "Flexible MOQ for trial orders"}`)
-    lines.push("- Direct factory relationships in Vietnam")
-    lines.push(`- ${buyer.container_types ? `Experience with ${buyer.container_types} shipments` : "Full container and LCL options"}`)
+    lines.push("Would you be open to taking a quick look? If now isn't the right time, no worries at all.")
     lines.push("")
-    lines.push("Would you have 15 minutes this week for a quick call?")
+    lines.push(`If sourcing from Vietnam isn't on your radar right now, just reply "no" and I won't reach out again — no hard feelings.`)
     lines.push("")
     lines.push("Best regards,")
     lines.push("[Your Name]")
-    
+    lines.push("VEXIM GLOBAL CO., LTD")
+    lines.push("[your work email]")
+    lines.push("25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam")
+
     return lines.join("\n")
   }, [buyer])
 

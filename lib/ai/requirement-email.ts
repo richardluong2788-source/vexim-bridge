@@ -44,6 +44,25 @@ const ALLOWED_ROLES = new Set(["admin", "staff", "super_admin", "account_executi
  */
 const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
 
+/**
+ * Registered postal address, required in the signature of commercial cold
+ * outreach under the US CAN-SPAM Act. Keep this EXACT one-line formatting.
+ */
+const SIGNATURE_ADDRESS =
+  "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam"
+
+/**
+ * One-line, human-sounding opt-out (also a CAN-SPAM requirement on cold
+ * commercial email). Phrased as a peer courtesy rather than a legal footer,
+ * and a simple reply "no" is a valid opt-out mechanism. Used on the opening
+ * email and unanswered follow-ups ONLY — never once the buyer is in an active
+ * conversation (shortlist delivery, mid-thread replies).
+ */
+const OPT_OUT_EN =
+  `If sourcing from Vietnam isn't on your radar right now, just reply \"no\" and I won't reach out again — no hard feelings at all.`
+const OPT_OUT_VI =
+  `Nếu nguồn cung từ Việt Nam hiện chưa nằm trong kế hoạch của bạn, chỉ cần trả lời "không", tôi sẽ không gửi email lại — hoàn toàn không có gì phiền cả.`
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Gateway resilience: the model call above is the single point of failure
 // for every "soạn email" action in the AE inbox. If the Gateway is down or
@@ -98,14 +117,15 @@ function buildFallbackEmail(
   // US B2B norm: greet by first name; fall back to a soft generic.
   const greetingName = ctx.contactPerson?.trim().split(/\s+/)[0] || "there"
   const topic = ctx.industryOrProduct?.trim() || "your product category"
-  // Signature: AE's name, legal entity line, work email. NEVER a phone
-  // number (company policy) and never a placeholder.
+  // Signature: AE's name, legal entity line, work email, registered postal
+  // address (CAN-SPAM). NEVER a phone number and never a placeholder.
   const signature_en = [
     "",
     "Best regards,",
     ctx.senderName,
     SIGNATURE_COMPANY,
     ctx.senderEmail,
+    SIGNATURE_ADDRESS,
   ].join("\n")
   const signature_vi = [
     "",
@@ -113,6 +133,7 @@ function buildFallbackEmail(
     ctx.senderName,
     SIGNATURE_COMPANY,
     ctx.senderEmail,
+    SIGNATURE_ADDRESS,
   ].join("\n")
 
   if (emailType === "requirement_followup") {
@@ -125,6 +146,8 @@ function buildFallbackEmail(
             `I wanted to follow up on the supplier shortlist we shared earlier — I haven't heard back yet and wanted to check if you had a chance to review it: ${ctx.shortlistUrl}`,
             "",
             "Happy to answer any questions or provide more detail on any of the suppliers.",
+            "",
+            OPT_OUT_EN,
             signature_en,
           ]
             .filter((l) => l !== undefined)
@@ -135,6 +158,8 @@ function buildFallbackEmail(
             `Tôi muốn theo dõi lại về shortlist nhà cung cấp đã gửi trước đó — tôi chưa nhận được phản hồi và muốn hỏi bạn đã có dịp xem qua chưa: ${ctx.shortlistUrl}`,
             "",
             "Rất vui được giải đáp thêm hoặc cung cấp thông tin chi tiết hơn về các nhà cung cấp.",
+            "",
+            OPT_OUT_VI,
             signature_vi,
           ]
             .filter((l) => l !== undefined)
@@ -148,6 +173,8 @@ function buildFallbackEmail(
             `I reached out previously about evaluating additional sourcing for ${topic} from Vietnam, and wanted to follow up in case my earlier message didn't reach you.`,
             "",
             "Would you be open to a brief conversation on this? Happy to share more information if there's interest.",
+            "",
+            OPT_OUT_EN,
             signature_en,
           ].join("\n"),
           content_vi: [
@@ -156,6 +183,8 @@ function buildFallbackEmail(
             `Tôi đã liên hệ trước đó về việc đánh giá thêm nguồn cung ${topic} từ Việt Nam, và muốn theo dõi lại trong trường hợp email trước chưa đến được bạn.`,
             "",
             "Bạn có muốn trao đổi ngắn về việc này không? Rất vui được chia sẻ thêm thông tin nếu bạn quan tâm.",
+            "",
+            OPT_OUT_VI,
             signature_vi,
           ].join("\n"),
         }
@@ -206,6 +235,8 @@ function buildFallbackEmail(
       `We work with manufacturers here for ${topic}, so if you're ever evaluating additional suppliers from Vietnam, I'd be glad to put a few suitable options in front of you.`,
       "",
       "Would you be open to taking a quick look? If now isn't the right time, no worries at all.",
+      "",
+      OPT_OUT_EN,
       signature_en,
     ].join("\n"),
     content_vi: [
@@ -218,6 +249,8 @@ function buildFallbackEmail(
       `Chúng tôi làm việc với các nhà máy tại Việt Nam cho ngành ${topic}, nên nếu bạn có lúc cần đánh giá thêm nhà cung cấp từ Việt Nam, tôi rất sẵn lòng gửi bạn một vài lựa chọn phù hợp.`,
       "",
       "Bạn có muốn xem qua không? Nếu hiện tại chưa phải thời điểm thích hợp thì cũng hoàn toàn không sao.",
+      "",
+      OPT_OUT_VI,
       signature_vi,
     ].join("\n"),
   }
@@ -230,8 +263,8 @@ function buildFallbackFollowUpReply(ctx: {
   senderEmail: string
   defaultSubject: string
 }): { subject_en: string; content_en: string; content_vi: string } {
-  const signature_en = ["", "Best regards,", ctx.senderName, SIGNATURE_COMPANY, ctx.senderEmail].join("\n")
-  const signature_vi = ["", "Trân trọng,", ctx.senderName, SIGNATURE_COMPANY, ctx.senderEmail].join("\n")
+  const signature_en = ["", "Best regards,", ctx.senderName, SIGNATURE_COMPANY, ctx.senderEmail, SIGNATURE_ADDRESS].join("\n")
+  const signature_vi = ["", "Trân trọng,", ctx.senderName, SIGNATURE_COMPANY, ctx.senderEmail, SIGNATURE_ADDRESS].join("\n")
   return {
     subject_en: ctx.defaultSubject,
     content_en: [
@@ -260,7 +293,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body. Exact content requirements (what to ask, what NOT to ask, tone, structure, length) are fully specified in the system prompt for the given emailType — follow the system prompt precisely rather than any generic assumption. Always end with a complete signature using sender_name / signature_company / sender_email from context — never use placeholders and never include a phone number.",
+      "Full English email body. Exact content requirements (what to ask, what NOT to ask, tone, structure, length) are fully specified in the system prompt for the given emailType — follow the system prompt precisely rather than any generic assumption. Always end with a complete signature using sender_name / signature_company / sender_email / signature_address from context (in that order) — never use placeholders and never include a phone number.",
     ),
   content_vi: z
     .string()
@@ -387,8 +420,10 @@ export async function generateRequirementInquiryEmail(
       // Short brand name for conversational use INSIDE the body ("I'm with
       // Vexim in Vietnam"). The legal signature line is signature_company.
       exporter_company: "Vexim",
-      // Exact legal entity text that must appear in the signature.
+      // Exact legal entity text + registered postal address that must
+      // appear in the signature (CAN-SPAM requires the address).
       signature_company: SIGNATURE_COMPANY,
+      signature_address: SIGNATURE_ADDRESS,
       // IMPORTANT: never sign with profile.email — that's the AE's login
       // address and is often a personal Gmail (leaks into the buyer-facing
       // signature). Sign with their provisioned work_email, falling back to
@@ -419,8 +454,10 @@ export async function generateRequirementInquiryEmail(
           "(shortlist_url in context) to view each supplier's profile, and to mark which one(s) they",
           "are interested in. Do not list supplier names in the email body — only the link.",
           "Keep it short (80-140 words), confident, and action-oriented. End with a complete",
-          "signature using sender_name / signature_company / sender_email from context — never use",
-          "placeholders and never include a phone number. Never invent facts not present in context. No emoji.",
+          "signature using sender_name / signature_company / sender_email / signature_address from",
+          "context, in that order — never use placeholders and never include a phone number. This",
+          "buyer already replied with requirements, so do NOT add an opt-out line. Never invent",
+          "facts not present in context. No emoji.",
           "",
           "PRESENT THE LINK LIKE A PERSON, NOT LIKE A MARKETING CTA BUTTON. Reference it inline as",
           "part of a normal sentence (e.g. 'I've put together a shortlist for you here: <url>' or",
@@ -453,9 +490,14 @@ export async function generateRequirementInquiryEmail(
           "5. Subject should read as a gentle follow-up (e.g. start with 'Following up'). Never",
           "   use a 'Re:' prefix when the buyer has never replied — a fake reply prefix is a",
           "   deceptive-subject spam trigger.",
-          "6. End with a complete signature using sender_name / signature_company / sender_email",
-          "   from context — never a placeholder and never a phone number.",
-          "7. American business voice: greet by first name ('Hi {first name},'), use natural",
+          "6. End with a complete signature using sender_name / signature_company / sender_email /",
+          "   signature_address from context, in that order — never a placeholder and never a",
+          "   phone number.",
+          "7. The buyer has NOT replied, so include the CAN-SPAM opt-out as the final line BEFORE",
+          "   the signature, worded like a peer courtesy: 'If sourcing from Vietnam isn't on your",
+          "   radar right now, just reply \"no\" and I won't reach out again — no hard feelings at",
+          "   all.' Never make it look like a legal footer.",
+          "8. American business voice: greet by first name ('Hi {first name},'), use natural",
           "   contractions (I'm, you've), short sentences, and no stiff phrases ('I hope this",
           "   email finds you well', 'kindly', 'dear friend'). Sound like a real person following",
           "   up, not a marketing sequence.",
@@ -494,9 +536,10 @@ export async function generateRequirementInquiryEmail(
           "13. Total length: 120-180 words for the body (excluding signature).",
           "14. End with a complete, real signature in EXACTLY this shape, using context values:",
           "    a blank line, 'Best regards,', the sender_name, then signature_company",
-          "    ('VEXIM GLOBAL CO., LTD'), then sender_email. Never include a phone number, title",
-          "    line, or placeholder like '[Your Name]'. The body may call the company 'Vexim'; the",
-          "    legal signature line is always 'VEXIM GLOBAL CO., LTD'.",
+          "    ('VEXIM GLOBAL CO., LTD'), then sender_email, then signature_address (the",
+          "    registered postal address, copied verbatim on its own line). Never include a phone",
+          "    number, title line, or placeholder like '[Your Name]'. The body may call the",
+          "    company 'Vexim'; the legal signature line is always 'VEXIM GLOBAL CO., LTD'.",
           "15. Do not use a 'Re:' subject prefix — this is a first contact on this topic.",
           "16. Do not add a P.S., forwarded-message framing, or any second CTA/question of any kind.",
           "17. Generalize to the buyer's ACTUAL product/industry taken from context (main_product /",
@@ -522,6 +565,11 @@ export async function generateRequirementInquiryEmail(
           "    'unsubscribe', 'congratulations', 'dear friend', or savings/ROI percentage claims.",
           "    No ALL-CAPS words for emphasis, no exclamation marks, no emoji or unicode symbols",
           "    beyond standard punctuation.",
+          "23. CAN-SPAM COMPLIANCE: as the final sentence of the BODY (on its own short paragraph",
+          "    before the signature), give a simple, human opt-out: 'If sourcing from Vietnam",
+          "    isn't on your radar right now, just reply \"no\" and I won't reach out again — no",
+          "    hard feelings at all.' It must read as a courtesy, never as a legal footer or a",
+          "    clickable unsubscribe link.",
           "",
           "AMERICAN BUSINESS VOICE (the reader is a busy US purchasing/import professional):",
           "- Greet by first name with a plain 'Hi {first name},' when the contact person is known;",
@@ -553,8 +601,9 @@ export async function generateRequirementInquiryEmail(
           "   product/industry.",
           "5. A short, low-pressure closing line with an easy out (e.g. 'If now isn't the right",
           "   time, no worries at all.').",
-          "6. Complete signature, exactly: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' /",
-          "   sender_email. No title line, no phone number.",
+          "6. The opt-out sentence from rule 23, on its own line.",
+          "7. Complete signature, exactly: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD'",
+          "   / sender_email / signature_address. No title line, no phone number.",
           "",
           "WRITING STYLE:",
           "Concise, plain American business English, active voice, short sentences and short",
@@ -567,10 +616,11 @@ export async function generateRequirementInquiryEmail(
           "Before producing content_en, verify silently: exactly one CTA present; no MOQ/price/",
           "payment/packaging/spec question anywhere; no supplier named; no fabricated fact; no",
           "forbidden claim; no URL or attachment; no spam vocabulary, caps, exclamation marks or",
-          "emoji; greeting uses the contact's first name; Vexim intro is brief and woven into the",
-          "opening, not a standalone pitch paragraph; no marketing-tagline phrasing; length is",
-          "120-180 words; signature is exactly name / VEXIM GLOBAL CO., LTD / email with no phone.",
-          "If any check fails, rewrite before finalizing.",
+          "emoji; greeting uses the contact's first name; the human opt-out sentence is present",
+          "right before the signature; Vexim intro is brief and woven into the opening, not a",
+          "standalone pitch paragraph; no marketing-tagline phrasing; length is 120-180 words;",
+          "signature is exactly name / VEXIM GLOBAL CO., LTD / email / postal address with no",
+          "phone. If any check fails, rewrite before finalizing.",
         ].join("\n")
 
   const userPrompt = [
@@ -660,7 +710,7 @@ const followUpOutputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body replying directly to the buyer's message. Address exactly what the buyer asked/raised — do not repeat the original requirement questions. Keep it concise (80-160 words), warm, specific, and in natural American business English (first-name greeting, contractions, short paragraphs). End with a complete signature using sender_name / signature_company / sender_email from context — never use placeholders and never include a phone number.",
+      "Full English email body replying directly to the buyer's message. Address exactly what the buyer asked/raised — do not repeat the original requirement questions. Keep it concise (80-160 words), warm, specific, and in natural American business English (first-name greeting, contractions, short paragraphs). End with a complete signature using sender_name / signature_company / sender_email / signature_address from context, in that order — never use placeholders and never include a phone number. This is an active conversation, so do NOT add an opt-out line.",
     ),
   content_vi: z
     .string()
@@ -801,6 +851,7 @@ export async function generateFollowUpReplyEmail(
       sender_name: profile.full_name,
       exporter_company: "Vexim",
       signature_company: SIGNATURE_COMPANY,
+      signature_address: SIGNATURE_ADDRESS,
       sender_email: profile.work_email || "trade@veximtrade.com",
     },
     null,
@@ -820,7 +871,8 @@ export async function generateFollowUpReplyEmail(
     "Write in natural American business English: greet by first name, use contractions, keep",
     "paragraphs to 1-3 sentences, and avoid stiff phrases ('I hope this email finds you well',",
     "'kindly'). Close with exactly this signature: 'Best regards,' / sender_name /",
-    "'VEXIM GLOBAL CO., LTD' / sender_email. Never add a phone number or a job title line.",
+    "'VEXIM GLOBAL CO., LTD' / sender_email / signature_address. Never add a phone number or a",
+    "job title line, and never add an opt-out line to an active conversation.",
   ].join("\n")
 
   const userPrompt = [

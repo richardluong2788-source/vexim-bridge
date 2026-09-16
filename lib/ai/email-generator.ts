@@ -334,7 +334,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity, no phone number and no email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n\nNEVER use placeholders like '[Your Name]', '[Your Title]'. Use the actual names provided in the context. If a field is missing, omit only that line. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity then postal address; never a phone number or email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam\n\nFor a COLD first-contact introduction or a follow-up the buyer has NOT answered, add one short human opt-out line as the final body sentence before the signature: 'If this isn't relevant right now, just reply \"no\" and I won't reach out again — no hard feelings.' Never add that line once the buyer is in an active conversation (quotations, negotiations, replies). NEVER use placeholders like '[Your Name]', '[Your Title]'. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -622,9 +622,11 @@ export async function generateEmailDraft(
         aeProfile?.role === "account_executive" ? "Account Executive" :
         aeProfile?.role === "staff" ? "Business Development Manager" :
         "Business Development",
-      // Legal entity line for the buyer-facing signature. In the body the
-      // company may be referred to conversationally as "Vexim".
+      // Legal entity line + registered postal address for the buyer-facing
+      // signature (CAN-SPAM requires the address on commercial email).
+      // In the body the company may be referred to conversationally as "Vexim".
       sender_company: "VEXIM GLOBAL CO., LTD",
+      sender_address: "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam",
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -703,7 +705,7 @@ matched to their specific requirements — NOT a broker blasting out a generic s
     `
 CONTEXT DATA - Do NOT get confused:
 - "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
-- "sender_name", "sender_title", "sender_company" = The AE's info from VEXIM GLOBAL CO., LTD. These three lines (and ONLY these) go in the signature. There is no sender_email or sender_phone in context — never invent or ask for them, and never put a phone number in the email.
+- "sender_name", "sender_title", "sender_company", "sender_address" = The AE's info from VEXIM GLOBAL CO., LTD. These go in the signature (name, title, legal entity, then the postal address on its own line). There is no sender_email or sender_phone in context — never invent or ask for them, and never put a phone number or email address in the email.
 
 Example to avoid confusion:
 - Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
@@ -725,6 +727,7 @@ GREETING & SUBJECT PERSONALIZATION:
    - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")
    - sender_title (the AE's title/role - e.g., "Account Executive" or "Business Development Manager")
    - sender_company, exactly "VEXIM GLOBAL CO., LTD"
+   - sender_address, the registered postal address, verbatim on its own line
 
    SIGNATURE FORMAT (MUST FOLLOW EXACTLY):
    Best regards,
@@ -732,6 +735,7 @@ GREETING & SUBJECT PERSONALIZATION:
    [sender_name]
    [sender_title]
    VEXIM GLOBAL CO., LTD
+   25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam
 
    ⚠️ NEVER include email addresses (personal or work) in the signature.
    ⚠️ NEVER include phone numbers of any kind in the signature.
@@ -739,6 +743,8 @@ GREETING & SUBJECT PERSONALIZATION:
    ⚠️ NEVER use the buyer/exporter name in the signature.
 
    The signature should be minimal and professional. Buyers reply to the email directly - no need for additional contact info. In the body, refer to the company conversationally as "Vexim"; the legal line "VEXIM GLOBAL CO., LTD" appears only in the signature.
+
+8. CAN-SPAM ON COLD EMAILS: for the cold "introduction" and any "follow_up" sent while the buyer has NOT replied, end the body (just before the signature) with one short, human opt-out line: 'If this isn't relevant right now, just reply "no" and I won't reach out again — no hard feelings.' Do NOT include it once the buyer has replied (quotations, sample offers, negotiations, active replies).
 `,
 `
 ═══════════════════════════════════════════════════════════════════════════════
@@ -824,7 +830,8 @@ STRICT RULES:
 - Never use emoji or excessive punctuation (!!!, ???).
 - If context is thin, write a shorter, tighter email rather than padding with fluff.
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
-- SIGNATURE: Always end with a COMPLETE signature using ONLY sender_name, sender_title, and sender_company ("VEXIM GLOBAL CO., LTD") from context, in that order. No email line, no phone number. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- SIGNATURE: Always end with a COMPLETE signature using ONLY sender_name, sender_title, sender_company ("VEXIM GLOBAL CO., LTD"), and sender_address (registered Hanoi postal address) from context, in that order. No email line, no phone number. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- OPT-OUT: cold introductions and unanswered follow-ups must close with the one-line human opt-out (reply "no"); omit it in every email inside an active conversation.
 `,
     buildScenarioIntelligenceBlock(isFirstContact, includeThreePillars),
   ].join("\n")

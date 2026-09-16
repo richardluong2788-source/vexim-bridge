@@ -334,7 +334,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity then postal address; never a phone number or email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam\n\nFor a COLD first-contact introduction or a follow-up the buyer has NOT answered, add one short human opt-out line as the final body sentence before the signature: 'If this isn't relevant right now, just reply \"no\" and I won't reach out again — no hard feelings.' Never add that line once the buyer is in an active conversation (quotations, negotiations, replies). NEVER use placeholders like '[Your Name]', '[Your Title]'. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity then postal address; never a phone number or email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\n\nFor a COLD first-contact introduction or a follow-up the buyer has NOT answered, add one short human opt-out line as the final body sentence before the signature: 'If this isn't relevant right now, just reply \"no\" and I won't reach out again — no hard feelings.' Never add that line once the buyer is in an active conversation (quotations, negotiations, replies). NEVER use placeholders like '[Your Name]', '[Your Title]'. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -626,7 +626,7 @@ export async function generateEmailDraft(
       // signature (CAN-SPAM requires the address on commercial email).
       // In the body the company may be referred to conversationally as "Vexim".
       sender_company: "VEXIM GLOBAL CO., LTD",
-      sender_address: "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam",
+      sender_address: "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam",
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -735,7 +735,7 @@ GREETING & SUBJECT PERSONALIZATION:
    [sender_name]
    [sender_title]
    VEXIM GLOBAL CO., LTD
-   25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam
+   25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
 
    ⚠️ NEVER include email addresses (personal or work) in the signature.
    ⚠️ NEVER include phone numbers of any kind in the signature.

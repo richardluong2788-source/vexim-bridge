@@ -1417,7 +1417,7 @@ export function SuggestedApproachCard({
     lines.push("[Your Name]")
     lines.push("VEXIM GLOBAL CO., LTD")
     lines.push("[your work email]")
-    lines.push("25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam")
+    lines.push("25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam")
 
     return lines.join("\n")
   }, [buyer])

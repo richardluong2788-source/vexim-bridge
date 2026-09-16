@@ -49,7 +49,7 @@ const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
  * outreach under the US CAN-SPAM Act. Keep this EXACT one-line formatting.
  */
 const SIGNATURE_ADDRESS =
-  "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Bac Tu Liem District, Hanoi, Vietnam"
+  "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
 
 /**
  * One-line, human-sounding opt-out (also a CAN-SPAM requirement on cold

@@ -334,7 +334,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT:\n\nBest regards,\n\n[SENDER_FULL_NAME]\n[EXPORTER_COMPANY_NAME]\n[SENDER_EMAIL]\n[SENDER_PHONE]\n\nNEVER use placeholders like '[Your Name]', '[Your Contact]', etc. Use the actual names and contacts provided in the context. If any info is missing, use only what's available. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity, no phone number and no email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n\nNEVER use placeholders like '[Your Name]', '[Your Title]'. Use the actual names provided in the context. If a field is missing, omit only that line. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -622,7 +622,9 @@ export async function generateEmailDraft(
         aeProfile?.role === "account_executive" ? "Account Executive" :
         aeProfile?.role === "staff" ? "Business Development Manager" :
         "Business Development",
-      sender_company: "Vexim Trade",
+      // Legal entity line for the buyer-facing signature. In the body the
+      // company may be referred to conversationally as "Vexim".
+      sender_company: "VEXIM GLOBAL CO., LTD",
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -701,12 +703,12 @@ matched to their specific requirements — NOT a broker blasting out a generic s
     `
 CONTEXT DATA - Do NOT get confused:
 - "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
-- "sender_name", "sender_title", "sender_company", "sender_email", "sender_phone" = The AE's info from VEXIM TRADE. These go in the signature.
+- "sender_name", "sender_title", "sender_company" = The AE's info from VEXIM GLOBAL CO., LTD. These three lines (and ONLY these) go in the signature. There is no sender_email or sender_phone in context — never invent or ask for them, and never put a phone number in the email.
 
 Example to avoid confusion:
 - Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
-- Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (This is the AE sending the email)
-- The email is FROM Luong Van Hoc (Vexim Trade) TO the buyer at Công Ty Long An.`,
+- Sender: "Luong Van Hoc, Account Executive at VEXIM GLOBAL CO., LTD" (This is the AE sending the email)
+- The email is FROM Luong Van Hoc (Vexim) TO the buyer at Công Ty Long An. In the body, call the company "Vexim"; the signature line is always "VEXIM GLOBAL CO., LTD".`,
     `
 GREETING & SUBJECT PERSONALIZATION:
 - "buyer_contact" is the EXACT person this email is addressed to (the AE explicitly selected them as the main recipient). ALWAYS greet them by this name: "Dear [buyer_contact]," or "Hi [first name],". Never use a generic greeting like "Dear Sir/Madam" or "Dear Team" when buyer_contact is provided.
@@ -721,22 +723,22 @@ GREETING & SUBJECT PERSONALIZATION:
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain ONLY:
    - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")
-   - sender_title (the AE's title/role at Vexim Trade - e.g., "Account Executive" or "Business Development Manager")
-   - sender_company ("Vexim Trade")
-   
+   - sender_title (the AE's title/role - e.g., "Account Executive" or "Business Development Manager")
+   - sender_company, exactly "VEXIM GLOBAL CO., LTD"
+
    SIGNATURE FORMAT (MUST FOLLOW EXACTLY):
    Best regards,
-   
+
    [sender_name]
    [sender_title]
-   Vexim Trade
-   
-   ⚠️ NEVER include personal email addresses (like hocluongvan88@gmail.com) in the signature.
-   ⚠️ NEVER include personal phone numbers in the signature.
+   VEXIM GLOBAL CO., LTD
+
+   ⚠️ NEVER include email addresses (personal or work) in the signature.
+   ⚠️ NEVER include phone numbers of any kind in the signature.
    ⚠️ NEVER use placeholder text like "[Your Name]" or "[Your Title]".
    ⚠️ NEVER use the buyer/exporter name in the signature.
-   
-   The signature should be minimal and professional. Buyers will reply to the email directly - no need for additional contact info.
+
+   The signature should be minimal and professional. Buyers reply to the email directly - no need for additional contact info. In the body, refer to the company conversationally as "Vexim"; the legal line "VEXIM GLOBAL CO., LTD" appears only in the signature.
 `,
 `
 ═══════════════════════════════════════════════════════════════════════════════
@@ -822,7 +824,7 @@ STRICT RULES:
 - Never use emoji or excessive punctuation (!!!, ???).
 - If context is thin, write a shorter, tighter email rather than padding with fluff.
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
-- SIGNATURE: Always end with a COMPLETE signature using sender_name, exporter_company, sender_email, sender_phone from context. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- SIGNATURE: Always end with a COMPLETE signature using ONLY sender_name, sender_title, and sender_company ("VEXIM GLOBAL CO., LTD") from context, in that order. No email line, no phone number. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
 `,
     buildScenarioIntelligenceBlock(isFirstContact, includeThreePillars),
   ].join("\n")

@@ -43,7 +43,7 @@ export function ImageLinkField({
         existing={value}
         max={max}
         onAdd={handleLinksAdd}
-        placeholder="Dán link ảnh công khai (https://...) — không bắt buộc, có thể bổ sung sau"
+        placeholder="Dán link ảnh công khai (https://...)"
       />
 
       {value.length > 0 && (
@@ -80,7 +80,7 @@ export function ImageLinkField({
       <p className="text-xs text-muted-foreground">
         {value.length}/{max} ảnh · chỉ nhận link ảnh (JPG, PNG, WEBP…){max > 1
           ? " · có thể dán nhiều link cùng lúc"
-          : ""} · mục này không bắt buộc, có thể gửi bổ sung sau cho nhân viên
+          : ""}
       </p>
       {recommendedSize && (
         <p className="text-xs text-muted-foreground">

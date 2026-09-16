@@ -83,6 +83,7 @@ import {
 } from "@/app/admin/buyers/actions"
 import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
+import { EmailSuppressionPanel } from "@/components/admin/email-suppression-panel"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,11 @@ export interface BuyerDetailData {
   inquiry_channel: string | null
   inquiry_notes: string | null
   inquiry_received_at: string | null
+
+  // Automatic email suppression (Resend bounce / complaint — migration 077)
+  email_hard_bounced_at: string | null
+  email_complained_at: string | null
+  email_suppression_note: string | null
 }
 
 export interface BuyerOpportunity {
@@ -194,6 +200,7 @@ interface Props {
   locale: "vi" | "en"
   canWrite: boolean
   canViewPII: boolean
+  canLiftSuppression: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -269,6 +276,7 @@ export function BuyerDetailView({
   locale,
   canWrite,
   canViewPII,
+  canLiftSuppression,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -352,6 +360,16 @@ export function BuyerDetailView({
           </div>
         )}
       </div>
+
+      {/* --- Email suppression banner (hard bounce / spam complaint) ------ */}
+      <EmailSuppressionPanel
+        leadId={buyer.id}
+        hardBouncedAt={buyer.email_hard_bounced_at}
+        complainedAt={buyer.email_complained_at}
+        note={buyer.email_suppression_note}
+        canLift={canLiftSuppression}
+        locale={locale}
+      />
 
       {/* --- Active inquiry banner (migration 068) ------------------------ */}
       {buyer.has_active_inquiry && (

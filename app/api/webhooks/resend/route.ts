@@ -3,6 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { getEmailDomain, isPublicEmailDomain } from "@/lib/email/public-domains"
+import {
+  handleOutboundEmailEvent,
+  isOutboundEmailEvent,
+  type OutboundEventPayload,
+} from "@/lib/email/delivery-events"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -589,13 +594,23 @@ export async function POST(req: NextRequest) {
     console.log("[v0] Webhook raw body length:", rawBody.length)
     console.log("[v0] Webhook raw body preview:", rawBody.slice(0, 500))
     
-    const payload: ResendWebhookPayload = JSON.parse(rawBody)
+    const payload = JSON.parse(rawBody) as ResendWebhookPayload & OutboundEventPayload
     console.log("[v0] Parsed webhook payload type:", payload.type)
 
-    // Only process email.received events
+    // Outbound delivery events (delivered/opened/clicked/bounced/...).
+    if (isOutboundEmailEvent(payload.type)) {
+      const result = await handleOutboundEmailEvent(payload)
+      return NextResponse.json({
+        ok: result.ok,
+        matched: result.matched,
+        action: result.action,
+      })
+    }
+
+    // Only inbound replies are processed below.
     if (payload.type !== "email.received") {
-      console.log("[v0] Skipping non-email.received event:", payload.type)
-      return NextResponse.json({ ok: true, skipped: "not email.received" })
+      console.log("[v0] Skipping unhandled webhook event:", payload.type)
+      return NextResponse.json({ ok: true, skipped: payload.type })
     }
 
     const { data } = payload

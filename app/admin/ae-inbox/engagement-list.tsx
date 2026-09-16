@@ -78,6 +78,7 @@ import {
   markFollowUpResentAction,
 } from "@/app/admin/ae-inbox/requirement-email-actions"
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
+import { EngagementEmailDeliveryBadges } from "./email-delivery-badges"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
@@ -805,6 +806,9 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
                     )}
                   </div>
                 )}
+
+                {/* Resend outbound delivery status (delivered / opened / clicked / bounced / complained) */}
+                <EngagementEmailDeliveryBadges engagementId={eng.id} locale={locale} />
 
                 {/* Stage actions */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">

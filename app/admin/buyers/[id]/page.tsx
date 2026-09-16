@@ -218,6 +218,10 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     inquiry_channel: buyer.inquiry_channel ?? null,
     inquiry_notes: buyer.inquiry_notes ?? null,
     inquiry_received_at: buyer.inquiry_received_at ?? null,
+    // Email suppression (migration 077)
+    email_hard_bounced_at: buyer.email_hard_bounced_at ?? null,
+    email_complained_at: buyer.email_complained_at ?? null,
+    email_suppression_note: buyer.email_suppression_note ?? null,
   }
 
   const canAssignBuyer = can(current.role, CAPS.BUYER_ASSIGN)
@@ -250,6 +254,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}
+        canLiftSuppression={current.role === "admin" || current.role === "super_admin"}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

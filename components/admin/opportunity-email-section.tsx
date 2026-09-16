@@ -14,6 +14,11 @@ import {
   SheetClose,
 } from "@/components/ui/sheet"
 import { EmailDraftComposer } from "@/components/admin/email-draft-composer"
+import {
+  DeliveryStatusBadge,
+  OpenSignalChip,
+  ClickSignalChip,
+} from "@/components/admin/email-delivery-badge"
 import { EmailDraftReviewer } from "@/components/admin/email-draft-reviewer"
 import {
   generateEmailDraftAction,
@@ -425,6 +430,15 @@ export function OpportunityEmailSection({
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {s.sentTo}: {item.recipient_email ?? "—"}
                         </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <DeliveryStatusBadge status={item.delivery_status} sendStatus={item.status} />
+                          {item.delivery_status !== "bounced" && item.delivery_status !== "complained" && (
+                            <>
+                              <OpenSignalChip count={item.opened_count} />
+                              <ClickSignalChip count={item.clicked_count} />
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground whitespace-nowrap">
                         {item.sent_at
@@ -477,13 +491,29 @@ export function OpportunityEmailSection({
                     <p className="text-sm text-foreground capitalize">{selectedEmailDetail.email_type}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
-                    <Badge 
+                    <p className="text-xs font-medium text-muted-foreground">Trạng thái gửi</p>
+                    <Badge
                       variant={selectedEmailDetail.status === "sent" ? "default" : "secondary"}
                       className="mt-1"
                     >
                       {selectedEmailDetail.status}
                     </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Trạng thái tới hộp thư (Resend)</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <DeliveryStatusBadge
+                        status={selectedEmailDetail.delivery_status}
+                        sendStatus={selectedEmailDetail.status}
+                      />
+                      {selectedEmailDetail.delivery_status !== "bounced" &&
+                        selectedEmailDetail.delivery_status !== "complained" && (
+                          <>
+                            <OpenSignalChip count={selectedEmailDetail.opened_count} />
+                            <ClickSignalChip count={selectedEmailDetail.clicked_count} />
+                          </>
+                        )}
+                    </div>
                   </div>
                 </div>
 

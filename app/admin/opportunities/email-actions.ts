@@ -146,6 +146,10 @@ export type EmailDraftRow = {
   status: "draft" | "pending_approval" | "sent" | "rejected" | "failed"
   sent_at: string | null
   created_at: string
+  // Outbound delivery tracking (Resend webhook, migration 077)
+  delivery_status: "sent" | "delivered" | "delayed" | "bounced" | "complained" | null
+  opened_count: number | null
+  clicked_count: number | null
 }
 
 export type FetchDraftsResult =
@@ -162,7 +166,7 @@ export async function fetchEmailDraftsAction(
 
     const { data, error } = await supabase
       .from("email_drafts")
-      .select("id, email_type, ai_prompt, generated_subject, generated_content_en, translated_content_vi, recipient_email, cc_emails, status, sent_at, created_at")
+      .select("id, email_type, ai_prompt, generated_subject, generated_content_en, translated_content_vi, recipient_email, cc_emails, status, sent_at, created_at, delivery_status, opened_count, clicked_count")
       .eq("opportunity_id", opportunityId)
       .order("created_at", { ascending: false })
       .limit(20)

@@ -859,7 +859,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-              <Label>Logo doanh nghiệp <span className="font-normal text-muted-foreground">(không bắt buộc — gửi link ảnh)</span></Label>
+              <Label>Logo doanh nghiệp</Label>
               <ImageLinkField
                 max={1}
                 value={form.logoUrl ? [form.logoUrl] : []}
@@ -868,7 +868,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label>Ảnh bìa <span className="font-normal text-muted-foreground">(không bắt buộc — gửi link ảnh)</span></Label>
+              <Label>Ảnh bìa</Label>
               <ImageLinkField
                 max={1}
                 value={form.coverImageUrl ? [form.coverImageUrl] : []}
@@ -878,7 +878,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Label>Ảnh nhà máy / sản phẩm <span className="font-normal text-muted-foreground">(không bắt buộc — gửi link ảnh)</span></Label>
+            <Label>Ảnh nhà máy / sản phẩm</Label>
             <ImageLinkField
               max={5}
               value={form.factoryImageUrls

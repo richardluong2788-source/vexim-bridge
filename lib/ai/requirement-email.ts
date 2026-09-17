@@ -558,7 +558,7 @@ export async function generateRequirementInquiryEmail(
           "",
           "SELF-CHECK BEFORE RETURNING:",
           "Verify: one CTA only; no MOQ/price/payment/packaging/spec question; no supplier named; no raw buyer data exposed (HS, supplier names, shipment counts, TEU, exact peak months like Oct/Nov/Dec, ports, volumes, years); soft product mention using main_product_soft + soft seasonality using season_hook_soft present (40% part); compliance consulting positioning present (60% part: FDA, HACCP, traceability, audit, direct factory); no forbidden claim; no URL/attachment; no spam vocab/caps/exclamation/emoji; greeting first name; opt-out present before signature; Vexim intro 60% weight + buyer insight 40% weight woven naturally; length 120-170 words; signature exact name / VEXIM GLOBAL CO., LTD / email / address no phone. If any check fails, rewrite.",
-        ].join("\n")        ].join("\n")
+        ].join("\n")
 
   const userPrompt = [
     "Buyer context (JSON) — INTERNAL REASONING ONLY, do NOT expose _internal_ fields verbatim in email:",

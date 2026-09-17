@@ -1,20 +1,22 @@
 /**
  * AI generator for the "requirement inquiry" email — the FIRST, LIGHT-TOUCH
- * email an AE sends a buyer BEFORE any client/supplier has been picked and
- * before any sourcing requirements have been collected.
+ * email an AE sends a buyer BEFORE any client/supplier has been picked.
  *
- * V2 — High-Quality Mapping Edition:
- * - Buyer deep analysis: HS code, purchase_history (VN supplier names/year/volume),
- *   top_suppliers, main_import_countries, peak_months, total_shipments, origin_ports...
- * - Vexim positioning: curated network, factory audit, certifications (HACCP/ISO/BRC/FDA),
- *   fast response (24h), flexible payment (T/T, L/C), traceability, transparency
- * - Combined into personalized, consultative email that still passes Gmail filters
+ * V3 — Soft Approach + Compliance Consulting Positioning
  *
- * Google Deliverability Notes:
- * - Keep plain text, no links/images in first email
- * - No spam triggers: "best price", "cheapest", "guaranteed", "free", "act now"
- * - Personalized with buyer-specific observation (HS, product, import countries)
- * - Human sender name, conversational tone, opt-out courtesy line
+ * Triết lý mới theo feedback:
+ * - Dữ liệu buyer (HS code, purchase_history, top_suppliers, peak_months, volume...)
+ *   và supplier (certs, FDA, capacity, payment...) CHỈ dùng để tư duy nội bộ,
+ *   đối chiếu và chọn góc tiếp cận phù hợp. TUYỆT ĐỐI KHÔNG được đưa raw data
+ *   lên email — buyer sẽ cảm thấy bị soi thông tin.
+ * - Sử dụng ngôn từ mềm mại, tiếp cận theo category/insight chung, không nêu
+ *   cụ thể "tôi thấy bạn nhập HS 0801.32 từ Visimex 16,800kg peak Oct-Dec".
+ * - Vexim định vị là đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu
+ *   vào Mỹ, đối tác được tuyển chọn là những đối tác chất lượng, đạt yêu cầu
+ *   về tuân thủ Hoa Kỳ (FDA, HACCP, ISO, traceability...).
+ *
+ * Google Deliverability:
+ * - Plain text, no links/images, no spam triggers, human sender, opt-out human
  */
 
 import { generateText, Output } from "ai"
@@ -177,21 +179,17 @@ function buildFallbackEmail(
     }
   }
 
-  const companyRef = ctx.buyerCompany?.trim()
-  const seenLine = companyRef
-    ? `I came across ${companyRef} while looking into ${topic} buyers, and wanted to introduce myself directly.`
-    : `I came across your company while looking into ${topic} buyers, and wanted to introduce myself directly.`
-
+  // V3 fallback — soft compliance consulting positioning, no raw data exposure
   return {
-    subject_en: `Sourcing ${topic} from Vietnam`,
+    subject_en: `Vietnam sourcing — ${topic} with US compliance support`,
     content_en: [
       `Hi ${greetingName},`,
       "",
-      `I'm ${ctx.senderName} with ${ctx.exporterCompany} in Vietnam. ${seenLine}`,
+      `I'm ${ctx.senderName} with Vexim in Vietnam. We work as a compliance consulting partner for Vietnamese factories exporting to the US — helping them meet FDA, HACCP, and traceability requirements that US buyers expect.`,
       "",
-      `We work with manufacturers here for ${topic}, so if you're ever evaluating additional suppliers from Vietnam, I'd be glad to put a few suitable options in front of you.`,
+      `For ${topic}, we only work with factories that have been through our compliance program and audit — direct factory, not trading companies.`,
       "",
-      "Would you be open to taking a quick look? If now isn't the right time, no worries at all.",
+      `Would you be open to exploring additional Vietnam sourcing with compliance support included? If now isn't the right time, no worries at all.`,
       "",
       OPT_OUT_EN,
       signature_en,
@@ -199,13 +197,11 @@ function buildFallbackEmail(
     content_vi: [
       `Xin chào ${greetingName},`,
       "",
-      `Tôi là ${ctx.senderName} từ ${ctx.exporterCompany} tại Việt Nam. ${companyRef
-        ? `Tôi biết đến ${companyRef} khi tìm hiểu các đơn vị mua hàng ngành ${topic} và muốn tự giới thiệu trực tiếp.`
-        : `Tôi biết đến công ty của bạn khi tìm hiểu các đơn vị mua hàng ngành ${topic} và muốn tự giới thiệu trực tiếp.`}`,
+      `Tôi là ${ctx.senderName} từ Vexim tại Việt Nam. Chúng tôi là đơn vị tư vấn tuân thủ cho các nhà máy Việt Nam xuất khẩu vào Mỹ — hỗ trợ họ đáp ứng các yêu cầu FDA, HACCP và truy xuất nguồn gốc mà buyer Mỹ yêu cầu.`,
       "",
-      `Chúng tôi làm việc với các nhà máy tại Việt Nam cho ngành ${topic}, nên nếu bạn có lúc cần đánh giá thêm nhà cung cấp từ Việt Nam, tôi rất sẵn lòng gửi bạn một vài lựa chọn phù hợp.`,
+      `Với ngành ${topic}, chúng tôi chỉ làm việc với các nhà máy đã qua chương trình tuân thủ và audit của Vexim — làm việc trực tiếp với nhà máy, không qua trading.`,
       "",
-      "Bạn có muốn xem qua không? Nếu hiện tại chưa phải thời điểm thích hợp thì cũng hoàn toàn không sao.",
+      `Bạn có muốn tìm hiểu thêm về nguồn cung từ Việt Nam với hỗ trợ tuân thủ không? Nếu hiện tại chưa phải thời điểm thích hợp thì cũng hoàn toàn không sao.`,
       "",
       OPT_OUT_VI,
       signature_vi,
@@ -348,9 +344,9 @@ export async function generateRequirementInquiryEmail(
   }
 
   // ------------------------------------------------------------------
-  // Deep buyer intel + Vexim vetting context
+  // Internal reasoning context — for AI to THINK, NOT to expose
   // ------------------------------------------------------------------
-  const buyerIntel = {
+  const buyerIntelInternal = {
     buyer_company: lead["company_name"],
     contact_person: lead["contact_person"],
     contact_title: (lead as any)["contact_title"] ?? null,
@@ -360,40 +356,36 @@ export async function generateRequirementInquiryEmail(
     industry: lead["industry"],
     country: lead["country"],
     website: (lead as any)["website"] ?? null,
-    // Deep fields for quality mapping
-    purchase_history: (lead as any)["purchase_history"] ?? null,
-    top_suppliers: (lead as any)["top_suppliers"] ?? null,
-    main_import_countries: (lead as any)["main_import_countries"] ?? null,
-    top_peak_months: (lead as any)["top_peak_months"] ?? null,
-    top_low_months: (lead as any)["top_low_months"] ?? null,
-    total_shipments: (lead as any)["total_shipments"] ?? null,
-    avg_teu_per_month: (lead as any)["avg_teu_per_month"] ?? null,
-    origin_ports: (lead as any)["origin_ports"] ?? null,
-    destination_ports: (lead as any)["destination_ports"] ?? null,
-    container_types: (lead as any)["container_types"] ?? null,
-    bol_description: (lead as any)["bol_description"] ?? null,
-    has_active_inquiry: (lead as any)["has_active_inquiry"] ?? null,
-    inquiry_products: (lead as any)["inquiry_products"] ?? null,
-    inquiry_quantity: (lead as any)["inquiry_quantity"] ?? null,
-    inquiry_timeline: (lead as any)["inquiry_timeline"] ?? null,
+    // Deep fields — INTERNAL ONLY, never expose verbatim in email
+    _internal_purchase_history: (lead as any)["purchase_history"] ?? null,
+    _internal_top_suppliers: (lead as any)["top_suppliers"] ?? null,
+    _internal_main_import_countries: (lead as any)["main_import_countries"] ?? null,
+    _internal_top_peak_months: (lead as any)["top_peak_months"] ?? null,
+    _internal_top_low_months: (lead as any)["top_low_months"] ?? null,
+    _internal_total_shipments: (lead as any)["total_shipments"] ?? null,
+    _internal_avg_teu_per_month: (lead as any)["avg_teu_per_month"] ?? null,
+    _internal_origin_ports: (lead as any)["origin_ports"] ?? null,
+    _internal_destination_ports: (lead as any)["destination_ports"] ?? null,
+    _internal_bol_description: (lead as any)["bol_description"] ?? null,
+    _internal_has_active_inquiry: (lead as any)["has_active_inquiry"] ?? null,
+    _internal_inquiry_products: (lead as any)["inquiry_products"] ?? null,
     sender_name: profile.full_name,
     exporter_company: "Vexim",
     signature_company: SIGNATURE_COMPANY,
     signature_address: SIGNATURE_ADDRESS,
     sender_email: profile.work_email || "trade@veximtrade.com",
-    // Vexim positioning — curated network story
-    vexim_vetting: {
-      model: "We are not a marketplace. We only represent factories we've physically visited and audited ourselves — no trading companies.",
-      pillars: [
-        "Factory audit: direct factory, visited by Vexim team, 50-300 workers typical, export since 2015+",
-        "Certifications: HACCP, ISO 22000, BRC, FDA for US-bound, HALAL/KOSHER if needed — checked and valid, not just claimed",
-        "Quality: traceability from raw material to finished goods, lot tracking, QC engineers on site, equipment calibration, food safety training",
-        "Response: 24h response, English-speaking export team, dedicated account handling, video call factory tour available",
-        "Payment: flexible T/T, L/C at sight, transparent pricing, no hidden costs, clear MOQ/lead time/capacity",
-        "Transparency: clear audit readiness, water testing, near pollution source check, production capacity confirmed",
+    // Vexim compliance consulting positioning — the CORE story
+    vexim_positioning: {
+      who_we_are: "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US market — not a marketplace, not a trading company.",
+      what_we_do: "We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, equipment calibration, water testing, audit readiness.",
+      how_we_select: "We only work with factories we've physically visited and audited. We reject 80% of factories that apply. Only those meeting US compliance standards join our network. Direct factory, transparent pricing, no trading companies.",
+      trust_pillars_soft: [
+        "Compliance program for US market: FDA, HACCP, ISO, BRC, traceability",
+        "Factory audit by Vexim team: direct factory, 50-300 workers typical, export since 2015+",
+        "Quality system: traceability, QC engineers, food safety training, English export team",
+        "Support: 24h response, video factory tour, flexible payment T/T and L/C at sight, transparent MOQ/lead time",
       ],
-      typical_factory: "50-300 workers, export since 2015+, 20-100 tons/month, HACCP/ISO, FDA if US-bound, English export dept, traceability system",
-      differentiator: "We reject 80% of factories that apply — only those passing our audit join the network. That's why buyers get consistent quality, not random quotes.",
+      differentiator: "Buyers don't just get a supplier — they get a supplier that has already been through US compliance consulting and audit. That's why our network is trusted for consistent quality.",
     },
     ...(emailType === "shortlist_delivery"
       ? {
@@ -406,7 +398,7 @@ export async function generateRequirementInquiryEmail(
     ...(emailType === "requirement_followup" ? { shortlist_url: input.shortlistUrl ?? null } : {}),
   }
 
-  const contextBlock = JSON.stringify(buyerIntel, null, 2)
+  const contextBlock = JSON.stringify(buyerIntelInternal, null, 2)
 
   const system =
     emailType === "shortlist_delivery"
@@ -464,164 +456,91 @@ export async function generateRequirementInquiryEmail(
           "   contractions (I'm, you've), short sentences, and no stiff phrases ('I hope this",
           "   email finds you well', 'kindly', 'dear friend'). Sound like a real person following",
           "   up, not a marketing sequence.",
+          "9. SOFT APPROACH: Do NOT expose internal buyer data (HS codes, supplier names, shipment counts, peak months) verbatim. Use soft language.",
         ].join("\n")
       : [
-          "You write the FIRST, HIGH-QUALITY opening email a Vietnamese export sales team (Vexim)",
-          "sends to a new buyer lead. This is NOT a requirements-collection email — it's a",
-          "consultative first touch that proves you understand this buyer and shows why Vexim is",
-          "different from random trading companies.",
+          "You write the FIRST, SOFT opening email a Vietnamese compliance consulting team (Vexim)",
+          "sends to a new buyer lead. Vexim is NOT a marketplace or trading company — it is a compliance",
+          "consulting partner for Vietnamese factories exporting to the US market.",
+          "",
+          "CORE POSITIONING (must be reflected naturally):",
+          "Vexim = đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ. Đối tác Vexim tuyển chọn",
+          "là những đối tác chất lượng, đạt yêu cầu về tuân thủ Hoa Kỳ: FDA registration, HACCP, ISO 22000,",
+          "BRC, traceability từ nguyên liệu đến thành phẩm, lot tracking, food safety training, audit readiness.",
+          "We only work with factories we've visited and audited. We reject 80% that apply. Direct factory,",
+          "no trading companies. Buyers get US-compliant suppliers, not random quotes.",
           "",
           "GOAL OF THIS EMAIL:",
-          "1. Show you deeply understand THIS buyer: reference their main product, HS code,",
-          "   import countries, purchase history (VN suppliers if any), peak months, shipment volume",
-          "   — pick 2-3 most relevant data points from context, woven naturally into the opening.",
-          "2. Briefly introduce Vexim's curated model (not a marketplace, only audited factories) —",
-          "   mention 1-2 trust pillars relevant to this buyer (e.g., FDA for US buyer, traceability",
-          "   for food, flexible payment for new supplier evaluation, 24h response). Keep it to ONE",
-          "   sentence, not a brochure.",
-          "3. End with exactly ONE CTA: whether the buyer would be open to evaluating additional",
-          "   sourcing from Vietnam for their product/industry.",
+          "Briefly introduce Vexim as a compliance consulting partner, show you understand the buyer's",
+          "category at a SOFT level (e.g., 'buyers in the cashew category', 'many buyers in your space')",
+          "without exposing surveillance data, and end with exactly ONE CTA: whether the buyer would be open",
+          "to evaluating additional Vietnam sourcing with compliance support.",
           "",
-          "MANDATORY RULES (do not violate any of these):",
-          "1. Exactly ONE call-to-action: whether the buyer is open to evaluating Vietnam sourcing.",
-          "2. Do NOT ask about product spec/details, target price, MOQ, payment terms, or packaging.",
-          "   Those belong to a later, separate follow-up email — not this one.",
-          "3. Do NOT name, list, or describe any specific supplier or factory. No supplier has been",
-          "   chosen or vetted yet. You can reference Vexim's NETWORK in general terms only.",
-          "4. Do NOT invent or assume any fact not present in the context JSON — no specific prices,",
-          "   quantities, certifications, capacity figures, delivery times, or claimed history of",
-          "   past purchases/communication with this buyer. Use ONLY what is in buyer context.",
-          "5. Do NOT use any forbidden/absolute claims: no 'FDA approved' as guarantee, no",
-          "   'guaranteed', 'cheapest', 'best', 'top supplier', '#1', or similarly unverifiable",
-          "   superlative/regulatory claims. You CAN say 'FDA-registered factories' or 'factories",
-          "   with valid HACCP/ISO' as general vetting criteria — that's factual about your process,",
-          "   not a promise about a specific supplier.",
-          "6. Do NOT reference or reveal any internal-only or unverified data fields, scoring, notes,",
-          "   or anything that reads as internal system/CRM language.",
-          "7. Do NOT mention attachments, catalogs, price lists, or files — none are attached.",
-          "8. Do NOT claim the email has been or will be auto-sent — it is drafted for AE review.",
-          "9. Vexim's self-introduction must be brief: roughly 15-25% of the email's total content,",
-          "   not the centerpiece. Weave it into the same paragraph as buyer observation, not a",
-          "   separate pitch paragraph.",
-          "10. Show buyer-context awareness at a SPECIFIC level: use 2-3 real data points from context",
-          "    (e.g., 'I saw you import cashew W320 from Vietnam and India, with peak shipments around",
-          "    Oct-Dec' or 'noticed your HS 0801 volume and sourcing from multiple countries'). This is",
-          "    what makes the email high-quality vs generic. If purchase_history exists, reference it",
-          "    naturally (e.g., 'I noticed you've worked with [VN supplier] before').",
-          "11. Keep a professional, warm, consultative B2B tone — never pushy or salesy. Sound like",
-          "    a specific person who did homework on this buyer, not a mail-merge template.",
-          "12. No emoji. No excessive punctuation (no multiple exclamation marks, no ALL CAPS).",
-          "13. Total length: 130-200 words for the body (excluding signature). Slightly longer than",
-          "    before because we now include buyer-specific insight + Vexim trust, but still concise.",
-          "14. End with a complete, real signature in EXACTLY this shape, using context values:",
-          "    a blank line, 'Best regards,', the sender_name, then signature_company",
-          "    ('VEXIM GLOBAL CO., LTD'), then sender_email, then signature_address (the",
-          "    registered postal address, copied verbatim on its own line). Never include a phone",
-          "    number, title line, or placeholder like '[Your Name]'. The body may call the",
-          "    company 'Vexim'; the legal signature line is always 'VEXIM GLOBAL CO., LTD'.",
-          "15. Do not use a 'Re:' subject prefix — this is a first contact on this topic.",
-          "16. Do not add a P.S., forwarded-message framing, or any second CTA/question of any kind.",
-          "17. Generalize to the buyer's ACTUAL product/industry taken from context (main_product /",
-          "    industry) — never hardcode or default to any single specific product category.",
-          "18. If a context field needed to sound specific is missing, stay generic rather than",
-          "    guessing or fabricating a value. Prefer fewer specifics over invented ones.",
-          "19. AVOID THE 'COLD SALES OUTREACH TEMPLATE' SHAPE. Do not write it as: greeting →",
-          "    company pitch paragraph → value-proposition bridge sentence → CTA → sign-off. That",
-          "    exact shape is what bulk-outreach tools (Salesloft, Outreach, Apollo) produce, and is",
-          "    exactly what Gmail's Promotions classifier is trained to detect. Instead, write it the",
-          "    way a person would write a short one-off note to someone specific: weave the reason",
-          "    for reaching out and the Vexim context into the SAME sentence or two, rather than",
-          "    giving the company introduction its own dedicated paragraph.",
-          "20. Do not use generic value-proposition phrasing that reads as marketing copy (e.g.",
-          "    'we connect international buyers with vetted manufacturers', 'trusted sourcing",
-          "    partner', 'end-to-end solution'). Describe Vexim's role in one plain, specific",
-          "    clause instead of a tagline. Use vexim_vetting from context for factual pillars.",
-          "21. THIS FIRST EMAIL MUST CONTAIN NO URL, LINK, IMAGE, BUTTON OR ATTACHMENT. There is",
-          "    nothing to click on a first touch — links only appear in later shortlist/follow-up",
-          "    emails. Plain text only, no HTML, no social-media handles.",
-          "22. ANTI-SPAM VOCABULARY: never use 'free', 'discount', 'cheap', 'guarantee/guaranteed',",
-          "    '100%', 'act now', 'limited time', 'risk-free', 'no obligation', 'click here',",
-          "    'unsubscribe', 'congratulations', 'dear friend', or savings/ROI percentage claims.",
-          "    No ALL-CAPS words for emphasis, no exclamation marks, no emoji or unicode symbols",
-          "    beyond standard punctuation.",
-          "23. CAN-SPAM COMPLIANCE: as the final sentence of the BODY (on its own short paragraph",
-          "    before the signature), give a simple, human opt-out: 'If sourcing from Vietnam",
-          "    isn't on your radar right now, just reply \"no\" and I won't reach out again — no",
-          "    hard feelings at all.' It must read as a courtesy, never as a legal footer or a",
-          "    clickable unsubscribe link.",
-          "24. QUALITY MAPPING: You MUST reference at least 2 buyer-specific data points from context",
-          "    (choose from: main_product, hs_code, purchase_history, top_suppliers,",
-          "    main_import_countries, top_peak_months, total_shipments, origin_ports). Example:",
-          "    'I noticed you import [product] under HS [code] from [countries], with peak in [months]'",
-          "    — this proves you did homework. Do NOT dump all fields, just 2-3 most relevant woven",
-          "    naturally.",
-          "25. VEXIM POSITIONING: You MUST weave in 1-2 trust pillars from vexim_vetting.pillars that",
-          "    are RELEVANT to this buyer: e.g., for US buyer mention FDA registration check; for food",
-          "    buyer mention HACCP/traceability; for buyer with many suppliers mention 24h response and",
-          "    English team. Keep it to ONE short clause, not a list. Example: 'We only work with",
-          "    factories we've visited ourselves — typical partners have valid HACCP/ISO and FDA",
-          "    registration for US, with traceability from raw material.'",
+          "CRITICAL — SOFT APPROACH & DATA PRIVACY (do not violate):",
+          "1. INTERNAL REASONING ONLY: You have internal buyer intelligence fields prefixed with _internal_",
+          "   (purchase_history, top_suppliers, main_import_countries, peak_months, total_shipments,",
+          "   hs_code, origin_ports...). These are FOR YOUR REASONING ONLY to choose the right angle.",
+          "   NEVER mention them verbatim in the email. NEVER write 'I saw you import HS 0801.32 from",
+          "   Visimex 16,800kg peak Oct-Dec' or 'I noticed you source from Vietnam and Chile' or 'your",
+          "   120 shipments' or 'your HS code'. That makes buyer feel surveilled.",
+          "2. SOFT LANGUAGE INSTEAD: Use category-level, peer insight language:",
+          "   - BAD (surveillance): 'I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, peak Oct-Dec, 120 shipments'",
+          "   - GOOD (soft): 'We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with US-compliant factories'",
+          "   - GOOD: 'Many buyers in your space tell us they want a Vietnam option that already meets FDA and traceability requirements'",
+          "   - GOOD: 'For cashew W320, Vietnam offers strong options, but US compliance is where many factories fall short — that's where we help'",
+          "3. NO RAW DATA EXPOSURE: Never expose: HS codes, specific supplier names, shipment counts, TEU, peak months, origin/destination ports, BOL descriptions, exact volumes, years. These are internal only.",
+          "4. NO SUPPLIER SPECIFICS: No supplier has been chosen yet. Do NOT name, list, or describe any specific factory. Only reference Vexim's NETWORK and COMPLIANCE PROGRAM in general terms.",
+          "5. VEXIM POSITIONING: Must convey compliance consulting, not marketplace. Use vexim_positioning from context. Example soft phrasing: 'We work as a compliance consulting partner for Vietnamese factories exporting to the US — helping them meet FDA, HACCP, and traceability requirements' or 'Our factories go through our US compliance program and audit before joining our network'.",
+          "6. TRUST PILLARS — SOFT, NOT BROCHURE: Mention 1 compliance pillar naturally, not a list. E.g., 'FDA registration and traceability from raw material' or 'HACCP and audit readiness for US market'. Keep to ONE short clause.",
           "",
-          "AMERICAN BUSINESS VOICE (the reader is a busy US purchasing/import professional):",
-          "- Greet by first name with a plain 'Hi {first name},' when the contact person is known;",
-          "  use 'Hi there,' only when no name exists. Never 'Dear Sir/Madam', 'Dear Team', or an",
-          "  overly formal 'Dear Mr./Ms.'.",
-          "- Write the way Americans actually email at work: natural contractions (I'm, you're,",
-          "  we've), plain everyday words, short paragraphs of 1-3 sentences, one idea each.",
-          "- Avoid stiff, non-native or mail-merge phrases: 'I hope this email finds you well',",
-          "  'I am writing to...', 'kindly', 'please revert', 'whilst/amongst', 'do the needful',",
-          "  'esteemed company', or any flattery. Never mention databases, customs records,",
-          "  scraping, AI, scores, CRM fields, or HOW the buyer was found beyond a light, human",
-          "  'I came across {company} while looking into {category} buyers'.",
-          "- Make the ask feel like a low-friction favor between peers, and give an easy, face-",
-          "  saving out (e.g. 'Would you be open to taking a quick look? If now isn't the right",
-          "  time, no worries at all.'). Never imply urgency or obligation.",
-          "- Subject: short, human, sentence case, specific to their category or company",
-          "  (e.g. 'Sourcing {category} from Vietnam' or '{Company} — {product} from Vietnam'),",
-          "  under ~50 characters. No Title Case, no marketing hook, no Fwd:/Re:.",
+          "MANDATORY RULES:",
+          "1. Exactly ONE CTA: whether the buyer is open to evaluating Vietnam sourcing with compliance support.",
+          "2. Do NOT ask about product spec, target price, MOQ, payment terms, packaging.",
+          "3. Do NOT invent facts not in context — no prices, quantities, certifications for specific supplier, capacity, delivery times, or claimed history with this buyer.",
+          "4. Do NOT use forbidden claims: no 'FDA approved' as guarantee, no 'guaranteed', 'cheapest', 'best', 'top supplier', '#1'. You CAN say 'factories that have been through our FDA registration and HACCP compliance program' — factual about process.",
+          "5. Do NOT mention attachments, catalogs, price lists, files.",
+          "6. Vexim intro brief: 20-30% of content, woven naturally, not separate pitch paragraph. Compliance consulting angle, not trading.",
+          "7. Professional, warm, consultative B2B tone — like a compliance advisor, not a sales rep. Sound like a specific person who understands US compliance challenges, not a mail-merge.",
+          "8. No emoji. No excessive punctuation, no ALL CAPS.",
+          "9. Total length: 120-170 words body (excluding signature). Concise, soft.",
+          "10. Signature exact shape: blank line, 'Best regards,', sender_name, signature_company ('VEXIM GLOBAL CO., LTD'), sender_email, signature_address verbatim. No phone, no title, no placeholder.",
+          "11. No 'Re:' subject prefix.",
+          "12. No P.S., no forwarded framing, no second CTA.",
+          "13. Use buyer's ACTUAL product/industry from context (main_product/industry) for soft category reference — e.g., 'buyers in the cashew category' — never hardcode unrelated product.",
+          "14. If context missing, stay generic rather than fabricate.",
+          "15. AVOID COLD SALES TEMPLATE SHAPE: Do not write greeting → company pitch paragraph → value prop → CTA → sign-off. That's Promotions classifier pattern. Write as one-off note: weave reason + Vexim context into same 1-2 sentences.",
+          "16. No generic value-prop taglines like 'trusted sourcing partner', 'end-to-end solution'. Describe role plainly: 'We help Vietnamese factories meet US compliance requirements'.",
+          "17. NO URL, LINK, IMAGE, BUTTON, ATTACHMENT in first email. Plain text only.",
+          "18. ANTI-SPAM: never use 'free', 'discount', 'cheap', 'guarantee/guaranteed', '100%', 'act now', 'limited time', 'risk-free', 'no obligation', 'click here', 'unsubscribe', 'congratulations', 'dear friend', savings/ROI %. No ALL-CAPS, no exclamation, no emoji.",
+          "19. CAN-SPAM: final sentence body before signature, human opt-out: 'If sourcing from Vietnam isn't on your radar right now, just reply \"no\" and I won't reach out again — no hard feelings at all.'",
+          "20. DATA PRIVACY SELF-CHECK: Before finalizing, verify you did NOT include: HS codes, specific supplier names, shipment counts, TEU, peak months, origin/destination ports, BOL descriptions, exact volumes/years, purchase_history details. If any such raw data appears, rewrite to soft category language.",
           "",
-          "STRUCTURE (write as connected prose, not visibly separate template blocks):",
-          "1. Personal, professional greeting using the contact person's name if available.",
-          "2. Open with SPECIFIC buyer observation (2-3 data points from context: product, HS, import",
-          "   countries, purchase history, peak months, volume) — fold in who you are/Vexim in the same",
-          "   sentence or the very next one, briefly (15-25% of content) — not as a separate pitch paragraph.",
-          "   Example: 'Hi John, I noticed {Company} imports {product} under HS {code} from {countries},",
-          "   with peak around {months} — I'm {Name} with Vexim in Vietnam, we only work with factories",
-          "   we've audited ourselves.'",
-          "3. One sentence, plainly worded, weaving in 1-2 relevant Vexim trust pillars (from vexim_vetting)",
-          "   — e.g., FDA/traceability/response/payment flexibility — tailored to this buyer's context.",
-          "   Must sound factual about your vetting process, not salesy.",
-          "4. The single CTA, phrased as a direct question to this person: ask clearly whether the",
-          "   buyer would be open to evaluating additional sourcing from Vietnam for their",
-          "   product/industry.",
-          "5. A short, low-pressure closing line with an easy out (e.g. 'If now isn't the right",
-          "   time, no worries at all.').",
-          "6. The opt-out sentence from rule 23, on its own line.",
-          "7. Complete signature, exactly: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD'",
-          "   / sender_email / signature_address. No title line, no phone number.",
+          "AMERICAN BUSINESS VOICE:",
+          "- Greet by first name 'Hi {first name},' if known, else 'Hi there,'. Never 'Dear Sir/Madam'.",
+          "- Natural contractions (I'm, you're, we've), plain words, short paragraphs 1-3 sentences.",
+          "- Avoid stiff phrases: 'I hope this email finds you well', 'I am writing to...', 'kindly', 'please revert', 'whilst', 'do the needful', 'esteemed company'.",
+          "- Never mention databases, customs records, scraping, AI, scores, CRM fields, or HOW buyer was found beyond light 'I came across {company} while looking into {category} buyers' or 'We work with buyers in the {category} space'.",
+          "- Low-friction ask with easy out: 'Would you be open to exploring...? If now isn't the right time, no worries at all.'",
+          "- Subject: short, human, sentence case, specific to category with compliance angle, under 50 chars, e.g., 'Vietnam {category} — US compliance support' or 'Sourcing {category} from Vietnam'. No Title Case, no Re:/Fwd.",
+          "",
+          "STRUCTURE (connected prose, not template blocks):",
+          "1. Greeting by first name.",
+          "2. Open with soft category insight + who you are/Vexim compliance consulting in same sentence or next, briefly (20-30%). E.g., 'Hi John, I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, and we work with a number of buyers in the cashew category who want a Vietnam option that already meets FDA and traceability requirements.'",
+          "3. One sentence plainly worded on Vexim compliance program relevant to this buyer's category — e.g., 'Our factories go through our US compliance program (FDA registration, HACCP, traceability from raw material) and audit before joining our network — direct factory, not trading companies.'",
+          "4. Single CTA: ask clearly whether buyer would be open to evaluating additional Vietnam sourcing with compliance support for their product/industry.",
+          "5. Low-pressure closing with easy out.",
+          "6. Opt-out sentence.",
+          "7. Complete signature.",
           "",
           "WRITING STYLE:",
-          "Concise, plain American business English, active voice, short sentences and short",
-          "paragraphs. Confident but not pushy. No jargon, no filler adjectives, no hype language.",
-          "Write like a specific person emailing one specific contact — not like a template merged",
-          "with lead data. Read it aloud: if a 30-year-old US buyer would find any sentence stiff,",
-          "salesy or robotic, rewrite it. The email should feel like you spent 2 minutes researching",
-          "THIS buyer, not 2 seconds merging a list.",
+          "Concise, plain American business English, active voice, short sentences/paragraphs. Confident but soft, compliance advisor tone, not pushy sales. No jargon, no filler adjectives, no hype. Write like a specific person emailing one specific contact who cares about US compliance, not like template.",
           "",
-          "SELF-CHECK BEFORE RETURNING THE RESULT:",
-          "Before producing content_en, verify silently: exactly one CTA present; no MOQ/price/",
-          "payment/packaging/spec question anywhere; no supplier named; no fabricated fact; no",
-          "forbidden claim; no URL or attachment; no spam vocabulary, caps, exclamation marks or",
-          "emoji; greeting uses the contact's first name; the human opt-out sentence is present",
-          "right before the signature; Vexim intro is brief (15-25%) and woven into buyer observation,",
-          "not a standalone pitch paragraph; at least 2 buyer-specific data points are referenced",
-          "naturally; at least 1 Vexim trust pillar is mentioned relevantly; no marketing-tagline",
-          "phrasing; length is 130-200 words; signature is exactly name / VEXIM GLOBAL CO., LTD /",
-          "email / postal address with no phone. If any check fails, rewrite before finalizing.",
+          "SELF-CHECK BEFORE RETURNING:",
+          "Verify: one CTA only; no MOQ/price/payment/packaging/spec question; no supplier named; no raw buyer data exposed (HS, supplier names, shipment counts, peak months, ports, volumes, years); no fabricated fact; no forbidden claim; no URL/attachment; no spam vocab/caps/exclamation/emoji; greeting first name; opt-out present before signature; Vexim intro brief (20-30%) and compliance consulting angle, woven naturally, not standalone pitch; soft category language, not surveillance; length 120-170 words; signature exact name / VEXIM GLOBAL CO., LTD / email / address no phone. If fail, rewrite.",
         ].join("\n")
 
   const userPrompt = [
-    "Buyer context (JSON):",
+    "Buyer context (JSON) — INTERNAL REASONING ONLY, do NOT expose _internal_ fields verbatim in email:",
     contextBlock,
     "",
     "AE instruction (Vietnamese):",
@@ -632,9 +551,9 @@ export async function generateRequirementInquiryEmail(
         ? input.shortlistUrl
           ? "Nhắc lại nhẹ nhàng về shortlist supplier đã gửi trước đó, hỏi buyer đã xem chưa và mời họ mở lại link."
           : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
-        : `Giới thiệu ngắn gọn về Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung ${
+        : `Giới thiệu ngắn gọn về Vexim — đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ, đối tác được tuyển chọn chất lượng đạt yêu cầu tuân thủ Hoa Kỳ. Hỏi buyer có muốn đánh giá thêm nguồn cung ${
             (lead["industry"] as string | null) || (lead["main_product"] as string | null) || "sản phẩm liên quan"
-          } từ Việt Nam không. Nhấn mạnh Vexim chỉ làm việc với factory đã audit, có chứng chỉ đầy đủ, phản hồi nhanh, thanh toán linh hoạt, minh bạch. Dùng dữ liệu buyer chi tiết (HS code, lịch sử mua, quốc gia nhập, mùa cao điểm) để chứng minh hiểu buyer. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này.`),
+          } từ Việt Nam với hỗ trợ tuân thủ không. Dùng dữ liệu buyer nội bộ để chọn góc tiếp cận mềm mại, TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
   ].join("\n")
 
   let generated: { subject_en: string; content_en: string; content_vi: string }
@@ -818,9 +737,10 @@ export async function generateFollowUpReplyEmail(
       contact_person: lead["contact_person"],
       main_product: lead["main_product"],
       country: lead["country"],
-      hs_code: lead["hs_code"],
-      purchase_history: (lead as any)["purchase_history"] ?? null,
-      main_import_countries: (lead as any)["main_import_countries"] ?? null,
+      // Internal only — never expose verbatim
+      _internal_hs_code: lead["hs_code"],
+      _internal_purchase_history: (lead as any)["purchase_history"] ?? null,
+      _internal_main_import_countries: (lead as any)["main_import_countries"] ?? null,
       requested_products: (engagement as any).requested_products,
       target_price_range: (engagement as any).target_price_range,
       moq: (engagement as any).moq,
@@ -836,13 +756,10 @@ export async function generateFollowUpReplyEmail(
       signature_company: SIGNATURE_COMPANY,
       signature_address: SIGNATURE_ADDRESS,
       sender_email: profile.work_email || "trade@veximtrade.com",
-      vexim_vetting: {
-        pillars: [
-          "Audited factories only, direct factory, no trading company",
-          "Valid certs: HACCP, ISO, BRC, FDA for US, traceability",
-          "24h response, English export team",
-          "Flexible payment T/T, L/C at sight",
-        ],
+      vexim_positioning: {
+        who_we_are: "Compliance consulting partner for Vietnamese factories exporting to US — not marketplace",
+        compliance_program: "FDA registration, HACCP, ISO 22000, BRC, traceability, lot tracking, audit readiness",
+        selection: "Only audited factories meeting US compliance join network, direct factory, no trading",
       },
     },
     null,
@@ -850,25 +767,21 @@ export async function generateFollowUpReplyEmail(
   )
 
   const system = [
-    "You write short, professional B2B sourcing emails for a Vietnamese export sales team.",
+    "You write short, professional B2B sourcing emails for a Vietnamese compliance consulting team (Vexim).",
     "This is a REPLY within an existing email thread with a buyer — the buyer's most recent",
-    "message is given as buyer_message_en (with a Vietnamese translation for context) in the",
-    "JSON below. Answer exactly what the buyer asked or raised. Do not re-ask the original",
-    "requirement questions (product/MOQ/price/payment/packaging) unless the AE instruction",
-    "explicitly says information is still missing. Follow the AE's Vietnamese instruction for",
-    "what points to address, negotiate, or push back on. Never invent facts (prices, certifications,",
-    "capacity) not present in context — if unsure, phrase it as 'we will confirm' rather than",
-    "fabricating a number. No emoji. No excessive punctuation.",
-    "Write in natural American business English: greet by first name, use contractions, keep",
-    "paragraphs to 1-3 sentences, and avoid stiff phrases ('I hope this email finds you well',",
-    "'kindly'). Close with exactly this signature: 'Best regards,' / sender_name /",
-    "'VEXIM GLOBAL CO., LTD' / sender_email / signature_address. Never add a phone number or a",
-    "job title line, and never add an opt-out line to an active conversation.",
-    "If relevant, you can mention Vexim's vetted network (audited factories, valid certs, traceability, flexible payment) as factual context, but keep it brief and relevant to buyer's question.",
+    "message is given as buyer_message_en in the JSON below. Answer exactly what the buyer asked or raised.",
+    "Do not re-ask the original requirement questions unless AE instruction explicitly says information is still missing.",
+    "Follow the AE's Vietnamese instruction for what points to address.",
+    "Never invent facts (prices, certifications, capacity) not present in context — if unsure, phrase as 'we will confirm'.",
+    "No emoji. No excessive punctuation. Soft approach — do NOT expose internal buyer data (HS codes, supplier names, shipment counts) verbatim.",
+    "Write in natural American business English: greet by first name, use contractions, keep paragraphs to 1-3 sentences.",
+    "Close with exactly this signature: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address.",
+    "Never add phone number or job title line, and never add opt-out line to an active conversation.",
+    "Vexim positioning: compliance consulting for Vietnamese factories exporting to US, partners meet US compliance (FDA, HACCP, traceability). Mention briefly if relevant to buyer's question, but keep soft and factual.",
   ].join("\n")
 
   const userPrompt = [
-    "Conversation + buyer context (JSON):",
+    "Conversation + buyer context (JSON) — _internal_ fields are for reasoning only, do NOT expose verbatim:",
     contextBlock,
     "",
     "AE instruction (Vietnamese) on what to address in this reply:",

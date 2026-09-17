@@ -1,20 +1,17 @@
 /**
- * Vexim Positioning & Mapping Engine
+ * Vexim Positioning & Mapping Engine — V3 Soft Approach
  *
- * Combines supplier vetted data + buyer intelligence to produce
- * high-quality, personalized outreach that still passes Gmail filters.
+ * Triết lý mới:
+ * - Dữ liệu buyer (HS, purchase_history, top_suppliers, peak_months, volume...) và
+ *   supplier (certs, FDA, capacity, payment...) CHỈ dùng để tư duy nội bộ, đối chiếu,
+ *   chọn góc tiếp cận phù hợp. TUYỆT ĐỐI KHÔNG đưa raw data lên email — buyer sẽ
+ *   cảm thấy bị soi.
+ * - Ngôn từ mềm mại, category-level, compliance consulting, không surveillance.
+ * - Vexim = đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ,
+ *   đối tác được tuyển chọn chất lượng, đạt yêu cầu tuân thủ Hoa Kỳ.
  *
- * Philosophy:
- * - First email (requirement_inquiry) = Buyer understanding + Vexim vetting story (no specific supplier)
- * - Second email (introduction after shortlist) = Buyer + Supplier mapping, show why this factory fits
- *
- * Google Deliverability Rules (2024-2026):
- * - No fake Re:/Fwd, no ALL CAPS, no excessive punctuation
- * - No marketing trigger words: "best price", "cheapest", "guaranteed", "free", "act now", "limited time"
- * - No links/images in cold email, plain text preferred
- * - Personal sender name (human), conversational tone
- * - Opt-out line human, not legalese
- * - Keep < 150 words for first touch, < 180 for intro
+ * Google Deliverability: plain text, no links first email, no spam triggers,
+ * human sender, opt-out human.
  */
 
 export interface BuyerIntel {
@@ -59,7 +56,6 @@ export interface SupplierVetting {
   staffEngineersCount?: number | null
   staffWorkersCount?: number | null
   uspPoints?: { title: string; icon?: string }[] | null
-  // From client_products
   products?: Array<{
     productName: string
     hsCode?: string | null
@@ -70,221 +66,125 @@ export interface SupplierVetting {
 }
 
 // ---------------------------------------------------------------------------
-// Vexim Trust Framework - the positioning story
+// Vexim Compliance Consulting — positioning story (soft, not brochure)
 // ---------------------------------------------------------------------------
 
 export const VEXIM_VETTING_PILLARS = {
-  factoryAudit: "We only work with factories we've physically visited and audited — not trading companies",
-  certifications: "Valid certifications checked: HACCP, ISO 22000, BRC, FDA for US-bound, plus buyer-specific requirements",
-  traceability: "Full traceability from raw material to finished goods, with lot tracking",
-  response: "Response within 24h, English-speaking export team, dedicated QC engineers",
-  payment: "Flexible payment: T/T, L/C at sight, flexible terms for repeat orders — we help structure safe terms",
-  transparency: "No hidden costs, clear MOQ/lead time/capacity, video call factory tour available",
+  complianceConsulting: "We work as a compliance consulting partner for Vietnamese factories exporting to the US — helping them meet FDA, HACCP, ISO 22000, BRC, traceability, audit readiness",
+  factoryAudit: "We only work with factories we've physically visited and audited — direct factory, no trading companies. We reject 80% that apply",
+  usCompliance: "Only factories meeting US compliance standards join our network: FDA registration, HACCP, ISO, BRC, traceability from raw material to finished goods, lot tracking, food safety training",
+  qualitySystem: "Our compliance program includes equipment calibration, water testing, near pollution source check, QC engineers, English-speaking export team",
+  support: "24h response, video factory tour available, flexible payment T/T and L/C at sight, transparent MOQ/lead time/capacity, dedicated account handling",
 }
 
 export const VEXIM_POSITIONING_SHORT = `
-Vexim is not a marketplace. We are a Vietnam sourcing partner that only represents factories we've audited.
-Typical factory in our network: 50-300 workers, export since 2015+, HACCP/ISO, FDA registered if US-bound, English export team, 20-100 tons/month capacity, traceability system.
+Vexim is a compliance consulting partner for Vietnamese factories exporting to the US market — not a marketplace, not a trading company.
+We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, audit readiness.
+Only factories that have been through our compliance program and audit, meeting US standards, join our network. Direct factory, transparent pricing, no trading companies.
+Typical factory: 50-300 workers, export since 2015+, FDA registered if US-bound, HACCP/ISO, English export team, traceability system, QC engineers.
+`.trim()
+
+export const VEXIM_POSITIONING_COMPLIANCE = `
+Vexim = đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ.
+Đối tác Vexim tuyển chọn là những đối tác chất lượng, đạt yêu cầu về tuân thủ Hoa Kỳ:
+FDA registration, HACCP, ISO 22000, BRC, traceability từ nguyên liệu đến thành phẩm, lot tracking, food safety training, audit readiness.
+Chúng tôi chỉ làm việc với nhà máy đã qua chương trình tuân thủ và audit của Vexim, đã được kiểm tra trực tiếp, đạt chuẩn Mỹ mới được vào network.
+Không phải marketplace, không phải trading company — direct factory, minh bạch, hỗ trợ tuân thủ.
 `.trim()
 
 // ---------------------------------------------------------------------------
-// Buyer Intelligence -> Natural Language
+// Internal reasoning — buyer intelligence summary (for AI reasoning, NOT for email verbatim)
 // ---------------------------------------------------------------------------
 
 export function buildBuyerInsightSummary(buyer: BuyerIntel): string {
+  // This summary is for INTERNAL reasoning only — AI must NOT copy verbatim to email
   const parts: string[] = []
-
-  if (buyer.mainProduct) {
-    parts.push(`Main product: ${buyer.mainProduct}`)
-  }
-  if (buyer.hsCode) {
-    parts.push(`HS: ${buyer.hsCode}`)
-  }
-  if (buyer.purchaseHistory) {
-    // Truncate to avoid prompt bloat
-    const ph = buyer.purchaseHistory.slice(0, 400)
-    parts.push(`Purchase history (VN suppliers): ${ph}`)
-  }
-  if (buyer.topSuppliers && buyer.topSuppliers.length > 0) {
-    const sup = buyer.topSuppliers.slice(0, 5).map(s => `${s.name}${s.country ? ` (${s.country})` : ""}`).join(", ")
-    parts.push(`Top suppliers observed: ${sup}`)
-  }
-  if (buyer.mainImportCountries) {
-    parts.push(`Sources from: ${buyer.mainImportCountries}`)
-  }
-  if (buyer.topPeakMonths) {
-    parts.push(`Peak months: ${buyer.topPeakMonths} | Low: ${buyer.topLowMonths || "N/A"}`)
-  }
-  if (buyer.totalShipments) {
-    parts.push(`Volume: ${buyer.totalShipments} shipments, ~${buyer.avgTeuPerMonth || "?"} TEU/month`)
-  }
-  if (buyer.originPorts) {
-    parts.push(`Origin ports: ${buyer.originPorts} -> ${buyer.destinationPorts || ""}`)
-  }
-  if (buyer.hasActiveInquiry && buyer.inquiryProducts) {
-    parts.push(`Direct inquiry: ${buyer.inquiryProducts}`)
-  }
-
+  if (buyer.mainProduct) parts.push(`[INTERNAL] Main product category: ${buyer.mainProduct} — use for soft category reference only, e.g., "buyers in the ${buyer.mainProduct} category"`)
+  if (buyer.hsCode) parts.push(`[INTERNAL] HS: ${buyer.hsCode} — DO NOT mention HS code in email, use to understand product compliance needs`)
+  if (buyer.purchaseHistory) parts.push(`[INTERNAL] Purchase history exists — indicates buyer familiarity with Vietnam or need for diversification — DO NOT mention specific supplier names/years/volumes, use soft "many buyers in your space" language`)
+  if (buyer.topSuppliers) parts.push(`[INTERNAL] Top suppliers observed — use to understand competitive landscape, DO NOT name suppliers in email`)
+  if (buyer.mainImportCountries) parts.push(`[INTERNAL] Sources from: ${buyer.mainImportCountries} — use to choose diversification angle softly, DO NOT list countries verbatim`)
+  if (buyer.topPeakMonths) parts.push(`[INTERNAL] Peak months: ${buyer.topPeakMonths} — use for timing reasoning, DO NOT mention peak months in email`)
+  if (buyer.totalShipments) parts.push(`[INTERNAL] Volume: ${buyer.totalShipments} shipments — use for sizing, DO NOT mention shipment counts`)
+  if (buyer.country) parts.push(`[INTERNAL] Buyer country: ${buyer.country} — if US, emphasize FDA and US compliance program`)
   return parts.join("\n")
 }
 
 // ---------------------------------------------------------------------------
-// Supplier Vetting -> Trust Signals (for AI prompt)
+// Internal reasoning — supplier vetting summary (for AI reasoning, NOT verbatim)
 // ---------------------------------------------------------------------------
 
 export function buildSupplierTrustSignals(supplier: SupplierVetting): string {
+  // Internal only — AI must translate to soft compliance language, not list specs
   const signals: string[] = []
-
-  if (supplier.companyName) {
-    signals.push(`Factory: ${supplier.companyName}`)
-  }
-  if (supplier.exportSinceYear) {
-    signals.push(`Exporting since ${supplier.exportSinceYear} (${new Date().getFullYear() - supplier.exportSinceYear} years)`)
-  }
-  if (supplier.companyScale) {
-    signals.push(`Scale: ${supplier.companyScale}`)
-  }
-  if (supplier.certifications && supplier.certifications.length > 0) {
-    signals.push(`Certifications: ${supplier.certifications.join(", ")}${supplier.certificationsOther ? `, ${supplier.certificationsOther}` : ""}`)
-  }
-  if (supplier.qualitySystems && supplier.qualitySystems.length > 0) {
-    signals.push(`Quality systems: ${supplier.qualitySystems.join(", ")}`)
-  }
-  if (supplier.fdaStatus && supplier.fdaStatus !== "none") {
-    signals.push(`FDA: ${supplier.fdaStatus}${supplier.fdaNumber ? ` (${supplier.fdaNumber})` : ""} — valid for US market`)
-  }
-  if (supplier.productionCapacity) {
-    signals.push(`Capacity: ${supplier.productionCapacity}`)
-  }
-  if (supplier.moq) {
-    signals.push(`MOQ: ${supplier.moq}`)
-  }
-  if (supplier.leadTimeDays) {
-    signals.push(`Lead time: ${supplier.leadTimeDays} days`)
-  }
-  if (supplier.incoterms && supplier.incoterms.length > 0) {
-    signals.push(`Incoterms: ${supplier.incoterms.join(", ")}`)
-  }
-  if (supplier.paymentPolicy) {
-    signals.push(`Payment: ${supplier.paymentPolicy}`)
-  }
-  if (supplier.traceability && supplier.traceability.length > 0) {
-    signals.push(`Traceability: ${supplier.traceability.join(", ")}`)
-  }
-  if (supplier.exportMarkets && supplier.exportMarkets.length > 0) {
-    signals.push(`Export markets: ${supplier.exportMarkets.slice(0, 5).join(", ")}`)
-  }
-  if (supplier.oemOdm && supplier.oemOdm.length > 0) {
-    signals.push(`OEM/ODM: ${supplier.oemOdm.join(", ")}`)
-  }
-  if (supplier.hasExportDept) {
-    signals.push(`Has dedicated export dept: ${supplier.hasExportDept ? "yes" : "no"}`)
-  }
-  if (supplier.hasEnglishStaff) {
-    signals.push(`English staff: ${supplier.hasEnglishStaff ? "yes" : "no"}`)
-  }
-  if (supplier.staffEngineersCount) {
-    signals.push(`QC engineers: ${supplier.staffEngineersCount}, workers: ${supplier.staffWorkersCount || "N/A"}`)
-  }
-  if (supplier.uspPoints && supplier.uspPoints.length > 0) {
-    signals.push(`USPs: ${supplier.uspPoints.map(u => u.title).join(", ")}`)
-  }
-  if (supplier.products && supplier.products.length > 0) {
-    const prodLines = supplier.products.slice(0, 3).map(p => `${p.productName}${p.hsCode ? ` (HS ${p.hsCode})` : ""}${p.complianceBadges?.length ? ` [${p.complianceBadges.join(", ")}]` : ""}`).join("; ")
-    signals.push(`Key products: ${prodLines}`)
-  }
-
+  signals.push(`[INTERNAL] Supplier: ${supplier.companyName || "factory"} — DO NOT name factory in first email, only general "factory we work with"`)
+  if (supplier.exportSinceYear) signals.push(`[INTERNAL] Export since ${supplier.exportSinceYear} — indicates experience, translate to soft "experienced exporter" not exact year`)
+  if (supplier.certifications && supplier.certifications.length > 0) signals.push(`[INTERNAL] Certs: ${supplier.certifications.join(", ")} — translate to soft "has been through our compliance program including ${supplier.certifications.slice(0,2).join(" and ")}" — DO NOT list all certs as brochure`)
+  if (supplier.fdaStatus) signals.push(`[INTERNAL] FDA: ${supplier.fdaStatus} — if US buyer, emphasize "FDA registration and traceability in place" softly, DO NOT give FDA number`)
+  if (supplier.productionCapacity) signals.push(`[INTERNAL] Capacity: ${supplier.productionCapacity} — use to confirm fit internally, DO NOT mention exact capacity in email, say "verified capacity for this category"`)
+  if (supplier.leadTimeDays) signals.push(`[INTERNAL] Lead time: ${supplier.leadTimeDays} — internal fit check, DO NOT mention exact days, say "confirmed lead time"`)
+  if (supplier.paymentPolicy) signals.push(`[INTERNAL] Payment: ${supplier.paymentPolicy} — internal, DO NOT list payment terms in first email, mention "flexible payment" only if relevant`)
+  if (supplier.traceability) signals.push(`[INTERNAL] Traceability: ${supplier.traceability.join(", ")} — translate to soft "traceability from raw material"`)
   return signals.join("\n")
 }
 
 // ---------------------------------------------------------------------------
-// Mapping Logic: Buyer needs -> Supplier strengths
-// Returns natural language bullets for AI to use
+// Internal mapping — buyer needs -> supplier strengths (reasoning only)
 // ---------------------------------------------------------------------------
 
 export function buildBuyerSupplierMapping(buyer: BuyerIntel, supplier: SupplierVetting): string {
   const mappings: string[] = []
-
-  // HS Code match
+  mappings.push(`[INTERNAL MAPPING — DO NOT EXPOSE VERBATIM, USE FOR SOFT ANGLE]`)
   if (buyer.hsCode && supplier.products?.some(p => p.hsCode && buyer.hsCode && p.hsCode.includes(buyer.hsCode.slice(0, 4)))) {
-    mappings.push(`HS Code alignment: Buyer imports HS ${buyer.hsCode}, supplier produces same HS chapter — direct match`)
+    mappings.push(`HS alignment exists: use soft "for ${buyer.mainProduct || "this category"}, Vietnam has strong options" — DO NOT mention HS code`)
   }
-
-  // Volume / Capacity match
   if (buyer.avgTeuPerMonth && supplier.productionCapacity) {
-    mappings.push(`Volume fit: Buyer ~${buyer.avgTeuPerMonth} TEU/month, supplier capacity ${supplier.productionCapacity} — suitable scale`)
+    mappings.push(`Volume fit exists: buyer volume vs supplier capacity suitable — translate to soft "verified capacity for this category" — DO NOT mention TEU or exact tons`)
   }
-
-  // Peak season vs lead time
   if (buyer.topPeakMonths && supplier.leadTimeDays) {
-    mappings.push(`Seasonality: Buyer peaks in ${buyer.topPeakMonths}, supplier lead time ${supplier.leadTimeDays} days — plan ahead for peak`)
+    mappings.push(`Seasonality fit: buyer peak vs supplier lead time — internal timing, DO NOT mention peak months or lead time days`)
   }
-
-  // FDA for US buyer
-  if (buyer.country && buyer.country.toLowerCase().includes("united states") || buyer.destinationPorts?.toLowerCase().includes("us")) {
-    if (supplier.fdaStatus && supplier.fdaStatus !== "none") {
-      mappings.push(`US compliance: Buyer is US-based, supplier FDA ${supplier.fdaStatus} — ready for US import`)
-    } else {
-      mappings.push(`US compliance gap: Buyer US-based but supplier FDA not stated — need to verify FDA before sampling`)
-    }
+  if (buyer.country?.toLowerCase().includes("united states") || buyer.country?.toLowerCase().includes("usa")) {
+    if (supplier.fdaStatus) mappings.push(`US buyer + FDA supplier: emphasize soft "FDA registration and traceability in place for US market" — DO NOT give FDA number`)
   }
-
-  // Import countries: if buyer already sources from Vietnam
   if (buyer.mainImportCountries?.toLowerCase().includes("vietnam") || buyer.purchaseHistory?.toLowerCase().includes("vietnam")) {
-    mappings.push(`Vietnam experience: Buyer already sources from Vietnam — familiar with VN logistics and quality, easier switch`)
+    mappings.push(`Buyer has Vietnam experience: use soft "buyers who already work with Vietnam" — DO NOT name past VN suppliers`)
   } else if (buyer.mainImportCountries) {
-    mappings.push(`Diversification angle: Buyer currently sources from ${buyer.mainImportCountries}, Vietnam offers alternative to reduce single-country risk`)
+    mappings.push(`Diversification: buyer sources from multiple origins — use soft "many buyers in your space are looking to strengthen Vietnam supply with US-compliant factories" — DO NOT list countries`)
   }
-
-  // Payment terms
-  if (supplier.paymentPolicy) {
-    mappings.push(`Payment flexibility: Supplier offers ${supplier.paymentPolicy} — can match buyer preference`)
-  }
-
-  // Certifications vs product
-  if (supplier.certifications && supplier.certifications.length > 0) {
-    mappings.push(`Certified: ${supplier.certifications.slice(0, 3).join(", ")} — matches typical requirements for ${buyer.mainProduct || "this category"}`)
-  }
-
-  // Traceability - important for food/agri
-  if (supplier.traceability && supplier.traceability.length > 0) {
-    mappings.push(`Traceability: ${supplier.traceability.join(", ")} — important for US/EU buyers`)
-  }
-
+  mappings.push(`Compliance angle: emphasize Vexim compliance consulting program — FDA, HACCP, traceability, audit — as differentiator, not marketplace`)
   return mappings.join("\n")
 }
 
 // ---------------------------------------------------------------------------
-// Deliverability-safe positioning snippets for cold email
-// These are short, conversational, NOT brochure
+// Soft positioning snippets — safe to use in email (no raw data)
 // ---------------------------------------------------------------------------
 
 export function getVeximPositioningSnippet(context: "requirement" | "introduction", buyerCountry?: string | null): string {
   if (context === "requirement") {
     return `
-We work a bit differently from typical sourcing agents:
-- We only represent factories we've visited and audited ourselves
-- Each factory is checked for valid certifications (HACCP, ISO, BRC, FDA when US-bound), traceability, and English-speaking export team
-- Response within 24h, clear MOQ/lead time, flexible payment (T/T, L/C at sight)
-- No trading companies — direct factory, transparent pricing
+We work as a compliance consulting partner for Vietnamese factories exporting to the US — helping them meet FDA, HACCP, and traceability requirements that US buyers expect.
 
-I noticed your import pattern and thought our network might be relevant, but I'd rather understand your exact specs before suggesting anyone specific.
+Our factories go through our US compliance program and audit before joining our network — direct factory, not trading companies, only those meeting US standards.
+
+Many buyers in your category tell us they want a Vietnam option that already has compliance in place, rather than starting from scratch.
 `.trim()
   } else {
-    // introduction — supplier already chosen, can be more specific
     const usNote = buyerCountry && buyerCountry.toLowerCase().includes("united states")
-      ? " FDA registration is active, so US import is straightforward."
+      ? " FDA registration and traceability are in place for US market."
       : ""
     return `
-The factory we work with has been audited by our team — not a trading company.
-They have valid certifications, traceability from raw material, English export team, and flexible payment.${usNote}
-Capacity and lead time are confirmed, and we can arrange a video call tour if helpful.
+The factory we work with has been through our US compliance program and audit — not a trading company.
+
+They have FDA registration, HACCP, and traceability from raw material in place, and we have verified capacity and lead time for this category.${usNote}
+
+We can arrange a video call tour if helpful.
 `.trim()
   }
 }
 
 // ---------------------------------------------------------------------------
-// Google Spam Risk Assessment
+// Google Spam Risk + Surveillance Risk Assessment
 // ---------------------------------------------------------------------------
 
 export interface SpamRiskAssessment {
@@ -301,23 +201,37 @@ export function assessSpamRisk(emailContent: string, subject: string): SpamRiskA
   const lowerContent = emailContent.toLowerCase()
   const lowerSubject = subject.toLowerCase()
 
-  // Check spam trigger words
+  // Spam triggers
   const spamTriggers = ["best price", "cheapest", "guaranteed", "act now", "limited time", "free sample", "click here", "buy now", "discount", "!!!", "$$$"]
   const foundTriggers = spamTriggers.filter(t => lowerContent.includes(t) || lowerSubject.includes(t))
   if (foundTriggers.length > 0) {
     factors.push(`Contains spam trigger phrases: ${foundTriggers.join(", ")}`)
     riskScore += foundTriggers.length * 2
-    recommendations.push("Remove salesy phrases, use consultative language")
+    recommendations.push("Remove salesy phrases, use consultative compliance advisor language")
   }
 
-  // Check ALL CAPS
+  // Surveillance triggers — NEW in V3
+  const surveillancePatterns = [
+    /hs\s*\d{4}/i,
+    /\b\d{1,3}(,\d{3})*kg\b/i,
+    /\b\d+\s*shipments?\b/i,
+    /\bteu\b/i,
+    /peak.*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i,
+    /i noticed you import.*from.*and/i,
+  ]
+  const foundSurveillance = surveillancePatterns.filter(p => p.test(emailContent))
+  if (foundSurveillance.length > 0) {
+    factors.push(`Contains surveillance-like specifics (${foundSurveillance.length} patterns) — buyer will feel monitored`)
+    riskScore += 3
+    recommendations.push("Remove raw buyer data (HS codes, shipment counts, volumes, peak months, specific supplier names, origin countries list) — use soft category language")
+  }
+
   if (/[A-Z]{5,}/.test(emailContent)) {
     factors.push("Contains excessive ALL CAPS")
     riskScore += 2
     recommendations.push("Avoid ALL CAPS, use normal sentence case")
   }
 
-  // Check exclamation marks
   const exclamCount = (emailContent.match(/!/g) || []).length
   if (exclamCount > 1) {
     factors.push(`Multiple exclamation marks (${exclamCount})`)
@@ -325,7 +239,6 @@ export function assessSpamRisk(emailContent: string, subject: string): SpamRiskA
     recommendations.push("Limit to 0-1 exclamation marks")
   }
 
-  // Check links
   const linkCount = (emailContent.match(/https?:\/\//g) || []).length
   if (linkCount > 0) {
     factors.push(`Contains ${linkCount} links — cold email should have 0 links`)
@@ -333,26 +246,17 @@ export function assessSpamRisk(emailContent: string, subject: string): SpamRiskA
     recommendations.push("Remove all links from first email, share in follow-up")
   }
 
-  // Check length
   const wordCount = emailContent.split(/\s+/).length
   if (wordCount > 200) {
-    factors.push(`Email too long (${wordCount} words) — Gmail prefers <150 for cold`)
+    factors.push(`Email too long (${wordCount} words) — Gmail prefers <170 for soft approach`)
     riskScore += 1
-    recommendations.push("Keep first email under 150 words, intro under 180")
+    recommendations.push("Keep first email 120-170 words, intro 120-170 words")
   }
 
-  // Check fake Re:/Fwd
   if (lowerSubject.startsWith("re:") || lowerSubject.startsWith("fwd:")) {
     factors.push("Fake Re:/Fwd in subject — violates Gmail policy")
     riskScore += 5
     recommendations.push("Never use Re: or Fwd: unless real reply")
-  }
-
-  // Check personalization
-  if (!lowerContent.includes("i noticed") && !lowerContent.includes("i saw")) {
-    factors.push("Lacks buyer-specific observation — looks generic")
-    riskScore += 1
-    recommendations.push("Add 1-2 specific observations about buyer (HS, product, country)")
   }
 
   let riskLevel: "low" | "medium" | "high" = "low"
@@ -360,7 +264,7 @@ export function assessSpamRisk(emailContent: string, subject: string): SpamRiskA
   else if (riskScore >= 2) riskLevel = "medium"
 
   if (riskLevel === "low") {
-    factors.push("Passes basic Gmail checks: no links, no spam triggers, personalized, short")
+    factors.push("Passes Gmail checks: no links, no spam triggers, no surveillance data, soft compliance consulting tone, short")
   }
 
   return { riskLevel, factors, recommendations }

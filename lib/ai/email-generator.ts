@@ -74,54 +74,36 @@ function extractPurchaseHistoryDetails(text: string | null): {
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - "Buyer Relevance + Vexim Trust" approach (V2 - High-Quality Mapping).
+  introduction: `COLD INTRODUCTION - Soft Compliance Consulting approach (V3).
 
-═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: THIS EMAIL'S JOB IS "WE UNDERSTAND WHAT YOU BUY" + "WHY OUR NETWORK FITS"
-═══════════════════════════════════════════════════════════════════════════════
-This is email 1 of the funnel AFTER supplier shortlist: Buyer relevance → Supplier credibility → Commercial offer.
-Unlike the pre-supplier requirement_inquiry email, you NOW HAVE a specific vetted supplier (see supplier_vetting in context).
-You must COMBINE buyer intelligence + supplier strengths into a personalized, consultative email.
+Vexim positioning (MUST reflect):
+Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company.
+We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness.
+We only work with factories we've visited and audited. We reject 80% that apply. Only those meeting US compliance standards join our network. Direct factory, transparent pricing, no trading companies.
+Buyers get US-compliant suppliers, not random quotes.
 
-BUYER INTELLIGENCE YOU MUST USE (pick 2-3 most relevant, woven naturally):
-- main_product, hs_code, secondary_hs_codes: what they buy
-- purchase_history: VN supplier names/year/volume - e.g., "I noticed you sourced from Visimex in 2024"
-- top_suppliers, main_import_countries: where they source from
-- total_shipments, avg_teu_per_month: volume
-- peak_months, top_low_months: seasonality
-- origin_ports, destination_ports: logistics
-- inquiry_products if has_active_inquiry
+CRITICAL — SOFT APPROACH & DATA PRIVACY (do not violate):
+- You have internal buyer intelligence (purchase_history, top_suppliers, main_import_countries, peak_months, total_shipments, hs_code, origin_ports, bol_description...) and supplier vetting (certifications, fda_status, capacity, payment_policy, traceability...) in context.
+- These are FOR INTERNAL REASONING ONLY to choose the right angle and compliance pillar. NEVER expose raw data verbatim in email.
+- NEVER write: "I noticed you import HS 0801.32 from Visimex 16,800kg peak Oct-Dec, 120 shipments" or "your 120 shipments" or "your HS code" or "you source from Vietnam and Chile" or specific supplier names, shipment counts, TEU, peak months, ports, volumes, years.
+- BAD (surveillance): "I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, with peak around Oct-Dec and 120 shipments — capacity 80 tons/month lead time 15 days FDA active 5 QC engineers"
+- GOOD (soft): "We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with factories that already meet US compliance requirements"
+- GOOD: "Many buyers in your space tell us they want a Vietnam option that already has FDA registration and traceability in place, rather than starting compliance from scratch"
+- GOOD: "For cashew W320, Vietnam offers strong options, but US compliance is where many factories fall short — that's where our compliance program helps"
+- Supplier data also internal: do NOT list "capacity 80 tons/month, lead time 15 days, FDA active, 5 QC engineers, FOB Ho Chi Minh, T/T + L/C". Instead soft: "The factory we work with has been through our US compliance program and audit — FDA registration, HACCP, traceability in place, and we have verified capacity and lead time for this category"
 
-SUPPLIER VETTING YOU MUST MAP (from supplier_vetting in context):
-- certifications, quality_systems: HACCP, ISO 22000, BRC, FDA, HALAL, etc.
-- fda_status, fda_number: critical for US buyers
-- production_capacity, moq, lead_time: fit for buyer's volume and peak season
-- incoterms, payment_policy: flexible T/T, L/C at sight
-- traceability: raw material to finished goods, lot tracking
-- export_markets, export_since_year: experience
-- has_export_dept, has_english_staff, staff_engineers: 24h response capability
-- key_products: HS match with buyer
-- trust_signals_text: pre-built summary
-- buyer_supplier_mapping: WHY this factory fits THIS buyer (use this!)
-
-VEXIM POSITIONING (subtle, not brochure):
-- We are not a marketplace. We only represent factories we've visited and audited.
-- Typical factory: 50-300 workers, export since 2015+, HACCP/ISO, FDA if US-bound, English export team, traceability.
-- We reject 80% of factories that apply.
-- Mention 1-2 trust pillars RELEVANT to this buyer, not a full list.
-
-STRUCTURE (130-180 words):
-1. SUBJECT: Personalized + specific. Format: "[Name], [product] from Vietnam — [supplier strength hook]" or "[Company]'s [product] supply — audited factory in Vietnam". NEVER use "Re:" or "Fwd:".
-2. HOOK (1 sentence): Specific buyer observation + who you are. "Hi John, I noticed {Company} imports {product} under HS {code} from {countries}, with peak around {months} — I'm {Name} with Vexim in Vietnam, we only work with factories we've audited ourselves."
-3. MAPPING (2 sentences): Why THIS supplier fits THIS buyer, using buyer_supplier_mapping and supplier_vetting. Reference certifications, FDA, capacity, payment flexibility that match buyer's needs. Example: "The factory we work with produces {product} under HS {code} with valid HACCP/ISO and FDA registration for US, capacity {X} tons/month, lead time {Y} days which aligns with your peak in {months}. They offer flexible {payment} and traceability from raw material."
-4. SOFT CTA (1 sentence): Ask a light qualifying question that opens conversation. "Would you be open to sharing your current spec so we can confirm fit and arrange a video call tour if helpful?"
+STRUCTURE (120-170 words, excluding signature):
+1. SUBJECT: Soft, human, sentence case, compliance angle, under 50 chars. E.g., "Vietnam {category} — US compliance support" or "Sourcing {category} from Vietnam with compliance included". NEVER Re:/Fwd.
+2. HOOK (1 sentence): Soft category insight + who you are/compliance consulting in same sentence. E.g., "Hi John, I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, and we work with buyers in the cashew category who want a Vietnam option that already meets FDA and traceability requirements."
+3. COMPLIANCE PROGRAM (1 sentence): One short clause on Vexim compliance program relevant to buyer's category, soft, not list. E.g., "Our factories go through our US compliance program (FDA registration, HACCP, traceability from raw material) and audit before joining our network — direct factory, not trading companies."
+4. SOFT CTA (1 sentence): Ask whether buyer would be open to evaluating additional Vietnam sourcing with compliance support. "Would you be open to exploring additional Vietnam sourcing with compliance support included for your {category}? If now isn't the right time, no worries at all."
 5. CLOSE: Low-pressure out.
 
-TONE: Peer-to-peer, consultative, confident, specific. Like a person who did homework on THIS buyer and knows THIS factory.
-AVOID: generic marketplace pitch, listing all certs, saying "best price", "cheapest", "guaranteed", "free sample", exclamation marks, ALL CAPS.
-MUST INCLUDE: at least 2 buyer-specific data points + at least 1 supplier-specific strength + at least 1 Vexim trust pillar, all woven naturally, not as bullet list.
+TONE: Compliance advisor, peer-to-peer, consultative, confident, soft. Not salesy, not surveillance, not brochure.
+AVOID: generic marketplace pitch, listing all certs/capacity/payment, saying "best price", "cheapest", "guaranteed", "free sample", exclamation, ALL CAPS, raw data exposure.
+MUST INCLUDE: soft category language (buyers in the {category} category, many buyers in your space), 1 compliance pillar soft (FDA/traceability/HACCP), Vexim compliance consulting positioning.
 
-Word count: 130-180 words (excluding signature).`,
+Word count: 120-170 words (excluding signature).`,
 
   follow_up: `FOLLOW-UP — this email type covers TWO different sub-modes. Read the admin's Vietnamese
 instruction and the opportunity context to tell which one applies, then follow that structure:
@@ -669,10 +651,7 @@ export async function generateEmailDraft(
 
   const contextBlock = JSON.stringify(
     {
-      // === BUYER BASIC INFO ===
-      // buyer_contact/buyer_email ưu tiên liên hệ AE vừa chọn ở cột "Email
-      // chính" (danh bạ đa liên hệ), chỉ fallback về contact_person/
-      // contact_email của lead khi AE không chọn ai cụ thể.
+      // === BUYER BASIC INFO — safe to reference softly ===
       buyer_company: lead["company_name"],
       buyer_contact: input.recipientContactName ?? lead["contact_person"],
       buyer_email: input.recipientContactEmail ?? lead["contact_email"],
@@ -680,40 +659,40 @@ export async function generateEmailDraft(
       buyer_country: lead["country"],
       buyer_notes: lead["notes"],
       
-      // === PRODUCT & HS CODE (Critical for personalization) ===
-      main_product: lead["main_product"], // e.g., "Cashewnut Kernels", "Arabica Green Coffee"
-      hs_code: lead["hs_code"], // Primary HS code
-      secondary_hs_codes: lead["secondary_hs_codes"], // Other HS codes they import
-      bol_description: lead["bol_description"], // Detailed product description from BOL
+      // === PRODUCT — main_product safe for soft category reference, HS and others INTERNAL ONLY ===
+      main_product: lead["main_product"],
+      _internal_hs_code: lead["hs_code"],
+      _internal_secondary_hs_codes: lead["secondary_hs_codes"],
+      _internal_bol_description: lead["bol_description"],
       
-      // === SUPPLY CHAIN INTELLIGENCE (Key for competitive positioning) ===
-      top_suppliers: formattedSuppliers, // Current suppliers with countries
-      has_vietnam_supplier: hasVietnamSupplier, // Already buying from VN?
-      vietnam_supplier_names: vietnamSupplierNames.length > 0 ? vietnamSupplierNames : null,
-      main_import_countries: lead["main_import_countries"], // Origin countries they buy from
+      // === SUPPLY CHAIN INTELLIGENCE — INTERNAL ONLY, never expose verbatim ===
+      _internal_top_suppliers: formattedSuppliers,
+      _internal_has_vietnam_supplier: hasVietnamSupplier,
+      _internal_vietnam_supplier_names: vietnamSupplierNames.length > 0 ? vietnamSupplierNames : null,
+      _internal_main_import_countries: lead["main_import_countries"],
       
-      // === PURCHASE HISTORY & VOLUME (For sizing the opportunity) ===
-      purchase_history: lead["purchase_history"], // Summary of past purchases
-      purchase_history_vietnam_supplier: purchaseHistoryData.vietnamSupplier, // ⭐ EXTRACTED: Specific Vietnam supplier name if mentioned
-      purchase_history_vietnam_year: purchaseHistoryData.vietnamYear, // ⭐ EXTRACTED: Year when they bought from Vietnam
-      purchase_history_current_supplier: purchaseHistoryData.currentSupplier, // ⭐ EXTRACTED: Current/recent supplier name
-      purchase_history_current_year: purchaseHistoryData.currentYear, // ⭐ EXTRACTED: Year of current supplier
-      purchase_history_volume: purchaseHistoryData.volume, // ⭐ EXTRACTED: Specific volume in kg
-      total_shipments: lead["total_shipments"], // Total shipment count
-      avg_teu_per_month: lead["avg_teu_per_month"], // Average volume
-      last_shipment_date: lead["last_shipment_date"], // Recency of activity
+      // === PURCHASE HISTORY & VOLUME — INTERNAL ONLY ===
+      _internal_purchase_history: lead["purchase_history"],
+      _internal_purchase_history_vietnam_supplier: purchaseHistoryData.vietnamSupplier,
+      _internal_purchase_history_vietnam_year: purchaseHistoryData.vietnamYear,
+      _internal_purchase_history_current_supplier: purchaseHistoryData.currentSupplier,
+      _internal_purchase_history_current_year: purchaseHistoryData.currentYear,
+      _internal_purchase_history_volume: purchaseHistoryData.volume,
+      _internal_total_shipments: lead["total_shipments"],
+      _internal_avg_teu_per_month: lead["avg_teu_per_month"],
+      _internal_last_shipment_date: lead["last_shipment_date"],
       
-      // === TIMING (For outreach timing) ===
-      peak_months: lead["peak_months"], // High-demand months
-      top_low_months: lead["top_low_months"], // Low-demand months
+      // === TIMING — INTERNAL ONLY ===
+      _internal_peak_months: lead["peak_months"],
+      _internal_top_low_months: lead["top_low_months"],
       
-      // === LOGISTICS (For operational fit) ===
-      origin_ports: lead["origin_ports"], // Ports they ship from
-      destination_ports: lead["destination_ports"], // Ports they receive at
-      container_types: lead["container_types"], // Container preferences
+      // === LOGISTICS — INTERNAL ONLY ===
+      _internal_origin_ports: lead["origin_ports"],
+      _internal_destination_ports: lead["destination_ports"],
+      _internal_container_types: lead["container_types"],
       
-      // === PRIORITY & QUALIFICATION ===
-      priority_rating: lead["priority_rating"], // 1-5 priority score
+      // === PRIORITY ===
+      priority_rating: lead["priority_rating"],
       
       // === EXPORTER (Our client) INFO ===
       exporter_company: exporter?.["company_name"] ?? null,
@@ -721,19 +700,13 @@ export async function generateEmailDraft(
       exporter_email: exporter?.["email"] ?? null,
       exporter_phone: exporter?.["phone"] ?? null,
       
-      // === SENDER (AE) INFO - Use for email signature ===
-      // NOTE: Only name, title, and company are included.
-      // Personal email and phone are intentionally excluded to prevent
-      // buyers from contacting AEs directly outside the platform.
+      // === SENDER (AE) INFO ===
       sender_name: aeProfile?.full_name ?? null,
       sender_title: 
         aeProfile?.role === "super_admin" ? "Founder & CEO" :
         aeProfile?.role === "account_executive" ? "Account Executive" :
         aeProfile?.role === "staff" ? "Business Development Manager" :
         "Business Development",
-      // Legal entity line + registered postal address for the buyer-facing
-      // signature (CAN-SPAM requires the address on commercial email).
-      // In the body the company may be referred to conversationally as "Vexim".
       sender_company: "VEXIM GLOBAL CO., LTD",
       sender_address: "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam",
       
@@ -743,7 +716,7 @@ export async function generateEmailDraft(
         .potential_value,
       opportunity_notes: (opportunity as { notes: string | null }).notes,
 
-      // === DEAL COMMERCIAL TERMS (thông tin deal hiện tại) ===
+      // === DEAL COMMERCIAL TERMS ===
       deal_products_interested: opp.products_interested ?? null,
       deal_quantity_required: opp.quantity_required ?? null,
       deal_target_price_usd: opp.target_price_usd ?? null,
@@ -753,14 +726,14 @@ export async function generateEmailDraft(
       deal_destination_port: opp.destination_port ?? null,
       deal_next_step: opp.next_step ?? null,
 
-      // === CONVERSATION HISTORY (8 lượt gần nhất, cũ -> mới) ===
+      // === CONVERSATION HISTORY ===
       conversation_history: conversationHistory,
 
-      // === LIVE BUYER INTEL (AE thu được khi liên hệ trực tiếp) ===
+      // === LIVE BUYER INTEL ===
       buyer_intel_notes: buyerIntel,
 
-      // === SUPPLIER VETTING (Vexim curated network) ===
-      supplier_vetting: supplierVetting ? {
+      // === SUPPLIER VETTING — INTERNAL ONLY, for reasoning, never expose raw specs ===
+      _internal_supplier_vetting: supplierVetting ? {
         company_name: supplierVetting.companyName,
         certifications: supplierVetting.certifications,
         quality_systems: supplierVetting.qualitySystems,
@@ -785,21 +758,22 @@ export async function generateEmailDraft(
         trust_signals_text: supplierTrustText,
       } : null,
 
-      // === BUYER-SUPPLIER MAPPING (why this factory fits this buyer) ===
-      buyer_supplier_mapping: buyerSupplierMappingText,
+      // === BUYER-SUPPLIER MAPPING — INTERNAL REASONING ONLY ===
+      _internal_buyer_supplier_mapping: buyerSupplierMappingText,
 
-      // === VEXIM POSITIONING ===
+      // === VEXIM POSITIONING — compliance consulting for VN exporters to US ===
       vexim_positioning: {
-        model: "Not a marketplace — only audited factories",
-        pillars: [
-          "Factory audit: direct factory, visited by Vexim team, no trading company",
-          "Certifications: HACCP, ISO 22000, BRC, FDA for US-bound, checked valid",
-          "Quality: traceability, lot tracking, QC engineers, equipment calibration",
-          "Response: 24h response, English export team, video factory tour",
-          "Payment: flexible T/T, L/C at sight, transparent pricing",
-          "Transparency: confirmed capacity, MOQ, lead time, audit readiness",
+        who_we_are: "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company",
+        what_we_do: "We help Vietnamese manufacturers meet US compliance: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness",
+        how_we_select: "Only factories we've visited and audited, that meet US compliance standards, join our network. We reject 80% that apply. Direct factory, transparent pricing, no trading companies",
+        trust_pillars_soft: [
+          "Compliance program for US market: FDA, HACCP, ISO, BRC, traceability",
+          "Factory audit by Vexim team, direct factory, 50-300 workers typical",
+          "Quality system: traceability, QC engineers, English export team",
+          "Support: 24h response, video factory tour, flexible payment T/T and L/C at sight",
         ],
       },
+    },
     },
     null,
     2,

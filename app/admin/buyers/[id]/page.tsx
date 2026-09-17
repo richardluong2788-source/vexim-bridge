@@ -10,7 +10,6 @@ import {
   type BuyerDetailData,
   type BuyerOpportunity,
   type BuyerReply,
-  type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { AssignBuyerDialog } from "@/components/admin/assign-buyer-dialog"
@@ -144,31 +143,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     }))
   }
 
-  // --- 4) Clients eligible to be assigned this buyer ---------------------
-  // We only include clients with a non-empty FDA registration number. The
-  // expiry check happens server-side inside assignBuyerToClient, but we
-  // still expose the expiry date so the dialog can warn eagerly.
-  const { data: rawClients } = await current.admin
-    .from("profiles")
-    .select("id, full_name, company_name, fda_registration_number, fda_expires_at")
-    .eq("role", "client")
-    .order("company_name", { ascending: true })
-
-  // Mark clients already attached to this buyer so the dialog can disable
-  // them (prevents accidental duplicate assignment, UNIQUE constraint
-  // violations, and confusion in the pipeline).
-  const attachedClientIds = new Set(
-    oppRows.map((o) => o.client?.id).filter((x): x is string => !!x),
-  )
-
-  const clients: AssignableClient[] = (rawClients ?? []).map((c: any) => ({
-    id: c.id,
-    name: c.company_name ?? c.full_name ?? "—",
-    fdaRegistrationNumber: c.fda_registration_number,
-    fdaExpiresAt: c.fda_expires_at,
-    alreadyAttached: attachedClientIds.has(c.id),
-  }))
-
   const data: BuyerDetailData = {
     id: buyer.id,
     company_name: buyer.company_name,
@@ -249,7 +223,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         buyer={data}
         opportunities={oppRows}
         replies={replies}
-        clients={clients}
         contacts={contacts}
         locale={locale}
         canWrite={canWrite}

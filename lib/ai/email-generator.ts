@@ -19,6 +19,9 @@ import {
   buildSupplierTrustSignals,
   buildBuyerSupplierMapping,
   getVeximPositioningSnippet,
+  getSoftProductDescription,
+  getSoftSeasonalityHook,
+  getSeasonalCapacityAngle,
 } from "@/lib/ai/vexim-positioning"
 
 /**
@@ -74,37 +77,42 @@ function extractPurchaseHistoryDetails(text: string | null): {
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - Soft Compliance Consulting approach (V3).
+  introduction: `COLD INTRODUCTION - Soft 60/40 Compliance + Product & Seasonality (V4).
 
-Vexim positioning (MUST reflect):
+Vexim positioning (60% — MUST reflect):
 Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company.
 We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness.
 We only work with factories we've visited and audited. We reject 80% that apply. Only those meeting US compliance standards join our network. Direct factory, transparent pricing, no trading companies.
 Buyers get US-compliant suppliers, not random quotes.
 
-CRITICAL — SOFT APPROACH & DATA PRIVACY (do not violate):
-- You have internal buyer intelligence (purchase_history, top_suppliers, main_import_countries, peak_months, total_shipments, hs_code, origin_ports, bol_description...) and supplier vetting (certifications, fda_status, capacity, payment_policy, traceability...) in context.
-- These are FOR INTERNAL REASONING ONLY to choose the right angle and compliance pillar. NEVER expose raw data verbatim in email.
-- NEVER write: "I noticed you import HS 0801.32 from Visimex 16,800kg peak Oct-Dec, 120 shipments" or "your 120 shipments" or "your HS code" or "you source from Vietnam and Chile" or specific supplier names, shipment counts, TEU, peak months, ports, volumes, years.
-- BAD (surveillance): "I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, with peak around Oct-Dec and 120 shipments — capacity 80 tons/month lead time 15 days FDA active 5 QC engineers"
-- GOOD (soft): "We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with factories that already meet US compliance requirements"
-- GOOD: "Many buyers in your space tell us they want a Vietnam option that already has FDA registration and traceability in place, rather than starting compliance from scratch"
-- GOOD: "For cashew W320, Vietnam offers strong options, but US compliance is where many factories fall short — that's where our compliance program helps"
-- Supplier data also internal: do NOT list "capacity 80 tons/month, lead time 15 days, FDA active, 5 QC engineers, FOB Ho Chi Minh, T/T + L/C". Instead soft: "The factory we work with has been through our US compliance program and audit — FDA registration, HACCP, traceability in place, and we have verified capacity and lead time for this category"
+BUYER PRODUCT & SEASONALITY (40% — MUST reflect, soft, not surveillance):
+You have internal buyer data for reasoning, but must produce SOFT language using main_product_soft, season_hook_soft, capacity_angle_soft from context:
+- Mention buyer's specific product category softly using main_product_soft (e.g., 'premium cashew kernels', 'arabica coffee', 'black pepper') — DO NOT use HS codes
+- Mention seasonality softly using season_hook_soft and capacity_angle_soft (e.g., 'As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind') — DO NOT mention exact months like 'Oct, Nov, Dec' or 'your peak is Oct-Dec' or shipment counts, TEU, volumes
+- Example desired 40% part from context: example_40_percent — adapt naturally
+- BAD (surveillance): 'I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, with peak around Oct-Dec and 120 shipments, 16,800kg — capacity 80 tons lead time 15 days FDA active'
+- GOOD (soft 40%): 'I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.'
+- GOOD: 'We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with US-compliant factories'
+- This 40% part should be 1-2 sentences at opening, right after greeting, before Vexim intro, or woven into same sentence as Vexim intro
 
-STRUCTURE (120-170 words, excluding signature):
-1. SUBJECT: Soft, human, sentence case, compliance angle, under 50 chars. E.g., "Vietnam {category} — US compliance support" or "Sourcing {category} from Vietnam with compliance included". NEVER Re:/Fwd.
-2. HOOK (1 sentence): Soft category insight + who you are/compliance consulting in same sentence. E.g., "Hi John, I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, and we work with buyers in the cashew category who want a Vietnam option that already meets FDA and traceability requirements."
-3. COMPLIANCE PROGRAM (1 sentence): One short clause on Vexim compliance program relevant to buyer's category, soft, not list. E.g., "Our factories go through our US compliance program (FDA registration, HACCP, traceability from raw material) and audit before joining our network — direct factory, not trading companies."
-4. SOFT CTA (1 sentence): Ask whether buyer would be open to evaluating additional Vietnam sourcing with compliance support. "Would you be open to exploring additional Vietnam sourcing with compliance support included for your {category}? If now isn't the right time, no worries at all."
+CRITICAL — SOFT APPROACH & DATA PRIVACY (do not violate):
+- Internal buyer intelligence (_internal_* fields) and supplier vetting (_internal_supplier_vetting) are FOR INTERNAL REASONING ONLY to choose angle and compliance pillar. NEVER expose raw data verbatim.
+- NEVER write HS codes, specific supplier names, shipment counts, TEU, exact peak months, origin/destination ports, BOL descriptions, exact volumes/years, purchase_history details
+- Supplier data also internal: do NOT list 'capacity 80 tons/month, lead time 15 days, FDA active, 5 QC engineers, FOB, T/T + L/C'. Instead soft: 'The factory we work with has been through our US compliance program and audit — FDA registration, HACCP, traceability in place, and we have verified capacity and lead time for this category'
+- 60/40 SPLIT: Email must feel like 40% about buyer's product & seasonal timing + 60% about Vexim compliance consulting
+
+STRUCTURE V4 — 60/40 (120-170 words, excluding signature):
+1. SUBJECT: Soft, human, sentence case, compliance angle, under 50 chars. E.g., 'Vietnam {category} — US compliance support' or '{Company} — {product} for US market, compliance included'. NEVER Re:/Fwd.
+2. HOOK — 40% Buyer insight & seasonality (1-2 sentences): Use main_product_soft + season_hook_soft + capacity_angle_soft from context. E.g., 'Hi John, I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.' — this is 40% part. Must be first after greeting.
+3. COMPLIANCE — 60% Vexim compliance consulting (2-3 sentences): E.g., 'I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, helping them meet FDA, HACCP, and traceability requirements. Our factories go through our US compliance program and audit before joining our network — direct factory, not trading companies, only those meeting US standards.' — this is 60% part.
+4. SOFT CTA (1 sentence): 'Would you be open to exploring additional Vietnam sourcing with compliance support included for your {category}? If now isn't the right time, no worries at all.'
 5. CLOSE: Low-pressure out.
 
-TONE: Compliance advisor, peer-to-peer, consultative, confident, soft. Not salesy, not surveillance, not brochure.
-AVOID: generic marketplace pitch, listing all certs/capacity/payment, saying "best price", "cheapest", "guaranteed", "free sample", exclamation, ALL CAPS, raw data exposure.
-MUST INCLUDE: soft category language (buyers in the {category} category, many buyers in your space), 1 compliance pillar soft (FDA/traceability/HACCP), Vexim compliance consulting positioning.
+TONE: Compliance advisor, peer-to-peer, consultative, confident, soft. Not salesy, not surveillance, not brochure. Like a person who understands both US compliance and seasonal capacity challenges.
+AVOID: marketplace pitch, listing all certs/capacity/payment, 'best price', 'cheapest', 'guaranteed', 'free sample', exclamation, ALL CAPS, raw data exposure.
+MUST INCLUDE: soft product mention using main_product_soft + soft seasonality using season_hook_soft (40%) + compliance consulting (60%: FDA, HACCP, traceability, audit, direct factory).
 
 Word count: 120-170 words (excluding signature).`,
-
   follow_up: `FOLLOW-UP — this email type covers TWO different sub-modes. Read the admin's Vietnamese
 instruction and the opportunity context to tell which one applies, then follow that structure:
 
@@ -622,9 +630,28 @@ export async function generateEmailDraft(
     at: n.created_at,
   }))
 
-  // Compute supplier trust signals and buyer-supplier mapping for prompt
+  // Compute supplier trust signals and buyer-supplier mapping + soft 60/40 helpers
   let supplierTrustText: string | null = null
   let buyerSupplierMappingText: string | null = null
+  let productSoft: string = "your product category"
+  let seasonHookSoft: string = "upcoming sourcing cycle"
+  let capacityAngleSoft: string = "securing reliable capacity and compliant supply is likely important"
+  try {
+    productSoft = getSoftProductDescription((lead["main_product"] as string) || null)
+    seasonHookSoft = getSoftSeasonalityHook((lead["top_peak_months"] as string) || (lead["peak_months"] as string) || null, new Date())
+    capacityAngleSoft = getSeasonalCapacityAngle(seasonHookSoft)
+  } catch {
+    const mp = (lead["main_product"] as string) || ""
+    if (mp.toLowerCase().includes("cashew")) productSoft = "premium cashew kernels"
+    else if (mp) productSoft = mp.split(",")[0].toLowerCase()
+    const now = new Date()
+    const month = now.getMonth() + 1
+    if (month >= 9 && month <= 11) seasonHookSoft = "peak year-end sourcing period"
+    else if (month >= 6 && month <= 8) seasonHookSoft = "pre-peak preparation period"
+    else seasonHookSoft = "upcoming sourcing cycle"
+    capacityAngleSoft = "securing consistent capacity and compliant supply is likely top of mind"
+  }
+
   if (supplierVetting) {
     try {
       supplierTrustText = buildSupplierTrustSignals(supplierVetting as any)
@@ -638,7 +665,7 @@ export async function generateEmailDraft(
         purchaseHistory: (lead["purchase_history"] as string) || null,
         topSuppliers: (lead["top_suppliers"] as any) || null,
         mainImportCountries: (lead["main_import_countries"] as string) || null,
-        topPeakMonths: (lead["top_peak_months"] as string) || null,
+        topPeakMonths: (lead["top_peak_months"] as string) || (lead["peak_months"] as string) || null,
         topLowMonths: (lead["top_low_months"] as string) || null,
         totalShipments: (lead["total_shipments"] as number) || null,
         avgTeuPerMonth: (lead["avg_teu_per_month"] as number) || null,
@@ -731,6 +758,14 @@ export async function generateEmailDraft(
 
       // === LIVE BUYER INTEL ===
       buyer_intel_notes: buyerIntel,
+
+      // === SOFT 60/40 HELPERS — safe to use in email ===
+      main_product_soft: productSoft,
+      season_hook_soft: seasonHookSoft,
+      capacity_angle_soft: capacityAngleSoft,
+      current_date: new Date().toISOString().split("T")[0],
+      current_month: new Date().getMonth() + 1,
+      example_40_percent: `I noticed ${lead["company_name"] || "your company"} has a strong presence in ${productSoft} for the US market. As we approach ${seasonHookSoft}, ${capacityAngleSoft}.`,
 
       // === SUPPLIER VETTING — INTERNAL ONLY, for reasoning, never expose raw specs ===
       _internal_supplier_vetting: supplierVetting ? {

@@ -809,7 +809,6 @@ export async function generateEmailDraft(
         ],
       },
     },
-    },
     null,
     2,
   )

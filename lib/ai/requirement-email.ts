@@ -38,7 +38,7 @@ const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
 
 const OPT_OUT_EN =
-  `If sourcing from Vietnam isn't on your radar right now, just reply "no" and I won't reach out again — no hard feelings at all.`
+  `If sourcing from Vietnam isn't on your radar right now, just reply 'no' and I won't reach out again — no hard feelings at all.`
 const OPT_OUT_VI =
   `Nếu nguồn cung từ Việt Nam hiện chưa nằm trong kế hoạch của bạn, chỉ cần trả lời "không", tôi sẽ không gửi email lại — hoàn toàn không có gì phiền cả.`
 
@@ -467,7 +467,7 @@ export async function generateRequirementInquiryEmail(
           "   phone number.",
           "7. The buyer has NOT replied, so include the CAN-SPAM opt-out as the final line BEFORE",
           "   the signature, worded like a peer courtesy: 'If sourcing from Vietnam isn't on your",
-          "   radar right now, just reply \"no\" and I won't reach out again — no hard feelings at",
+          "   radar right now, just reply 'no' and I won't reach out again — no hard feelings at",
           "   all.' Never make it look like a legal footer.",
           "8. American business voice: greet by first name ('Hi {first name},'), use natural",
           "   contractions (I'm, you've), short sentences, and no stiff phrases ('I hope this",
@@ -533,7 +533,7 @@ export async function generateRequirementInquiryEmail(
           "16. No generic taglines like 'trusted sourcing partner', 'end-to-end solution'. Describe plainly: 'We help Vietnamese factories meet US compliance requirements'.",
           "17. NO URL, LINK, IMAGE, BUTTON, ATTACHMENT in first email. Plain text only.",
           "18. ANTI-SPAM: never use 'free', 'discount', 'cheap', 'guarantee/guaranteed', '100%', 'act now', 'limited time', 'risk-free', 'no obligation', 'click here', 'unsubscribe', 'congratulations', 'dear friend', savings/ROI %. No ALL-CAPS, no exclamation, no emoji.",
-          "19. CAN-SPAM: final sentence body before signature, human opt-out: 'If sourcing from Vietnam isn't on your radar right now, just reply "no" and I won't reach out again — no hard feelings at all.'",
+          "19. CAN-SPAM: final sentence body before signature, human opt-out: 'If sourcing from Vietnam isn't on your radar right now, just reply 'no' and I won't reach out again — no hard feelings at all.'",
           "20. DATA PRIVACY SELF-CHECK: Before finalizing, verify you did NOT include: HS codes, specific supplier names, shipment counts, TEU, exact peak months like 'Oct, Nov, Dec', origin/destination ports, BOL descriptions, exact volumes/years, purchase_history details. Also verify 60/40 split: ~40% buyer product & seasonality (mention product_soft + season_hook_soft) + ~60% compliance consulting (FDA, HACCP, traceability, audit, direct factory). If fail, rewrite.",
           "",
           "AMERICAN BUSINESS VOICE:",

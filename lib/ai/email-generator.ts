@@ -15,6 +15,11 @@ import { generateText, Output } from "ai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
+import {
+  buildSupplierTrustSignals,
+  buildBuyerSupplierMapping,
+  getVeximPositioningSnippet,
+} from "@/lib/ai/vexim-positioning"
 
 /**
  * Extract specific purchase history details (supplier names, years, volumes) from raw text.
@@ -69,35 +74,54 @@ function extractPurchaseHistoryDetails(text: string | null): {
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - "Buyer Relevance" approach (NOT a sales pitch, NOT a supplier pitch).
+  introduction: `COLD INTRODUCTION - "Buyer Relevance + Vexim Trust" approach (V2 - High-Quality Mapping).
 
 ═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: THIS EMAIL'S ONLY JOB IS "WE UNDERSTAND WHAT YOU BUY"
+CRITICAL: THIS EMAIL'S JOB IS "WE UNDERSTAND WHAT YOU BUY" + "WHY OUR NETWORK FITS"
 ═══════════════════════════════════════════════════════════════════════════════
-This is email 1 of the funnel: Buyer relevance → Supplier credibility → Commercial offer.
-Do NOT try to prove the supplier is good in this email — that is the job of the follow-up,
-sent AFTER the buyer responds and shows interest (see the "3 Pillars of Trust" stage in the
-follow_up guidance). Leading with factory proof / COA / certifications here is premature and
-dilutes the one thing this email needs to land: proof that you did your homework on THIS buyer.
+This is email 1 of the funnel AFTER supplier shortlist: Buyer relevance → Supplier credibility → Commercial offer.
+Unlike the pre-supplier requirement_inquiry email, you NOW HAVE a specific vetted supplier (see supplier_vetting in context).
+You must COMBINE buyer intelligence + supplier strengths into a personalized, consultative email.
 
-CRITICAL RULES:
-- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
-- Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
-- Do NOT offer factory video, COA, or certifications in this email — save concrete proof for the follow-up.
-- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Prefer:
-  "Rather than sending you a general supplier list, we can shortlist manufacturers based on your
-  current specification, volume and compliance requirements" over "we work with a few Vietnamese
-  manufacturers that may fit your needs."
+BUYER INTELLIGENCE YOU MUST USE (pick 2-3 most relevant, woven naturally):
+- main_product, hs_code, secondary_hs_codes: what they buy
+- purchase_history: VN supplier names/year/volume - e.g., "I noticed you sourced from Visimex in 2024"
+- top_suppliers, main_import_countries: where they source from
+- total_shipments, avg_teu_per_month: volume
+- peak_months, top_low_months: seasonality
+- origin_ports, destination_ports: logistics
+- inquiry_products if has_active_inquiry
 
-STRUCTURE:
-1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
-2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
-3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
-4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
-5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
+SUPPLIER VETTING YOU MUST MAP (from supplier_vetting in context):
+- certifications, quality_systems: HACCP, ISO 22000, BRC, FDA, HALAL, etc.
+- fda_status, fda_number: critical for US buyers
+- production_capacity, moq, lead_time: fit for buyer's volume and peak season
+- incoterms, payment_policy: flexible T/T, L/C at sight
+- traceability: raw material to finished goods, lot tracking
+- export_markets, export_since_year: experience
+- has_export_dept, has_english_staff, staff_engineers: 24h response capability
+- key_products: HS match with buyer
+- trust_signals_text: pre-built summary
+- buyer_supplier_mapping: WHY this factory fits THIS buyer (use this!)
 
-TONE: Peer-to-peer, consultative, curious about THEIR business. Confident without overselling.
-Word count: 100-150 words (shorter = better for cold emails).`,
+VEXIM POSITIONING (subtle, not brochure):
+- We are not a marketplace. We only represent factories we've visited and audited.
+- Typical factory: 50-300 workers, export since 2015+, HACCP/ISO, FDA if US-bound, English export team, traceability.
+- We reject 80% of factories that apply.
+- Mention 1-2 trust pillars RELEVANT to this buyer, not a full list.
+
+STRUCTURE (130-180 words):
+1. SUBJECT: Personalized + specific. Format: "[Name], [product] from Vietnam — [supplier strength hook]" or "[Company]'s [product] supply — audited factory in Vietnam". NEVER use "Re:" or "Fwd:".
+2. HOOK (1 sentence): Specific buyer observation + who you are. "Hi John, I noticed {Company} imports {product} under HS {code} from {countries}, with peak around {months} — I'm {Name} with Vexim in Vietnam, we only work with factories we've audited ourselves."
+3. MAPPING (2 sentences): Why THIS supplier fits THIS buyer, using buyer_supplier_mapping and supplier_vetting. Reference certifications, FDA, capacity, payment flexibility that match buyer's needs. Example: "The factory we work with produces {product} under HS {code} with valid HACCP/ISO and FDA registration for US, capacity {X} tons/month, lead time {Y} days which aligns with your peak in {months}. They offer flexible {payment} and traceability from raw material."
+4. SOFT CTA (1 sentence): Ask a light qualifying question that opens conversation. "Would you be open to sharing your current spec so we can confirm fit and arrange a video call tour if helpful?"
+5. CLOSE: Low-pressure out.
+
+TONE: Peer-to-peer, consultative, confident, specific. Like a person who did homework on THIS buyer and knows THIS factory.
+AVOID: generic marketplace pitch, listing all certs, saying "best price", "cheapest", "guaranteed", "free sample", exclamation marks, ALL CAPS.
+MUST INCLUDE: at least 2 buyer-specific data points + at least 1 supplier-specific strength + at least 1 Vexim trust pillar, all woven naturally, not as bullet list.
+
+Word count: 130-180 words (excluding signature).`,
 
   follow_up: `FOLLOW-UP — this email type covers TWO different sub-modes. Read the admin's Vietnamese
 instruction and the opportunity context to tell which one applies, then follow that structure:
@@ -422,6 +446,7 @@ export async function generateEmailDraft(
     .select(
       `
         id,
+        client_id,
         stage,
         potential_value,
         notes,
@@ -455,6 +480,63 @@ export async function generateEmailDraft(
 
   if (!lead) {
     throw new Error("Opportunity has no associated lead")
+  }
+
+  // ------------------------------------------------------------
+  // 2b) Load supplier vetting data (factory assessment, profile, products, certs)
+  // ------------------------------------------------------------
+  const clientId = (opportunity as any).client_id as string | undefined
+  let supplierVetting: any = null
+  let supplierProducts: any[] = []
+  let supplierCerts: any[] = []
+  let supplierProfile: any = null
+
+  if (clientId) {
+    const [factoryRes, profileRes, productsRes, certsRes, intakeRes] = await Promise.all([
+      supabase.from("client_factory_assessments").select("*").eq("client_id", clientId).maybeSingle(),
+      supabase.from("client_profiles").select("*").eq("client_id", clientId).maybeSingle(),
+      supabase.from("client_products").select("product_name, hs_code, compliance_badges, moq_value, lead_time, category").eq("client_id", clientId).eq("status", "active").limit(5),
+      supabase.from("compliance_docs").select("kind, title, expires_at").eq("owner_id", clientId).limit(10),
+      supabase.from("profiles").select("fda_registration_number, fda_expires_at, company_name, industries, country").eq("id", clientId).maybeSingle(),
+    ])
+
+    const fa = factoryRes.data as any
+    const cp = profileRes.data as any
+    const prof = intakeRes.data as any
+
+    supplierProfile = cp
+    supplierProducts = productsRes.data ?? []
+    supplierCerts = certsRes.data ?? []
+
+    supplierVetting = {
+      companyName: prof?.company_name ?? (opportunity as any).profiles?.company_name ?? null,
+      certifications: cp?.featured_certifications ?? supplierCerts.filter((d: any) => d.kind !== "factory_video" && d.kind !== "factory_photo").map((d: any) => d.title || d.kind),
+      qualitySystems: fa?.quality_systems ?? null,
+      fdaStatus: fa ? (prof?.fda_registration_number ? "registered" : "checking") : (prof?.fda_registration_number ? "registered" : null),
+      fdaNumber: prof?.fda_registration_number ?? null,
+      productionCapacity: cp?.production_capacity ?? fa?.production_capacity_monthly ?? null,
+      moq: cp?.moq ?? null,
+      leadTimeDays: cp?.lead_time_days ?? fa?.lead_time_days ?? null,
+      incoterms: fa?.incoterms ?? null,
+      paymentPolicy: fa?.payment_policy ?? null,
+      traceability: fa?.traceability ?? null,
+      exportMarkets: fa?.export_markets ?? null,
+      exportSinceYear: fa?.export_since_year ?? null,
+      oemOdm: fa?.oem_odm ?? null,
+      companyScale: fa?.company_scale ?? null,
+      hasExportDept: fa?.has_export_dept ?? null,
+      hasEnglishStaff: fa?.has_english_staff ?? null,
+      staffEngineersCount: fa?.staff_engineers_count ?? null,
+      staffWorkersCount: fa?.staff_workers_count ?? null,
+      uspPoints: cp?.usp_points ?? null,
+      products: supplierProducts.map((p: any) => ({
+        productName: p.product_name,
+        hsCode: p.hs_code,
+        complianceBadges: p.compliance_badges,
+        moqValue: p.moq_value,
+        leadTime: p.lead_time,
+      })),
+    }
   }
 
   // ------------------------------------------------------------
@@ -558,6 +640,33 @@ export async function generateEmailDraft(
     at: n.created_at,
   }))
 
+  // Compute supplier trust signals and buyer-supplier mapping for prompt
+  let supplierTrustText: string | null = null
+  let buyerSupplierMappingText: string | null = null
+  if (supplierVetting) {
+    try {
+      supplierTrustText = buildSupplierTrustSignals(supplierVetting as any)
+    } catch {}
+    try {
+      const buyerForMap = {
+        companyName: (lead["company_name"] as string) || "",
+        country: (lead["country"] as string) || null,
+        mainProduct: (lead["main_product"] as string) || null,
+        hsCode: (lead["hs_code"] as string) || null,
+        purchaseHistory: (lead["purchase_history"] as string) || null,
+        topSuppliers: (lead["top_suppliers"] as any) || null,
+        mainImportCountries: (lead["main_import_countries"] as string) || null,
+        topPeakMonths: (lead["top_peak_months"] as string) || null,
+        topLowMonths: (lead["top_low_months"] as string) || null,
+        totalShipments: (lead["total_shipments"] as number) || null,
+        avgTeuPerMonth: (lead["avg_teu_per_month"] as number) || null,
+        originPorts: (lead["origin_ports"] as string) || null,
+        destinationPorts: (lead["destination_ports"] as string) || null,
+      }
+      buyerSupplierMappingText = buildBuyerSupplierMapping(buyerForMap as any, supplierVetting as any)
+    } catch {}
+  }
+
   const contextBlock = JSON.stringify(
     {
       // === BUYER BASIC INFO ===
@@ -649,6 +758,48 @@ export async function generateEmailDraft(
 
       // === LIVE BUYER INTEL (AE thu được khi liên hệ trực tiếp) ===
       buyer_intel_notes: buyerIntel,
+
+      // === SUPPLIER VETTING (Vexim curated network) ===
+      supplier_vetting: supplierVetting ? {
+        company_name: supplierVetting.companyName,
+        certifications: supplierVetting.certifications,
+        quality_systems: supplierVetting.qualitySystems,
+        fda_status: supplierVetting.fdaStatus,
+        fda_number: supplierVetting.fdaNumber,
+        production_capacity: supplierVetting.productionCapacity,
+        moq: supplierVetting.moq,
+        lead_time: supplierVetting.leadTimeDays,
+        incoterms: supplierVetting.incoterms,
+        payment_policy: supplierVetting.paymentPolicy,
+        traceability: supplierVetting.traceability,
+        export_markets: supplierVetting.exportMarkets,
+        export_since_year: supplierVetting.exportSinceYear,
+        oem_odm: supplierVetting.oemOdm,
+        company_scale: supplierVetting.companyScale,
+        has_export_dept: supplierVetting.hasExportDept,
+        has_english_staff: supplierVetting.hasEnglishStaff,
+        staff_engineers: supplierVetting.staffEngineersCount,
+        staff_workers: supplierVetting.staffWorkersCount,
+        usp_points: supplierVetting.uspPoints,
+        key_products: supplierVetting.products,
+        trust_signals_text: supplierTrustText,
+      } : null,
+
+      // === BUYER-SUPPLIER MAPPING (why this factory fits this buyer) ===
+      buyer_supplier_mapping: buyerSupplierMappingText,
+
+      // === VEXIM POSITIONING ===
+      vexim_positioning: {
+        model: "Not a marketplace — only audited factories",
+        pillars: [
+          "Factory audit: direct factory, visited by Vexim team, no trading company",
+          "Certifications: HACCP, ISO 22000, BRC, FDA for US-bound, checked valid",
+          "Quality: traceability, lot tracking, QC engineers, equipment calibration",
+          "Response: 24h response, English export team, video factory tour",
+          "Payment: flexible T/T, L/C at sight, transparent pricing",
+          "Transparency: confirmed capacity, MOQ, lead time, audit readiness",
+        ],
+      },
     },
     null,
     2,

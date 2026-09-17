@@ -3,25 +3,18 @@
  * email an AE sends a buyer BEFORE any client/supplier has been picked and
  * before any sourcing requirements have been collected.
  *
- * This is deliberately NOT a discovery/requirements email. It does not ask
- * about product spec, MOQ, target price, payment terms, or packaging — it
- * only introduces Vexim briefly, shows a safe/generic understanding of the
- * buyer's industry, and asks ONE single question: whether the buyer is open
- * to evaluating additional sourcing from Vietnam. Collecting the detailed
- * requirements (spec, price, MOQ, payment, packaging, other) happens in a
- * SEPARATE follow-up step, once the buyer has replied positively — via
- * generateFollowUpReplyEmail() below, triggered from the AE's "Reply" flow
- * with a Vietnamese instruction (see the "Ask for detailed requirements"
- * quick-preset in ReplyFollowUpDialog).
+ * V2 — High-Quality Mapping Edition:
+ * - Buyer deep analysis: HS code, purchase_history (VN supplier names/year/volume),
+ *   top_suppliers, main_import_countries, peak_months, total_shipments, origin_ports...
+ * - Vexim positioning: curated network, factory audit, certifications (HACCP/ISO/BRC/FDA),
+ *   fast response (24h), flexible payment (T/T, L/C), traceability, transparency
+ * - Combined into personalized, consultative email that still passes Gmail filters
  *
- * Deliberately kept separate from lib/ai/email-generator.ts (which is
- * opportunity-scoped and much more elaborate) because this email has no
- * opportunity yet — only a `lead` and a `buyer_engagement`.
- *
- * Same pipeline shape as the opportunity email generator: AI drafts ->
- * saved as a `pending_approval` email_drafts row -> AE reviews -> sent via
- * the existing lib/ai/email-sender.ts (which already tolerates a draft
- * with no opportunity_id).
+ * Google Deliverability Notes:
+ * - Keep plain text, no links/images in first email
+ * - No spam triggers: "best price", "cheapest", "guaranteed", "free", "act now"
+ * - Personalized with buyer-specific observation (HS, product, import countries)
+ * - Human sender name, conversational tone, opt-out courtesy line
  */
 
 import { generateText, Output } from "ai"
@@ -37,40 +30,14 @@ export class RequirementEmailAuthError extends Error {
 
 const ALLOWED_ROLES = new Set(["admin", "staff", "super_admin", "account_executive"])
 
-/**
- * Legal entity line used in EVERY buyer-facing email signature. The body may
- * refer to the company conversationally as "Vexim", but the signature always
- * carries this exact legal name.
- */
 const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
-
-/**
- * Registered postal address, required in the signature of commercial cold
- * outreach under the US CAN-SPAM Act. Keep this EXACT one-line formatting.
- */
 const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
 
-/**
- * One-line, human-sounding opt-out (also a CAN-SPAM requirement on cold
- * commercial email). Phrased as a peer courtesy rather than a legal footer,
- * and a simple reply "no" is a valid opt-out mechanism. Used on the opening
- * email and unanswered follow-ups ONLY — never once the buyer is in an active
- * conversation (shortlist delivery, mid-thread replies).
- */
 const OPT_OUT_EN =
-  `If sourcing from Vietnam isn't on your radar right now, just reply \"no\" and I won't reach out again — no hard feelings at all.`
+  `If sourcing from Vietnam isn't on your radar right now, just reply "no" and I won't reach out again — no hard feelings at all.`
 const OPT_OUT_VI =
   `Nếu nguồn cung từ Việt Nam hiện chưa nằm trong kế hoạch của bạn, chỉ cần trả lời "không", tôi sẽ không gửi email lại — hoàn toàn không có gì phiền cả.`
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI Gateway resilience: the model call above is the single point of failure
-// for every "soạn email" action in the AE inbox. If the Gateway is down or
-// slow, an AE must still be able to send an email within seconds — so every
-// generateText() call in this file is (1) time-boxed with AI_GENERATION_TIMEOUT_MS
-// and (2) backed by a static fallback template that still produces a usable,
-// on-brand, review-ready draft instead of surfacing a dead end to the AE.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const AI_GENERATION_TIMEOUT_MS = 20_000
 
@@ -81,7 +48,6 @@ class AIGenerationTimeoutError extends Error {
   }
 }
 
-/** Races an AI call against a timeout so a stuck/slow Gateway never blocks the AE. */
 async function withGenerationTimeout<T>(promise: Promise<T>, ms = AI_GENERATION_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout>
   const timeout = new Promise<never>((_, reject) => {
@@ -104,21 +70,12 @@ type FallbackEmailContext = {
   shortlistUrl?: string | null
 }
 
-/**
- * Static, hand-written email templates used ONLY when the AI Gateway call
- * fails or times out. Deliberately plain and generic (no fabricated facts)
- * so they are always safe to send as-is, though the AE still reviews before
- * sending like every other draft in this pipeline.
- */
 function buildFallbackEmail(
   emailType: EngagementEmailType,
   ctx: FallbackEmailContext,
 ): { subject_en: string; content_en: string; content_vi: string } {
-  // US B2B norm: greet by first name; fall back to a soft generic.
-  const greetingName = ctx.contactPerson?.trim().split(/\s+/)[0] || "there"
+  const greetingName = ctx.contactPerson?.trim().split(/\\s+/)[0] || "there"
   const topic = ctx.industryOrProduct?.trim() || "your product category"
-  // Signature: AE's name, legal entity line, work email, registered postal
-  // address (CAN-SPAM). NEVER a phone number and never a placeholder.
   const signature_en = [
     "",
     "Best regards,",
@@ -210,7 +167,7 @@ function buildFallbackEmail(
         "",
         "Cảm ơn bạn đã chia sẻ nhu cầu sourcing với chúng tôi. Chúng tôi đã xem xét và chuẩn bị một shortlist các nhà cung cấp đã được kiểm tra kỹ để bạn tham khảo.",
         "",
-        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""} — cho chúng tôi biết bạn quan tâm đến nhà cung c��p nào nhé.`,
+        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""} — cho chúng tôi biết bạn quan tâm đến nhà cung cấp nào nhé.`,
         "",
         "Chúng tôi mong nhận được phản hồi từ bạn.",
         signature_vi,
@@ -256,7 +213,6 @@ function buildFallbackEmail(
   }
 }
 
-/** Fallback for a mid-thread reply — deliberately generic since we cannot safely paraphrase the buyer's specific ask without AI. */
 function buildFallbackFollowUpReply(ctx: {
   senderName: string
   exporterCompany: string
@@ -293,7 +249,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body. Exact content requirements (what to ask, what NOT to ask, tone, structure, length) are fully specified in the system prompt for the given emailType — follow the system prompt precisely rather than any generic assumption. Always end with a complete signature using sender_name / signature_company / sender_email / signature_address from context (in that order) — never use placeholders and never include a phone number.",
+      "Full English email body. Exact content requirements are fully specified in the system prompt for the given emailType — follow the system prompt precisely. Always end with a complete signature using sender_name / signature_company / sender_email / signature_address from context.",
     ),
   content_vi: z
     .string()
@@ -306,11 +262,6 @@ export type GenerateRequirementEmailInput = {
   engagementId: string
   viPrompt: string
   emailType?: EngagementEmailType
-  /**
-   * Required when emailType === "shortlist_delivery" — the public link the buyer opens.
-   * Optional when emailType === "requirement_followup" — if the buyer was already sent a
-   * shortlist link, pass it so the follow-up references it instead of the earlier opening email.
-   */
   shortlistUrl?: string
   isManual?: boolean
   manualSubject?: string
@@ -323,7 +274,6 @@ export type GenerateRequirementEmailResult = {
   content_en: string
   content_vi: string
   recipient_email: string | null
-  /** True when the AI Gateway failed/timed out and a static fallback template was used instead. */
   usedFallback?: boolean
 }
 
@@ -363,23 +313,12 @@ export async function generateRequirementInquiryEmail(
 
   const recipient = (lead["contact_email"] as string | null) ?? null
   const emailType: EngagementEmailType = input.emailType ?? "requirement_inquiry"
-  // The `email_drafts.email_type` column has a DB-level CHECK constraint that only
-  // allows a fixed set of values ('introduction', 'follow_up', 'quotation',
-  // 'sample_offer', 'negotiation', 'custom', 'requirement_inquiry',
-  // 'shortlist_delivery') — it does NOT include "requirement_followup", which is
-  // an internal-only variant of EngagementEmailType used to select the right AI
-  // prompt/subject above. Map it to the closest allowed DB value before insert,
-  // or every requirement_followup draft violates the constraint and the whole
-  // send fails.
   const dbEmailType = emailType === "requirement_followup" ? "follow_up" : emailType
 
   if (emailType === "shortlist_delivery" && !input.shortlistUrl) {
     throw new Error("shortlistUrl is required for shortlist_delivery emails")
   }
 
-  // ------------------------------------------------------------
-  // Manual mode — skip AI generation entirely.
-  // ------------------------------------------------------------
   if (input.isManual && input.manualSubject && input.manualContent) {
     const { data: draft, error: draftError } = await supabase
       .from("email_drafts")
@@ -408,42 +347,66 @@ export async function generateRequirementInquiryEmail(
     }
   }
 
-  const contextBlock = JSON.stringify(
-    {
-      buyer_company: lead["company_name"],
-      contact_person: lead["contact_person"],
-      main_product: lead["main_product"],
-      hs_code: lead["hs_code"],
-      industry: lead["industry"],
-      country: lead["country"],
-      sender_name: profile.full_name,
-      // Short brand name for conversational use INSIDE the body ("I'm with
-      // Vexim in Vietnam"). The legal signature line is signature_company.
-      exporter_company: "Vexim",
-      // Exact legal entity text + registered postal address that must
-      // appear in the signature (CAN-SPAM requires the address).
-      signature_company: SIGNATURE_COMPANY,
-      signature_address: SIGNATURE_ADDRESS,
-      // IMPORTANT: never sign with profile.email — that's the AE's login
-      // address and is often a personal Gmail (leaks into the buyer-facing
-      // signature). Sign with their provisioned work_email, falling back to
-      // the shared trade@ address if they don't have one yet. No phone
-      // number is ever provided to the model — signatures are name/company/
-      // email only.
-      sender_email: profile.work_email || "trade@veximtrade.com",
-      ...(emailType === "shortlist_delivery"
-        ? {
-            requested_products: (engagement as any).requested_products,
-            target_price_range: (engagement as any).target_price_range,
-            moq: (engagement as any).moq,
-            shortlist_url: input.shortlistUrl,
-          }
-        : {}),
-      ...(emailType === "requirement_followup" ? { shortlist_url: input.shortlistUrl ?? null } : {}),
+  // ------------------------------------------------------------------
+  // Deep buyer intel + Vexim vetting context
+  // ------------------------------------------------------------------
+  const buyerIntel = {
+    buyer_company: lead["company_name"],
+    contact_person: lead["contact_person"],
+    contact_title: (lead as any)["contact_title"] ?? null,
+    main_product: lead["main_product"],
+    hs_code: lead["hs_code"],
+    secondary_hs_codes: (lead as any)["secondary_hs_codes"] ?? null,
+    industry: lead["industry"],
+    country: lead["country"],
+    website: (lead as any)["website"] ?? null,
+    // Deep fields for quality mapping
+    purchase_history: (lead as any)["purchase_history"] ?? null,
+    top_suppliers: (lead as any)["top_suppliers"] ?? null,
+    main_import_countries: (lead as any)["main_import_countries"] ?? null,
+    top_peak_months: (lead as any)["top_peak_months"] ?? null,
+    top_low_months: (lead as any)["top_low_months"] ?? null,
+    total_shipments: (lead as any)["total_shipments"] ?? null,
+    avg_teu_per_month: (lead as any)["avg_teu_per_month"] ?? null,
+    origin_ports: (lead as any)["origin_ports"] ?? null,
+    destination_ports: (lead as any)["destination_ports"] ?? null,
+    container_types: (lead as any)["container_types"] ?? null,
+    bol_description: (lead as any)["bol_description"] ?? null,
+    has_active_inquiry: (lead as any)["has_active_inquiry"] ?? null,
+    inquiry_products: (lead as any)["inquiry_products"] ?? null,
+    inquiry_quantity: (lead as any)["inquiry_quantity"] ?? null,
+    inquiry_timeline: (lead as any)["inquiry_timeline"] ?? null,
+    sender_name: profile.full_name,
+    exporter_company: "Vexim",
+    signature_company: SIGNATURE_COMPANY,
+    signature_address: SIGNATURE_ADDRESS,
+    sender_email: profile.work_email || "trade@veximtrade.com",
+    // Vexim positioning — curated network story
+    vexim_vetting: {
+      model: "We are not a marketplace. We only represent factories we've physically visited and audited ourselves — no trading companies.",
+      pillars: [
+        "Factory audit: direct factory, visited by Vexim team, 50-300 workers typical, export since 2015+",
+        "Certifications: HACCP, ISO 22000, BRC, FDA for US-bound, HALAL/KOSHER if needed — checked and valid, not just claimed",
+        "Quality: traceability from raw material to finished goods, lot tracking, QC engineers on site, equipment calibration, food safety training",
+        "Response: 24h response, English-speaking export team, dedicated account handling, video call factory tour available",
+        "Payment: flexible T/T, L/C at sight, transparent pricing, no hidden costs, clear MOQ/lead time/capacity",
+        "Transparency: clear audit readiness, water testing, near pollution source check, production capacity confirmed",
+      ],
+      typical_factory: "50-300 workers, export since 2015+, 20-100 tons/month, HACCP/ISO, FDA if US-bound, English export dept, traceability system",
+      differentiator: "We reject 80% of factories that apply — only those passing our audit join the network. That's why buyers get consistent quality, not random quotes.",
     },
-    null,
-    2,
-  )
+    ...(emailType === "shortlist_delivery"
+      ? {
+          requested_products: (engagement as any).requested_products,
+          target_price_range: (engagement as any).target_price_range,
+          moq: (engagement as any).moq,
+          shortlist_url: input.shortlistUrl,
+        }
+      : {}),
+    ...(emailType === "requirement_followup" ? { shortlist_url: input.shortlistUrl ?? null } : {}),
+  }
+
+  const contextBlock = JSON.stringify(buyerIntel, null, 2)
 
   const system =
     emailType === "shortlist_delivery"
@@ -503,37 +466,53 @@ export async function generateRequirementInquiryEmail(
           "   up, not a marketing sequence.",
         ].join("\n")
       : [
-          "You write the FIRST, LIGHT-TOUCH opening email a Vietnamese export sales team (Vexim)",
-          "sends to a new buyer lead. This is NOT a requirements-collection email.",
+          "You write the FIRST, HIGH-QUALITY opening email a Vietnamese export sales team (Vexim)",
+          "sends to a new buyer lead. This is NOT a requirements-collection email — it's a",
+          "consultative first touch that proves you understand this buyer and shows why Vexim is",
+          "different from random trading companies.",
           "",
           "GOAL OF THIS EMAIL:",
-          "Briefly introduce Vexim, show a safe, generic understanding of the buyer's industry/",
-          "product context, and end with exactly ONE call-to-action: asking whether the buyer would",
-          "be open to evaluating additional sourcing/supply from Vietnam for their",
-          "product/industry. That is the only question in the email.",
+          "1. Show you deeply understand THIS buyer: reference their main product, HS code,",
+          "   import countries, purchase history (VN suppliers if any), peak months, shipment volume",
+          "   — pick 2-3 most relevant data points from context, woven naturally into the opening.",
+          "2. Briefly introduce Vexim's curated model (not a marketplace, only audited factories) —",
+          "   mention 1-2 trust pillars relevant to this buyer (e.g., FDA for US buyer, traceability",
+          "   for food, flexible payment for new supplier evaluation, 24h response). Keep it to ONE",
+          "   sentence, not a brochure.",
+          "3. End with exactly ONE CTA: whether the buyer would be open to evaluating additional",
+          "   sourcing from Vietnam for their product/industry.",
           "",
           "MANDATORY RULES (do not violate any of these):",
           "1. Exactly ONE call-to-action: whether the buyer is open to evaluating Vietnam sourcing.",
           "2. Do NOT ask about product spec/details, target price, MOQ, payment terms, or packaging.",
           "   Those belong to a later, separate follow-up email — not this one.",
           "3. Do NOT name, list, or describe any specific supplier or factory. No supplier has been",
-          "   chosen or vetted yet.",
+          "   chosen or vetted yet. You can reference Vexim's NETWORK in general terms only.",
           "4. Do NOT invent or assume any fact not present in the context JSON — no specific prices,",
           "   quantities, certifications, capacity figures, delivery times, or claimed history of",
-          "   past purchases/communication with this buyer.",
-          "5. Do NOT use any forbidden/absolute claims: no 'FDA approved', 'guaranteed', 'cheapest',",
-          "   'best', 'top supplier', '#1', or similarly unverifiable superlative/regulatory claims.",
+          "   past purchases/communication with this buyer. Use ONLY what is in buyer context.",
+          "5. Do NOT use any forbidden/absolute claims: no 'FDA approved' as guarantee, no",
+          "   'guaranteed', 'cheapest', 'best', 'top supplier', '#1', or similarly unverifiable",
+          "   superlative/regulatory claims. You CAN say 'FDA-registered factories' or 'factories",
+          "   with valid HACCP/ISO' as general vetting criteria — that's factual about your process,",
+          "   not a promise about a specific supplier.",
           "6. Do NOT reference or reveal any internal-only or unverified data fields, scoring, notes,",
           "   or anything that reads as internal system/CRM language.",
           "7. Do NOT mention attachments, catalogs, price lists, or files — none are attached.",
           "8. Do NOT claim the email has been or will be auto-sent — it is drafted for AE review.",
-          "9. Vexim's self-introduction must be brief: roughly 10-20% of the email's total content,",
-          "   not the centerpiece.",
-          "10. Show buyer-context awareness only at a safe, generic level (their general industry or",
-          "    main product category from context) — never fabricate specifics about their company.",
-          "11. Keep a professional, warm, consultative B2B tone — never pushy or salesy.",
+          "9. Vexim's self-introduction must be brief: roughly 15-25% of the email's total content,",
+          "   not the centerpiece. Weave it into the same paragraph as buyer observation, not a",
+          "   separate pitch paragraph.",
+          "10. Show buyer-context awareness at a SPECIFIC level: use 2-3 real data points from context",
+          "    (e.g., 'I saw you import cashew W320 from Vietnam and India, with peak shipments around",
+          "    Oct-Dec' or 'noticed your HS 0801 volume and sourcing from multiple countries'). This is",
+          "    what makes the email high-quality vs generic. If purchase_history exists, reference it",
+          "    naturally (e.g., 'I noticed you've worked with [VN supplier] before').",
+          "11. Keep a professional, warm, consultative B2B tone — never pushy or salesy. Sound like",
+          "    a specific person who did homework on this buyer, not a mail-merge template.",
           "12. No emoji. No excessive punctuation (no multiple exclamation marks, no ALL CAPS).",
-          "13. Total length: 120-180 words for the body (excluding signature).",
+          "13. Total length: 130-200 words for the body (excluding signature). Slightly longer than",
+          "    before because we now include buyer-specific insight + Vexim trust, but still concise.",
           "14. End with a complete, real signature in EXACTLY this shape, using context values:",
           "    a blank line, 'Best regards,', the sender_name, then signature_company",
           "    ('VEXIM GLOBAL CO., LTD'), then sender_email, then signature_address (the",
@@ -545,7 +524,7 @@ export async function generateRequirementInquiryEmail(
           "17. Generalize to the buyer's ACTUAL product/industry taken from context (main_product /",
           "    industry) — never hardcode or default to any single specific product category.",
           "18. If a context field needed to sound specific is missing, stay generic rather than",
-          "    guessing or fabricating a value.",
+          "    guessing or fabricating a value. Prefer fewer specifics over invented ones.",
           "19. AVOID THE 'COLD SALES OUTREACH TEMPLATE' SHAPE. Do not write it as: greeting →",
           "    company pitch paragraph → value-proposition bridge sentence → CTA → sign-off. That",
           "    exact shape is what bulk-outreach tools (Salesloft, Outreach, Apollo) produce, and is",
@@ -556,7 +535,7 @@ export async function generateRequirementInquiryEmail(
           "20. Do not use generic value-proposition phrasing that reads as marketing copy (e.g.",
           "    'we connect international buyers with vetted manufacturers', 'trusted sourcing",
           "    partner', 'end-to-end solution'). Describe Vexim's role in one plain, specific",
-          "    clause instead of a tagline.",
+          "    clause instead of a tagline. Use vexim_vetting from context for factual pillars.",
           "21. THIS FIRST EMAIL MUST CONTAIN NO URL, LINK, IMAGE, BUTTON OR ATTACHMENT. There is",
           "    nothing to click on a first touch — links only appear in later shortlist/follow-up",
           "    emails. Plain text only, no HTML, no social-media handles.",
@@ -570,6 +549,18 @@ export async function generateRequirementInquiryEmail(
           "    isn't on your radar right now, just reply \"no\" and I won't reach out again — no",
           "    hard feelings at all.' It must read as a courtesy, never as a legal footer or a",
           "    clickable unsubscribe link.",
+          "24. QUALITY MAPPING: You MUST reference at least 2 buyer-specific data points from context",
+          "    (choose from: main_product, hs_code, purchase_history, top_suppliers,",
+          "    main_import_countries, top_peak_months, total_shipments, origin_ports). Example:",
+          "    'I noticed you import [product] under HS [code] from [countries], with peak in [months]'",
+          "    — this proves you did homework. Do NOT dump all fields, just 2-3 most relevant woven",
+          "    naturally.",
+          "25. VEXIM POSITIONING: You MUST weave in 1-2 trust pillars from vexim_vetting.pillars that",
+          "    are RELEVANT to this buyer: e.g., for US buyer mention FDA registration check; for food",
+          "    buyer mention HACCP/traceability; for buyer with many suppliers mention 24h response and",
+          "    English team. Keep it to ONE short clause, not a list. Example: 'We only work with",
+          "    factories we've visited ourselves — typical partners have valid HACCP/ISO and FDA",
+          "    registration for US, with traceability from raw material.'",
           "",
           "AMERICAN BUSINESS VOICE (the reader is a busy US purchasing/import professional):",
           "- Greet by first name with a plain 'Hi {first name},' when the contact person is known;",
@@ -586,16 +577,20 @@ export async function generateRequirementInquiryEmail(
           "  saving out (e.g. 'Would you be open to taking a quick look? If now isn't the right",
           "  time, no worries at all.'). Never imply urgency or obligation.",
           "- Subject: short, human, sentence case, specific to their category or company",
-          "  (e.g. 'Sourcing {category} from Vietnam'), under ~50 characters. No Title Case, no",
-          "  marketing hook, no Fwd:/Re:.",
+          "  (e.g. 'Sourcing {category} from Vietnam' or '{Company} — {product} from Vietnam'),",
+          "  under ~50 characters. No Title Case, no marketing hook, no Fwd:/Re:.",
           "",
           "STRUCTURE (write as connected prose, not visibly separate template blocks):",
           "1. Personal, professional greeting using the contact person's name if available.",
-          "2. Open with the specific, human reason for writing today (e.g. noticing their sourcing",
-          "   interest in [industry/product]) — fold in who you are/Vexim in the same sentence or",
-          "   the very next one, briefly (10-20% of content) — not as a separate pitch paragraph.",
-          "3. One sentence, plainly worded, on why Vietnam sourcing is worth a look for that",
-          "   industry — a fact-based clause, not a value-proposition tagline; no superlatives.",
+          "2. Open with SPECIFIC buyer observation (2-3 data points from context: product, HS, import",
+          "   countries, purchase history, peak months, volume) — fold in who you are/Vexim in the same",
+          "   sentence or the very next one, briefly (15-25% of content) — not as a separate pitch paragraph.",
+          "   Example: 'Hi John, I noticed {Company} imports {product} under HS {code} from {countries},",
+          "   with peak around {months} — I'm {Name} with Vexim in Vietnam, we only work with factories",
+          "   we've audited ourselves.'",
+          "3. One sentence, plainly worded, weaving in 1-2 relevant Vexim trust pillars (from vexim_vetting)",
+          "   — e.g., FDA/traceability/response/payment flexibility — tailored to this buyer's context.",
+          "   Must sound factual about your vetting process, not salesy.",
           "4. The single CTA, phrased as a direct question to this person: ask clearly whether the",
           "   buyer would be open to evaluating additional sourcing from Vietnam for their",
           "   product/industry.",
@@ -610,17 +605,19 @@ export async function generateRequirementInquiryEmail(
           "paragraphs. Confident but not pushy. No jargon, no filler adjectives, no hype language.",
           "Write like a specific person emailing one specific contact — not like a template merged",
           "with lead data. Read it aloud: if a 30-year-old US buyer would find any sentence stiff,",
-          "salesy or robotic, rewrite it.",
+          "salesy or robotic, rewrite it. The email should feel like you spent 2 minutes researching",
+          "THIS buyer, not 2 seconds merging a list.",
           "",
           "SELF-CHECK BEFORE RETURNING THE RESULT:",
           "Before producing content_en, verify silently: exactly one CTA present; no MOQ/price/",
           "payment/packaging/spec question anywhere; no supplier named; no fabricated fact; no",
           "forbidden claim; no URL or attachment; no spam vocabulary, caps, exclamation marks or",
           "emoji; greeting uses the contact's first name; the human opt-out sentence is present",
-          "right before the signature; Vexim intro is brief and woven into the opening, not a",
-          "standalone pitch paragraph; no marketing-tagline phrasing; length is 120-180 words;",
-          "signature is exactly name / VEXIM GLOBAL CO., LTD / email / postal address with no",
-          "phone. If any check fails, rewrite before finalizing.",
+          "right before the signature; Vexim intro is brief (15-25%) and woven into buyer observation,",
+          "not a standalone pitch paragraph; at least 2 buyer-specific data points are referenced",
+          "naturally; at least 1 Vexim trust pillar is mentioned relevantly; no marketing-tagline",
+          "phrasing; length is 130-200 words; signature is exactly name / VEXIM GLOBAL CO., LTD /",
+          "email / postal address with no phone. If any check fails, rewrite before finalizing.",
         ].join("\n")
 
   const userPrompt = [
@@ -637,7 +634,7 @@ export async function generateRequirementInquiryEmail(
           : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
         : `Giới thiệu ngắn gọn về Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung ${
             (lead["industry"] as string | null) || (lead["main_product"] as string | null) || "sản phẩm liên quan"
-          } từ Việt Nam không. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này — những điểm đó sẽ hỏi ở bước follow-up sau khi buyer phản hồi đồng ý.`),
+          } từ Việt Nam không. Nhấn mạnh Vexim chỉ làm việc với factory đã audit, có chứng chỉ đầy đủ, phản hồi nhanh, thanh toán linh hoạt, minh bạch. Dùng dữ liệu buyer chi tiết (HS code, lịch sử mua, quốc gia nhập, mùa cao điểm) để chứng minh hiểu buyer. KHÔNG hỏi MOQ, giá, thanh toán hay bao bì ở email này.`),
   ].join("\n")
 
   let generated: { subject_en: string; content_en: string; content_vi: string }
@@ -694,14 +691,9 @@ export async function generateRequirementInquiryEmail(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Follow-up reply — AE answers a SPECIFIC buyer_replies message while still
-// mid-negotiation (before requirements are fully captured / an opportunity
-// exists). Separate from generateRequirementInquiryEmail above because this
-// is a reply within an existing thread, not an opening message: it must be
-// grounded in what the buyer actually asked, and it threads onto their
-// original email (see replyToMessageId in lib/ai/email-sender.ts).
-// ──────────────��──────────────────────────────────────────────────────────────
+// ------------------------------------------------------------------
+// Follow-up reply
+// ------------------------------------------------------------------
 
 const followUpOutputSchema = z.object({
   subject_en: z
@@ -710,7 +702,7 @@ const followUpOutputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body replying directly to the buyer's message. Address exactly what the buyer asked/raised — do not repeat the original requirement questions. Keep it concise (80-160 words), warm, specific, and in natural American business English (first-name greeting, contractions, short paragraphs). End with a complete signature using sender_name / signature_company / sender_email / signature_address from context, in that order — never use placeholders and never include a phone number. This is an active conversation, so do NOT add an opt-out line.",
+      "Full English email body replying directly to the buyer's message. Address exactly what the buyer asked/raised — do not repeat the original requirement questions. Keep it concise (80-160 words), warm, specific, and in natural American business English. End with a complete signature using sender_name / signature_company / sender_email / signature_address from context.",
     ),
   content_vi: z
     .string()
@@ -719,9 +711,7 @@ const followUpOutputSchema = z.object({
 
 export type GenerateFollowUpReplyInput = {
   engagementId: string
-  /** The buyer_replies.id being answered — the reply must belong to this engagement. */
   replyId: string
-  /** AE instruction in Vietnamese: what to address, negotiate, or ask back. */
   viPrompt: string
   isManual?: boolean
   manualSubject?: string
@@ -734,10 +724,8 @@ export type GenerateFollowUpReplyResult = {
   content_en: string
   content_vi: string
   recipient_email: string | null
-  /** Pass to sendEmailDraft's replyToMessageId so the send threads correctly. */
   inReplyToMessageId: string | null
   replyId: string
-  /** True when the AI Gateway failed/timed out and a static fallback template was used instead. */
   usedFallback?: boolean
 }
 
@@ -775,8 +763,6 @@ export async function generateFollowUpReplyEmail(
     : (engagement as any).leads) as Record<string, unknown> | null
   if (!lead) throw new Error("Engagement has no associated lead")
 
-  // The reply MUST belong to this engagement — prevents an AE from
-  // grounding a reply in another buyer's message via a guessed replyId.
   const { data: reply, error: replyErr } = await supabase
     .from("buyer_replies")
     .select("id, from_email, subject, raw_content, translated_vi, ai_summary, ai_suggested_next_step, message_id, engagement_id")
@@ -787,9 +773,6 @@ export async function generateFollowUpReplyEmail(
     throw new Error("Buyer reply not found for this engagement")
   }
 
-  // Reply to the address the buyer actually wrote from — NOT the lead's
-  // on-file contact email, which can legitimately differ (e.g. a colleague
-  // answering on the original contact's behalf).
   const recipient = reply.from_email || (lead["contact_email"] as string | null) || null
 
   const originalSubject = reply.subject?.trim() || ""
@@ -799,9 +782,6 @@ export async function generateFollowUpReplyEmail(
       : `Re: ${originalSubject}`
     : "Re: Your inquiry"
 
-  // ------------------------------------------------------------
-  // Manual mode — skip AI generation entirely.
-  // ------------------------------------------------------------
   if (input.isManual && input.manualSubject && input.manualContent) {
     const { data: draft, error: draftError } = await supabase
       .from("email_drafts")
@@ -838,6 +818,9 @@ export async function generateFollowUpReplyEmail(
       contact_person: lead["contact_person"],
       main_product: lead["main_product"],
       country: lead["country"],
+      hs_code: lead["hs_code"],
+      purchase_history: (lead as any)["purchase_history"] ?? null,
+      main_import_countries: (lead as any)["main_import_countries"] ?? null,
       requested_products: (engagement as any).requested_products,
       target_price_range: (engagement as any).target_price_range,
       moq: (engagement as any).moq,
@@ -853,6 +836,14 @@ export async function generateFollowUpReplyEmail(
       signature_company: SIGNATURE_COMPANY,
       signature_address: SIGNATURE_ADDRESS,
       sender_email: profile.work_email || "trade@veximtrade.com",
+      vexim_vetting: {
+        pillars: [
+          "Audited factories only, direct factory, no trading company",
+          "Valid certs: HACCP, ISO, BRC, FDA for US, traceability",
+          "24h response, English export team",
+          "Flexible payment T/T, L/C at sight",
+        ],
+      },
     },
     null,
     2,
@@ -873,6 +864,7 @@ export async function generateFollowUpReplyEmail(
     "'kindly'). Close with exactly this signature: 'Best regards,' / sender_name /",
     "'VEXIM GLOBAL CO., LTD' / sender_email / signature_address. Never add a phone number or a",
     "job title line, and never add an opt-out line to an active conversation.",
+    "If relevant, you can mention Vexim's vetted network (audited factories, valid certs, traceability, flexible payment) as factual context, but keep it brief and relevant to buyer's question.",
   ].join("\n")
 
   const userPrompt = [

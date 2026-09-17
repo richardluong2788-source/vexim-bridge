@@ -200,14 +200,26 @@ export async function GET(request: Request) {
           ? `This week your company was introduced to ${payload.preFunnel.introducedInWindow} buyer${payload.preFunnel.introducedInWindow === 1 ? "" : "s"}, with ${payload.preFunnel.strongInWindow} sample/meeting/order request${payload.preFunnel.strongInWindow === 1 ? "" : "s"}. View details and download the PDF.`
           : `${payload.newThisWeek} new leads and ${payload.updatedThisWeek} progressed this week. View details and download the PDF.`
 
-    const { error: notifErr } = await supabase.from("notifications").insert({
+    const weeklyDedup = `weekly_report:${client.id}:${weekStart}`
+    let { error: notifErr } = await supabase.from("notifications").insert({
       user_id: client.id,
       category: "status_update",
       title,
       body,
       link_path: "/client/reports",
+      dedup_key: weeklyDedup,
     })
-    if (notifErr && notifErr.code !== "42P01") {
+    if (notifErr && (notifErr.code === "42703" || /dedup_key/i.test(notifErr.message ?? ""))) {
+      const retry = await supabase.from("notifications").insert({
+        user_id: client.id,
+        category: "status_update",
+        title,
+        body,
+        link_path: "/client/reports",
+      })
+      notifErr = retry.error
+    }
+    if (notifErr && notifErr.code !== "42P01" && notifErr.code !== "23505") {
       console.error("[weekly-report] notification insert failed:", notifErr.message)
     }
 

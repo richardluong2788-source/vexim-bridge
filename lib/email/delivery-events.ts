@@ -21,6 +21,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { engagementFocusPath, pipelineOppPath } from "@/lib/notifications/paths"
 import type { Database } from "@/lib/supabase/types"
 
 type DraftUpdate = Database["public"]["Tables"]["email_drafts"]["Update"]
@@ -292,9 +293,9 @@ export async function handleOutboundEmailEvent(
             category: "action_required",
             opportunityId: draft.opportunity_id,
             linkPath: draft.engagement_id
-              ? "/admin/engagements"
+              ? engagementFocusPath(draft.engagement_id)
               : draft.opportunity_id
-                ? `/admin/opportunities/${draft.opportunity_id}`
+                ? pipelineOppPath(draft.opportunity_id)
                 : "/admin/engagements",
             dedupKey: `email_${type}:${draft.id}`,
             title: isComplaint

@@ -98,29 +98,28 @@ export async function submitClientRequest(
     staffList.forEach((s) => recipientIds.add(s.id))
   }
 
-  // Send notification to each recipient
-  for (const recipientId of recipientIds) {
-    dispatchNotification({
-      userId: recipientId,
-      category: "action_required",
-      linkPath: `/admin/sla?request_id=${data.id}`,
-      dedupKey: `client_request_new:${data.id}`,
-      title: {
-        vi: `Yêu cầu mới từ ${user.email}`,
-        en: `New request from ${user.email}`,
-      },
-      body: {
-        vi: parsed.data.subject,
-        en: parsed.data.subject,
-      },
-      ctaLabel: {
-        vi: "Xem yêu cầu",
-        en: "View request",
-      },
-    }).catch((err) => {
-      console.error("[sla] notification dispatch failed", err)
-    })
-  }
+  await Promise.all(
+    [...recipientIds].map((recipientId) =>
+      dispatchNotification({
+        userId: recipientId,
+        category: "action_required",
+        linkPath: `/admin/sla?request_id=${data.id}`,
+        dedupKey: `client_request_new:${data.id}:${recipientId}`,
+        title: {
+          vi: `Yêu cầu mới từ ${user.email}`,
+          en: `New request from ${user.email}`,
+        },
+        body: {
+          vi: parsed.data.subject,
+          en: parsed.data.subject,
+        },
+        ctaLabel: {
+          vi: "Xem yêu cầu",
+          en: "View request",
+        },
+      }),
+    ),
+  )
 
   revalidatePath("/client/sla")
   return { ok: true, data }

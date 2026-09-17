@@ -364,8 +364,7 @@ async function processResults(
         autoAssigned = true
         assignedTo = topCandidate.accountManagerId
 
-        // Notify the auto-assigned AE
-        dispatchNotification({
+        await dispatchNotification({
           userId: topCandidate.accountManagerId,
           category: "new_assignment",
           linkPath: `/admin/buyers/${leadId}`,
@@ -382,8 +381,6 @@ async function processResults(
             vi: "Xem chi tiết",
             en: "View details",
           },
-        }).catch((err) => {
-          console.error("[matching] notification dispatch failed", err)
         })
 
         // Log activity
@@ -423,7 +420,7 @@ async function processResults(
           })
 
           // Notify the AE about new inbox item
-          dispatchNotification({
+          await dispatchNotification({
             userId: candidate.accountManagerId,
             category: "action_required",
             linkPath: `/admin/ae-inbox`,
@@ -440,8 +437,6 @@ async function processResults(
               vi: "Xem inbox",
               en: "View inbox",
             },
-          }).catch((err) => {
-            console.error("[matching] notification dispatch failed for inbox item", err)
           })
         }
       }
@@ -504,7 +499,7 @@ async function routeToSharedInbox(
     if (!error) {
       inboxItems.push({ accountManagerId: ae.profile.id, priority: "medium" })
 
-      dispatchNotification({
+      await dispatchNotification({
         userId: ae.profile.id,
         category: "action_required",
         linkPath: `/admin/ae-inbox`,
@@ -521,8 +516,6 @@ async function routeToSharedInbox(
           vi: "Xem inbox",
           en: "View inbox",
         },
-      }).catch((err) => {
-        console.error("[matching] notification dispatch failed for shared inbox item", err)
       })
     }
   }

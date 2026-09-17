@@ -56,7 +56,7 @@ export function PipelineRefSearch() {
         const json = (await res.json()) as LookupResult
 
         if (json.ok && json.opportunity) {
-          router.push(`/admin/opportunities/${json.opportunity.id}`)
+          router.push(`/admin/pipeline?opp=${json.opportunity.id}`)
           return
         }
 

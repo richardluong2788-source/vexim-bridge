@@ -22,6 +22,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { engagementFocusPath } from "@/lib/notifications/paths"
 import { BUYER_SELECTABLE_ACTIONS, type BuyerActionValue } from "./types"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
@@ -183,25 +184,25 @@ export async function markShortlistInterest(
       await dispatchNotification({
         userId: row.client_id as string,
         category: "action_required",
-        linkPath: "/client/products",
+        linkPath: "/client",
         dedupKey: `shortlist_strong_supplier:${shortlistItemId}:${action}`,
         title: copy.clientTitle,
         body: copy.clientBody,
-        ctaLabel: { vi: "Xem sản phẩm của bạn", en: "View your products" },
+        ctaLabel: { vi: "Mở trang chủ", en: "Open dashboard" },
       })
 
       if (engagement?.account_manager_id) {
         await dispatchNotification({
           userId: engagement.account_manager_id as string,
           category: "action_required",
-          linkPath: "/admin/ae-inbox",
+          linkPath: engagementFocusPath(String(link.engagement_id)),
           dedupKey: `shortlist_strong_ae:${shortlistItemId}:${action}`,
           title: copy.aeTitle,
           body: {
             vi: `${copy.aeBody.vi} (Buyer: ${buyerLabel})`,
             en: `${copy.aeBody.en} (Buyer: ${buyerLabel})`,
           },
-          ctaLabel: { vi: "Mở AE inbox", en: "Open AE inbox" },
+          ctaLabel: { vi: "Mở phiên xử lý", en: "Open engagement" },
         })
       }
     } catch (err) {

@@ -292,6 +292,9 @@ export type Database = {
           email_hard_bounced_at: string | null
           email_complained_at: string | null
           email_suppression_note: string | null
+          unsubscribe_token: string | null
+          email_unsubscribed: boolean
+          email_unsubscribed_at: string | null
         }
         Insert: {
           id?: string
@@ -347,6 +350,9 @@ export type Database = {
           email_hard_bounced_at?: string | null
           email_complained_at?: string | null
           email_suppression_note?: string | null
+          unsubscribe_token?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
         }
         Update: {
           id?: string
@@ -402,6 +408,9 @@ export type Database = {
           email_hard_bounced_at?: string | null
           email_complained_at?: string | null
           email_suppression_note?: string | null
+          unsubscribe_token?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
         }
         Relationships: []
       }
@@ -836,6 +845,7 @@ export type Database = {
           body: string | null
           link_path: string | null
           opportunity_id: string | null
+          dedup_key: string | null
           read_at: string | null
           created_at: string
         }
@@ -847,6 +857,7 @@ export type Database = {
           body?: string | null
           link_path?: string | null
           opportunity_id?: string | null
+          dedup_key?: string | null
           read_at?: string | null
           created_at?: string
         }
@@ -858,6 +869,7 @@ export type Database = {
           body?: string | null
           link_path?: string | null
           opportunity_id?: string | null
+          dedup_key?: string | null
           read_at?: string | null
           created_at?: string
         }

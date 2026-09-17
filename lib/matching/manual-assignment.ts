@@ -23,6 +23,7 @@ import "server-only"
 
 import type { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { engagementFocusPath } from "@/lib/notifications/paths"
 import {
   AE_WORKLOAD_HARD_CAP,
   MANUAL_ASSIGN_REASON_SCORE_GAP,
@@ -520,10 +521,10 @@ export async function executeBuyerAssignment(input: TransferInput): Promise<Tran
 
   // ── Notifications ─────────────────────────────────────────────────────
   const dayKey = todayKey()
-  dispatchNotification({
+  await dispatchNotification({
     userId: target.id,
     category: "new_assignment",
-    linkPath: "/admin/ae-inbox",
+    linkPath: engagementFocusPath(engagementId),
     dedupKey: `manual_assign:${leadId}:${target.id}:${dayKey}`,
     title: {
       vi: active ? "Buyer được chuyển cho bạn" : "Buyer mới được quản trị viên gán cho bạn",
@@ -533,14 +534,14 @@ export async function executeBuyerAssignment(input: TransferInput): Promise<Tran
       vi: `${buyerName}${reason ? ` — lý do: ${reason}` : ""}. Vào AE Inbox để tiếp tục.`,
       en: `${buyerName}${reason ? ` — reason: ${reason}` : ""}. Open the AE Inbox to continue.`,
     },
-    ctaLabel: { vi: "Mở AE Inbox", en: "Open AE Inbox" },
-  }).catch((err) => console.error("[manual-assignment] notify target failed", err))
+    ctaLabel: { vi: "Mở phiên xử lý", en: "Open engagement" },
+  })
 
   if (previousAeId && previousAeId !== target.id) {
-    dispatchNotification({
+    await dispatchNotification({
       userId: previousAeId,
       category: "status_update",
-      linkPath: "/admin/ae-inbox",
+      linkPath: "/admin/engagements",
       dedupKey: `manual_transfer_out:${leadId}:${previousAeId}:${dayKey}`,
       title: {
         vi: "Buyer đã được chuyển cho AE khác",
@@ -551,7 +552,7 @@ export async function executeBuyerAssignment(input: TransferInput): Promise<Tran
         en: `${buyerName} was moved to ${target.full_name ?? "another AE"}${reasonSuffix}.`,
       },
       ctaLabel: { vi: "Xem", en: "View" },
-    }).catch((err) => console.error("[manual-assignment] notify previous owner failed", err))
+    })
   }
 
   return { engagementId, leadId, previousAeId, wasNewClaim }

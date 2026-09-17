@@ -112,12 +112,66 @@ function getAppBaseUrl(): string {
   return "http://localhost:3000"
 }
 
+type DeliveryTable = "notification_email_log" | "notification_telegram_log"
+type ClaimResult = "claimed" | "skip" | "retry"
+
+/**
+ * Insert a "sent" ledger row. Unique (user_id, dedup_key) is the lock.
+ * A previous `failed` row is recycled so a retry can actually send again.
+ */
+async function claimDeliveryLog(
+  admin: ReturnType<typeof createAdminClient>,
+  table: DeliveryTable,
+  userId: string,
+  dedupKey: string,
+): Promise<ClaimResult> {
+  const { error } = await admin.from(table).insert({
+    user_id: userId,
+    dedup_key: dedupKey,
+    status: "sent",
+  })
+  if (!error) return "claimed"
+  if ((error as { code?: string }).code !== "23505") {
+    console.error(`[notifications] ${table} insert failed`, error.message)
+    return "skip"
+  }
+
+  const { data: existing } = await admin
+    .from(table)
+    .select("status")
+    .eq("user_id", userId)
+    .eq("dedup_key", dedupKey)
+    .maybeSingle()
+
+  if ((existing as { status?: string } | null)?.status === "failed") {
+    const { error: updErr } = await admin
+      .from(table)
+      .update({ status: "sent", error: null })
+      .eq("user_id", userId)
+      .eq("dedup_key", dedupKey)
+    if (updErr) {
+      console.error(`[notifications] ${table} retry claim failed`, updErr.message)
+      return "skip"
+    }
+    return "retry"
+  }
+  return "skip"
+}
+
 /**
  * Send a notification: always creates the in-app row, and conditionally sends
  * an email depending on the user's preferences. Never throws — failures are
  * logged and swallowed so the caller's action is not blocked.
  */
 export async function dispatchNotification(input: DispatchInput): Promise<void> {
+  try {
+    await dispatchNotificationInner(input)
+  } catch (err) {
+    console.error("[notifications] unexpected throw", err)
+  }
+}
+
+async function dispatchNotificationInner(input: DispatchInput): Promise<void> {
   // Defensive: ensure required fields are present
   if (!input.title || !input.ctaLabel) {
     console.error("[notifications] missing required fields (title or ctaLabel)", input)
@@ -129,7 +183,7 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
   // Look up recipient + prefs in a single round-trip.
   const { data: profile, error: profileErr } = await admin
     .from("profiles")
-    .select("id, email, work_email, full_name, preferred_language")
+    .select("id, email, full_name, preferred_language")
     .eq("id", input.userId)
     .single()
 
@@ -145,7 +199,8 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
   const ctaLabel = input.ctaLabel[locale] ?? input.ctaLabel.en
   const subject = (input.subject?.[locale] ?? input.subject?.en ?? title).slice(0, 200)
 
-  // 1) In-app notification (always written)
+  // 1) In-app notification (always written). Unique (user_id, dedup_key)
+  // from migration 078 suppresses duplicate bell rows on action retry.
   const { error: notifErr } = await admin.from("notifications").insert({
     user_id: input.userId,
     category: input.category,
@@ -153,10 +208,29 @@ export async function dispatchNotification(input: DispatchInput): Promise<void> 
     body,
     link_path: input.linkPath,
     opportunity_id: input.opportunityId ?? null,
+    dedup_key: input.dedupKey,
   })
   if (notifErr) {
-    console.error("[notifications] insert failed", notifErr.message)
-    // Continue — we still attempt the email so the user is not silent-dropped.
+    const code = (notifErr as { code?: string }).code
+    const missingCol = code === "42703" || /dedup_key/i.test(notifErr.message ?? "")
+    if (code === "23505") {
+      // Already have this in-app row — continue to email/telegram in case
+      // those channels previously failed.
+    } else if (missingCol) {
+      const retry = await admin.from("notifications").insert({
+        user_id: input.userId,
+        category: input.category,
+        title,
+        body,
+        link_path: input.linkPath,
+        opportunity_id: input.opportunityId ?? null,
+      })
+      if (retry.error) {
+        console.error("[notifications] insert failed", retry.error.message)
+      }
+    } else {
+      console.error("[notifications] insert failed", notifErr.message)
+    }
   }
 
   // 2) Fetch prefs once, fan out to both channels independently. Neither
@@ -193,7 +267,7 @@ interface ChannelContext {
 
 async function sendEmailChannel(
   ctx: ChannelContext & {
-    profile: { email: string | null; work_email?: string | null; full_name: string | null }
+    profile: { email: string | null; full_name: string | null }
     subject: string
   },
 ): Promise<void> {
@@ -207,31 +281,24 @@ async function sendEmailChannel(
     if (prefs[column] === false) return
   }
 
-  // Username-provisioned staff have no real mailbox in `email`; fall back
-  // to their personal buyer-facing sender address (which also receives).
-  const recipientEmail = profile.email ?? profile.work_email ?? null
-  if (!recipientEmail) return
+  if (!profile.email) return
 
-  // Idempotency: insert a "sent" marker first. If (user_id, dedup_key) already
-  // exists we skip — this is what guarantees at-most-once delivery.
-  const { error: logErr } = await admin
-    .from("notification_email_log")
-    .insert({
-      user_id: input.userId,
-      dedup_key: input.dedupKey,
-      status: "sent",
-    })
-
-  if (logErr) {
-    // Unique-violation (code 23505) means we've already sent this one. Good.
-    if ((logErr as { code?: string }).code === "23505") return
-    console.error("[notifications] log insert failed", logErr.message)
-    return
-  }
+  // Idempotency: insert a "sent" marker first. Unique (user_id, dedup_key)
+  // skips a successful prior send; a prior `failed` row is recycled so retry
+  // can actually deliver.
+  const claim = await claimDeliveryLog(
+    admin,
+    "notification_email_log",
+    input.userId,
+    input.dedupKey,
+  )
+  if (claim === "skip") return
 
   const appUrl = getAppBaseUrl()
   const ctaUrl = `${appUrl}${input.linkPath.startsWith("/") ? "" : "/"}${input.linkPath}`
   const unsubscribeUrl = `${appUrl}/unsubscribe/${prefs.unsubscribe_token}`
+  // One-click POST lands on the API — Next cannot co-locate route.ts + page.tsx.
+  const oneClickUrl = `${appUrl}/api/unsubscribe/${prefs.unsubscribe_token}`
 
   const { html, text } = renderNotificationEmail({
     locale,
@@ -247,13 +314,13 @@ async function sendEmailChannel(
   try {
     const res = await sendMail({
       from: getFromAddress(),
-      to: recipientEmail,
+      to: profile.email,
       subject,
       html,
       text,
       headers: {
-        // RFC 8058: one-click unsubscribe. Most ESPs surface this button.
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        // RFC 8058: one-click unsubscribe. Gmail POSTs to this URL.
+        "List-Unsubscribe": `<${oneClickUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     })
@@ -296,20 +363,13 @@ async function sendTelegramChannel(ctx: ChannelContext): Promise<void> {
     if (prefs[column] === false) return
   }
 
-  // Idempotency: same pattern as the email log — insert first, skip on conflict.
-  const { error: logErr } = await admin
-    .from("notification_telegram_log")
-    .insert({
-      user_id: input.userId,
-      dedup_key: input.dedupKey,
-      status: "sent",
-    })
-
-  if (logErr) {
-    if ((logErr as { code?: string }).code === "23505") return
-    console.error("[notifications] telegram log insert failed", logErr.message)
-    return
-  }
+  const claim = await claimDeliveryLog(
+    admin,
+    "notification_telegram_log",
+    input.userId,
+    input.dedupKey,
+  )
+  if (claim === "skip") return
 
   const appUrl = getAppBaseUrl()
   const ctaUrl = `${appUrl}${input.linkPath.startsWith("/") ? "" : "/"}${input.linkPath}`
@@ -320,7 +380,19 @@ async function sendTelegramChannel(ctx: ChannelContext): Promise<void> {
     `<a href="${ctaUrl}">${escapeTelegramHtml(ctaLabel)}</a>`,
   ].filter(Boolean)
 
-  const result = await sendTelegramMessage(prefs.telegram_chat_id as string, lines.join("\n\n"))
+  let result: Awaited<ReturnType<typeof sendTelegramMessage>>
+  try {
+    result = await sendTelegramMessage(prefs.telegram_chat_id as string, lines.join("\n\n"))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await admin
+      .from("notification_telegram_log")
+      .update({ status: "failed", error: message })
+      .eq("user_id", input.userId)
+      .eq("dedup_key", input.dedupKey)
+    console.error("[notifications] telegram threw", message)
+    return
+  }
 
   if (!result.ok) {
     await admin

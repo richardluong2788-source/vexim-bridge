@@ -65,7 +65,7 @@ import {
 } from "@/components/ui/dialog"
 import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
-import type { Stage, BuyerContact } from "@/lib/supabase/types"
+import type { Stage, BuyerContact, Role } from "@/lib/supabase/types"
 import {
   updateBuyer,
   assignBuyerToClients,
@@ -76,6 +76,7 @@ import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buy
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import { EmailSuppressionPanel } from "@/components/admin/email-suppression-panel"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
+import { AssignBuyerDialog as AssignAEDialog } from "@/components/admin/assign-buyer-dialog"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -193,6 +194,8 @@ interface Props {
   canLiftSuppression: boolean
   /** @deprecated — kept for backward compat, not used after A-Z removal */
   clients?: AssignableClient[]
+  currentRole?: Role
+  canAssignAE?: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -268,6 +271,8 @@ export function BuyerDetailView({
   canWrite,
   canViewPII,
   canLiftSuppression,
+  currentRole,
+  canAssignAE,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -326,16 +331,26 @@ export function BuyerDetailView({
             </div>
           </div>
         </div>
-        {canWrite && (
+        {(canWrite || (canAssignAE && currentRole)) && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => {
-                setAssignOpen(true)
-              }}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              AI Match
-            </Button>
+            {canAssignAE && currentRole && (
+              <AssignAEDialog
+                buyerId={buyer.id}
+                buyerName={buyer.company_name || "Unknown"}
+                currentRole={currentRole}
+                locale={locale}
+              />
+            )}
+            {canWrite && (
+              <Button
+                onClick={() => {
+                  setAssignOpen(true)
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Match
+              </Button>
+            )}
           </div>
         )}
       </div>

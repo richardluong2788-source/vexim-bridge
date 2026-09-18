@@ -284,36 +284,44 @@ export function RequirementEmailComposer({
           side="right"
           // Wide enough to write in; the lighter backdrop keeps the analysis on
           // the left readable while composing.
-          className="w-full overflow-y-auto sm:max-w-2xl"
+          // Fix: previously the content (contextHints + body) was direct children
+          // of SheetContent which has no horizontal padding, so it stuck to the
+          // edges (dính sát mép). Use p-0 + flex-col on shell and give the
+          // scrollable body its own px-4 py-4.
+          className="w-full sm:max-w-2xl p-0 flex flex-col overflow-hidden gap-0"
           overlayClassName="bg-black/20"
         >
-          <SheetHeader>
+          <SheetHeader className="shrink-0 border-b">
             <SheetTitle>{title}</SheetTitle>
             <SheetDescription>{description}</SheetDescription>
           </SheetHeader>
 
-          {/* The buyer's talking points / tips, so the email can reference the
-              same material the AE is reading next to this panel. */}
-          {contextHints.length > 0 && (
-            <div className="rounded-md border border-chart-1/30 bg-chart-1/5 p-3">
-              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-chart-1" />
-                {t("Gợi ý cho email này", "Material for this email")}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            {/* The buyer's talking points / tips, so the email can reference the
+                same material the AE is reading next to this panel. */}
+            {contextHints.length > 0 && (
+              <div className="rounded-md border border-chart-1/30 bg-chart-1/5 p-3">
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <Sparkles className="h-3.5 w-3.5 text-chart-1" />
+                  {t("Gợi ý cho email này", "Material for this email")}
+                </div>
+                <ul className="space-y-1">
+                  {contextHints.map((hint, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-chart-1" />
+                      <span>{hint}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-1">
-                {contextHints.map((hint, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-chart-1" />
-                    <span>{hint}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+            )}
 
-          {body}
+            {body}
+          </div>
 
-          <SheetFooter className="flex-row justify-end gap-2">{actions}</SheetFooter>
+          <SheetFooter className="flex-row justify-end gap-2 border-t bg-background shrink-0">
+            {actions}
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     )

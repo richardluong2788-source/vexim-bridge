@@ -556,20 +556,10 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        {/* "Phân tích" is the default tab on purpose: the AE opens this page to
+        {/* "Phân tích" is always the default tab: AE opens this page to
             understand the buyer before talking to them, not to audit raw customs
-            rows. ImportYeti stays one click away as the evidence behind it.
-
-            The default is conditional so that buyers with no snapshot yet
-            (everything created before migration 079, plus the bulk ImportYeti
-            paste flow) land on real data instead of an empty state. The tab
-            ORDER is not conditional — "Phân tích" is always first, so muscle
-            memory holds; only the initially-open tab adapts. Once the backfill
-            runs this branch always picks "analysis". */}
-        <Tabs
-          defaultValue={buyer.buyer_analysis ? "analysis" : "importyeti"}
-          className="flex flex-col gap-4"
-        >
+            rows. ImportYeti stays one click away as the evidence behind it. */}
+        <Tabs defaultValue="analysis" className="flex flex-col gap-4">
           <TabsList className="self-start">
             <TabsTrigger value="analysis" className="gap-2">
               <Sparkles className="h-4 w-4" />

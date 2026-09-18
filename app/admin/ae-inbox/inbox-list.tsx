@@ -103,6 +103,12 @@ export interface InboxListProps {
   clients: Client[]
   locale: "vi" | "en"
   currentRole: Role
+  /**
+   * Fired after a successful claim. The inbox uses it to hand the AE over to
+   * the buyer's new engagement — claiming is the moment the buyer stops being
+   * "someone to claim" and starts being "someone to work".
+   */
+  onClaimed?: (leadId: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +120,7 @@ export function InboxList({
   clients,
   locale,
   currentRole,
+  onClaimed,
 }: InboxListProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -151,9 +158,10 @@ export function InboxList({
       if (result.ok) {
         toast.success(
           locale === "vi"
-            ? "Đã nhận buyer — hãy hỏi nhu cầu ở khu vực Đang xử lý"
-            : "Buyer claimed — gather requirements in the In-progress section"
+            ? "Đã nhận buyer — đang mở ở tab Đang xử lý"
+            : "Buyer claimed — opening them in the In-progress tab"
         )
+        onClaimed?.(item.lead_id)
         router.refresh()
       } else {
         toast.error(

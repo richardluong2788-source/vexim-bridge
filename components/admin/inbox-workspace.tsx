@@ -112,6 +112,21 @@ export function InboxWorkspace({
     window.history.replaceState(null, "", `/admin/ae-inbox?${params.toString()}`)
   }, [tab, engagementId, pendingId])
 
+  // Claiming moves a buyer from one tab to the other. Rather than leaving the
+  // AE on an empty detail pane (their row is gone) or telling them to go find
+  // the buyer again, follow them: when the refreshed data brings the new
+  // engagement in, open it and switch tabs.
+  const claimedLeadRef = useRef<string | null>(null)
+  useEffect(() => {
+    const leadId = claimedLeadRef.current
+    if (!leadId) return
+    const engagement = ordered.find((e) => e.lead_id === leadId)
+    if (!engagement) return
+    claimedLeadRef.current = null
+    setEngagementId(engagement.id)
+    setTab("work")
+  }, [ordered])
+
   const unreadTotal = ordered.filter((e) => summarizeEngagement(e).needsAttention).length
 
   const tabs: Array<{
@@ -250,6 +265,9 @@ export function InboxWorkspace({
                 clients={clients}
                 locale={locale}
                 currentRole={currentRole}
+                onClaimed={(leadId) => {
+                  claimedLeadRef.current = leadId
+                }}
               />
             ) : (
               <Placeholder

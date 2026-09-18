@@ -16,7 +16,6 @@
  */
 
 import { useState } from "react"
-import Link from "next/link"
 import {
   Check,
   ChevronDown,
@@ -236,9 +235,6 @@ export function EngagementStatePanel({
               `${(engagement.buyer_replies ?? []).length} replies received`,
             )}
           </span>
-          <Link href={`/admin/buyers/${engagement.lead_id}`} className="underline">
-            {t("Hồ sơ buyer", "Buyer profile")}
-          </Link>
         </div>
       </CollapsibleContent>
     </Collapsible>

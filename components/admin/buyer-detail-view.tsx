@@ -7,6 +7,14 @@ import {
   BuyerEngagementBar,
   type EngagementActionTarget,
 } from "@/components/admin/engagement-action-bar"
+// Rule-based fallback tips. Shared with the "Phân tích" tab's decision about
+// whether to show the card at all or the empty state instead.
+import {
+  deriveSuggestedApproach,
+  hasSuggestedApproachContent,
+  hasVietnamSupplier,
+  type SuggestedApproach,
+} from "@/lib/buyers/suggested-approach"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
@@ -307,6 +315,15 @@ export function BuyerDetailView({
   const INTENT = locale === "vi" ? INTENT_LABEL_VI : INTENT_LABEL_EN
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
+  // Fallback tips for buyers with no AI snapshot (migration 079). Derived once
+  // here because the "Phân tích" tab has to choose between rendering the card
+  // and rendering the empty state — the two are mutually exclusive.
+  const fallbackApproach = useMemo(
+    () => deriveSuggestedApproach(buyer, locale),
+    [buyer, locale],
+  )
+  const hasFallback = hasSuggestedApproachContent(fallbackApproach)
+
   const [assignOpen, setAssignOpen] = useState(false)
 
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
@@ -567,26 +584,42 @@ export function BuyerDetailView({
                   locale={locale}
                   generatedAt={buyer.buyer_analysis_at}
                 />
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <SuggestedApproachCard buyer={buyer} locale={locale} />
-                  <Card className="border-border">
-                    <Empty>
-                      <EmptyHeader>
-                        <EmptyTitle>
-                          {locale === "vi"
-                            ? "Chưa có bản phân tích AI cho buyer này"
-                            : "No AI analysis saved for this buyer yet"}
-                        </EmptyTitle>
-                        <EmptyDescription>
-                          {locale === "vi"
-                            ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
-                            : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  </Card>
+              ) : hasFallback ? (
+                /* The fallback has real content, so show it — and only a one-line
+                   note about what is missing. The full empty-state card used to
+                   render here too, regardless, so a buyer WITH tips got the tips
+                   and, underneath, a panel announcing there was no analysis:
+                   contradictory, and it read as a broken blank block. The card
+                   now appears only when the tab would otherwise be empty. */
+                <div className="flex flex-col gap-3">
+                  <SuggestedApproachCard
+                    buyer={buyer}
+                    locale={locale}
+                    approach={fallbackApproach}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {locale === "vi"
+                      ? "Chưa có bản phân tích AI đầy đủ cho buyer này — các gợi ý ở trên được suy ra bằng quy tắc từ hồ sơ đã lưu, không phải kết quả phân tích AI."
+                      : "No full AI analysis for this buyer yet — the tips above are rule-based, derived from the stored profile rather than an AI run."}
+                  </p>
                 </div>
+              ) : (
+                <Card className="border-border">
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>
+                        {locale === "vi"
+                          ? "Chưa có bản phân tích AI cho buyer này"
+                          : "No AI analysis saved for this buyer yet"}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {locale === "vi"
+                          ? "Buyer chưa có snapshot phân tích (tạo trước khi tính năng này ra đời, hoặc vào hệ thống qua luồng dán ImportYeti hàng loạt). Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh."
+                          : "This buyer has no analysis snapshot yet (created before the feature shipped, or added through the bulk ImportYeti paste flow). The raw customs data is still in the 'ImportYeti Data' tab next to this one."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </Card>
               )}
             </div>
           </TabsContent>
@@ -1423,81 +1456,28 @@ function formatRelative(iso: string, locale: "vi" | "en"): string {
 export function SuggestedApproachCard({
   buyer,
   locale = "vi",
+  approach: precomputed,
 }: {
   buyer: BuyerDetailData
   locale?: "vi" | "en"
+  /**
+   * Precomputed derivation. The caller needs it anyway to decide between this
+   * card and the "no analysis yet" empty state, so pass it in rather than
+   * deriving twice.
+   */
+  approach?: SuggestedApproach
 }) {
   const [copied, setCopied] = useState(false)
 
-  // Generate approach based on buyer data
-  const approach = useMemo(() => {
-    const tips: string[] = []
-    const warnings: string[] = []
-    
-    // Check if buyer has VN suppliers (warm lead)
-    const hasVNSupplier = buyer.top_suppliers?.some(
-      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
-    )
-    if (hasVNSupplier) {
-      tips.push(locale === "vi" 
-        ? "Buyer đã có supplier VN - đây là warm lead, có thể đề cập đến việc mở rộng nguồn cung"
-        : "Buyer already has VN supplier - warm lead, mention expanding supply sources")
-    }
-    
-    // Check low season
-    const lowMonths = buyer.top_low_months?.toLowerCase() || ""
-    const currentMonth = new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()
-    const isLowSeason = lowMonths.includes(currentMonth)
-    if (isLowSeason) {
-      warnings.push(locale === "vi"
-        ? `Hiện đang trong tháng thấp điểm (${buyer.top_low_months}) - có thể buyer ít phản hồi`
-        : `Currently in low season (${buyer.top_low_months}) - buyer may be less responsive`)
-    }
-    
-    // Check peak months for best timing
-    const peakMonths = buyer.top_peak_months?.toLowerCase() || ""
-    if (peakMonths && !isLowSeason) {
-      tips.push(locale === "vi"
-        ? `Gợi ý: Tiếp cận trước tháng cao điểm (${buyer.top_peak_months}) để đàm phán tốt hơn`
-        : `Tip: Approach before peak months (${buyer.top_peak_months}) for better negotiations`)
-    }
-    
-    // Check shipment volume
-    if (buyer.total_shipments && buyer.total_shipments > 50) {
-      tips.push(locale === "vi"
-        ? `Buyer có volume lớn (${buyer.total_shipments} shipments) - có thể đàm phán giá tốt hơn`
-        : `High volume buyer (${buyer.total_shipments} shipments) - can negotiate better pricing`)
-    }
-    
-    // Check priority
-    if (buyer.priority_rating && buyer.priority_rating >= 4) {
-      tips.push(locale === "vi"
-        ? "LR đánh giá priority cao - ưu tiên follow up nhanh"
-        : "LR rated high priority - prioritize quick follow-up")
-    }
-    
-    // Check HS code for specific approach
-    if (buyer.hs_code) {
-      tips.push(locale === "vi"
-        ? `Tập trung vào sản phẩm HS ${buyer.hs_code} (${buyer.main_product || ""})`
-        : `Focus on HS ${buyer.hs_code} products (${buyer.main_product || ""})`)
-    }
-    
-    // Check competitors
-    if (buyer.competitors) {
-      tips.push(locale === "vi"
-        ? `Lưu ý đối thủ: ${buyer.competitors} - chuẩn bị điểm khác biệt`
-        : `Note competitors: ${buyer.competitors} - prepare differentiators`)
-    }
-    
-    return { tips, warnings }
-  }, [buyer, locale])
+  // Rule-based tips (lib/buyers/suggested-approach.ts). NOT model output.
+  const approach = useMemo(
+    () => precomputed ?? deriveSuggestedApproach(buyer, locale),
+    [precomputed, buyer, locale],
+  )
 
   // Generate copy-able email script for AE
   const script = useMemo(() => {
-    const hasVNSupplier = buyer.top_suppliers?.some(
-      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
-    )
+    const hasVNSupplier = hasVietnamSupplier(buyer)
     
     const firstName = (buyer.contact_person || "").trim().split(/\s+/)[0]
     const lines: string[] = []
@@ -1532,7 +1512,7 @@ export function SuggestedApproachCard({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (approach.tips.length === 0 && approach.warnings.length === 0) {
+  if (!hasSuggestedApproachContent(approach)) {
     return null
   }
 
@@ -1542,7 +1522,14 @@ export function SuggestedApproachCard({
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-chart-1" />
-            {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
+            {/* Says "from the profile", not "from AI": this card is rule-based
+                and only ever renders when there is NO AI snapshot. Calling it
+                AI made the empty-state card underneath look like a
+                contradiction. The real AI analysis renders above it via
+                BuyerAnalysisCard. */}
+            {locale === "vi"
+              ? "Gợi ý tiếp cận từ hồ sơ buyer"
+              : "Suggested approach from the buyer profile"}
           </CardTitle>
           <Button
             variant="outline"

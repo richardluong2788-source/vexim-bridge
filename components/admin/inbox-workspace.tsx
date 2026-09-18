@@ -261,6 +261,10 @@ export function InboxWorkspace({
           {tab === "pending" ? (
             selectedPending ? (
               <InboxList
+                // Remount per buyer: these renderers keep their own dialog and
+                // expand/collapse state, and reusing the instance across a
+                // selection change would carry that state onto the next buyer.
+                key={selectedPending.id}
                 items={[selectedPending]}
                 clients={clients}
                 locale={locale}
@@ -280,6 +284,9 @@ export function InboxWorkspace({
             )
           ) : selectedEngagement ? (
             <EngagementList
+              // See the note above: a new buyer means fresh dialog/expand state,
+              // which is also what makes `defaultExpanded` hold every time.
+              key={selectedEngagement.id}
               engagements={[selectedEngagement]}
               clients={clients}
               locale={locale}

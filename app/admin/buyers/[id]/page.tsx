@@ -15,8 +15,47 @@ import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-perform
 import { canAny } from "@/lib/auth/permissions"
 import { listContacts } from "@/lib/buyers/contacts-actions"
 import type { BuyerContact } from "@/lib/supabase/types"
+// Type-only imports — this is a server component and must not drag the `ai`
+// package (pulled in by buyer-strategy-generator) into its runtime graph.
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 export const dynamic = "force-dynamic"
+
+/**
+ * Narrow the opaque JSONB snapshot back to its domain shape.
+ *
+ * `leads.buyer_analysis` / `buyer_strategy` are declared as
+ * `Record<string, unknown>` in lib/supabase/types.ts because the DB column is
+ * schemaless JSONB (migration 079). A snapshot that does not at least carry
+ * the three numeric scores is treated as absent, so the "Phân tích" tab falls
+ * back to the heuristic card rather than rendering a half-broken analysis.
+ */
+function readAnalysisSnapshot(
+  analysis: Record<string, unknown> | null,
+  strategy: Record<string, unknown> | null,
+): { analysis: BuyerAnalysisResult | null; strategy: BuyerStrategy | null } {
+  if (!analysis || typeof analysis !== "object") {
+    return { analysis: null, strategy: null }
+  }
+  const scores = [
+    analysis.healthScore,
+    analysis.loyaltyScore,
+    analysis.vietnamReadiness,
+  ]
+  if (scores.some((n) => typeof n !== "number" || !Number.isFinite(n))) {
+    return { analysis: null, strategy: null }
+  }
+  return {
+    analysis: analysis as unknown as BuyerAnalysisResult,
+    // Optional: the LLM call may have fallen back to generateFallbackStrategy,
+    // or the LR may have submitted before it finished. BuyerAnalysisCard
+    // renders scores-only when this is null.
+    strategy: strategy
+      ? (strategy as unknown as BuyerStrategy)
+      : null,
+  }
+}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -41,6 +80,11 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
+
+  const analysisSnapshot = readAnalysisSnapshot(
+    buyer.buyer_analysis,
+    buyer.buyer_strategy,
+  )
 
   // --- 1b) Contacts (multi-contact directory for this buyer company) -----
   const contactsResult = await listContacts(id)
@@ -195,6 +239,12 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     email_hard_bounced_at: buyer.email_hard_bounced_at ?? null,
     email_complained_at: buyer.email_complained_at ?? null,
     email_suppression_note: buyer.email_suppression_note ?? null,
+    // AI buyer analysis snapshot (migration 079)
+    buyer_analysis: analysisSnapshot.analysis,
+    buyer_strategy: analysisSnapshot.strategy,
+    buyer_analysis_at: analysisSnapshot.analysis
+      ? (buyer.buyer_analysis_at ?? null)
+      : null,
   }
 
   const canAssignBuyer = can(current.role, CAPS.BUYER_ASSIGN)

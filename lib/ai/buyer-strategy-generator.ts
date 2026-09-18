@@ -33,6 +33,13 @@ export type BuyerStrategy = z.infer<typeof BuyerStrategySchema>
 export interface FullBuyerAnalysis {
   analysis: BuyerAnalysisResult
   strategy: BuyerStrategy
+  /**
+   * "ai"      — generateText succeeded.
+   * "fallback" — the LLM call threw and generateFallbackStrategy() produced a
+   *              deterministic strategy instead. Callers should NOT attribute
+   *              this to a model name.
+   */
+  strategySource: "ai" | "fallback"
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -132,6 +139,15 @@ Lưu ý:
 // ══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Model backing the approach strategy.
+ *
+ * Exported so callers can persist it next to the snapshot
+ * (`leads.buyer_analysis_model`, migration 079) instead of keeping a second
+ * hard-coded copy of the string that silently drifts when this is bumped.
+ */
+export const BUYER_STRATEGY_MODEL = "openai/gpt-4o-mini"
+
+/**
  * Generate AI-powered approach strategy for a buyer
  */
 export async function generateBuyerStrategy(
@@ -142,7 +158,7 @@ export async function generateBuyerStrategy(
   const prompt = buildStrategyPrompt(analysis, rawData)
   
   const result = await generateText({
-    model: "openai/gpt-4o-mini",
+    model: BUYER_STRATEGY_MODEL,
     output: Output.object({
       schema: BuyerStrategySchema,
     }),
@@ -227,10 +243,10 @@ export async function analyzeAndGenerateStrategy(
 ): Promise<FullBuyerAnalysis> {
   try {
     const strategy = await generateBuyerStrategy(analysis, rawData)
-    return { analysis, strategy }
+    return { analysis, strategy, strategySource: "ai" }
   } catch (error) {
     console.error("[BuyerStrategyGenerator] AI generation failed, using fallback:", error)
     const fallbackStrategy = generateFallbackStrategy(analysis)
-    return { analysis, strategy: fallbackStrategy }
+    return { analysis, strategy: fallbackStrategy, strategySource: "fallback" }
   }
 }

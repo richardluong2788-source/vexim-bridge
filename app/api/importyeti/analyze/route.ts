@@ -13,7 +13,12 @@
  *   { 
  *     success: true, 
  *     analysis: { healthScore, loyaltyScore, vietnamReadiness, ... },
- *     strategy: { recommendedAngle, talkingPoints, riskFactors, ... }
+ *     strategy: { recommendedAngle, talkingPoints, riskFactors, ... },
+ *     meta: {
+ *       companyName, timestamp,
+ *       strategySource: "ai" | "fallback",
+ *       model: string | null   // null when the fallback strategy was used
+ *     }
  *   }
  */
 
@@ -22,7 +27,10 @@ import { createClient } from "@/lib/supabase/server"
 import { extractSlugFromUrl } from "@/lib/importyeti/api-transformer"
 import type { ImportYetiAPIResponse } from "@/lib/importyeti/api-transformer"
 import { analyzeBuyer } from "@/lib/ai/buyer-analyzer"
-import { analyzeAndGenerateStrategy } from "@/lib/ai/buyer-strategy-generator"
+import {
+  analyzeAndGenerateStrategy,
+  BUYER_STRATEGY_MODEL,
+} from "@/lib/ai/buyer-strategy-generator"
 
 export const maxDuration = 30 // Allow up to 30 seconds for AI generation
 
@@ -146,6 +154,14 @@ export async function POST(request: NextRequest) {
       meta: {
         companyName: apiData.title,
         timestamp: new Date().toISOString(),
+        // Persisted by the caller into leads.buyer_analysis_model so the AE can
+        // tell later which model produced the strategy (migration 079).
+        // `model` is null when the LLM call failed and the deterministic
+        // fallback strategy was used instead — attributing that to a model
+        // name would be a lie.
+        strategySource: fullAnalysis.strategySource,
+        model:
+          fullAnalysis.strategySource === "ai" ? BUYER_STRATEGY_MODEL : null,
       }
     })
   } catch (error) {

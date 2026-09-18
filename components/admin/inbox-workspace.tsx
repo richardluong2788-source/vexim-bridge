@@ -1,51 +1,102 @@
 "use client"
 
 /**
- * The AE inbox — one page, master–detail.
+ * The AE inbox — a worklist, and nothing else.
  *
- * "Buyer của tôi" (AI-matched buyers waiting to be claimed) and "Đang xử lý"
- * (buyers already claimed, being worked) used to be two separate destinations.
- * Every step of the flow crossed between them: claim a buyer here, then go
- * there to email them; read a reply there, then come back here. This page holds
- * both queues as tabs and shows the selected buyer in a detail pane, so the AE
- * never loses the row they were working on.
+ * This page answers one question: what needs me right now? It does not let the
+ * AE act on anything. Every action — claiming the buyer, writing the email,
+ * moving the stage, transferring the buyer — lives on the buyer's own page
+ * (/admin/buyers/[id]), so there is exactly one place where work happens and no
+ * way to start something here that you can only finish there.
  *
- * The detail pane deliberately reuses the existing renderers — InboxList for a
- * pending match, EngagementList for an engagement — rather than a second
- * implementation of "what a buyer in this state looks like". A list filtered to
- * one row IS the detail view; the compact rows in the left column only carry
- * the headline facts (company, stage, days, unread replies), and those figures
- * come from the same summary module the detail pane uses, so the two columns
- * can never disagree about a buyer.
+ * The right pane is a READ-ONLY peek: enough to decide whether this row jumps
+ * the queue (match breakdown for a proposal, stage + last reply + shortlist
+ * state for a buyer in flight) and one button to open the buyer's page. It
+ * deliberately has no buttons that change anything.
  *
- * The URL carries `?tab=` and `?focus=`, which is what makes the notification
- * links (`engagementFocusPath()`, plus the legacy `/admin/engagements?focus=`
- * that redirects here) land on the right buyer with their card open.
+ * Rows carry the headline facts and come pre-ordered by urgency from
+ * lib/buyers/engagement-summary.ts, so the list is the priority order, not just
+ * a list. A buyer who wrote to us and has not been read is at the top.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
-  ChevronLeft,
+  ChevronRight,
   ClipboardList,
+  ExternalLink,
   Flame,
   Inbox as InboxIcon,
+  Mail,
   MessageSquareText,
+  Package,
   Sparkles,
 } from "lucide-react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { EngagementList } from "@/app/admin/ae-inbox/engagement-list"
-import { InboxList, type InboxItem } from "@/app/admin/ae-inbox/inbox-list"
 import type { Engagement } from "@/lib/buyers/engagement-types"
 import {
   sortEngagementsForWorklist,
   summarizeEngagement,
 } from "@/lib/buyers/engagement-summary"
-import type { AssignableClient } from "@/lib/buyers/engagement-queries"
+import { REPLY_INTENT_LABEL_VI, REPLY_INTENT_LABEL_EN } from "@/components/admin/buyer-replies-list"
+import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import type { Role } from "@/lib/supabase/types"
+
+// ---------------------------------------------------------------------------
+// Row shapes
+// ---------------------------------------------------------------------------
+
+/**
+ * An AI-matched buyer waiting to be claimed. Mirrors the select in
+ * app/admin/ae-inbox/page.tsx — the page owns the shape, this only reads it.
+ */
+export interface InboxItem {
+  id: string
+  lead_id: string
+  account_manager_id: string
+  status: string
+  priority: string
+  rejection_reason: string | null
+  created_at: string
+  expires_at: string
+  leads: {
+    id: string
+    company_name: string
+    contact_person: string | null
+    country: string | null
+    industry: string | null
+    main_product: string | null
+    hs_code: string | null
+    hs_codes: string[] | null
+    product_keywords: string[] | null
+    has_active_inquiry: boolean | null
+    inquiry_products: string | null
+    inquiry_quantity: string | null
+    inquiry_target_price: string | null
+    inquiry_timeline: string | null
+    inquiry_channel: string | null
+  } | null
+  profiles: {
+    id: string
+    full_name: string | null
+    email: string | null
+  } | null
+  ae_match_scores: {
+    id: string
+    total_score: number
+    product_match_score: number
+    industry_match_score: number
+    fda_compliance_score: number
+    workload_score: number
+    win_rate_score: number
+    country_match_score: number
+    factors: Record<string, unknown>
+  } | null
+}
 
 export type InboxTab = "pending" | "work"
 
@@ -54,11 +105,6 @@ interface InboxWorkspaceProps {
   pendingItems: InboxItem[]
   /** Buyers already claimed and being worked (open engagements). */
   engagements: Engagement[]
-  /**
-   * Active clients (FDA in date) — the claim dialog and the shortlist builder
-   * both read from this one list, loaded once by the page.
-   */
-  clients: AssignableClient[]
   locale: "vi" | "en"
   currentRole: Role
   initialTab: InboxTab
@@ -75,7 +121,6 @@ const PRIORITY_TONE: Record<string, string> = {
 export function InboxWorkspace({
   pendingItems,
   engagements,
-  clients,
   locale,
   currentRole,
   initialTab,
@@ -84,22 +129,25 @@ export function InboxWorkspace({
   const router = useRouter()
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
-  // Lead Researchers monitor the matching outcome; they have no engagement of
-  // their own and no claim button, so the work tab would be an empty promise.
+  // Lead Researchers monitor matching but own no engagements, so the work queue
+  // means nothing to them — they get the proposals only.
   const canWork = currentRole !== "lead_researcher"
 
-  const [tab, setTab] = useState<InboxTab>(initialTab === "work" && !canWork ? "pending" : initialTab)
+  const [tab, setTab] = useState<InboxTab>(
+    initialTab === "work" && !canWork ? "pending" : initialTab,
+  )
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [engagementId, setEngagementId] = useState<string | null>(initialFocus)
 
-  // The worklist order: buyers who wrote to us and have not been read first.
+  // Urgency order: unread replies first, then most recently touched.
   const ordered = useMemo(() => sortEngagementsForWorklist(engagements), [engagements])
 
   const selectedPending = pendingItems.find((i) => i.id === pendingId) ?? null
   const selectedEngagement = ordered.find((e) => e.id === engagementId) ?? null
+  const focusIsSet = tab === "work" ? !!selectedEngagement : !!selectedPending
 
-  // Keep the address bar shareable without paying for a server round trip on
-  // every row click (the data is already here).
+  // Keep the address bar shareable (notification links land on one buyer) at no
+  // cost — the data is already loaded.
   const didMount = useRef(false)
   useEffect(() => {
     if (!didMount.current) {
@@ -111,21 +159,6 @@ export function InboxWorkspace({
     if (focus) params.set("focus", focus)
     window.history.replaceState(null, "", `/admin/ae-inbox?${params.toString()}`)
   }, [tab, engagementId, pendingId])
-
-  // Claiming moves a buyer from one tab to the other. Rather than leaving the
-  // AE on an empty detail pane (their row is gone) or telling them to go find
-  // the buyer again, follow them: when the refreshed data brings the new
-  // engagement in, open it and switch tabs.
-  const claimedLeadRef = useRef<string | null>(null)
-  useEffect(() => {
-    const leadId = claimedLeadRef.current
-    if (!leadId) return
-    const engagement = ordered.find((e) => e.lead_id === leadId)
-    if (!engagement) return
-    claimedLeadRef.current = null
-    setEngagementId(engagement.id)
-    setTab("work")
-  }, [ordered])
 
   const unreadTotal = ordered.filter((e) => summarizeEngagement(e).needsAttention).length
 
@@ -155,12 +188,8 @@ export function InboxWorkspace({
       : []),
   ]
 
-  const focusIsSet = tab === "work" ? !!selectedEngagement : !!selectedPending
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Tabs — one page, two queues. The counts live here so the AE can see
-          whether anything is waiting without opening the other tab. */}
       <div className="flex flex-wrap items-center gap-2 border-b pb-2">
         {tabs.map((item) => {
           const Icon = item.icon
@@ -203,7 +232,7 @@ export function InboxWorkspace({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        {/* ---- Master: the queue ---- */}
+        {/* ---- The worklist ---- */}
         <div className={cn("flex flex-col gap-2", focusIsSet && "hidden lg:flex")}>
           {tab === "pending" ? (
             pendingItems.length === 0 ? (
@@ -241,7 +270,7 @@ export function InboxWorkspace({
           )}
         </div>
 
-        {/* ---- Detail: everything the AE does with the selected buyer ---- */}
+        {/* ---- Read-only peek ---- */}
         <div className={cn("min-w-0", !focusIsSet && "hidden lg:block")}>
           {focusIsSet && (
             <Button
@@ -253,52 +282,31 @@ export function InboxWorkspace({
                 setEngagementId(null)
               }}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 rotate-180" />
               {t("Danh sách", "Back to list")}
             </Button>
           )}
 
           {tab === "pending" ? (
             selectedPending ? (
-              <InboxList
-                // Remount per buyer: these renderers keep their own dialog and
-                // expand/collapse state, and reusing the instance across a
-                // selection change would carry that state onto the next buyer.
-                key={selectedPending.id}
-                items={[selectedPending]}
-                clients={clients}
-                locale={locale}
-                currentRole={currentRole}
-                onClaimed={(leadId) => {
-                  claimedLeadRef.current = leadId
-                }}
-              />
+              <PendingPeek item={selectedPending} locale={locale} />
             ) : (
               <Placeholder
                 title={t("Chọn một buyer chờ nhận", "Pick a buyer to claim")}
                 body={t(
-                  "Điểm match, nhu cầu ban đầu và nút nhận buyer nằm ở đây.",
-                  "Match score, the buyer's initial ask and the claim button show up here.",
+                  "Điểm match và nhu cầu ban đầu của buyer hiện ở đây. Mọi thao tác nằm trên hồ sơ buyer.",
+                  "The match score and the buyer's initial ask show up here. Actions live on the buyer's own page.",
                 )}
               />
             )
           ) : selectedEngagement ? (
-            <EngagementList
-              // See the note above: a new buyer means fresh dialog/expand state,
-              // which is also what makes `defaultExpanded` hold every time.
-              key={selectedEngagement.id}
-              engagements={[selectedEngagement]}
-              clients={clients}
-              locale={locale}
-              showHeader={false}
-              defaultExpanded
-            />
+            <EngagementPeek engagement={selectedEngagement} locale={locale} />
           ) : (
             <Placeholder
               title={t("Chọn một buyer đang xử lý", "Pick a buyer in progress")}
               body={t(
-                "Giai đoạn, phản hồi của buyer và các bước tiếp theo nằm ở đây.",
-                "Stage, buyer replies and the stage's next actions show up here.",
+                "Giai đoạn và phản hồi gần nhất hiện ở đây. Mọi thao tác nằm trên hồ sơ buyer.",
+                "The stage and the latest reply show up here. Actions live on the buyer's own page.",
               )}
             />
           )}
@@ -309,7 +317,7 @@ export function InboxWorkspace({
 }
 
 // ---------------------------------------------------------------------------
-// Master rows — headline facts only; the detail pane carries the rest.
+// Rows
 // ---------------------------------------------------------------------------
 
 function PendingRow({
@@ -327,15 +335,13 @@ function PendingRow({
   const lead = item.leads
   const score = item.ae_match_scores?.total_score ?? null
 
-  const priorityLabel =
-    item.priority === "high"
-      ? t("Ưu tiên cao", "High priority")
-      : item.priority === "medium"
-        ? t("Trung bình", "Medium")
-        : t("Thấp", "Low")
-
   return (
-    <MasterRow selected={selected} onSelect={onSelect}>
+    <MasterRow
+      leadId={item.lead_id}
+      selected={selected}
+      onSelect={onSelect}
+      openLabel={t("Mở hồ sơ buyer", "Open buyer profile")}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-1.5">
@@ -359,7 +365,11 @@ function PendingRow({
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Badge variant="outline" className={cn("text-xs", PRIORITY_TONE[item.priority])}>
-          {priorityLabel}
+          {item.priority === "high"
+            ? t("Ưu tiên cao", "High priority")
+            : item.priority === "medium"
+              ? t("Trung bình", "Medium")
+              : t("Thấp", "Low")}
         </Badge>
         {lead?.has_active_inquiry && (
           <Badge variant="outline" className="text-xs">
@@ -386,7 +396,13 @@ function EngagementRow({
   const summary = summarizeEngagement(engagement)
 
   return (
-    <MasterRow selected={selected} onSelect={onSelect} attention={summary.needsAttention}>
+    <MasterRow
+      leadId={engagement.lead_id}
+      selected={selected}
+      attention={summary.needsAttention}
+      onSelect={onSelect}
+      openLabel={t("Mở hồ sơ buyer", "Open buyer profile")}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="truncate font-medium text-foreground">{summary.companyName}</span>
@@ -430,31 +446,374 @@ function EngagementRow({
   )
 }
 
+/**
+ * One row of the worklist.
+ *
+ * Selecting the row is what fills the peek pane; the arrow on the right is a
+ * real link, so the buyer's page is one click (or one middle-click) away
+ * without going through the pane. They are siblings rather than nested, because
+ * a link inside a button is invalid markup and swallows the click.
+ */
 function MasterRow({
   children,
+  leadId,
   selected,
   attention = false,
   onSelect,
+  openLabel,
 }: {
   children: ReactNode
+  leadId: string
   selected: boolean
   attention?: boolean
   onSelect: () => void
+  openLabel: string
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={cn(
-        "w-full rounded-lg border bg-card p-3 text-left text-card-foreground shadow-sm",
-        "transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex items-stretch gap-1 rounded-lg border bg-card text-card-foreground shadow-sm transition-colors",
         selected && "border-primary bg-primary/5",
         // An unread reply is the one thing that must not be scrolled past.
         attention && !selected && "border-amber-500/40",
       )}
     >
+      <button
+        type="button"
+        onClick={onSelect}
+        className="min-w-0 flex-1 rounded-l-lg p-3 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {children}
+      </button>
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        className="my-2 mr-2 h-8 w-8 shrink-0 self-center text-muted-foreground hover:text-foreground"
+      >
+        <Link href={`/admin/buyers/${leadId}`} aria-label={openLabel} title={openLabel}>
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Peeks — read-only. If this pane ever grows a button that changes state, the
+// worklist has been broken.
+// ---------------------------------------------------------------------------
+
+function PeekCard({
+  leadId,
+  title,
+  subtitle,
+  children,
+  locale,
+}: {
+  leadId: string
+  title: string
+  subtitle: string | null
+  children: ReactNode
+  locale: "vi" | "en"
+}) {
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold text-foreground">{title}</h2>
+          {subtitle && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+          )}
+        </div>
+        {/* The only interactive thing here: go do the work where the work is. */}
+        <Button asChild size="sm" className="gap-2">
+          <Link href={`/admin/buyers/${leadId}`}>
+            <ExternalLink className="h-4 w-4" />
+            {t("Mở hồ sơ buyer", "Open buyer profile")}
+          </Link>
+        </Button>
+      </div>
       {children}
-    </button>
+    </div>
+  )
+}
+
+function PendingPeek({ item, locale }: { item: InboxItem; locale: "vi" | "en" }) {
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const lead = item.leads
+  const score = item.ae_match_scores
+
+  const expiresInDays = Math.ceil(
+    (new Date(item.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+  )
+
+  return (
+    <PeekCard
+      leadId={item.lead_id}
+      title={lead?.company_name || t("Không rõ buyer", "Unknown buyer")}
+      subtitle={[lead?.industry, lead?.country].filter(Boolean).join(" · ") || null}
+      locale={locale}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className={cn("text-xs", PRIORITY_TONE[item.priority])}>
+          {item.priority === "high"
+            ? t("Ưu tiên cao", "High priority")
+            : item.priority === "medium"
+              ? t("Trung bình", "Medium")
+              : t("Thấp", "Low")}
+        </Badge>
+        {score && (
+          <Badge variant="secondary" className="text-xs">
+            {t("Điểm match", "Match score")}: {Math.round(score.total_score)}/100
+          </Badge>
+        )}
+        <span className="text-xs text-muted-foreground">
+          {expiresInDays <= 0
+            ? t("Đề xuất đã hết hạn", "Proposal expired")
+            : t(`Còn ${expiresInDays} ngày`, `${expiresInDays} days left`)}
+        </span>
+      </div>
+
+      {/* What the buyer asked for, if they came in through the inquiry form. */}
+      {lead?.has_active_inquiry && (
+        <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Mail className="h-3.5 w-3.5" />
+            {t("Nhu cầu ban đầu", "Initial ask")}
+          </span>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {lead.inquiry_products && (
+              <PeekField label={t("Sản phẩm", "Products")} value={lead.inquiry_products} />
+            )}
+            {lead.inquiry_quantity && (
+              <PeekField label={t("Số lượng / MOQ", "Quantity / MOQ")} value={lead.inquiry_quantity} />
+            )}
+            {lead.inquiry_target_price && (
+              <PeekField label={t("Giá mục tiêu", "Target price")} value={lead.inquiry_target_price} />
+            )}
+            {lead.inquiry_timeline && (
+              <PeekField label={t("Timeline", "Timeline")} value={lead.inquiry_timeline} />
+            )}
+            {lead.inquiry_channel && (
+              <PeekField
+                label={t("Kênh", "Channel")}
+                value={inquiryChannelLabel(lead.inquiry_channel, locale)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {score && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("Vì sao AI đề xuất buyer này", "Why the matcher picked this buyer")}
+          </span>
+          <ScoreBar label={t("Sản phẩm", "Product")} value={score.product_match_score} />
+          <ScoreBar label={t("Ngành hàng", "Industry")} value={score.industry_match_score} />
+          <ScoreBar label={t("FDA", "FDA")} value={score.fda_compliance_score} />
+          <ScoreBar label={t("Workload", "Workload")} value={score.workload_score} />
+          <ScoreBar label={t("Win rate", "Win rate")} value={score.win_rate_score} />
+          <ScoreBar label={t("Quốc gia", "Country")} value={score.country_match_score} />
+        </div>
+      )}
+
+      <div className="flex items-start gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+        <Package className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span className="text-pretty">
+          {t(
+            "Nhận buyer hoặc từ chối đề xuất này trên hồ sơ buyer — cùng chỗ với mọi thao tác khác.",
+            "Claim or reject this proposal on the buyer's page — the same place as every other action.",
+          )}
+        </span>
+      </div>
+    </PeekCard>
+  )
+}
+
+function EngagementPeek({
+  engagement,
+  locale,
+}: {
+  engagement: Engagement
+  locale: "vi" | "en"
+}) {
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const summary = summarizeEngagement(engagement)
+  const latestReply = summary.replies[0] ?? null
+  const versions = [...(engagement.buyer_engagement_shortlist_versions ?? [])].sort(
+    (a, b) => b.version_number - a.version_number,
+  )
+  const sentVersion = versions.find((v) => v.status === "sent") ?? null
+  const draftVersion = versions.find((v) => v.status === "draft") ?? null
+  const displayVersion = sentVersion ?? draftVersion ?? null
+  const items = displayVersion?.buyer_engagement_shortlist_items ?? []
+  const interested = items.filter((i) => i.buyer_interested === true).length
+
+  return (
+    <PeekCard
+      leadId={engagement.lead_id}
+      title={summary.companyName}
+      subtitle={
+        [engagement.leads?.industry, engagement.leads?.country].filter(Boolean).join(" · ") ||
+        null
+      }
+      locale={locale}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className={cn("text-xs", summary.stageInfo.tone)}>
+          {locale === "vi" ? summary.stageInfo.vi : summary.stageInfo.en}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {summary.daysInStage <= 0
+            ? t("Mới hôm nay", "Started today")
+            : t(
+                `${summary.daysInStage} ngày ở giai đoạn này`,
+                `${summary.daysInStage} day${summary.daysInStage === 1 ? "" : "s"} in this stage`,
+              )}
+        </span>
+        {summary.isSilentTooLong && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {t(`Im lặng ${summary.silentDays} ngày`, `Silent ${summary.silentDays} days`)}
+          </Badge>
+        )}
+      </div>
+
+      {/* The reply is why this row is at the top of the list — show it. */}
+      {latestReply && (
+        <div
+          className={cn(
+            "flex flex-col gap-2 rounded-md border p-3",
+            !latestReply.read_at && "border-amber-500/40 bg-amber-500/5",
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <MessageSquareText className="h-3.5 w-3.5" />
+              {t("Phản hồi gần nhất", "Latest reply")}
+            </span>
+            {latestReply.ai_intent && (
+              <Badge variant="secondary" className="text-xs">
+                {(locale === "vi" ? REPLY_INTENT_LABEL_VI : REPLY_INTENT_LABEL_EN)[
+                  latestReply.ai_intent
+                ] ?? latestReply.ai_intent}
+              </Badge>
+            )}
+            {!latestReply.read_at && (
+              <Badge
+                variant="outline"
+                className="border-amber-500/30 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400"
+              >
+                {t("Chưa đọc", "Unread")}
+              </Badge>
+            )}
+          </div>
+          {latestReply.subject && (
+            <p className="text-sm font-medium text-foreground">{latestReply.subject}</p>
+          )}
+          <p className="line-clamp-4 text-sm text-muted-foreground text-pretty">
+            {latestReply.ai_summary ?? latestReply.translated_vi ?? latestReply.raw_content}
+          </p>
+          {summary.replies.length > 1 && (
+            <span className="text-xs text-muted-foreground">
+              {t(
+                `+${summary.replies.length - 1} phản hồi trước đó`,
+                `+${summary.replies.length - 1} earlier repl${summary.replies.length - 1 === 1 ? "y" : "ies"}`,
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Requirements on file — the AE's own notes, so they can decide whether
+          the buyer is worth a shortlist without opening the page. */}
+      {summary.productLabel || engagement.requested_products ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <PeekField
+            label={t("Sản phẩm buyer cần", "Requested products")}
+            value={engagement.requested_products || summary.productLabel || "—"}
+          />
+          {engagement.target_price_range && (
+            <PeekField label={t("Giá mục tiêu", "Target price")} value={engagement.target_price_range} />
+          )}
+          {engagement.moq && <PeekField label={t("MOQ", "MOQ")} value={engagement.moq} />}
+          {engagement.payment_terms && (
+            <PeekField label={t("Thanh toán", "Payment")} value={engagement.payment_terms} />
+          )}
+        </div>
+      ) : null}
+
+      {displayVersion ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {t("Shortlist", "Shortlist")} v{displayVersion.version_number}
+          </span>
+          <Badge variant="outline" className="text-xs">
+            {displayVersion.status === "sent"
+              ? t("đã gửi", "sent")
+              : displayVersion.status === "draft"
+                ? t("bản nháp", "draft")
+                : displayVersion.status}
+          </Badge>
+          <span>
+            {t(`${items.length} nhà cung cấp`, `${items.length} suppliers`)}
+            {interested > 0 && ` · ${t(`${interested} quan tâm`, `${interested} interested`)}`}
+          </span>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t("Chưa có shortlist nào.", "No shortlist yet.")}
+        </p>
+      )}
+
+      <div className="flex items-start gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+        <ClipboardList className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span className="text-pretty">
+          {t(
+            "Ghi nhận nhu cầu, soạn email, gửi shortlist và chuyển cơ hội đều nằm trên hồ sơ buyer.",
+            "Recording requirements, writing emails, sending the shortlist and creating deals all live on the buyer's page.",
+          )}
+        </span>
+      </div>
+    </PeekCard>
+  )
+}
+
+function PeekField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="truncate font-medium text-foreground" title={value}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const pct = Math.max(0, Math.min(100, value))
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-24 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full rounded-full",
+            pct >= 70 ? "bg-chart-4" : pct >= 40 ? "bg-chart-1" : "bg-chart-5",
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+        {Math.round(pct)}
+      </span>
+    </div>
   )
 }
 

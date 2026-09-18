@@ -4,16 +4,15 @@
  * Engagement action bar — one place that knows what an AE can DO with a
  * pre-opportunity buyer, rendered by both surfaces that show a buyer in flight:
  *
- *   1. the AE inbox card — the "Đang xử lý" tab of /admin/ae-inbox —
- *      `EngagementStageActions` for
- *      the stage-driven buttons, `EngagementAdminActions` for the header row;
+ *   1. the AE inbox card, historically — the inbox is a worklist now and does
+ *      not mount this bar at all;
  *   2. the buyer profile's "Phân tích" tab (/admin/buyers/[id]) —
- *      `BuyerEngagementBar`, which shows the stage, how long the buyer has been
- *      sitting in it, whether they have replied, and the same stage buttons with
- *      the primary one framed as "Việc tiếp theo".
+ *      `BuyerEngagementBar`: the same buttons, with the stage's primary action
+ *      leading as "Việc tiếp theo". The buyer's stage, days in stage and reply
+ *      count live in the page header and the tab badges, not here — a bar that
+ *      repeats the header is just a second row of chrome above the buttons.
  *
- * Which buttons a stage offers is decided by lib/buyers/engagement-stages.ts, so
- * the two screens cannot drift apart.
+ * Which buttons a stage offers is decided by lib/buyers/engagement-stages.ts.
  *
  * DESIGN NOTE — the dialogs are shared, not duplicated
  * ------------------------------------------------------------------------
@@ -26,44 +25,33 @@
  * lib/buyers/engagement-queries.ts — so a dialog can never be handed a
  * half-loaded row on one screen and a full one on the other.
  *
- * The inbox keeps every button exactly where the AE expects it; the profile bar
- * is the same set, now that AE work no longer requires a round trip through the
- * queue.
+ * The inbox does not mount this at all (it is a worklist: peek, then open the
+ * buyer's page), so the profile is the one place these buttons render — which
+ * is the actual guarantee that the two surfaces cannot show different actions.
  */
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeftRight,
   ArrowRight,
   ChevronDown,
   ClipboardList,
-  Clock,
   Inbox,
   Link2,
-  Loader2,
   Mail,
-  MessageSquareText,
   RotateCw,
   Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react"
-import { EngagementStageDialogHost } from "@/components/admin/engagement-stage-dialogs"
-import { countUnreadReplies, type BuyerReplyRow } from "@/components/admin/buyer-replies-list"
-import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  DropEngagementDialog,
+  EngagementStageDialogHost,
+  ReturnToInboxDialog,
+  TransferEngagementDialog,
+} from "@/components/admin/engagement-stage-dialogs"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,48 +59,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  dropEngagement,
-  listTransferCandidateAEs,
-  transferEngagement,
-  type TransferCandidateAE,
-} from "@/app/admin/ae-inbox/engagement-actions"
-import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
-import {
   getStageActions,
-  STAGE_LABELS,
   stageActionContextFromEngagement,
-  type ShortlistVersionLike,
   type StageActionKey,
 } from "@/lib/buyers/engagement-stages"
-import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
-
-/**
- * Everything the bar needs about an engagement. Structurally satisfied by the
- * inbox's `Engagement` rows (they carry more fields) so no adapter is needed.
- */
-export interface EngagementActionTarget {
-  id: string
-  account_manager_id: string
-  stage: string
-  updated_at?: string | null
-  leads?: { company_name?: string | null } | null
-  buyer_engagement_shortlist_versions?: ShortlistVersionLike[] | null
-  /** Read by stageActionContextFromEngagement to decide whether a reply from
-   *  the buyer is requirements-to-record or a reaction to a shortlist. */
-  requested_products?: string | null
-  other_requirements?: string | null
-}
+import type {
+  Engagement,
+  EngagementActionTarget,
+  EngagementClient,
+} from "@/lib/buyers/engagement-types"
+export type { EngagementActionTarget }
 
 /** Icons live here, next to the UI, so the stage map itself stays plain data. */
 const STAGE_ACTION_ICONS: Record<StageActionKey, LucideIcon> = {
   draft_opening_email: Mail,
+  record_decline: X,
   record_requirements_offline: ClipboardList,
   record_requirements: ClipboardList,
   resend_email: RotateCw,
@@ -359,7 +320,6 @@ export function BuyerEngagementBar({
   companyName,
   locale,
   emailContextHints = [],
-  replies = [],
   clients = [],
 }: {
   /** FULL engagement row (ENGAGEMENT_SELECT) — the sheet/dialogs need the
@@ -373,17 +333,9 @@ export function BuyerEngagementBar({
   locale: "vi" | "en"
   /** Talking points / tips to keep in view inside the email panel. */
   emailContextHints?: string[]
-  /**
-   * Replies already on file for this buyer. Only used to say whether the buyer
-   * has answered — the messages themselves render in the replies list right
-   * below this bar.
-   */
-  replies?: BuyerReplyRow[]
 }) {
   const router = useRouter()
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-  const stageInfo = STAGE_LABELS[engagement.stage]
-  const unreadReplies = countUnreadReplies(replies)
 
   // EVERY stage action now runs here, through the same shared dialogs the inbox
   // uses. The AE no longer leaves the buyer they are reading to record
@@ -393,71 +345,23 @@ export function BuyerEngagementBar({
   // writing; the rest are ordinary modals.
   const [stageAction, setStageAction] = useState<StageActionKey | null>(null)
 
-  // Same computation as the inbox card, so "12 ngày ở giai đoạn này" means the
-  // same thing on both screens.
-  const daysInStage = engagement.updated_at
-    ? Math.floor((Date.now() - new Date(engagement.updated_at).getTime()) / (24 * 60 * 60 * 1000))
-    : 0
-
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 p-3">
-      <Badge variant="outline" className="text-xs">
-        {stageInfo ? (locale === "vi" ? stageInfo.vi : stageInfo.en) : engagement.stage}
-      </Badge>
+    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+      {/* Deliverables only — no badges. The buyer's stage, days in stage and
+          reply count are in the page header and the tab badges; repeating them
+          here made a second row of chrome above the buttons. */}
+      <EngagementStageActions
+        engagement={engagement}
+        locale={locale}
+        onAction={setStageAction}
+        nextStepFirst
+      />
 
-      {/* The stage does NOT move when a buyer replies (nothing in the inbound
-          webhook touches buyer_engagements.stage — "buyer_responded" is
-          unreachable in this pipeline), so the bar would otherwise look
-          identical before and after an answer arrives. This is the one signal
-          that says "they wrote back". */}
-      {replies.length > 0 && (
-        <Badge
-          variant="secondary"
-          className={
-            unreadReplies > 0
-              ? "border-amber-500/30 bg-amber-500/10 text-xs font-normal text-amber-700 dark:text-amber-400"
-              : "text-xs font-normal"
-          }
-        >
-          <MessageSquareText className="mr-1 h-3 w-3" />
-          {unreadReplies > 0
-            ? t(
-                `Buyer đã trả lời · ${unreadReplies} chưa đọc`,
-                `Buyer replied · ${unreadReplies} unread`,
-              )
-            : t(
-                `Buyer đã trả lời (${replies.length})`,
-                `Buyer replied (${replies.length})`,
-              )}
-        </Badge>
-      )}
-
-      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Clock className="h-3 w-3" />
-        {daysInStage <= 0
-          ? t("Mới hôm nay", "Started today")
-          : t(
-              `${daysInStage} ngày ở giai đoạn này`,
-              `${daysInStage} day${daysInStage === 1 ? "" : "s"} in this stage`,
-            )}
-      </span>
-
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        {/* Same buttons as the inbox card, from the same stage map — but here
-            the stage's primary action leads, framed as the next step. */}
-        <EngagementStageActions
-          engagement={engagement}
-          locale={locale}
-          onAction={setStageAction}
-          nextStepFirst
-        />
-
-        <EngagementAdminActions
-          engagement={{ ...engagement, leads: { company_name: companyName } }}
-          locale={locale}
-          layout="menu"
-        />
-      </div>
+      <EngagementAdminActions
+        engagement={{ ...engagement, leads: { company_name: companyName } }}
+        locale={locale}
+        layout="menu"
+      />
 
       {/* Anchors the admin menu to this buyer for screen readers. */}
       <span className="sr-only">
@@ -483,281 +387,5 @@ export function BuyerEngagementBar({
         }}
       />
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Dialogs
-// ---------------------------------------------------------------------------
-
-function DropEngagementDialog({
-  engagement,
-  locale,
-  onClose,
-  onDropped,
-}: {
-  engagement: EngagementActionTarget
-  locale: "vi" | "en"
-  onClose: () => void
-  onDropped: () => void
-}) {
-  const [reason, setReason] = useState("")
-  const [saving, setSaving] = useState(false)
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  const handleDrop = async () => {
-    setSaving(true)
-    const result = await dropEngagement(engagement.id, reason)
-    setSaving(false)
-    if (!result.ok) {
-      toast.error(result.error)
-      return
-    }
-    toast.success(t("Đã hủy buyer này", "Buyer dropped"))
-    onDropped()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("Hủy buyer này?", "Drop this buyer?")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              `Buyer ${engagement.leads?.company_name} sẽ được đưa ra khỏi danh sách đang xử lý.`,
-              `${engagement.leads?.company_name} will be removed from your in-progress list.`,
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <Textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={t("Lý do (tùy chọn)...", "Reason (optional)...")}
-          rows={3}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t("Không hủy", "Keep it")}
-          </Button>
-          <Button variant="destructive" onClick={handleDrop} disabled={saving}>
-            {t("Xác nhận hủy", "Confirm drop")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/**
- * Transfer the engagement to another AE — covers the case where LR routed the
- * buyer by industry match, but the buyer's actual product ask doesn't fit any
- * client this AE manages.
- */
-function TransferEngagementDialog({
-  engagement,
-  locale,
-  onClose,
-  onTransferred,
-}: {
-  engagement: EngagementActionTarget
-  locale: "vi" | "en"
-  onClose: () => void
-  onTransferred: () => void
-}) {
-  const [candidates, setCandidates] = useState<TransferCandidateAE[] | null>(null)
-  const [loadingCandidates, setLoadingCandidates] = useState(true)
-  const [targetId, setTargetId] = useState<string>("")
-  const [reason, setReason] = useState("")
-  const [saving, setSaving] = useState(false)
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  useEffect(() => {
-    let active = true
-    setLoadingCandidates(true)
-    listTransferCandidateAEs(engagement.account_manager_id).then((result) => {
-      if (!active) return
-      setCandidates(result.ok ? result.data : [])
-      setLoadingCandidates(false)
-    })
-    return () => {
-      active = false
-    }
-  }, [engagement.account_manager_id])
-
-  const handleTransfer = async () => {
-    if (!targetId) {
-      toast.error(t("Vui lòng chọn AE nhận buyer", "Please choose a receiving AE"))
-      return
-    }
-    if (!reason.trim()) {
-      toast.error(t("Vui lòng nhập lý do chuyển", "Please enter a transfer reason"))
-      return
-    }
-    setSaving(true)
-    const result = await transferEngagement(engagement.id, targetId, reason)
-    setSaving(false)
-    if (!result.ok) {
-      const transferErrors: Record<string, string> = {
-        ae_at_capacity: t(
-          "AE nhận đã đạt giới hạn buyer đang xử lý",
-          "The receiving AE has reached their active-buyer cap",
-        ),
-        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
-        already_owned_by_target: t("Buyer này đã thuộc về AE được chọn", "This buyer already belongs to the selected AE"),
-        target_not_ae: t("Người được chọn không phải AE", "The selected person is not an AE"),
-        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
-      }
-      toast.error(transferErrors[result.error] ?? result.error)
-      return
-    }
-    toast.success(t("Đã chuyển buyer cho AE khác", "Buyer transferred"))
-    onTransferred()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("Chuyển buyer cho AE khác", "Transfer buyer to another AE")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              `Dùng khi buyer ${engagement.leads?.company_name ?? ""} hỏi sản phẩm không khớp với client bạn đang quản lý. Buyer sẽ được gán cho AE khác, kèm lý do để AE đó nắm bối cảnh.`,
-              `Use this when ${engagement.leads?.company_name ?? "this buyer"} is asking for a product none of your clients cover. The buyer moves to another AE, along with the reason for context.`,
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>{t("Chuyển cho", "Transfer to")}</Label>
-            <Select value={targetId} onValueChange={setTargetId} disabled={loadingCandidates}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    loadingCandidates
-                      ? t("Đang tải danh sách AE...", "Loading AEs...")
-                      : t("Chọn AE nhận buyer", "Choose a receiving AE")
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(candidates ?? []).map((ae) => (
-                  <SelectItem key={ae.id} value={ae.id}>
-                    {ae.fullName || ae.companyName || ae.id}
-                    {" — "}
-                    {t(
-                      `${ae.activeEngagementCount} buyer đang xử lý`,
-                      `${ae.activeEngagementCount} in progress`,
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t("Lý do chuyển", "Transfer reason")}</Label>
-            <Textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={t(
-                "Ví dụ: Buyer hỏi sản phẩm khác ngành với client tôi đang quản lý...",
-                "E.g. Buyer is asking for a product outside my clients' category...",
-              )}
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t("Hủy", "Cancel")}
-          </Button>
-          <Button onClick={handleTransfer} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
-            {t("Chuyển buyer", "Transfer buyer")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/**
- * Return a claimed buyer to the shared inbox — the AE cannot work this buyer
- * (wrong industry / overload) and releases it so any AE can claim it again,
- * instead of just dropping it into a dead end.
- */
-function ReturnToInboxDialog({
-  engagement,
-  locale,
-  onClose,
-  onReturned,
-}: {
-  engagement: EngagementActionTarget
-  locale: "vi" | "en"
-  onClose: () => void
-  onReturned: () => void
-}) {
-  const [reason, setReason] = useState("")
-  const [saving, setSaving] = useState(false)
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  const handleReturn = async () => {
-    if (!reason.trim()) {
-      toast.error(t("Vui lòng nhập lý do trả buyer", "Please enter a reason"))
-      return
-    }
-    setSaving(true)
-    const result = await returnBuyerToInbox({
-      engagementId: engagement.id,
-      reason,
-    })
-    setSaving(false)
-    if (!result.ok) {
-      const copy: Record<string, string> = {
-        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
-        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
-        reason_required: t("Vui lòng nhập lý do", "Reason is required"),
-      }
-      toast.error(copy[result.error] ?? result.error)
-      return
-    }
-    toast.success(t("Đã trả buyer về hộp thư chung", "Buyer returned to the shared inbox"))
-    onReturned()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("Trả buyer về hộp thư chung?", "Return buyer to shared inbox?")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              `Buyer ${engagement.leads?.company_name ?? ""} sẽ được gỡ khỏi danh sách của bạn và xuất hiện lại trong hộp thư chung để AE khác nhận. Hãy ghi rõ lý do để AE tiếp theo nắm bối cảnh.`,
-              `${engagement.leads?.company_name ?? "This buyer"} will leave your queue and reappear in the shared inbox for another AE to claim. Explain why so the next AE has context.`,
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <Textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={t(
-            "Ví dụ: Tôi đang quá tải, buyer cần AE am hiểu ngành gỗ...",
-            "E.g. I am at capacity; this buyer needs an AE covering timber...",
-          )}
-          rows={3}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t("Hủy", "Cancel")}
-          </Button>
-          <Button onClick={handleReturn} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Inbox className="h-4 w-4" />}
-            {t("Trả về hộp thư", "Return to inbox")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

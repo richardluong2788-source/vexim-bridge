@@ -4,20 +4,25 @@ import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { getMyEngagements } from "@/app/admin/ae-inbox/engagement-actions"
-import { loadAssignableClients } from "@/lib/buyers/engagement-queries"
 import type { Engagement } from "@/lib/buyers/engagement-types"
-import type { AssignableClient } from "@/lib/buyers/engagement-queries"
 import { InboxWorkspace, type InboxTab } from "@/components/admin/inbox-workspace"
 
 export const dynamic = "force-dynamic"
 
 /**
- * The AE's inbox — one page, two queues.
+ * The AE's inbox — a worklist, and nothing else.
  *
  * "Buyer của tôi" (AI-matched, waiting to be claimed) and "Đang xử lý" (claimed,
  * being worked) are the same job seen at two moments, and the AE used to cross
- * between two pages to do it. They are now tabs of this page, master–detail:
- * the queue on the left, the selected buyer on the right.
+ * between two pages to do it. They are now tabs of this page.
+ *
+ * No work happens here. There is no claim button, no email composer, no stage
+ * action, no transfer menu — those all live on the buyer's own page
+ * (/admin/buyers/[id]), which is the single place the AE operates. This page
+ * shows the priority order and a read-only peek, then sends you there.
+ *
+ * That is why it loads no client list: the assign/shortlist pickers moved with
+ * the actions.
  *
  * `/admin/engagements` redirects here, so every existing link — the "buyer
  * replied" notifications, the stale-engagement cron, the matching pipeline's
@@ -107,21 +112,14 @@ export default async function AEInboxPage({
     inboxQuery = inboxQuery.eq("account_manager_id", current.userId)
   }
 
-  const [{ data: inboxItems }, engagementResult, assignableClients] = await Promise.all([
+  const [{ data: inboxItems }, engagementResult] = await Promise.all([
     inboxQuery,
     // --- Queue 2: buyers already claimed and in flight ----------------------
     canWork ? getMyEngagements() : Promise.resolve(null),
-    // Active clients (FDA in date) — shared with the shortlist builder and the
-    // claim flow, so both queues offer the same suppliers.
-    loadAssignableClients(supabase, {
-      accountManagerId: current.role === "account_executive" ? current.userId : null,
-    }),
   ])
 
   const engagements: Engagement[] =
     canWork && engagementResult?.ok ? (engagementResult.data as Engagement[]) : []
-
-  const clients: AssignableClient[] = assignableClients
 
   const initialTab: InboxTab = sp.tab === "work" && canWork ? "work" : "pending"
 
@@ -137,8 +135,8 @@ export default async function AEInboxPage({
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl text-pretty">
             {locale === "vi"
-              ? "Buyer AI đề xuất cho bạn và buyer bạn đang xử lý, trong cùng một chỗ. Nhận buyer để hỏi nhu cầu, gửi shortlist supplier, rồi gán client khi buyer đã phản hồi."
-              : "The buyers the matcher proposed for you and the ones you are working, in one place. Claim a buyer to gather requirements, send a supplier shortlist, then assign a client once the buyer responds."}
+              ? "Danh sách việc của bạn, xếp theo mức độ gấp: buyer đã trả lời mà chưa đọc lên đầu. Bấm một dòng để xem nhanh, rồi mở hồ sơ buyer — mọi thao tác (nhận buyer, soạn email, cập nhật giai đoạn, gửi shortlist) đều nằm ở đó."
+              : "Your worklist, ordered by urgency: buyers who replied and have not been read come first. Click a row for a quick read, then open the buyer's page — every action (claim, write, move the stage, send the shortlist) lives there."}
           </p>
         </div>
       </div>
@@ -146,7 +144,6 @@ export default async function AEInboxPage({
       <InboxWorkspace
         pendingItems={inboxItems || []}
         engagements={engagements}
-        clients={clients}
         locale={locale}
         currentRole={current.role}
         initialTab={initialTab}

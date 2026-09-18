@@ -99,6 +99,33 @@ export interface Engagement {
   buyer_replies?: EngagementReplyRow[]
 }
 
+/**
+ * The minimal slice of an engagement the stage map needs. Structurally
+ * satisfied by `Engagement` (which carries more), so no adapter is required —
+ * it exists so a dialog can also be rendered from a partially loaded row.
+ */
+export interface EngagementActionTarget {
+  id: string
+  account_manager_id: string
+  stage: string
+  updated_at?: string | null
+  leads?: { company_name?: string | null } | null
+  buyer_engagement_shortlist_versions?: ShortlistVersionLike[] | null
+  /** Read by stageActionContextFromEngagement to decide whether a reply from
+   *  the buyer is requirements-to-record or a reaction to a shortlist. */
+  requested_products?: string | null
+  other_requirements?: string | null
+  /** Newest reply decides whether the buyer has refused (see the stage map). */
+  buyer_replies?: Array<{ ai_intent?: string | null; received_at?: string | null }> | null
+}
+
+/** Minimal shape of a shortlist version row, as embedded on an engagement. */
+export interface ShortlistVersionLike {
+  version_number?: number | null
+  status?: string | null
+  buyer_engagement_shortlist_items?: Array<{ buyer_interested?: boolean | null }> | null
+}
+
 export interface EngagementClient {
   id: string
   full_name: string | null

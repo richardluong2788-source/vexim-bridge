@@ -16,10 +16,12 @@
 import { useEffect, useState } from "react"
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ArrowRight,
   Check,
   ClipboardList,
   CornerUpLeft,
+  Inbox,
   Link2,
   Loader2,
   Mail,
@@ -56,7 +58,12 @@ import {
   saveBuyerRequirements,
   type ConvertRoleAssignment,
   type SaveRequirementsInput,
+  dropEngagement,
+  listTransferCandidateAEs,
+  transferEngagement,
+  type TransferCandidateAE,
 } from "@/app/admin/ae-inbox/engagement-actions"
+import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
 import {
   generateFollowUpReplyEmailAction,
   generateRequirementInquiryEmailAction,
@@ -70,6 +77,7 @@ import { RequirementEmailComposer } from "@/components/admin/requirement-email-c
 import type { StageActionKey } from "@/lib/buyers/engagement-stages"
 import type {
   Engagement,
+  EngagementActionTarget,
   EngagementClient,
   EngagementReplyRow,
 } from "@/lib/buyers/engagement-types"
@@ -1358,6 +1366,19 @@ export function EngagementStageDialogHost({
           onSent={onDone}
         />
       )
+    case "record_decline":
+      // Closing the file, not deleting the history: the same action the admin
+      // menu's "Hủy buyer" performs, surfaced as the next step once the buyer
+      // has said no. `variant` only changes the copy.
+      return (
+        <DropEngagementDialog
+          engagement={engagement}
+          locale={locale}
+          variant="decline"
+          onClose={onClose}
+          onDropped={onDone}
+        />
+      )
     case "convert_to_opportunity":
       return (
         <ConvertDialog
@@ -1399,5 +1420,310 @@ export function EngagementReplyFollowUpDialog({
       onClose={onClose}
       onSent={onSent}
     />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialogs
+// ---------------------------------------------------------------------------
+
+export function DropEngagementDialog({
+  engagement,
+  locale,
+  variant = "drop",
+  onClose,
+  onDropped,
+}: {
+  engagement: EngagementActionTarget
+  locale: "vi" | "en"
+  /**
+   * "drop"    — the AE abandons the buyer (admin menu).
+   * "decline" — the buyer refused; the AE is recording that and closing. Same
+   *             write, different words, so the two paths do not read alike.
+   */
+  variant?: "drop" | "decline"
+  onClose: () => void
+  onDropped: () => void
+}) {
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const declining = variant === "decline"
+
+  const handleDrop = async () => {
+    setSaving(true)
+    const result = await dropEngagement(engagement.id, reason)
+    setSaving(false)
+    if (!result.ok) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(
+      declining
+        ? t("Đã ghi nhận từ chối và đóng hồ sơ", "Decline recorded, file closed")
+        : t("Đã hủy buyer này", "Buyer dropped"),
+    )
+    onDropped()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {t("Hủy buyer này?", "Drop this buyer?")}
+          </DialogTitle>
+          <DialogDescription>
+            {declining ? (
+              <>
+                {t(
+                  `Ghi nhận buyer ${engagement.leads?.company_name} đã từ chối và đóng hồ sơ này. Buyer sẽ ra khỏi danh sách đang xử lý — bạn có thể xem lại ở tab "Buyer". Lý do bạn ghi bên dưới được lưu lại cùng hồ sơ.`,
+                  `Record that ${engagement.leads?.company_name} declined and close this file. The buyer leaves your in-progress list (still visible under "Buyers"), and the reason below is kept with the record.`,
+                )}
+              </>
+            ) : (
+              t(
+                `Buyer ${engagement.leads?.company_name} sẽ được đưa ra khỏi danh sách đang xử lý.`,
+                `${engagement.leads?.company_name} will be removed from your in-progress list.`,
+              )
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={
+            declining
+              ? t("Buyer từ chối vì... (nên ghi lại)", "Why they declined... (worth recording)")
+              : t("Lý do (tùy chọn)...", "Reason (optional)...")
+          }
+          rows={3}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Không hủy", "Keep it")}
+          </Button>
+          <Button variant="destructive" onClick={handleDrop} disabled={saving}>
+            {declining
+              ? t("Ghi nhận từ chối & đóng", "Record decline & close")
+              : t("Xác nhận hủy", "Confirm drop")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Transfer the engagement to another AE — covers the case where LR routed the
+ * buyer by industry match, but the buyer's actual product ask doesn't fit any
+ * client this AE manages.
+ */
+export function TransferEngagementDialog({
+  engagement,
+  locale,
+  onClose,
+  onTransferred,
+}: {
+  engagement: EngagementActionTarget
+  locale: "vi" | "en"
+  onClose: () => void
+  onTransferred: () => void
+}) {
+  const [candidates, setCandidates] = useState<TransferCandidateAE[] | null>(null)
+  const [loadingCandidates, setLoadingCandidates] = useState(true)
+  const [targetId, setTargetId] = useState<string>("")
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  useEffect(() => {
+    let active = true
+    setLoadingCandidates(true)
+    listTransferCandidateAEs(engagement.account_manager_id).then((result) => {
+      if (!active) return
+      setCandidates(result.ok ? result.data : [])
+      setLoadingCandidates(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [engagement.account_manager_id])
+
+  const handleTransfer = async () => {
+    if (!targetId) {
+      toast.error(t("Vui lòng chọn AE nhận buyer", "Please choose a receiving AE"))
+      return
+    }
+    if (!reason.trim()) {
+      toast.error(t("Vui lòng nhập lý do chuyển", "Please enter a transfer reason"))
+      return
+    }
+    setSaving(true)
+    const result = await transferEngagement(engagement.id, targetId, reason)
+    setSaving(false)
+    if (!result.ok) {
+      const transferErrors: Record<string, string> = {
+        ae_at_capacity: t(
+          "AE nhận đã đạt giới hạn buyer đang xử lý",
+          "The receiving AE has reached their active-buyer cap",
+        ),
+        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
+        already_owned_by_target: t("Buyer này đã thuộc về AE được chọn", "This buyer already belongs to the selected AE"),
+        target_not_ae: t("Người được chọn không phải AE", "The selected person is not an AE"),
+        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
+      }
+      toast.error(transferErrors[result.error] ?? result.error)
+      return
+    }
+    toast.success(t("Đã chuyển buyer cho AE khác", "Buyer transferred"))
+    onTransferred()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Chuyển buyer cho AE khác", "Transfer buyer to another AE")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              `Dùng khi buyer ${engagement.leads?.company_name ?? ""} hỏi sản phẩm không khớp với client bạn đang quản lý. Buyer sẽ được gán cho AE khác, kèm lý do để AE đó nắm bối cảnh.`,
+              `Use this when ${engagement.leads?.company_name ?? "this buyer"} is asking for a product none of your clients cover. The buyer moves to another AE, along with the reason for context.`,
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>{t("Chuyển cho", "Transfer to")}</Label>
+            <Select value={targetId} onValueChange={setTargetId} disabled={loadingCandidates}>
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    loadingCandidates
+                      ? t("Đang tải danh sách AE...", "Loading AEs...")
+                      : t("Chọn AE nhận buyer", "Choose a receiving AE")
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(candidates ?? []).map((ae) => (
+                  <SelectItem key={ae.id} value={ae.id}>
+                    {ae.fullName || ae.companyName || ae.id}
+                    {" — "}
+                    {t(
+                      `${ae.activeEngagementCount} buyer đang xử lý`,
+                      `${ae.activeEngagementCount} in progress`,
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t("Lý do chuyển", "Transfer reason")}</Label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t(
+                "Ví dụ: Buyer hỏi sản phẩm khác ngành với client tôi đang quản lý...",
+                "E.g. Buyer is asking for a product outside my clients' category...",
+              )}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          <Button onClick={handleTransfer} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
+            {t("Chuyển buyer", "Transfer buyer")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Return a claimed buyer to the shared inbox — the AE cannot work this buyer
+ * (wrong industry / overload) and releases it so any AE can claim it again,
+ * instead of just dropping it into a dead end.
+ */
+export function ReturnToInboxDialog({
+  engagement,
+  locale,
+  onClose,
+  onReturned,
+}: {
+  engagement: EngagementActionTarget
+  locale: "vi" | "en"
+  onClose: () => void
+  onReturned: () => void
+}) {
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  const handleReturn = async () => {
+    if (!reason.trim()) {
+      toast.error(t("Vui lòng nhập lý do trả buyer", "Please enter a reason"))
+      return
+    }
+    setSaving(true)
+    const result = await returnBuyerToInbox({
+      engagementId: engagement.id,
+      reason,
+    })
+    setSaving(false)
+    if (!result.ok) {
+      const copy: Record<string, string> = {
+        not_your_engagement: t("Bạn không sở hữu buyer này", "You don't own this buyer"),
+        engagement_already_closed: t("Buyer đã đóng", "This buyer is already closed"),
+        reason_required: t("Vui lòng nhập lý do", "Reason is required"),
+      }
+      toast.error(copy[result.error] ?? result.error)
+      return
+    }
+    toast.success(t("Đã trả buyer về hộp thư chung", "Buyer returned to the shared inbox"))
+    onReturned()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Trả buyer về hộp thư chung?", "Return buyer to shared inbox?")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              `Buyer ${engagement.leads?.company_name ?? ""} sẽ được gỡ khỏi danh sách của bạn và xuất hiện lại trong hộp thư chung để AE khác nhận. Hãy ghi rõ lý do để AE tiếp theo nắm bối cảnh.`,
+              `${engagement.leads?.company_name ?? "This buyer"} will leave your queue and reappear in the shared inbox for another AE to claim. Explain why so the next AE has context.`,
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={t(
+            "Ví dụ: Tôi đang quá tải, buyer cần AE am hiểu ngành gỗ...",
+            "E.g. I am at capacity; this buyer needs an AE covering timber...",
+          )}
+          rows={3}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t("Hủy", "Cancel")}
+          </Button>
+          <Button onClick={handleReturn} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Inbox className="h-4 w-4" />}
+            {t("Trả về hộp thư", "Return to inbox")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

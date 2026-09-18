@@ -12,6 +12,7 @@ import {
   type BuyerReply,
 } from "@/components/admin/buyer-detail-view"
 import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
+import type { PendingMatch } from "@/components/admin/buyer-claim-bar"
 import {
   loadAssignableClients,
   loadOpenEngagementForLead,
@@ -127,6 +128,52 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       assignableClients = await loadAssignableClients(current.admin, {
         accountManagerId: isAdmin ? null : current.userId,
       })
+    }
+  }
+
+  // --- 1d) AI match proposal waiting on this buyer ------------------------
+  // The inbox is a worklist now — it shows the queue and opens this page, but
+  // it does not decide. Claiming and rejecting therefore happen here, so the
+  // proposal has to travel with the page.
+  //
+  // Scoped the way claimBuyer() checks it: an AE may only act on their OWN
+  // inbox item (the server action rejects anything else), so showing the bar
+  // for someone else's item would be a button that always fails. Admins may
+  // claim any item. Lead Researchers see it but decide nothing.
+  let pendingMatch: PendingMatch | null = null
+  if (roleCanWorkEngagements) {
+    const { data: matchRaw } = await current.admin
+      .from("ae_match_inbox")
+      .select("id, priority, expires_at, account_manager_id, profiles:account_manager_id ( full_name )")
+      .eq("lead_id", id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const match = matchRaw as
+      | {
+          id: string
+          priority: string
+          expires_at: string
+          account_manager_id: string
+          profiles: { full_name: string | null } | null
+        }
+      | null
+
+    const isMine = match?.account_manager_id === current.userId
+    const isAdmin = current.role === "admin" || current.role === "super_admin"
+
+    if (match && (isMine || isAdmin)) {
+      pendingMatch = {
+        id: match.id,
+        priority: match.priority,
+        expires_at: match.expires_at,
+        account_manager_id: match.account_manager_id,
+        // Only worth naming another AE's proposal when an admin is looking at
+        // someone else's queue.
+        proposedAeName: isMine ? null : match.profiles?.full_name ?? null,
+      }
     }
   }
 
@@ -329,6 +376,8 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         canAssignAE={canAssignBuyer}
         engagement={engagement}
         clients={assignableClients}
+        pendingMatch={pendingMatch}
+        canDecideMatch={current.role !== "lead_researcher"}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

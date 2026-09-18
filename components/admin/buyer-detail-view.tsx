@@ -4,7 +4,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { BuyerEngagementBar } from "@/components/admin/engagement-action-bar"
+import { BuyerClaimBar, type PendingMatch } from "@/components/admin/buyer-claim-bar"
+import { EngagementStatePanel } from "@/components/admin/engagement-state-panel"
 import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
+import { STAGE_LABELS } from "@/lib/buyers/engagement-stages"
 // Rule-based fallback tips. Shared with the "Phân tích" tab's decision about
 // whether to show the card at all or the empty state instead.
 import {
@@ -15,13 +18,13 @@ import {
 } from "@/lib/buyers/suggested-approach"
 import {
   BuyerRepliesList,
-  countUnreadReplies,
   type BuyerReplyRow,
 } from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
   Building2,
+  Clock,
   Globe2,
   Mail,
   Phone,
@@ -221,6 +224,14 @@ interface Props {
   engagement?: Engagement | null
   /** Active clients (FDA in date) the shortlist builder may offer. */
   clients?: EngagementClient[]
+  /**
+   * The AI match proposal for this buyer, when one is waiting on the viewer.
+   * The inbox no longer decides these (it is a read-only worklist), so claiming
+   * and rejecting happen here — where the AE has the analysis in front of them.
+   */
+  pendingMatch?: PendingMatch | null
+  /** Lead Researcher: sees the proposal, decides nothing. */
+  canDecideMatch?: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -288,6 +299,8 @@ export function BuyerDetailView({
   canAssignAE,
   engagement,
   clients = [],
+  pendingMatch = null,
+  canDecideMatch = true,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -316,6 +329,15 @@ export function BuyerDetailView({
     }
     return [...fallbackApproach.warnings, ...fallbackApproach.tips].slice(0, 4)
   }, [buyer.buyer_strategy, fallbackApproach])
+
+  // Buyer's pipeline position, for the header. Same numbers as the action bar
+  // used to print, computed once.
+  const stageInfo = engagement ? STAGE_LABELS[engagement.stage] : undefined
+  const daysInStage = engagement?.updated_at
+    ? Math.floor(
+        (Date.now() - new Date(engagement.updated_at).getTime()) / (24 * 60 * 60 * 1000),
+      )
+    : 0
 
   const [assignOpen, setAssignOpen] = useState(false)
 
@@ -366,6 +388,28 @@ export function BuyerDetailView({
                   {buyer.industry}
                 </Badge>
               ) : null}
+              {/* Where this buyer is in the pre-opportunity pipeline, and how
+                  long they have been there. This used to be a badge strip above
+                  the action bar, which made the page look like it had two tab
+                  rows and repeated what the "Phản hồi" tab badge already said.
+                  One status badge in the header is enough. */}
+              {engagement && stageInfo && (
+                <>
+                  <Badge variant="outline" className={`font-normal ${stageInfo.tone}`}>
+                    {locale === "vi" ? stageInfo.vi : stageInfo.en}
+                  </Badge>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {daysInStage <= 0
+                      ? locale === "vi"
+                        ? "Mới hôm nay"
+                        : "Started today"
+                      : locale === "vi"
+                        ? `${daysInStage} ngày ở giai đoạn này`
+                        : `${daysInStage} day${daysInStage === 1 ? "" : "s"} in this stage`}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -465,6 +509,16 @@ export function BuyerDetailView({
             </p>
           )}
         </div>
+      )}
+
+      {/* --- AI match proposal, decided here ---------------------------- */}
+      {pendingMatch && (
+        <BuyerClaimBar
+          match={pendingMatch}
+          buyerName={buyer.company_name ?? "—"}
+          locale={locale}
+          readOnly={!canDecideMatch}
+        />
       )}
 
       {/* --- Stat strip -------------------------------------------------- */}
@@ -569,9 +623,15 @@ export function BuyerDetailView({
                   companyName={buyer.company_name}
                   locale={locale}
                   emailContextHints={emailContextHints}
-                  replies={replies}
                   clients={clients}
                 />
+              )}
+              {/* What the inbox card used to show: recorded requirements, the
+                  shortlist that went out, what the buyer did with each
+                  supplier, and whether our emails arrived. Collapsed — it is
+                  reference material, the buttons above are the work. */}
+              {engagement && (
+                <EngagementStatePanel engagement={engagement} locale={locale} />
               )}
               {/* The reply lands where the email was written. Without this the AE
                   composed the opening email in this tab, then had to go back to

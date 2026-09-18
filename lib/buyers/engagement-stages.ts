@@ -51,6 +51,7 @@ export function isEngagementClosed(stage: string | null | undefined): boolean {
  */
 export type StageActionKey =
   | "draft_opening_email"
+  | "record_decline"
   | "record_requirements_offline"
   | "record_requirements"
   | "resend_email"
@@ -78,6 +79,16 @@ export interface StageActionContext {
    * Only the `buyer_responded` stage branches on this — see the case below.
    */
   hasRequirements?: boolean
+  /**
+   * The buyer's LATEST reply reads as a refusal ("we're not interested", "we
+   * already have a supplier", "stop emailing"). The classifier's `objection`
+   * intent covers exactly this.
+   *
+   * When true, the only action offered is closing the engagement — offering
+   * "Soạn email mở đầu" to someone who has just said no is the specific thing
+   * this flag exists to prevent.
+   */
+  buyerDeclined?: boolean
   /** Items in the version the buyer is currently looking at. */
   shortlistItemCount?: number
   /** Of those items, how many are flagged buyer_interested = true. */
@@ -98,6 +109,25 @@ function pickSuppliersAction(hasDraftShortlist: boolean, primary: boolean): Stag
 }
 
 /**
+ * Did the buyer's most recent reply say no?
+ *
+ * Only the newest reply counts: a buyer who objected to the price and then
+ * asked for samples has moved on, and the bar must not keep offering to close
+ * them. `objection` is the reply classifier's intent for concerns, doubts and
+ * outright refusals (lib/ai/reply-classifier.ts).
+ */
+function latestReplyIsRefusal(
+  replies: Array<{ ai_intent?: string | null; received_at?: string | null }> | null | undefined,
+): boolean {
+  if (!replies || replies.length === 0) return false
+  const newest = [...replies].sort(
+    (a, b) =>
+      new Date(b.received_at ?? 0).getTime() - new Date(a.received_at ?? 0).getTime(),
+  )[0]
+  return newest?.ai_intent === "objection"
+}
+
+/**
  * The buttons this stage offers, in display order.
  *
  * Mirrors the inbox card exactly — the whole point of this module is that the
@@ -107,9 +137,25 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
   const {
     hasDraftShortlist = false,
     hasRequirements = false,
+    buyerDeclined = false,
     shortlistItemCount = 0,
     interestedCount = 0,
   } = ctx
+
+  // A refusal outranks the stage: whatever we were about to do next, the buyer
+  // has taken themselves out. Close the file (the AE still writes the reason,
+  // which is what makes this auditable rather than a silent delete).
+  if (buyerDeclined && !isEngagementClosed(stage)) {
+    return [
+      {
+        key: "record_decline",
+        labelVi: "Buyer từ chối — ghi nhận & đóng",
+        labelEn: "Buyer declined — record & close",
+        variant: "default",
+        primary: true,
+      },
+    ]
+  }
 
   switch (stage) {
     case "claimed":
@@ -255,12 +301,11 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
 // one place that needs it — the profile's action bar, which leads with it —
 // derives it from the list it already has (see EngagementStageActions).
 
-/** Minimal shape of a shortlist version row, as embedded on an engagement. */
-export interface ShortlistVersionLike {
-  version_number?: number | null
-  status?: string | null
-  buyer_engagement_shortlist_items?: Array<{ buyer_interested?: boolean | null }> | null
-}
+// ShortlistVersionLike is defined in lib/buyers/engagement-types.ts (the module
+// every row shape lives in) and re-exported here, so callers that already import
+// this file for the stage map do not need a second import for the type.
+export type { ShortlistVersionLike } from "@/lib/buyers/engagement-types"
+import type { ShortlistVersionLike } from "@/lib/buyers/engagement-types"
 
 /**
  * Derive the action context from the engagement row itself, so callers never
@@ -275,6 +320,8 @@ export function stageActionContextFromEngagement(engagement: {
   /** Recorded requirements — what "record_requirements" writes. */
   requested_products?: string | null
   other_requirements?: string | null
+  /** Replies on file; the newest one decides whether the buyer has refused. */
+  buyer_replies?: Array<{ ai_intent?: string | null; received_at?: string | null }> | null
 }): StageActionContext {
   const versions = [...(engagement.buyer_engagement_shortlist_versions ?? [])].sort(
     (a, b) => (b.version_number ?? 0) - (a.version_number ?? 0),
@@ -293,5 +340,6 @@ export function stageActionContextFromEngagement(engagement: {
     hasRequirements: !!(
       engagement.requested_products?.trim() || engagement.other_requirements?.trim()
     ),
+    buyerDeclined: latestReplyIsRefusal(engagement.buyer_replies),
   }
 }

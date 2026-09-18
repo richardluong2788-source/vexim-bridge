@@ -19,7 +19,6 @@
 import Link from "next/link"
 import { ExternalLink, Mail } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { engagementFocusPath } from "@/lib/notifications/paths"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -164,16 +163,11 @@ export function BuyerRepliesList({
                     <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
-              ) : r.engagementId ? (
-                /* Pre-opportunity: the deal does not exist yet, so send the AE
-                   to the engagement card this reply belongs to. */
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={engagementFocusPath(r.engagementId)}>
-                    {t("Mở trong Đang xử lý", "Open in In progress")}
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
               ) : null}
+              {/* A reply that arrived before a deal exists gets no link: this is
+                  the page that owns it now. The list used to send the AE to the
+                  inbox card, which is a worklist — a link that pushed work
+                  backwards, into the queue they just came from. */}
             </div>
           </CardContent>
         </Card>

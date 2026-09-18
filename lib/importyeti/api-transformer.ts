@@ -435,8 +435,21 @@ export function transformImportYetiApiResponse(
   response: ImportYetiAPIResponse,
   importYetiUrl: string
 ): Partial<CreateLeadWithAIMatchingInput> {
-  const data = response.data
+  return transformImportYetiData(response.data, importYetiUrl)
+}
 
+/**
+ * Same transform, driven straight from the raw `data` payload.
+ *
+ * Exists so callers that already hold a raw fetch (see
+ * fetchRawImportYetiCompany) can also build the flattened lead shape without
+ * spending a SECOND ImportYeti credit — which is what happens if you call
+ * fetchAndTransformImportYetiData() alongside a raw fetch.
+ */
+export function transformImportYetiData(
+  data: ImportYetiAPIData,
+  importYetiUrl: string
+): Partial<CreateLeadWithAIMatchingInput> {
   // Parse complex fields
   const { topPeakMonths, topLowMonths, dataYear } = parseTimeSeries(data.time_series)
   const importTrendResult = calculateImportTrend(data.avg_teu_per_month)

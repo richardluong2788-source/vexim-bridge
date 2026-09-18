@@ -637,7 +637,14 @@ export function BuyerDetailView({
                   composed the opening email in this tab, then had to go back to
                   "Đang xử lý" to find out whether the buyer answered. */}
               {replies.length > 0 && (
-                <BuyerRepliesList replies={replies} locale={locale} limit={3} heading />
+                <BuyerRepliesList
+                  replies={replies}
+                  locale={locale}
+                  limit={3}
+                  heading
+                  engagement={engagement}
+                  onReplySent={() => router.refresh()}
+                />
               )}
               {buyer.buyer_analysis ? (
                 <BuyerAnalysisCard
@@ -1023,6 +1030,8 @@ export function BuyerDetailView({
               replies={replies}
               locale={locale}
               heading
+              engagement={engagement}
+              onReplySent={() => router.refresh()}
               emptyState={
                 /* Copy fixed: replies arrive through the Resend inbound webhook
                    now, not by being pasted into a deal — and they land here

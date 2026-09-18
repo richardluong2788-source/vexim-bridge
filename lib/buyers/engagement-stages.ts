@@ -73,6 +73,11 @@ export interface StageAction {
 export interface StageActionContext {
   /** A shortlist version in status "draft" exists. */
   hasDraftShortlist?: boolean
+  /**
+   * The buyer's requirements have been recorded (products or notes on file).
+   * Only the `buyer_responded` stage branches on this — see the case below.
+   */
+  hasRequirements?: boolean
   /** Items in the version the buyer is currently looking at. */
   shortlistItemCount?: number
   /** Of those items, how many are flagged buyer_interested = true. */
@@ -101,6 +106,7 @@ function pickSuppliersAction(hasDraftShortlist: boolean, primary: boolean): Stag
 export function getStageActions(stage: string, ctx: StageActionContext = {}): StageAction[] {
   const {
     hasDraftShortlist = false,
+    hasRequirements = false,
     shortlistItemCount = 0,
     interestedCount = 0,
   } = ctx
@@ -163,9 +169,48 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
       return actions
     }
 
+    // The buyer answered an email. The stage is written by the inbound webhook
+    // (lib/buyers/engagement-stage-transitions.ts) in addition to the AE's own
+    // actions, so what the AE should do next depends on WHICH email they are
+    // replying to — decided by whether requirements are on file yet.
+    case "buyer_responded": {
+      if (!hasRequirements) {
+        // Requirement-gathering reply: the message IS the requirements, and
+        // recording them is the only move that gives everything downstream
+        // something to work with. Offering "create opportunity" here would
+        // point the AE at a buyer nobody has scoped.
+        return [
+          {
+            key: "record_requirements",
+            labelVi: "Ghi nhận nhu cầu buyer",
+            labelEn: "Record buyer requirements",
+            variant: "default",
+            primary: true,
+          },
+        ]
+      }
+
+      // Requirements are known: the reply is a reaction to the shortlist (or
+      // to our last email), so the AE either reworks the shortlist or converts.
+      return [
+        {
+          key: "new_shortlist_version",
+          labelVi: "Tạo phiên bản shortlist mới",
+          labelEn: "Create new shortlist version",
+          variant: "outline",
+        },
+        {
+          key: "convert_to_opportunity",
+          labelVi: `Gán client & tạo Opportunity${interestedCount ? ` (${interestedCount} quan tâm)` : ""}`,
+          labelEn: `Assign client & create Opportunity${interestedCount ? ` (${interestedCount} interested)` : ""}`,
+          variant: "default",
+          primary: true,
+        },
+      ]
+    }
+
     case "shortlist_sent":
     case "buyer_viewed":
-    case "buyer_responded":
     case "qualified_interest": {
       const actions: StageAction[] = []
 
@@ -192,11 +237,9 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
         labelVi: `Gán client & tạo Opportunity${interestedCount ? ` (${interestedCount} quan tâm)` : ""}`,
         labelEn: `Assign client & create Opportunity${interestedCount ? ` (${interestedCount} interested)` : ""}`,
         variant: stage === "qualified_interest" ? "default" : "outline",
-        // A reply means the AE now has something to act on; "qualified_interest"
-        // is the explicit decision point.
-        ...(stage === "qualified_interest" || stage === "buyer_responded"
-          ? { primary: true }
-          : {}),
+        // "qualified_interest" is the explicit decision point — the buyer
+        // already marked interest on the public shortlist.
+        ...(stage === "qualified_interest" ? { primary: true } : {}),
       })
 
       return actions
@@ -229,6 +272,9 @@ export interface ShortlistVersionLike {
  */
 export function stageActionContextFromEngagement(engagement: {
   buyer_engagement_shortlist_versions?: ShortlistVersionLike[] | null
+  /** Recorded requirements — what "record_requirements" writes. */
+  requested_products?: string | null
+  other_requirements?: string | null
 }): StageActionContext {
   const versions = [...(engagement.buyer_engagement_shortlist_versions ?? [])].sort(
     (a, b) => (b.version_number ?? 0) - (a.version_number ?? 0),
@@ -242,5 +288,10 @@ export function stageActionContextFromEngagement(engagement: {
     hasDraftShortlist: !!draftVersion,
     shortlistItemCount: items.length,
     interestedCount: items.filter((item) => item.buyer_interested === true).length,
+    // Products or free-text notes count; both blank means the AE never recorded
+    // what this buyer actually wants.
+    hasRequirements: !!(
+      engagement.requested_products?.trim() || engagement.other_requirements?.trim()
+    ),
   }
 }

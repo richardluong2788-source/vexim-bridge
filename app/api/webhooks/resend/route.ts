@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { nextStageOnBuyerReply } from "@/lib/buyers/engagement-stage-transitions"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { pipelineOppPath } from "@/lib/notifications/paths"
@@ -375,6 +376,8 @@ async function findEngagementByEmail(
   leadCompany: string | null
   leadIndustry: string | null
   accountManagerId: string
+  /** Stage at match time — the caller decides whether the reply moves it. */
+  stage: string
   matchSource: "in_reply_to" | "sender_email" | "sent_draft_recipient"
   matchConfidence: number
   matchedContactId: string | null
@@ -404,7 +407,7 @@ async function findEngagementByEmail(
     if (draft?.engagement_id) {
       const { data: eng } = await admin
         .from("buyer_engagements")
-        .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+        .select("id, lead_id, account_manager_id, stage, leads:lead_id ( company_name, industry )")
         .eq("id", draft.engagement_id)
         .single()
 
@@ -418,6 +421,7 @@ async function findEngagementByEmail(
           leadCompany: lead?.company_name ?? null,
           leadIndustry: lead?.industry ?? null,
           accountManagerId: eng.account_manager_id,
+          stage: eng.stage as string,
           matchSource: "in_reply_to",
           matchConfidence: 0.95,
           matchedContactId: matchedContact?.id ?? null,
@@ -440,7 +444,7 @@ async function findEngagementByEmail(
   for (const contactMatch of contactMatches) {
     const { data: eng } = await admin
       .from("buyer_engagements")
-      .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+      .select("id, lead_id, account_manager_id, stage, leads:lead_id ( company_name, industry )")
       .eq("lead_id", contactMatch.lead_id)
       .not("stage", "in", '("converted","dropped")')
       .order("created_at", { ascending: false })
@@ -455,6 +459,7 @@ async function findEngagementByEmail(
         leadCompany: lead?.company_name ?? null,
         leadIndustry: lead?.industry ?? null,
         accountManagerId: eng.account_manager_id,
+        stage: eng.stage as string,
         matchSource: "sender_email",
         matchConfidence: 0.75,
         matchedContactId: contactMatch.id,
@@ -497,6 +502,7 @@ async function findEngagementByEmail(
         leadCompany: lead?.company_name ?? null,
         leadIndustry: lead?.industry ?? null,
         accountManagerId: eng.account_manager_id,
+        stage: eng.stage as string,
         matchSource: "sent_draft_recipient",
         matchConfidence: 0.8,
         matchedContactId: matchedContact?.id ?? null,
@@ -527,7 +533,7 @@ async function findEngagementByEmail(
     for (const contactMatch of domainMatches) {
       const { data: eng } = await admin
         .from("buyer_engagements")
-        .select("id, lead_id, account_manager_id, leads:lead_id ( company_name, industry )")
+        .select("id, lead_id, account_manager_id, stage, leads:lead_id ( company_name, industry )")
         .eq("lead_id", contactMatch.lead_id)
         .not("stage", "in", '("converted","dropped")')
         .order("created_at", { ascending: false })
@@ -542,6 +548,7 @@ async function findEngagementByEmail(
           leadCompany: lead?.company_name ?? null,
           leadIndustry: lead?.industry ?? null,
           accountManagerId: eng.account_manager_id,
+          stage: eng.stage as string,
           matchSource: "sender_email",
           matchConfidence: 0.5,
           matchedContactId: null,
@@ -813,6 +820,37 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[v0] Buyer reply saved with ID:", reply?.id)
+
+    // The buyer just answered, so move the engagement forward if the reply is
+    // an answer to something we sent. This is what makes `buyer_responded`
+    // reachable at all — the stage map offers different buttons per stage, and
+    // before this the AE learned about a reply only by opening the card. See
+    // lib/buyers/engagement-stage-transitions.ts for why some stages are left
+    // alone (e.g. mid requirement-gathering the reply is INPUT for the AE's
+    // "record requirements" step, not a reason to skip it).
+    if (engagementMatch) {
+      const nextStage = nextStageOnBuyerReply(engagementMatch.stage)
+      if (nextStage) {
+        // buyer_engagements is missing from lib/supabase/types.ts, so the
+        // update has to be cast (same boundary as lib/buyers/engagement-queries).
+        const { error: stageErr } = await (admin.from("buyer_engagements") as any)
+          .update({ stage: nextStage, stale_reminder_sent_at: null })
+          .eq("id", engagementMatch.engagementId)
+
+        if (stageErr) {
+          // Never fail the webhook on this: the reply is already persisted and
+          // the AE still sees it in the engagement card. Log for triage.
+          console.error("[v0] Failed to advance engagement stage:", stageErr)
+        } else {
+          console.log(
+            "[v0] Engagement",
+            engagementMatch.engagementId,
+            "->",
+            nextStage,
+          )
+        }
+      }
+    }
 
     // Dispatch notification to whichever AE owns this buyer right now —
     // the opportunity owner if a client/supplier has been picked, or the

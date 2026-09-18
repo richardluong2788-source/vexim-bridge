@@ -103,6 +103,10 @@ export interface EngagementActionTarget {
   updated_at?: string | null
   leads?: { company_name?: string | null } | null
   buyer_engagement_shortlist_versions?: ShortlistVersionLike[] | null
+  /** Read by stageActionContextFromEngagement to decide whether a reply from
+   *  the buyer is requirements-to-record or a reaction to a shortlist. */
+  requested_products?: string | null
+  other_requirements?: string | null
 }
 
 /** Icons live here, next to the UI, so the stage map itself stays plain data. */

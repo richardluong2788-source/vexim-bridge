@@ -76,6 +76,10 @@ import type {
 // Stage labels + the stage → button map live in one shared module so this card
 // and the buyer profile's "Phân tích" tab can never disagree about either.
 import { STAGE_LABELS } from "@/lib/buyers/engagement-stages"
+import {
+  sortEngagementsForWorklist,
+  summarizeEngagement,
+} from "@/lib/buyers/engagement-summary"
 import { EngagementEmailDeliveryBadges } from "./email-delivery-badges"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 
@@ -202,6 +206,11 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
 
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
+  // A buyer who wrote to us and has not been read is the top of the queue —
+  // the page hands us rows by recency, which buries a reply under whatever was
+  // touched last. See sortEngagementsForWorklist.
+  const ordered = sortEngagementsForWorklist(engagements)
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -215,7 +224,7 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
       </div>
 
       <div className="grid gap-4">
-        {engagements.map((eng) => {
+        {ordered.map((eng) => {
           const lead = eng.leads
           const stageInfo = STAGE_LABELS[eng.stage] ?? STAGE_LABELS.claimed
           const versions = [...eng.buyer_engagement_shortlist_versions].sort(
@@ -248,40 +257,19 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
             return latest
           }, null)
 
-          const replies = [...(eng.buyer_replies ?? [])].sort(
-            (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
-          )
-          const unreadReplies = replies.filter((r) => !r.read_at)
-
-          // Silent-buyer warning: mirrors the 14-day threshold used by the
-          // daily cron (app/api/cron/engagement-stale-check). Purely a
-          // client-side hint so the AE sees it immediately on the card,
-          // without waiting for the cron's email/in-app notification —
-          // only shown while waiting on the buyer and only if the buyer
-          // hasn't already replied since this stage started.
-          const silentDays =
-            (eng.stage === "requirement_email_sent" || eng.stage === "shortlist_sent") &&
-            replies.every((r) => new Date(r.received_at).getTime() <= new Date(eng.updated_at).getTime())
-              ? Math.floor((Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000))
-              : 0
-          const isSilentTooLong = silentDays >= 14
-
-          // How long the buyer has been sitting in the current stage —
-          // helps AEs spot buyers that have stalled and need follow-up,
-          // regardless of whether a warning threshold has been crossed.
-          const daysInStage = Math.floor(
-            (Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000),
-          )
-
-          const productLabel =
-            lead?.main_product || lead?.product_keywords?.filter(Boolean).join(", ") || null
-          const hsCodes = Array.from(
-            new Set(
-              [lead?.hs_code, ...(lead?.hs_codes || [])].filter(
-                (code): code is string => Boolean(code),
-              ),
-            ),
-          )
+          // Headline facts (stage, days in stage, replies, silent warning) come
+          // from the shared summary so the worklist row and this card can never
+          // disagree — see lib/buyers/engagement-summary.ts.
+          const summary = summarizeEngagement(eng)
+          const {
+            replies,
+            unreadReplies,
+            silentDays,
+            isSilentTooLong,
+            daysInStage,
+            productLabel,
+            hsCodes,
+          } = summary
 
           const isExpanded = expandedIds.has(eng.id)
 

@@ -24,7 +24,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { extractSlugFromUrl } from "@/lib/importyeti/api-transformer"
+import { extractSlugFromUrl, fetchRawImportYetiCompany } from "@/lib/importyeti/api-transformer"
 import type { ImportYetiAPIResponse } from "@/lib/importyeti/api-transformer"
 import { analyzeBuyer } from "@/lib/ai/buyer-analyzer"
 import {
@@ -106,33 +106,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch raw data from ImportYeti
-    try {
-      const apiUrl = `https://data.importyeti.com/v1.0/company/${encodeURIComponent(slug)}`
-      const response = await fetch(apiUrl, {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-      })
+    // Fetch raw data from ImportYeti.
+    //
+    // Was an inline fetch() duplicating the URL construction, auth header and
+    // error handling that already live in fetchRawImportYetiCompany (also used
+    // by /api/importyeti/brief and scripts/backfill-buyer-analysis.mjs).
+    // Behaviour change worth noting: a 404/429 now returns its real status
+    // instead of a blanket 400, and an upstream 5xx returns 502 rather than
+    // 500 — callers only branch on `success`, so this is a reporting fix.
+    const raw = await fetchRawImportYetiCompany(slug, apiKey)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        return NextResponse.json(
-          { success: false, error: `ImportYeti API error: ${response.status} - ${errorText}` },
-          { status: 400 }
-        )
-      }
-
-      const apiResponse: ImportYetiAPIResponse = await response.json()
-      apiData = apiResponse.data
-    } catch (error) {
-      console.error("[ImportYeti Analyze] Fetch error:", error)
+    if (!raw.success) {
+      console.error(`[ImportYeti Analyze] Fetch failed: ${raw.error}`)
       return NextResponse.json(
-        { success: false, error: "Failed to fetch data from ImportYeti" },
-        { status: 500 }
+        { success: false, error: raw.error },
+        {
+          status:
+            raw.status && raw.status >= 400 && raw.status < 500
+              ? raw.status
+              : 502,
+        }
       )
     }
+
+    apiData = raw.data
   } else {
     return NextResponse.json(
       { success: false, error: "Either importYetiLink or rawData is required" },

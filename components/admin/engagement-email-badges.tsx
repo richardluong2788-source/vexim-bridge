@@ -10,7 +10,7 @@ import {
 import {
   fetchEngagementEmailDraftsAction,
   type EngagementEmailDraftRow,
-} from "./requirement-email-actions"
+} from "@/app/admin/ae-inbox/requirement-email-actions"
 
 const EMAIL_TYPE_LABELS: Record<string, { vi: string; en: string }> = {
   requirement_inquiry: { vi: "Email hỏi nhu cầu", en: "Requirement outreach" },
@@ -27,6 +27,13 @@ function typeLabel(emailType: string, locale: "vi" | "en"): string {
   return EMAIL_TYPE_LABELS[emailType]?.[locale] ?? "Email"
 }
 
+/**
+ * Delivery state of the emails sent for one engagement: sent / delivered /
+ * bounced / complained, plus open and click counts.
+ *
+ * Moved here from app/admin/ae-inbox/ (it was rendered by the engagement card)
+ * so the buyer's page can keep showing it after the inbox became a worklist.
+ */
 export function EngagementEmailDeliveryBadges({
   engagementId,
   locale = "vi",

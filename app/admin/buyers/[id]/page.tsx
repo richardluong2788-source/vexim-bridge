@@ -11,6 +11,12 @@ import {
   type BuyerOpportunity,
   type BuyerReply,
 } from "@/components/admin/buyer-detail-view"
+import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
+import type { PendingMatch } from "@/components/admin/buyer-claim-bar"
+import {
+  loadAssignableClients,
+  loadOpenEngagementForLead,
+} from "@/lib/buyers/engagement-queries"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
 import { listContacts } from "@/lib/buyers/contacts-actions"
@@ -90,6 +96,87 @@ export default async function BuyerDetailPage({ params }: PageProps) {
   const contactsResult = await listContacts(id)
   const contacts: BuyerContact[] = contactsResult.success ? contactsResult.data ?? [] : []
 
+  // --- 1c) Open pre-opportunity engagement, if this buyer is claimed ------
+  // Feeds the action bar at the top of the "Phân tích" tab. The bar now runs the
+  // SAME stage dialogs as the inbox card (record requirements, build/send the
+  // shortlist, create the opportunities), so it needs the full row — versions,
+  // share links and replies — loaded through the shared select, plus the client
+  // list the shortlist builder picks suppliers from.
+  //
+  // Only passed down when the viewer can actually act on it — the owning AE, or
+  // an admin. Anyone else gets no bar rather than buttons whose server actions
+  // would refuse them.
+  const roleCanWorkEngagements =
+    current.role === "account_executive" ||
+    current.role === "admin" ||
+    current.role === "super_admin"
+
+  let engagement: Engagement | null = null
+  let assignableClients: EngagementClient[] = []
+
+  if (roleCanWorkEngagements) {
+    // Loaded with the service-role client, so the ownership check below is what
+    // protects another AE's engagement — it is not left to RLS.
+    const row = await loadOpenEngagementForLead(current.admin, id)
+    const isOwner = row?.account_manager_id === current.userId
+    const isAdmin = current.role === "admin" || current.role === "super_admin"
+
+    if (row && (isOwner || isAdmin)) {
+      engagement = row
+      // Same list the inbox shortlist builder offers: active clients (FDA in
+      // date), scoped to the AE's own book unless they are an admin.
+      assignableClients = await loadAssignableClients(current.admin, {
+        accountManagerId: isAdmin ? null : current.userId,
+      })
+    }
+  }
+
+  // --- 1d) AI match proposal waiting on this buyer ------------------------
+  // The inbox is a worklist now — it shows the queue and opens this page, but
+  // it does not decide. Claiming and rejecting therefore happen here, so the
+  // proposal has to travel with the page.
+  //
+  // Scoped the way claimBuyer() checks it: an AE may only act on their OWN
+  // inbox item (the server action rejects anything else), so showing the bar
+  // for someone else's item would be a button that always fails. Admins may
+  // claim any item. Lead Researchers see it but decide nothing.
+  let pendingMatch: PendingMatch | null = null
+  if (roleCanWorkEngagements) {
+    const { data: matchRaw } = await current.admin
+      .from("ae_match_inbox")
+      .select("id, priority, expires_at, account_manager_id, profiles:account_manager_id ( full_name )")
+      .eq("lead_id", id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const match = matchRaw as
+      | {
+          id: string
+          priority: string
+          expires_at: string
+          account_manager_id: string
+          profiles: { full_name: string | null } | null
+        }
+      | null
+
+    const isMine = match?.account_manager_id === current.userId
+    const isAdmin = current.role === "admin" || current.role === "super_admin"
+
+    if (match && (isMine || isAdmin)) {
+      pendingMatch = {
+        id: match.id,
+        priority: match.priority,
+        expires_at: match.expires_at,
+        account_manager_id: match.account_manager_id,
+        // Only worth naming another AE's proposal when an admin is looking at
+        // someone else's queue.
+        proposedAeName: isMine ? null : match.profiles?.full_name ?? null,
+      }
+    }
+  }
+
   // --- 2) Opportunities attached to this buyer ---------------------------
   // DEAL_VIEW gate: roles without the capability (lead_researcher,
   // supplier_researcher) must not see deal stages/values on the buyer
@@ -148,17 +235,29 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       : null,
   }))
 
-  // --- 3) Buyer replies across all those opportunities -------------------
-  const oppIds = oppRows.map((o) => o.id)
+  // --- 3) Buyer replies --------------------------------------------------
+  // Keyed on lead_id, NOT on the opportunity ids.
+  //
+  // The inbound webhook (app/api/webhooks/resend/route.ts) stamps lead_id on
+  // EVERY reply it files, but only sets opportunity_id once a client/supplier
+  // has been picked — while the AE is still gathering requirements the reply
+  // carries opportunity_id = null. Filtering by `.in("opportunity_id", oppIds)`
+  // therefore hid every pre-opportunity reply from this page: the AE answered
+  // an opening email and the buyer's reply only existed over in "Đang xử lý".
+  // Querying by lead_id picks up both stages, including buyers with no
+  // opportunity at all (which the old `if (oppIds.length > 0)` guard skipped
+  // entirely).
   let replies: BuyerReply[] = []
-  if (oppIds.length > 0) {
+  {
     const { data: rawReplies } = await current.admin
       .from("buyer_replies")
       .select(
         `
         id,
         opportunity_id,
+        engagement_id,
         received_at,
+        read_at,
         ai_intent,
         ai_summary,
         ai_confidence,
@@ -166,18 +265,22 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         raw_content
       `,
       )
-      .in("opportunity_id", oppIds)
+      .eq("lead_id", id)
       .order("received_at", { ascending: false })
       .limit(50)
 
     const oppToClient = new Map(
-      oppRows.map((o) => [o.id, o.client?.name ?? "—"]),
+      oppRows.map((o) => [o.id, o.client?.name ?? null]),
     )
     replies = (rawReplies ?? []).map((r: any) => ({
       id: r.id,
-      opportunityId: r.opportunity_id,
-      clientName: oppToClient.get(r.opportunity_id) ?? "—",
+      opportunityId: r.opportunity_id ?? null,
+      engagementId: r.engagement_id ?? null,
+      // null (not "—") while there is no client — the list renders
+      // "trước khi gán client" for those instead of "for —".
+      clientName: r.opportunity_id ? oppToClient.get(r.opportunity_id) ?? null : null,
       receivedAt: r.received_at,
+      readAt: r.read_at ?? null,
       intent: r.ai_intent,
       summary: r.ai_summary,
       confidence: r.ai_confidence,
@@ -271,6 +374,10 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         canLiftSuppression={current.role === "admin" || current.role === "super_admin"}
         currentRole={current.role}
         canAssignAE={canAssignBuyer}
+        engagement={engagement}
+        clients={assignableClients}
+        pendingMatch={pendingMatch}
+        canDecideMatch={current.role !== "lead_researcher"}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

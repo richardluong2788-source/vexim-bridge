@@ -3,10 +3,28 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { BuyerEngagementBar } from "@/components/admin/engagement-action-bar"
+import { BuyerClaimBar, type PendingMatch } from "@/components/admin/buyer-claim-bar"
+import { EngagementStatePanel } from "@/components/admin/engagement-state-panel"
+import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
+import { STAGE_LABELS } from "@/lib/buyers/engagement-stages"
+// Rule-based fallback tips. Shared with the "Phân tích" tab's decision about
+// whether to show the card at all or the empty state instead.
+import {
+  deriveSuggestedApproach,
+  hasSuggestedApproachContent,
+  hasVietnamSupplier,
+  type SuggestedApproach,
+} from "@/lib/buyers/suggested-approach"
+import {
+  BuyerRepliesList,
+  type BuyerReplyRow,
+} from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
   Building2,
+  Clock,
   Globe2,
   Mail,
   Phone,
@@ -177,25 +195,10 @@ export interface BuyerOpportunity {
   } | null
 }
 
-export interface BuyerReply {
-  id: string
-  opportunityId: string
-  clientName: string
-  receivedAt: string
-  intent: string | null
-  summary: string | null
-  confidence: number | null
-  translatedVi: string | null
-  rawContent: string | null
-}
-
-export interface AssignableClient {
-  id: string
-  name: string
-  fdaRegistrationNumber: string | null
-  fdaExpiresAt: string | null
-  alreadyAttached: boolean
-}
+// The reply row shape lives with the shared list that renders it (both the
+// "Phản hồi" tab and the block on "Phân tích"); re-exported here so existing
+// imports of `BuyerReply` from this module keep working.
+export type BuyerReply = BuyerReplyRow
 
 interface Props {
   buyer: BuyerDetailData
@@ -206,10 +209,29 @@ interface Props {
   canWrite: boolean
   canViewPII: boolean
   canLiftSuppression: boolean
-  /** @deprecated — kept for backward compat, not used after A-Z removal */
-  clients?: AssignableClient[]
   currentRole?: Role
   canAssignAE?: boolean
+  /**
+   * The buyer's open (pre-opportunity) engagement, when the viewer is allowed
+   * to act on it — its owning AE, or an admin. Powers the action bar at the top
+   * of the "Phân tích" tab: which stage this buyer is in, how long they have
+   * been there, and the stage's next action — which now runs here, through the
+   * same dialogs the inbox uses, instead of sending the AE back to the queue.
+   *
+   * Null for buyers that were never claimed, are already converted/dropped, or
+   * belong to another AE.
+   */
+  engagement?: Engagement | null
+  /** Active clients (FDA in date) the shortlist builder may offer. */
+  clients?: EngagementClient[]
+  /**
+   * The AI match proposal for this buyer, when one is waiting on the viewer.
+   * The inbox no longer decides these (it is a read-only worklist), so claiming
+   * and rejecting happen here — where the AE has the analysis in front of them.
+   */
+  pendingMatch?: PendingMatch | null
+  /** Lead Researcher: sees the proposal, decides nothing. */
+  canDecideMatch?: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -257,20 +279,8 @@ const RISK_TONE: Record<RiskLevel, string> = {
   high: "border-destructive/40 bg-destructive/10 text-destructive",
 }
 
-const INTENT_LABEL_VI: Record<string, string> = {
-  price_request: "Hỏi giá",
-  sample_request: "Xin mẫu",
-  objection: "Phản đối",
-  closing_signal: "Tín hiệu chốt",
-  general: "Chung",
-}
-const INTENT_LABEL_EN: Record<string, string> = {
-  price_request: "Price request",
-  sample_request: "Sample request",
-  objection: "Objection",
-  closing_signal: "Closing signal",
-  general: "General",
-}
+// Reply intent labels moved to components/admin/buyer-replies-list.tsx, which
+// renders them for both surfaces.
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -287,11 +297,47 @@ export function BuyerDetailView({
   canLiftSuppression,
   currentRole,
   canAssignAE,
+  engagement,
+  clients = [],
+  pendingMatch = null,
+  canDecideMatch = true,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
-  const INTENT = locale === "vi" ? INTENT_LABEL_VI : INTENT_LABEL_EN
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
+
+  // Fallback tips for buyers with no AI snapshot (migration 079). Derived once
+  // here because the "Phân tích" tab has to choose between rendering the card
+  // and rendering the empty state — the two are mutually exclusive.
+  const fallbackApproach = useMemo(
+    () => deriveSuggestedApproach(buyer, locale),
+    [buyer, locale],
+  )
+  const hasFallback = hasSuggestedApproachContent(fallbackApproach)
+
+  // Bullets kept in view inside the "Soạn email mở đầu" panel on this tab, so
+  // the opening email can reference the same material the AE is reading. Prefer
+  // the AI strategy; fall back to the rule-based tips for buyers without one.
+  const emailContextHints = useMemo(() => {
+    const strategy = buyer.buyer_strategy
+    if (strategy) {
+      return [
+        strategy.recommendedAngle,
+        ...(strategy.talkingPoints ?? []).slice(0, 3),
+        strategy.timingSuggestion,
+      ].filter(Boolean)
+    }
+    return [...fallbackApproach.warnings, ...fallbackApproach.tips].slice(0, 4)
+  }, [buyer.buyer_strategy, fallbackApproach])
+
+  // Buyer's pipeline position, for the header. Same numbers as the action bar
+  // used to print, computed once.
+  const stageInfo = engagement ? STAGE_LABELS[engagement.stage] : undefined
+  const daysInStage = engagement?.updated_at
+    ? Math.floor(
+        (Date.now() - new Date(engagement.updated_at).getTime()) / (24 * 60 * 60 * 1000),
+      )
+    : 0
 
   const [assignOpen, setAssignOpen] = useState(false)
 
@@ -342,6 +388,28 @@ export function BuyerDetailView({
                   {buyer.industry}
                 </Badge>
               ) : null}
+              {/* Where this buyer is in the pre-opportunity pipeline, and how
+                  long they have been there. This used to be a badge strip above
+                  the action bar, which made the page look like it had two tab
+                  rows and repeated what the "Phản hồi" tab badge already said.
+                  One status badge in the header is enough. */}
+              {engagement && stageInfo && (
+                <>
+                  <Badge variant="outline" className={`font-normal ${stageInfo.tone}`}>
+                    {locale === "vi" ? stageInfo.vi : stageInfo.en}
+                  </Badge>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {daysInStage <= 0
+                      ? locale === "vi"
+                        ? "Mới hôm nay"
+                        : "Started today"
+                      : locale === "vi"
+                        ? `${daysInStage} ngày ở giai đoạn này`
+                        : `${daysInStage} day${daysInStage === 1 ? "" : "s"} in this stage`}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -443,6 +511,16 @@ export function BuyerDetailView({
         </div>
       )}
 
+      {/* --- AI match proposal, decided here ---------------------------- */}
+      {pendingMatch && (
+        <BuyerClaimBar
+          match={pendingMatch}
+          buyerName={buyer.company_name ?? "—"}
+          locale={locale}
+          readOnly={!canDecideMatch}
+        />
+      )}
+
       {/* --- Stat strip -------------------------------------------------- */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
@@ -533,16 +611,61 @@ export function BuyerDetailView({
               stored profile fields. It renders null when it has nothing to
               say, hence the explicit empty state underneath it. */}
           <TabsContent value="analysis" className="mt-0">
-            {buyer.buyer_analysis ? (
-              <BuyerAnalysisCard
-                analysis={buyer.buyer_analysis}
-                strategy={buyer.buyer_strategy}
-                locale={locale}
-                generatedAt={buyer.buyer_analysis_at}
-              />
-            ) : (
-              <div className="flex flex-col gap-4">
-                <SuggestedApproachCard buyer={buyer} locale={locale} />
+            <div className="flex flex-col gap-4">
+              {/* Where is this buyer in the pipeline, and what is the next
+                  thing to do about them? Without this the tab answers "who is
+                  this buyer" but leaves the AE to go hunting for the action
+                  back in the inbox. */}
+              {engagement && (
+                <BuyerEngagementBar
+                  engagement={engagement}
+                  buyerId={buyer.id}
+                  companyName={buyer.company_name}
+                  locale={locale}
+                  emailContextHints={emailContextHints}
+                  clients={clients}
+                />
+              )}
+              {/* What the inbox card used to show: recorded requirements, the
+                  shortlist that went out, what the buyer did with each
+                  supplier, and whether our emails arrived. Collapsed — it is
+                  reference material, the buttons above are the work. */}
+              {engagement && (
+                <EngagementStatePanel engagement={engagement} locale={locale} />
+              )}
+              {/* The reply lands where the email was written. Without this the AE
+                  composed the opening email in this tab, then had to go back to
+                  "Đang xử lý" to find out whether the buyer answered. */}
+              {replies.length > 0 && (
+                <BuyerRepliesList replies={replies} locale={locale} limit={3} heading />
+              )}
+              {buyer.buyer_analysis ? (
+                <BuyerAnalysisCard
+                  analysis={buyer.buyer_analysis}
+                  strategy={buyer.buyer_strategy}
+                  locale={locale}
+                  generatedAt={buyer.buyer_analysis_at}
+                />
+              ) : hasFallback ? (
+                /* The fallback has real content, so show it — and only a one-line
+                   note about what is missing. The full empty-state card used to
+                   render here too, regardless, so a buyer WITH tips got the tips
+                   and, underneath, a panel announcing there was no analysis:
+                   contradictory, and it read as a broken blank block. The card
+                   now appears only when the tab would otherwise be empty. */
+                <div className="flex flex-col gap-3">
+                  <SuggestedApproachCard
+                    buyer={buyer}
+                    locale={locale}
+                    approach={fallbackApproach}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {locale === "vi"
+                      ? "Chưa có bản phân tích AI đầy đủ cho buyer này — các gợi ý ở trên được suy ra bằng quy tắc từ hồ sơ đã lưu, không phải kết quả phân tích AI."
+                      : "No full AI analysis for this buyer yet — the tips above are rule-based, derived from the stored profile rather than an AI run."}
+                  </p>
+                </div>
+              ) : (
                 <Card className="border-border">
                   <Empty>
                     <EmptyHeader>
@@ -553,14 +676,14 @@ export function BuyerDetailView({
                       </EmptyTitle>
                       <EmptyDescription>
                         {locale === "vi"
-                          ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
-                          : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
+                          ? "Buyer chưa có snapshot phân tích (tạo trước khi tính năng này ra đời, hoặc vào hệ thống qua luồng dán ImportYeti hàng loạt). Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh."
+                          : "This buyer has no analysis snapshot yet (created before the feature shipped, or added through the bulk ImportYeti paste flow). The raw customs data is still in the 'ImportYeti Data' tab next to this one."}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 </Card>
-              </div>
-            )}
+              )}
+            </div>
           </TabsContent>
 
           {/* Contacts Tab */}
@@ -896,75 +1019,30 @@ export function BuyerDetailView({
           </TabsContent>
 
           <TabsContent value="replies" className="mt-0">
-            {replies.length === 0 ? (
-              <Card className="border-border">
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>
-                      {locale === "vi" ? "Chưa có phản hồi nào" : "No replies yet"}
-                    </EmptyTitle>
-                    <EmptyDescription>
-                      {locale === "vi"
-                        ? "Phản hồi của buyer được dán vào từng cơ hội sẽ hiện ở đây."
-                        : "Buyer replies pasted into any deal will surface here."}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {replies.map((r) => (
-                  <Card key={r.id} className="border-border">
-                    <CardContent className="flex flex-col gap-2 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {r.intent ? (
-                            <Badge variant="secondary" className="font-normal">
-                              {INTENT[r.intent] ?? r.intent}
-                            </Badge>
-                          ) : null}
-                          <span className="text-xs text-muted-foreground">
-                            {locale === "vi" ? "cho" : "for"}{" "}
-                            <span className="text-foreground font-medium">{r.clientName}</span>
-                          </span>
-                          {typeof r.confidence === "number" ? (
-                            <span className="text-[10px] text-muted-foreground">
-                              {Math.round(r.confidence * 100)}%
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.receivedAt).toLocaleString(dateLocale, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {r.summary ? (
-                        <p className="text-sm text-foreground text-pretty">
-                          {r.summary}
-                        </p>
-                      ) : null}
-                      {r.translatedVi && locale === "vi" ? (
-                        <p className="text-xs text-muted-foreground italic text-pretty">
-                          {r.translatedVi}
-                        </p>
-                      ) : null}
-                      <div className="flex justify-end">
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/admin/pipeline?oppId=${r.opportunityId}`}>
-                            {locale === "vi" ? "Mở cơ hội" : "Open deal"}
-                            <ExternalLink className="ml-1 h-3 w-3" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <BuyerRepliesList
+              replies={replies}
+              locale={locale}
+              heading
+              emptyState={
+                /* Copy fixed: replies arrive through the Resend inbound webhook
+                   now, not by being pasted into a deal — and they land here
+                   while the buyer is still in "Đang xử lý" too. */
+                <Card className="border-border">
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>
+                        {locale === "vi" ? "Chưa có phản hồi nào" : "No replies yet"}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {locale === "vi"
+                          ? "Phản hồi của buyer (qua email) sẽ hiện ở đây — kể cả khi chưa gán client hay tạo cơ hội."
+                          : "Buyer replies (by email) will show up here — including before a client or deal exists."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </Card>
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -1395,81 +1473,28 @@ function formatRelative(iso: string, locale: "vi" | "en"): string {
 export function SuggestedApproachCard({
   buyer,
   locale = "vi",
+  approach: precomputed,
 }: {
   buyer: BuyerDetailData
   locale?: "vi" | "en"
+  /**
+   * Precomputed derivation. The caller needs it anyway to decide between this
+   * card and the "no analysis yet" empty state, so pass it in rather than
+   * deriving twice.
+   */
+  approach?: SuggestedApproach
 }) {
   const [copied, setCopied] = useState(false)
 
-  // Generate approach based on buyer data
-  const approach = useMemo(() => {
-    const tips: string[] = []
-    const warnings: string[] = []
-    
-    // Check if buyer has VN suppliers (warm lead)
-    const hasVNSupplier = buyer.top_suppliers?.some(
-      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
-    )
-    if (hasVNSupplier) {
-      tips.push(locale === "vi" 
-        ? "Buyer đã có supplier VN - đây là warm lead, có thể đề cập đến việc mở rộng nguồn cung"
-        : "Buyer already has VN supplier - warm lead, mention expanding supply sources")
-    }
-    
-    // Check low season
-    const lowMonths = buyer.top_low_months?.toLowerCase() || ""
-    const currentMonth = new Date().toLocaleString("en-US", { month: "long" }).toLowerCase()
-    const isLowSeason = lowMonths.includes(currentMonth)
-    if (isLowSeason) {
-      warnings.push(locale === "vi"
-        ? `Hiện đang trong tháng thấp điểm (${buyer.top_low_months}) - có thể buyer ít phản hồi`
-        : `Currently in low season (${buyer.top_low_months}) - buyer may be less responsive`)
-    }
-    
-    // Check peak months for best timing
-    const peakMonths = buyer.top_peak_months?.toLowerCase() || ""
-    if (peakMonths && !isLowSeason) {
-      tips.push(locale === "vi"
-        ? `Gợi ý: Tiếp cận trước tháng cao điểm (${buyer.top_peak_months}) để đàm phán tốt hơn`
-        : `Tip: Approach before peak months (${buyer.top_peak_months}) for better negotiations`)
-    }
-    
-    // Check shipment volume
-    if (buyer.total_shipments && buyer.total_shipments > 50) {
-      tips.push(locale === "vi"
-        ? `Buyer có volume lớn (${buyer.total_shipments} shipments) - có thể đàm phán giá tốt hơn`
-        : `High volume buyer (${buyer.total_shipments} shipments) - can negotiate better pricing`)
-    }
-    
-    // Check priority
-    if (buyer.priority_rating && buyer.priority_rating >= 4) {
-      tips.push(locale === "vi"
-        ? "LR đánh giá priority cao - ưu tiên follow up nhanh"
-        : "LR rated high priority - prioritize quick follow-up")
-    }
-    
-    // Check HS code for specific approach
-    if (buyer.hs_code) {
-      tips.push(locale === "vi"
-        ? `Tập trung vào sản phẩm HS ${buyer.hs_code} (${buyer.main_product || ""})`
-        : `Focus on HS ${buyer.hs_code} products (${buyer.main_product || ""})`)
-    }
-    
-    // Check competitors
-    if (buyer.competitors) {
-      tips.push(locale === "vi"
-        ? `Lưu ý đối thủ: ${buyer.competitors} - chuẩn bị điểm khác biệt`
-        : `Note competitors: ${buyer.competitors} - prepare differentiators`)
-    }
-    
-    return { tips, warnings }
-  }, [buyer, locale])
+  // Rule-based tips (lib/buyers/suggested-approach.ts). NOT model output.
+  const approach = useMemo(
+    () => precomputed ?? deriveSuggestedApproach(buyer, locale),
+    [precomputed, buyer, locale],
+  )
 
   // Generate copy-able email script for AE
   const script = useMemo(() => {
-    const hasVNSupplier = buyer.top_suppliers?.some(
-      s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
-    )
+    const hasVNSupplier = hasVietnamSupplier(buyer)
     
     const firstName = (buyer.contact_person || "").trim().split(/\s+/)[0]
     const lines: string[] = []
@@ -1504,7 +1529,7 @@ export function SuggestedApproachCard({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (approach.tips.length === 0 && approach.warnings.length === 0) {
+  if (!hasSuggestedApproachContent(approach)) {
     return null
   }
 
@@ -1514,7 +1539,14 @@ export function SuggestedApproachCard({
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-chart-1" />
-            {locale === "vi" ? "Gợi ý tiếp cận từ AI" : "AI Suggested Approach"}
+            {/* Says "from the profile", not "from AI": this card is rule-based
+                and only ever renders when there is NO AI snapshot. Calling it
+                AI made the empty-state card underneath look like a
+                contradiction. The real AI analysis renders above it via
+                BuyerAnalysisCard. */}
+            {locale === "vi"
+              ? "Gợi ý tiếp cận từ hồ sơ buyer"
+              : "Suggested approach from the buyer profile"}
           </CardTitle>
           <Button
             variant="outline"

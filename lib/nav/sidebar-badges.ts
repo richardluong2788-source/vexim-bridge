@@ -4,9 +4,11 @@
  * uses for its own "pending" state, so the badge never disagrees with
  * what the AE sees after clicking through:
  *
- *   - "Buyer của tôi" (/admin/ae-inbox)   → pending ae_match_inbox rows
+ *   - "Inbox" (/admin/ae-inbox)           → the sum of the two queues below
+ *     (they are tabs of one page: "Chờ nhận" and "Đang xử lý")
+ *   - "Chờ nhận" (Inbox tab 1)            → pending ae_match_inbox rows
  *     (mirrors app/admin/ae-inbox/page.tsx's inboxQuery)
- *   - "Đang xử lý" (/admin/engagements)   → open buyer_engagements that
+ *   - "Đang xử lý" (Inbox tab 2)          → open buyer_engagements that
  *     either (a) are freshly claimed and still waiting on the AE to send
  *     the opening/requirement email (stage === "claimed"), or (b) have at
  *     least one unread buyer_replies row (mirrors the unread badge shown
@@ -30,7 +32,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 type AdminSB = ReturnType<typeof createAdminClient>
 
 export interface SidebarBadgeCounts {
+  /** Combined badge for the single "Inbox" nav item. */
+  inbox: number
+  /** Pending AI-matched buyers — the inbox's first tab. */
   myBuyers: number
+  /** Open engagements — the inbox's second tab. */
   inProgress: number
   pipeline: number
   buyers: number
@@ -44,7 +50,9 @@ export interface SidebarBadgeCounts {
   pendingIntake: number
 }
 
-const EMPTY_COUNTS: SidebarBadgeCounts = {
+/** All-zero counts — the fallback wherever the query must not block rendering. */
+export const EMPTY_BADGE_COUNTS: SidebarBadgeCounts = {
+  inbox: 0,
   myBuyers: 0,
   inProgress: 0,
   pipeline: 0,
@@ -55,7 +63,7 @@ const EMPTY_COUNTS: SidebarBadgeCounts = {
 
 export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
   const current = await getCurrentRole()
-  if (!current) return EMPTY_COUNTS
+  if (!current) return EMPTY_BADGE_COUNTS
   const { admin, role, userId } = current
   const scope = ownershipScopeFor(role, userId)
   const isAE = role === "account_executive"
@@ -70,7 +78,16 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
       countPendingIntake(admin, role, userId),
     ])
 
-  return { myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake }
+  return {
+    // The nav item is one page, so its badge is one number.
+    inbox: myBuyers + inProgress,
+    myBuyers,
+    inProgress,
+    pipeline,
+    buyers,
+    unmatchedEmails,
+    pendingIntake,
+  }
 }
 
 // ---------------------------------------------------------------------------

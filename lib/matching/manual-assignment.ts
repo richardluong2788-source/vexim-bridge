@@ -541,7 +541,7 @@ export async function executeBuyerAssignment(input: TransferInput): Promise<Tran
     await dispatchNotification({
       userId: previousAeId,
       category: "status_update",
-      linkPath: "/admin/engagements",
+      linkPath: "/admin/ae-inbox?tab=work",
       dedupKey: `manual_transfer_out:${leadId}:${previousAeId}:${dayKey}`,
       title: {
         vi: "Buyer đã được chuyển cho AE khác",

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { AppTopbar } from "@/components/app-topbar"
 import { normaliseRole } from "@/lib/auth/permissions"
-import { getSidebarBadgeCounts } from "@/lib/nav/sidebar-badges"
+import { EMPTY_BADGE_COUNTS, getSidebarBadgeCounts } from "@/lib/nav/sidebar-badges"
 import type { Role } from "@/lib/supabase/types"
 
 // Roles allowed to enter the admin shell. `client` is portal-only, so it
@@ -45,12 +45,7 @@ export default async function AdminLayout({
 
   // Best-effort — a badge-count failure must never block the shell from
   // rendering. Falls back to all-zero (no badges shown) on error.
-  const badgeCounts = await getSidebarBadgeCounts().catch(() => ({
-    myBuyers: 0,
-    inProgress: 0,
-    pipeline: 0,
-    buyers: 0,
-  }))
+  const badgeCounts = await getSidebarBadgeCounts().catch(() => EMPTY_BADGE_COUNTS)
 
   return (
     <div className="flex min-h-screen bg-background">

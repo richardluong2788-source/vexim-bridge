@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   Target,
   Inbox,
-  ClipboardList,
   MailQuestion,
   FileCheck2,
   Boxes,
@@ -80,8 +79,11 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
   const allItems: NavItem[] = [
     { href: "/admin",                   label: t.nav.dashboard,                           icon: BarChart3, exact: true, cap: null },
     { href: "/admin/my-kpi",            label: locale === "vi" ? "KPI của tôi" : "My KPIs", icon: Target,                 cap: null },
-    { href: "/admin/ae-inbox",          label: locale === "vi" ? "Buyer của tôi" : "My Buyers", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "myBuyers" },
-    { href: "/admin/engagements",       label: locale === "vi" ? "Đang xử lý" : "In progress", icon: ClipboardList,      cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "inProgress" },
+    // One destination, two queues: buyers waiting to be claimed and buyers
+    // being worked are tabs of the same inbox (see
+    // components/admin/inbox-workspace.tsx). The badge is their sum, so it
+    // still means "something here needs you".
+    { href: "/admin/ae-inbox",          label: locale === "vi" ? "Inbox" : "Inbox", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "inbox" },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/clients/intake",    label: locale === "vi" ? "Hồ sơ chờ duyệt" : "Pending Profiles", icon: FileCheck2, cap: CAPS.CLIENT_VIEW, badgeKey: "pendingIntake" },
     { href: "/admin/sourcing",          label: locale === "vi" ? "Nhu cầu & Nguồn cung" : "Demand & Supply", icon: Boxes,   cap: CAPS.CLIENT_VIEW },

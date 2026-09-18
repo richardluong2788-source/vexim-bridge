@@ -48,13 +48,21 @@ function SheetContent({
   className,
   children,
   side = 'right',
+  /**
+   * Override for the backdrop. The default `bg-black/50` is right for
+   * navigation drawers, but too dark when the panel is a working surface and
+   * the page behind it still has to be readable — the email composer next to
+   * the buyer's analysis, for example.
+   */
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
+  overlayClassName?: string
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(

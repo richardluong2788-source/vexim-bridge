@@ -1,46 +1,41 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+/**
+ * Stage dialogs for the pre-opportunity (engagement) pipeline.
+ *
+ * These used to live inside app/admin/ae-inbox/engagement-list.tsx, which meant
+ * the buyer profile could not offer them: the only way to record requirements,
+ * build a shortlist or create the opportunities was to leave the buyer page and
+ * find the card in "Đang xử lý". They are exported here and rendered by BOTH
+ * surfaces — the inbox card and the buyer profile's "Phân tích" tab — through
+ * `EngagementStageDialogHost`, which maps a stage-action key to its dialog.
+ *
+ * The bodies are unchanged from the inbox originals.
+ */
+
+import { useEffect, useState } from "react"
 import {
-  Building2,
-  Globe,
-  User,
-  Mail,
-  ClipboardList,
-  Sparkles,
-  Link2,
-  Copy,
-  Check,
-  X,
-  Loader2,
-  Eye,
-  ArrowRight,
-  Package,
-  MessageSquareText,
-  DollarSign,
   AlertTriangle,
-  Handshake,
-  Reply,
-  CornerUpLeft,
-  Tag,
-  Clock,
   ArrowLeftRight,
-  RotateCw,
-  ChevronDown,
+  ArrowRight,
+  Check,
+  ClipboardList,
+  CornerUpLeft,
   Inbox,
+  Link2,
+  Loader2,
+  Mail,
+  Reply,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -57,161 +52,35 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  saveBuyerRequirements,
-  buildShortlist,
   approveAndSendShortlist,
-  createNewShortlistVersion,
+  buildShortlist,
   convertEngagementToOpportunities,
-  dropEngagement,
-  markEngagementRepliesReadAction,
-  transferEngagement,
-  listTransferCandidateAEs,
-  type SaveRequirementsInput,
+  saveBuyerRequirements,
   type ConvertRoleAssignment,
+  type SaveRequirementsInput,
+  dropEngagement,
+  listTransferCandidateAEs,
+  transferEngagement,
   type TransferCandidateAE,
 } from "@/app/admin/ae-inbox/engagement-actions"
 import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
 import {
-  generateRequirementInquiryEmailAction,
-  markEngagementEmailSentAction,
   generateFollowUpReplyEmailAction,
+  generateRequirementInquiryEmailAction,
   markFollowUpResentAction,
 } from "@/app/admin/ae-inbox/requirement-email-actions"
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
-import { EngagementEmailDeliveryBadges } from "./email-delivery-badges"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type BuyerActionValue =
-  | "viewed_only"
-  | "interested_no_details"
-  | "requested_info"
-  | "requested_sample"
-  | "requested_meeting"
-  | "requested_order_discussion"
-  | "selected_primary"
-  | "sent_price_volume"
-  | "sent_po"
-
-interface ShortlistItemRow {
-  id: string
-  client_id: string
-  position: number
-  match_score: number | null
-  buyer_interested: boolean | null
-  buyer_action: BuyerActionValue | null
-  buyer_responded_at: string | null
-  total_dwell_ms: number | null
-  first_viewed_at: string | null
-  last_dwell_at: string | null
-  profiles: { id: string; company_name: string | null; full_name: string | null } | null
-}
-
-interface ShortlistVersionRow {
-  id: string
-  version_number: number
-  status: "draft" | "sent" | "superseded"
-  scoring_engine_version: string
-  created_at: string
-  sent_at: string | null
-  superseded_at: string | null
-  buyer_engagement_shortlist_items: ShortlistItemRow[]
-}
-
-interface ShareLinkRow {
-  token: string
-  version_id: string | null
-  view_count: number
-  last_viewed_at: string | null
-  revoked_at: string | null
-}
-
-export interface EngagementReplyRow {
-  id: string
-  from_email: string
-  subject: string | null
-  raw_content: string
-  translated_vi: string | null
-  ai_intent: "price_request" | "sample_request" | "objection" | "closing_signal" | "general" | null
-  ai_summary: string | null
-  ai_suggested_next_step: string | null
-  received_at: string
-  read_at: string | null
-  message_id: string | null
-  responded_email_draft_id: string | null
-  responded_at: string | null
-}
-
-export interface Engagement {
-  id: string
-  lead_id: string
-  account_manager_id: string
-  stage: string
-  requested_products: string | null
-  target_price_range: string | null
-  moq: string | null
-  payment_terms: string | null
-  packaging_requirements: string | null
-  other_requirements: string | null
-  contact_channel: string | null
-  contact_channel_note: string | null
-  created_at: string
-  updated_at: string
-  leads: {
-    id: string
-    company_name: string
-    contact_person: string | null
-    contact_email: string | null
-    country: string | null
-    industry: string | null
-    main_product: string | null
-    hs_code: string | null
-    hs_codes: string[] | null
-    product_keywords: string[] | null
-  } | null
-  buyer_engagement_shortlist_versions: ShortlistVersionRow[]
-  shortlist_share_links: ShareLinkRow[]
-  buyer_replies?: EngagementReplyRow[]
-}
-
-interface Client {
-  id: string
-  full_name: string | null
-  company_name: string | null
-}
-
-interface EngagementListProps {
-  engagements: Engagement[]
-  clients: Client[]
-  locale: "vi" | "en"
-}
-
-const STAGE_LABELS: Record<string, { vi: string; en: string; tone: string }> = {
-  claimed: { vi: "Đã nhận — chưa hỏi nhu cầu", en: "Claimed — not contacted yet", tone: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
-  requirement_email_sent: { vi: "Đã gửi email hỏi nhu cầu", en: "Requirement email sent", tone: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  requirements_received: { vi: "Đã có nhu cầu buyer", en: "Requirements received", tone: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" },
-  shortlist_ready: { vi: "Shortlist đã sẵn sàng", en: "Shortlist ready", tone: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
-  shortlist_sent: { vi: "Đã gửi shortlist cho buyer", en: "Shortlist sent to buyer", tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  buyer_viewed: { vi: "Buyer đã xem shortlist", en: "Buyer viewed shortlist", tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  buyer_responded: { vi: "Buyer đã phản hồi", en: "Buyer responded", tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-  qualified_interest: { vi: "Buyer quan tâm — cần quyết định", en: "Qualified interest — needs decision", tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-}
-
-const REPLY_INTENT_META: Record<
-  NonNullable<EngagementReplyRow["ai_intent"]>,
-  { vi: string; en: string; icon: typeof DollarSign; tone: string }
-> = {
-  price_request: { vi: "Hỏi giá", en: "Price request", icon: DollarSign, tone: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  sample_request: { vi: "Yêu cầu mẫu", en: "Sample request", icon: Package, tone: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  objection: { vi: "Phản đối / lo ngại", en: "Objection", icon: AlertTriangle, tone: "bg-destructive/10 text-destructive border-destructive/30" },
-  closing_signal: { vi: "Có dấu hiệu chốt đơn", en: "Closing signal", icon: Handshake, tone: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-  general: { vi: "Chung", en: "General", icon: MessageSquareText, tone: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
-}
+import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
+import type { StageActionKey } from "@/lib/buyers/engagement-stages"
+import type {
+  Engagement,
+  EngagementActionTarget,
+  EngagementClient,
+  EngagementReplyRow,
+} from "@/lib/buyers/engagement-types"
 
 const CONTACT_CHANNEL_LABELS: Record<string, { vi: string; en: string }> = {
   system_email: { vi: "Email trong hệ thống", en: "In-system email" },
@@ -221,1074 +90,6 @@ const CONTACT_CHANNEL_LABELS: Record<string, { vi: string; en: string }> = {
   other: { vi: "Khác", en: "Other" },
 }
 
-const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: string }> = {
-  viewed_only: { vi: "Chỉ xem", en: "Viewed only" },
-  interested_no_details: { vi: "Quan tâm (chưa chi tiết)", en: "Interested (no details)" },
-  requested_info: { vi: "Hỏi thêm thông tin", en: "Requested info" },
-  requested_sample: { vi: "Yêu cầu mẫu", en: "Requested sample" },
-  requested_meeting: { vi: "Yêu cầu họp", en: "Requested meeting" },
-  requested_order_discussion: { vi: "Muốn thảo luận đặt hàng", en: "Wants to discuss an order" },
-  selected_primary: { vi: "Chọn làm supplier chính", en: "Selected as primary" },
-  sent_price_volume: { vi: "Gửi giá & số lượng", en: "Sent price & volume" },
-  sent_po: { vi: "Đã gửi PO", en: "Sent PO" },
-}
-
-function formatDwell(ms: number, locale: "vi" | "en"): string {
-  const totalSeconds = Math.round(ms / 1000)
-  if (totalSeconds < 60) return locale === "vi" ? `${totalSeconds} giây` : `${totalSeconds}s`
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return locale === "vi" ? `${minutes} phút ${seconds}s` : `${minutes}m ${seconds}s`
-}
-
-function formatRelativeTime(dateStr: string, locale: "vi" | "en"): string {
-  const diffMs = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diffMs / 60000)
-  if (minutes < 1) return locale === "vi" ? "vừa xong" : "just now"
-  if (minutes < 60) return locale === "vi" ? `${minutes} phút trước` : `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return locale === "vi" ? `${hours} giờ trước` : `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return locale === "vi" ? `${days} ngày trước` : `${days}d ago`
-}
-
-export function EngagementList({ engagements, clients, locale }: EngagementListProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [pending, startTransition] = useTransition()
-
-  const [reqEmailDialogFor, setReqEmailDialogFor] = useState<Engagement | null>(null)
-  const [resendDialogFor, setResendDialogFor] = useState<Engagement | null>(null)
-  const [replyDialogFor, setReplyDialogFor] = useState<{ engagement: Engagement; reply: EngagementReplyRow } | null>(
-    null,
-  )
-  const [reqFormDialogFor, setReqFormDialogFor] = useState<Engagement | null>(null)
-  const [shortlistDialogFor, setShortlistDialogFor] = useState<Engagement | null>(null)
-  const [sendShortlistDialogFor, setSendShortlistDialogFor] = useState<Engagement | null>(null)
-  const [convertDialogFor, setConvertDialogFor] = useState<Engagement | null>(null)
-  const [dropDialogFor, setDropDialogFor] = useState<Engagement | null>(null)
-  const [transferDialogFor, setTransferDialogFor] = useState<Engagement | null>(null)
-  const [returnDialogFor, setReturnDialogFor] = useState<Engagement | null>(null)
-  const [markingReadFor, setMarkingReadFor] = useState<string | null>(null)
-
-  // Which cards have their full details (buyer replies, requirements,
-  // shortlist, stage actions) expanded. Each card is a per-buyer accordion:
-  // collapsed by default so a long list of buyers stays scannable, and
-  // expands on click instead of always rendering every reply thread inline
-  // (which otherwise makes the DOM grow unbounded as buyers reply more).
-  // Buyers with an unread reply start expanded so nothing new gets missed.
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set(engagements.filter((e) => (e.buyer_replies ?? []).some((r) => !r.read_at)).map((e) => e.id)),
-  )
-
-  function toggleExpanded(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  // Deep link from a "buyer replied" notification: /admin/engagements?focus=<id>
-  const focusId = searchParams.get("focus")
-
-  useEffect(() => {
-    if (!focusId) return
-    setExpandedIds((prev) => (prev.has(focusId) ? prev : new Set(prev).add(focusId)))
-    const el = document.getElementById(`engagement-${focusId}`)
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-  }, [focusId])
-
-  function handleMarkRepliesRead(engagementId: string) {
-    setMarkingReadFor(engagementId)
-    startTransition(async () => {
-      await markEngagementRepliesReadAction(engagementId)
-      router.refresh()
-      setMarkingReadFor(null)
-    })
-  }
-
-  if (engagements.length === 0) return null
-
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <ClipboardList className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">
-          {t("Đang xử lý", "In progress")}
-        </h2>
-        <Badge variant="outline" className="text-xs">
-          {engagements.length}
-        </Badge>
-      </div>
-
-      <div className="grid gap-4">
-        {engagements.map((eng) => {
-          const lead = eng.leads
-          const stageInfo = STAGE_LABELS[eng.stage] ?? STAGE_LABELS.claimed
-          const versions = [...eng.buyer_engagement_shortlist_versions].sort(
-            (a, b) => b.version_number - a.version_number,
-          )
-          const sentVersion = versions.find((v) => v.status === "sent") ?? null
-          const draftVersion = versions.find((v) => v.status === "draft") ?? null
-          // Prefer showing the sent (live, immutable) version to reflect
-          // what the buyer actually saw; fall back to the newest draft
-          // while nothing has been sent yet.
-          const displayVersion = sentVersion ?? draftVersion ?? versions[0] ?? null
-          const shortlist = displayVersion
-            ? [...displayVersion.buyer_engagement_shortlist_items].sort((a, b) => a.position - b.position)
-            : []
-          const shareLink = sentVersion
-            ? eng.shortlist_share_links.find((l) => l.version_id === sentVersion.id) ?? null
-            : null
-          const interestedCount = shortlist.filter((s) => s.buyer_interested === true).length
-
-          // Which option is winning the buyer's attention, based on
-          // dwell-time on the public shortlist page — useful even when
-          // the buyer never clicks an action button.
-          const topDwell = shortlist.reduce<{ id: string; ms: number } | null>((best, s) => {
-            const ms = s.total_dwell_ms ?? 0
-            if (ms <= 0) return best
-            return !best || ms > best.ms ? { id: s.id, ms } : best
-          }, null)
-          const lastDwellAt = shortlist.reduce<string | null>((latest, s) => {
-            if (!s.last_dwell_at) return latest
-            if (!latest || new Date(s.last_dwell_at).getTime() > new Date(latest).getTime()) return s.last_dwell_at
-            return latest
-          }, null)
-
-          const replies = [...(eng.buyer_replies ?? [])].sort(
-            (a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime(),
-          )
-          const unreadReplies = replies.filter((r) => !r.read_at)
-
-          // Silent-buyer warning: mirrors the 14-day threshold used by the
-          // daily cron (app/api/cron/engagement-stale-check). Purely a
-          // client-side hint so the AE sees it immediately on the card,
-          // without waiting for the cron's email/in-app notification —
-          // only shown while waiting on the buyer and only if the buyer
-          // hasn't already replied since this stage started.
-          const silentDays =
-            (eng.stage === "requirement_email_sent" || eng.stage === "shortlist_sent") &&
-            replies.every((r) => new Date(r.received_at).getTime() <= new Date(eng.updated_at).getTime())
-              ? Math.floor((Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000))
-              : 0
-          const isSilentTooLong = silentDays >= 14
-
-          // How long the buyer has been sitting in the current stage —
-          // helps AEs spot buyers that have stalled and need follow-up,
-          // regardless of whether a warning threshold has been crossed.
-          const daysInStage = Math.floor(
-            (Date.now() - new Date(eng.updated_at).getTime()) / (24 * 60 * 60 * 1000),
-          )
-
-          const productLabel =
-            lead?.main_product || lead?.product_keywords?.filter(Boolean).join(", ") || null
-          const hsCodes = Array.from(
-            new Set(
-              [lead?.hs_code, ...(lead?.hs_codes || [])].filter(
-                (code): code is string => Boolean(code),
-              ),
-            ),
-          )
-
-          const isExpanded = expandedIds.has(eng.id)
-
-          return (
-            <Card
-              key={eng.id}
-              id={`engagement-${eng.id}`}
-              className={cn(
-                pending && "opacity-50 pointer-events-none",
-                focusId === eng.id && "ring-2 ring-primary",
-              )}
-            >
-              <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(eng.id)}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-4">
-                  <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex flex-col gap-1 min-w-0 flex-1 text-left appearance-none bg-transparent border-none p-0 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                          isExpanded && "rotate-180",
-                        )}
-                      />
-                      <h3 className="font-semibold text-lg">{lead?.company_name || "—"}</h3>
-                      <Badge variant="outline" className={cn(stageInfo.tone)}>
-                        {locale === "vi" ? stageInfo.vi : stageInfo.en}
-                      </Badge>
-                      {unreadReplies.length > 0 && (
-                        <Badge className="gap-1 bg-primary/10 text-primary border-primary/20" variant="outline">
-                          <MessageSquareText className="h-3 w-3" />
-                          {t(`${unreadReplies.length} phản hồi mới`, `${unreadReplies.length} new reply`)}
-                        </Badge>
-                      )}
-                      {isSilentTooLong && (
-                        <Badge
-                          className="gap-1 bg-amber-500/10 text-amber-700 border-amber-500/20"
-                          variant="outline"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                          {t(`Im lặng ${silentDays} ngày`, `Silent ${silentDays} days`)}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      {lead?.industry && (
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3.5 w-3.5" />
-                          {lead.industry}
-                        </span>
-                      )}
-                      {lead?.country && (
-                        <span className="flex items-center gap-1">
-                          <Globe className="h-3.5 w-3.5" />
-                          {lead.country}
-                        </span>
-                      )}
-                      {lead?.contact_person && (
-                        <span className="flex items-center gap-1">
-                          <User className="h-3.5 w-3.5" />
-                          {lead.contact_person}
-                        </span>
-                      )}
-                    </div>
-                    {(productLabel || hsCodes.length > 0) && (
-                      <div className="flex flex-wrap items-start gap-3 text-sm text-muted-foreground">
-                        {productLabel && (
-                          <span className="flex items-start gap-1.5 max-w-md">
-                            <Package className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                            <span className="text-pretty">{productLabel}</span>
-                          </span>
-                        )}
-                        {hsCodes.length > 0 && (
-                          <span className="flex items-start gap-1.5">
-                            <Tag className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                            <span className="font-mono text-xs">{hsCodes.join(", ")}</span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                  </CollapsibleTrigger>
-                  <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <Link href={`/admin/buyers/${eng.lead_id}`} target="_blank" tabIndex={-1}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 text-muted-foreground hover:text-foreground"
-                          title={t("Hồ sơ đầy đủ + dữ liệu ImportYeti", "Full profile + ImportYeti data")}
-                        >
-                          <Building2 className="h-3.5 w-3.5" />
-                          {t("Hồ sơ", "Profile")}
-                        </Button>
-                      </Link>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-muted-foreground hover:text-foreground"
-                        onClick={() => setTransferDialogFor(eng)}
-                      >
-                        <ArrowLeftRight className="h-3.5 w-3.5" />
-                        {t("Chuyển buyer", "Transfer")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-muted-foreground hover:text-foreground"
-                        title={t(
-                          "Trả buyer về hộp thư chung để AE khác nhận",
-                          "Return this buyer to the shared inbox for another AE to claim",
-                        )}
-                        onClick={() => setReturnDialogFor(eng)}
-                      >
-                        <Inbox className="h-3.5 w-3.5" />
-                        {t("Trả về inbox", "Return")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-muted-foreground hover:text-destructive"
-                        onClick={() => setDropDialogFor(eng)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        {t("Hủy buyer", "Drop")}
-                      </Button>
-                    </div>
-                    <span
-                      className={cn(
-                        "flex items-center gap-1 text-xs text-muted-foreground",
-                        daysInStage >= 14 && "text-amber-600",
-                      )}
-                    >
-                      <Clock className="h-3 w-3" />
-                      {daysInStage <= 0
-                        ? t("Mới hôm nay", "Started today")
-                        : t(
-                            `${daysInStage} ngày ở giai đoạn này`,
-                            `${daysInStage} day${daysInStage === 1 ? "" : "s"} in this stage`,
-                          )}
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CollapsibleContent>
-              <CardContent className="space-y-4">
-                {/* Buyer replies — arrive via the Resend inbound webhook
-                    while the AE is still gathering requirements, i.e.
-                    before any opportunity/supplier exists. */}
-                {replies.length > 0 && (
-                  <div className="rounded-md border p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                        <MessageSquareText className="h-3.5 w-3.5" />
-                        {t(
-                          `Phản hồi từ buyer (${replies.length})`,
-                          `Buyer replies (${replies.length})`,
-                        )}
-                      </div>
-                      {unreadReplies.length > 0 && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          disabled={markingReadFor === eng.id}
-                          onClick={() => handleMarkRepliesRead(eng.id)}
-                        >
-                          {markingReadFor === eng.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            t("Đánh dấu đã đọc", "Mark as read")
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {replies.map((reply) => {
-                        const intentMeta = reply.ai_intent ? REPLY_INTENT_META[reply.ai_intent] : null
-                        const IntentIcon = intentMeta?.icon ?? MessageSquareText
-                        return (
-                          <div
-                            key={reply.id}
-                            className={cn(
-                              "rounded-md border bg-background p-2.5 text-sm space-y-1.5",
-                              !reply.read_at && "border-primary/40 bg-primary/5",
-                            )}
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5 font-medium">
-                                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                                {reply.from_email}
-                                {!reply.read_at && (
-                                  <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                                )}
-                              </span>
-                              {intentMeta && (
-                                <Badge variant="outline" className={cn("gap-1 text-xs", intentMeta.tone)}>
-                                  <IntentIcon className="h-3 w-3" />
-                                  {locale === "vi" ? intentMeta.vi : intentMeta.en}
-                                </Badge>
-                              )}
-                            </div>
-                            {reply.ai_summary ? (
-                              <p className="text-foreground text-pretty">{reply.ai_summary}</p>
-                            ) : (
-                              <p className="text-foreground text-pretty line-clamp-3">
-                                {reply.translated_vi && locale === "vi" ? reply.translated_vi : reply.raw_content}
-                              </p>
-                            )}
-                            {(reply.translated_vi || reply.raw_content) && (
-                              <details className="text-xs">
-                                <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors select-none">
-                                  {t("Xem nội dung đầy đủ", "View full message")}
-                                </summary>
-                                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                  <div className="rounded-md bg-muted/40 p-2.5">
-                                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                                      {t("Nguyên văn (EN)", "Original (EN)")}
-                                    </p>
-                                    <p className="whitespace-pre-wrap leading-relaxed">{reply.raw_content}</p>
-                                  </div>
-                                  {reply.translated_vi && (
-                                    <div className="rounded-md bg-muted/40 p-2.5">
-                                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                                        {t("Bản dịch (VI)", "Vietnamese translation")}
-                                      </p>
-                                      <p className="whitespace-pre-wrap leading-relaxed">{reply.translated_vi}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </details>
-                            )}
-                            {reply.ai_suggested_next_step && (
-                              <p className="text-xs text-muted-foreground">
-                                {t("Gợi ý bước tiếp theo: ", "Suggested next step: ")}
-                                <span className="text-foreground">{reply.ai_suggested_next_step}</span>
-                              </p>
-                            )}
-                            <div className="flex items-center justify-between gap-2 pt-0.5">
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(reply.received_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-US")}
-                              </p>
-                              {reply.responded_at ? (
-                                <Badge
-                                  variant="outline"
-                                  className="gap-1 text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                >
-                                  <CornerUpLeft className="h-3 w-3" />
-                                  {t("Đã trả lời", "Replied")}
-                                </Badge>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 gap-1 text-xs"
-                                  onClick={() => setReplyDialogFor({ engagement: eng, reply })}
-                                >
-                                  <Reply className="h-3 w-3" />
-                                  {t("Trả lời", "Reply")}
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recorded buyer requirements */}
-                {(eng.requested_products || eng.moq || eng.target_price_range) && (
-                  <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
-                    {eng.requested_products && (
-                      <div>
-                        <span className="text-muted-foreground">{t("Sản phẩm: ", "Product: ")}</span>
-                        {eng.requested_products}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-4 text-muted-foreground">
-                      {eng.target_price_range && (
-                        <span>
-                          {t("Giá mục tiêu: ", "Target price: ")}
-                          <span className="text-foreground">{eng.target_price_range}</span>
-                        </span>
-                      )}
-                      {eng.moq && (
-                        <span>
-                          MOQ: <span className="text-foreground">{eng.moq}</span>
-                        </span>
-                      )}
-                      {eng.payment_terms && (
-                        <span>
-                          {t("Thanh toán: ", "Payment: ")}
-                          <span className="text-foreground">{eng.payment_terms}</span>
-                        </span>
-                      )}
-                      {eng.packaging_requirements && (
-                        <span>
-                          {t("Bao bì: ", "Packaging: ")}
-                          <span className="text-foreground">{eng.packaging_requirements}</span>
-                        </span>
-                      )}
-                    </div>
-                    {eng.other_requirements && (
-                      <div className="text-muted-foreground">
-                        {t("Khác: ", "Other: ")}
-                        {eng.other_requirements}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Shortlist */}
-                {shortlist.length > 0 && displayVersion && (
-                  <div className="rounded-md border p-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-                      <span>
-                        {t(
-                          `Shortlist v${displayVersion.version_number} (${shortlist.length} supplier)`,
-                          `Shortlist v${displayVersion.version_number} (${shortlist.length} suppliers)`,
-                        )}
-                        {displayVersion.status === "draft" && (
-                          <span className="ml-1.5 text-amber-600">{t("— chưa gửi", "— not sent yet")}</span>
-                        )}
-                      </span>
-                      {shareLink && (
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" />
-                          {t(`${shareLink.view_count} lượt xem`, `${shareLink.view_count} views`)}
-                          {shareLink.last_viewed_at && (
-                            <span>
-                              {" · "}
-                              {t("mở lần cuối", "opened")} {formatRelativeTime(shareLink.last_viewed_at, locale)}
-                            </span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      {shortlist.map((s, idx) => {
-                        const optionLabel = ["A", "B", "C", "D", "E"][idx] ?? String(idx + 1)
-                        const isTopDwell = topDwell && s.id === topDwell.id
-                        return (
-                          <div
-                            key={s.id}
-                            className={cn(
-                              "flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm",
-                              isTopDwell && "border-primary/40 bg-primary/5",
-                            )}
-                          >
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate font-medium">
-                                <span className="text-muted-foreground font-normal">{optionLabel} · </span>
-                                {s.profiles?.company_name || s.profiles?.full_name || "—"}
-                              </span>
-                              {(s.total_dwell_ms ?? 0) > 0 && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  {t(
-                                    `Xem ${formatDwell(s.total_dwell_ms!, locale)}`,
-                                    `Viewed for ${formatDwell(s.total_dwell_ms!, locale)}`,
-                                  )}
-                                  {isTopDwell && (
-                                    <span className="text-primary font-medium">
-                                      {t(" — chú ý nhất", " — most attention")}
-                                    </span>
-                                  )}
-                                  {s.last_dwell_at && (
-                                    <span>· {formatRelativeTime(s.last_dwell_at, locale)}</span>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                            {s.buyer_action ? (
-                              <Badge
-                                className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                                variant="outline"
-                              >
-                                {t(BUYER_ACTION_LABELS[s.buyer_action].vi, BUYER_ACTION_LABELS[s.buyer_action].en)}
-                              </Badge>
-                            ) : s.buyer_interested === false ? (
-                              <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                                {t("Không quan tâm", "Passed")}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {lastDwellAt && (
-                      <p className="text-[11px] text-muted-foreground">
-                        {t("Buyer xem shortlist lần cuối", "Buyer last engaged with the shortlist")}{" "}
-                        {formatRelativeTime(lastDwellAt, locale)}
-                      </p>
-                    )}
-                    {shareLink && (
-                      <ShareLinkRow locale={locale} token={shareLink.token} />
-                    )}
-                  </div>
-                )}
-
-                {/* Resend outbound delivery status (delivered / opened / clicked / bounced / complained) */}
-                <EngagementEmailDeliveryBadges engagementId={eng.id} locale={locale} />
-
-                {/* Stage actions */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {eng.stage === "claimed" && (
-                    <>
-                      <Button size="sm" className="gap-2" onClick={() => setReqEmailDialogFor(eng)}>
-                        <Mail className="h-4 w-4" />
-                        {t("Soạn email mở đầu", "Draft opening email")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => setReqFormDialogFor(eng)}
-                      >
-                        <ClipboardList className="h-4 w-4" />
-                        {t("Đã liên hệ ngoài hệ thống — ghi nhận nhu cầu", "Contacted outside the system — record requirements")}
-                      </Button>
-                    </>
-                  )}
-                  {eng.stage === "requirement_email_sent" && (
-                    <>
-                      <Button size="sm" className="gap-2" onClick={() => setReqFormDialogFor(eng)}>
-                        <ClipboardList className="h-4 w-4" />
-                        {t("Ghi nhận nhu cầu buyer", "Record buyer requirements")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => setResendDialogFor(eng)}
-                      >
-                        <RotateCw className="h-4 w-4" />
-                        {t("Gửi lại email", "Resend email")}
-                      </Button>
-                    </>
-                  )}
-                  {(eng.stage === "requirements_received" ||
-                    (eng.stage === "shortlist_ready" && !!draftVersion)) && (
-                    <Button size="sm" variant="secondary" className="gap-2" onClick={() => setShortlistDialogFor(eng)}>
-                      <Sparkles className="h-4 w-4" />
-                      {t(
-                        draftVersion ? "Chỉnh sửa shortlist (nháp)" : "Chọn supplier (AI gợi ý)",
-                        draftVersion ? "Edit shortlist (draft)" : "Pick suppliers (AI-assisted)",
-                      )}
-                    </Button>
-                  )}
-                  {eng.stage === "shortlist_ready" && draftVersion && shortlist.length > 0 && (
-                    <Button size="sm" className="gap-2" onClick={() => setSendShortlistDialogFor(eng)}>
-                      <Link2 className="h-4 w-4" />
-                      {t("Duyệt & gửi shortlist", "Approve & send shortlist")}
-                    </Button>
-                  )}
-                  {["shortlist_sent", "buyer_viewed", "buyer_responded", "qualified_interest"].includes(eng.stage) && (
-                    <>
-                      {(eng.stage === "shortlist_sent" || eng.stage === "buyer_viewed") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => setResendDialogFor(eng)}
-                        >
-                          <RotateCw className="h-4 w-4" />
-                          {t("Gửi lại email", "Resend email")}
-                        </Button>
-                      )}
-                      <Button size="sm" variant="outline" className="gap-2" onClick={() => setShortlistDialogFor(eng)}>
-                        <Sparkles className="h-4 w-4" />
-                        {t("Tạo phiên bản shortlist mới", "Create new shortlist version")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="gap-2"
-                        variant={eng.stage === "qualified_interest" ? "default" : "outline"}
-                        onClick={() => setConvertDialogFor(eng)}
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                        {t(
-                          `Gán client & tạo Opportunity${interestedCount ? ` (${interestedCount} quan tâm)` : ""}`,
-                          `Assign client & create Opportunity${interestedCount ? ` (${interestedCount} interested)` : ""}`,
-                        )}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-              </CollapsibleContent>
-              </Collapsible>
-            </Card>
-          )
-        })}
-      </div>
-
-      {reqEmailDialogFor && (
-        <RequirementEmailDialog
-          engagement={reqEmailDialogFor}
-          locale={locale}
-          onClose={() => setReqEmailDialogFor(null)}
-          onSent={() => {
-            setReqEmailDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {resendDialogFor && (
-        <ResendFollowUpDialog
-          engagement={resendDialogFor}
-          locale={locale}
-          onClose={() => setResendDialogFor(null)}
-          onSent={() => {
-            setResendDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {replyDialogFor && (
-        <ReplyFollowUpDialog
-          engagement={replyDialogFor.engagement}
-          reply={replyDialogFor.reply}
-          locale={locale}
-          onClose={() => setReplyDialogFor(null)}
-          onSent={() => {
-            setReplyDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {reqFormDialogFor && (
-        <RequirementFormDialog
-          engagement={reqFormDialogFor}
-          locale={locale}
-          onClose={() => setReqFormDialogFor(null)}
-          onSaved={() => {
-            setReqFormDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {shortlistDialogFor && (
-        <ShortlistBuilderDialog
-          engagement={shortlistDialogFor}
-          clients={clients}
-          locale={locale}
-          onClose={() => setShortlistDialogFor(null)}
-          onBuilt={() => {
-            setShortlistDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {sendShortlistDialogFor && (
-        <SendShortlistDialog
-          engagement={sendShortlistDialogFor}
-          locale={locale}
-          onClose={() => setSendShortlistDialogFor(null)}
-          onSent={() => {
-            setSendShortlistDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {convertDialogFor && (
-        <ConvertDialog
-          engagement={convertDialogFor}
-          locale={locale}
-          onClose={() => setConvertDialogFor(null)}
-          onConverted={() => {
-            setConvertDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {dropDialogFor && (
-        <DropDialog
-          engagement={dropDialogFor}
-          locale={locale}
-          onClose={() => setDropDialogFor(null)}
-          onDropped={() => {
-            setDropDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {transferDialogFor && (
-        <TransferDialog
-          engagement={transferDialogFor}
-          locale={locale}
-          onClose={() => setTransferDialogFor(null)}
-          onTransferred={() => {
-            setTransferDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-
-      {returnDialogFor && (
-        <ReturnToInboxDialog
-          engagement={returnDialogFor}
-          locale={locale}
-          onClose={() => setReturnDialogFor(null)}
-          onReturned={() => {
-            setReturnDialogFor(null)
-            router.refresh()
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Share link row (copy button)
-// ---------------------------------------------------------------------------
-
-function ShareLinkRow({ token, locale }: { token: string; locale: "vi" | "en" }) {
-  const [copied, setCopied] = useState(false)
-  const url = typeof window !== "undefined" ? `${window.location.origin}/shortlist/${token}` : `/shortlist/${token}`
-
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-2.5 py-1.5">
-      <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <span className="truncate text-xs text-muted-foreground flex-1">{url}</span>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="h-6 shrink-0 gap-1 px-2 text-xs"
-        onClick={async () => {
-          await navigator.clipboard.writeText(url)
-          setCopied(true)
-          toast.success(locale === "vi" ? "Đã sao chép link" : "Link copied")
-          setTimeout(() => setCopied(false), 1500)
-        }}
-      >
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      </Button>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Dialog: Draft & send the requirement inquiry email (stage: claimed)
-// ---------------------------------------------------------------------------
-
-function RequirementEmailDialog({
-  engagement,
-  locale,
-  onClose,
-  onSent,
-}: {
-  engagement: Engagement
-  locale: "vi" | "en"
-  onClose: () => void
-  onSent: () => void
-}) {
-  const [mode, setMode] = useState<"ai" | "manual">("ai")
-  const [viPrompt, setViPrompt] = useState("")
-  const [manualSubject, setManualSubject] = useState("")
-  const [manualContent, setManualContent] = useState("")
-  const [generating, setGenerating] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [draft, setDraft] = useState<{
-    draftId: string
-    subject_en: string
-    content_en: string
-    content_vi: string
-    recipient_email: string | null
-    usedFallback?: boolean
-  } | null>(null)
-
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  const handleGenerate = async () => {
-    if (mode === "manual" && !manualContent.trim()) {
-      toast.error(t("Vui lòng nhập nội dung email", "Please enter the email content"))
-      return
-    }
-    setGenerating(true)
-    const result = await generateRequirementInquiryEmailAction(
-      mode === "manual"
-        ? {
-            engagementId: engagement.id,
-            viPrompt: "",
-            isManual: true,
-            manualSubject: manualSubject.trim() || t("(không có chủ đề)", "(no subject)"),
-            manualContent: manualContent.trim(),
-          }
-        : {
-            engagementId: engagement.id,
-            viPrompt,
-          },
-    )
-    setGenerating(false)
-    if (!result.ok) {
-      toast.error(result.message || result.error)
-      return
-    }
-    if (result.data.usedFallback) {
-      toast.warning(
-        t(
-          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi g��i",
-          "AI is temporarily unavailable — a fallback template was used, please review before sending",
-        ),
-      )
-    }
-    setDraft(result.data)
-  }
-
-  const handleSend = async () => {
-    if (!draft) return
-    if (!draft.recipient_email) {
-      toast.error(t("Buyer chưa có email liên hệ", "Buyer has no contact email"))
-      return
-    }
-    setSending(true)
-    const sendResult = await sendEmailDraftAction({ draftId: draft.draftId })
-    if (!sendResult.ok) {
-      setSending(false)
-      toast.error(sendResult.message || sendResult.error)
-      return
-    }
-    await markEngagementEmailSentAction(engagement.id)
-    setSending(false)
-    toast.success(t("Đã gửi email mở đầu", "Opening email sent"))
-    onSent()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("Soạn email mở đầu cho buyer", "Draft opening email")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              "AI sẽ soạn email giới thiệu Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không. Chưa hỏi chi tiết MOQ/giá/thanh toán/bao bì ở bước này.",
-              "AI will draft an email introducing Vexim and asking whether the buyer would like to evaluate additional sourcing from Vietnam. No MOQ/price/payment/packaging questions at this step.",
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        {!draft ? (
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1">
-              <button
-                type="button"
-                onClick={() => setMode("ai")}
-                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {t("Soạn bằng AI", "AI draft")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("manual")}
-                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mode === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {t("Soạn tay", "Write manually")}
-              </button>
-            </div>
-
-            {mode === "ai" ? (
-              <>
-                <Label htmlFor="vi-prompt">
-                  {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
-                </Label>
-                <Textarea
-                  id="vi-prompt"
-                  value={viPrompt}
-                  onChange={(e) => setViPrompt(e.target.value)}
-                  placeholder={t(
-                    "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
-                    "E.g. emphasize Vexim works with export-certified factories...",
-                  )}
-                  rows={3}
-                />
-              </>
-            ) : (
-              <>
-                <div>
-                  <Label htmlFor="manual-req-subject">{t("Chủ đề", "Subject")}</Label>
-                  <Input
-                    id="manual-req-subject"
-                    value={manualSubject}
-                    onChange={(e) => setManualSubject(e.target.value)}
-                    placeholder={t(
-                      "VD: Sourcing from Vietnam — coconuts & cashew nuts",
-                      "E.g. Sourcing from Vietnam — coconuts & cashew nuts",
-                    )}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="manual-req-content">{t("Nội dung email", "Email content")}</Label>
-                  <Textarea
-                    id="manual-req-content"
-                    value={manualContent}
-                    onChange={(e) => setManualContent(e.target.value)}
-                    placeholder={t(
-                      "Viết nội dung email mở đầu gửi buyer tại đây...",
-                      "Write the opening email content here...",
-                    )}
-                    rows={8}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {draft.usedFallback && (
-              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
-                <span>
-                  {t(
-                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
-                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
-                  )}
-                </span>
-              </div>
-            )}
-            <div>
-              <Label>{t("Chủ đề", "Subject")}</Label>
-              <Input
-                value={draft.subject_en}
-                onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>{t("Nội dung (English)", "Content (English)")}</Label>
-              <Textarea
-                value={draft.content_en}
-                onChange={(e) => setDraft({ ...draft, content_en: e.target.value })}
-                rows={8}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t("Người nhận: ", "Recipient: ")}
-              {draft.recipient_email || t("(chưa có email)", "(no email on file)")}
-            </div>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t("Hủy", "Cancel")}
-          </Button>
-          {!draft ? (
-            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode === "manual" ? (
-                <CornerUpLeft className="h-4 w-4" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {mode === "manual" ? t("Xem lại email", "Review email") : t("Soạn bằng AI", "Generate with AI")}
-            </Button>
-          ) : (
-            <Button onClick={handleSend} disabled={sending} className="gap-2">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              {t("Gửi email", "Send email")}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Dialog: Manually resend a follow-up when the buyer has gone quiet — either
 // because the earlier email never reached them, or they simply haven't
 // replied yet. Available any time at "requirement_email_sent" /
@@ -1995,7 +796,7 @@ function ShortlistBuilderDialog({
   onBuilt,
 }: {
   engagement: Engagement
-  clients: Client[]
+  clients: EngagementClient[]
   locale: "vi" | "en"
   onClose: () => void
   onBuilt: () => void
@@ -2470,24 +1271,184 @@ function ConvertDialog({
   )
 }
 
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Host — map a stage-action key to the dialog that performs it
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Renders the dialog for `action`, or nothing when `action` is null.
+ *
+ * Both surfaces use this, which is what makes "the inbox and the buyer page do
+ * the same things" structural rather than a promise: there is one mapping from
+ * `StageActionKey` to dialog, and adding a stage action means editing
+ * lib/buyers/engagement-stages.ts (what to offer) plus this switch (how to do
+ * it) — never a second copy of a dialog.
+ *
+ * `emailVariant` lets the buyer page open the composer as a side panel
+ * (`sheet`, so the analysis stays visible) while the inbox keeps its modal.
+ */
+export function EngagementStageDialogHost({
+  action,
+  engagement,
+  clients,
+  locale,
+  emailVariant = "dialog",
+  emailContextHints,
+  onClose,
+  onDone,
+}: {
+  /** Which stage action to perform; null renders nothing. */
+  action: StageActionKey | null
+  /** Fully-loaded engagement row (shortlist versions + replies included). */
+  engagement: Engagement
+  /** Assignable clients — required by the shortlist builder only. */
+  clients: EngagementClient[]
+  locale: "vi" | "en"
+  emailVariant?: "dialog" | "sheet"
+  /** Bullets for the composer's context block (buyer page only). */
+  emailContextHints?: string[]
+  onClose: () => void
+  /** Called after a successful action, in addition to closing. */
+  onDone: () => void
+}) {
+  if (!action) return null
+
+  switch (action) {
+    case "draft_opening_email":
+      return (
+        <RequirementEmailComposer
+          engagementId={engagement.id}
+          locale={locale}
+          variant={emailVariant}
+          contextHints={emailContextHints}
+          onClose={onClose}
+          onSent={onDone}
+        />
+      )
+    case "record_requirements":
+    case "record_requirements_offline":
+      return (
+        <RequirementFormDialog
+          engagement={engagement}
+          locale={locale}
+          onClose={onClose}
+          onSaved={onDone}
+        />
+      )
+    case "resend_email":
+      return (
+        <ResendFollowUpDialog
+          engagement={engagement}
+          locale={locale}
+          onClose={onClose}
+          onSent={onDone}
+        />
+      )
+    case "pick_suppliers":
+    case "new_shortlist_version":
+      return (
+        <ShortlistBuilderDialog
+          engagement={engagement}
+          clients={clients}
+          locale={locale}
+          onClose={onClose}
+          onBuilt={onDone}
+        />
+      )
+    case "approve_shortlist":
+      return (
+        <SendShortlistDialog
+          engagement={engagement}
+          locale={locale}
+          onClose={onClose}
+          onSent={onDone}
+        />
+      )
+    case "record_decline":
+      // Closing the file, not deleting the history: the same action the admin
+      // menu's "Hủy buyer" performs, surfaced as the next step once the buyer
+      // has said no. `variant` only changes the copy.
+      return (
+        <DropEngagementDialog
+          engagement={engagement}
+          locale={locale}
+          variant="decline"
+          onClose={onClose}
+          onDropped={onDone}
+        />
+      )
+    case "convert_to_opportunity":
+      return (
+        <ConvertDialog
+          engagement={engagement}
+          locale={locale}
+          onClose={onClose}
+          onConverted={onDone}
+        />
+      )
+    default:
+      // Exhaustive over StageActionKey — a new key fails the build here rather
+      // than silently doing nothing.
+      return null
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Reply follow-up — not a stage action; triggered from a specific reply
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function EngagementReplyFollowUpDialog({
+  engagement,
+  reply,
+  locale,
+  onClose,
+  onSent,
+}: {
+  engagement: Engagement
+  reply: EngagementReplyRow
+  locale: "vi" | "en"
+  onClose: () => void
+  onSent: () => void
+}) {
+  return (
+    <ReplyFollowUpDialog
+      engagement={engagement}
+      reply={reply}
+      locale={locale}
+      onClose={onClose}
+      onSent={onSent}
+    />
+  )
+}
+
 // ---------------------------------------------------------------------------
-// Dialog: Drop the engagement
+// Dialogs
 // ---------------------------------------------------------------------------
 
-function DropDialog({
+export function DropEngagementDialog({
   engagement,
   locale,
+  variant = "drop",
   onClose,
   onDropped,
 }: {
-  engagement: Engagement
+  engagement: EngagementActionTarget
   locale: "vi" | "en"
+  /**
+   * "drop"    — the AE abandons the buyer (admin menu).
+   * "decline" — the buyer refused; the AE is recording that and closing. Same
+   *             write, different words, so the two paths do not read alike.
+   */
+  variant?: "drop" | "decline"
   onClose: () => void
   onDropped: () => void
 }) {
   const [reason, setReason] = useState("")
   const [saving, setSaving] = useState(false)
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const declining = variant === "decline"
 
   const handleDrop = async () => {
     setSaving(true)
@@ -2497,7 +1458,11 @@ function DropDialog({
       toast.error(result.error)
       return
     }
-    toast.success(t("Đã hủy buyer này", "Buyer dropped"))
+    toast.success(
+      declining
+        ? t("Đã ghi nhận từ chối và đóng hồ sơ", "Decline recorded, file closed")
+        : t("Đã hủy buyer này", "Buyer dropped"),
+    )
     onDropped()
   }
 
@@ -2505,18 +1470,33 @@ function DropDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("Hủy buyer này?", "Drop this buyer?")}</DialogTitle>
+          <DialogTitle>
+            {t("Hủy buyer này?", "Drop this buyer?")}
+          </DialogTitle>
           <DialogDescription>
-            {t(
-              `Buyer ${engagement.leads?.company_name} sẽ được đưa ra khỏi danh sách đang xử lý.`,
-              `${engagement.leads?.company_name} will be removed from your in-progress list.`,
+            {declining ? (
+              <>
+                {t(
+                  `Ghi nhận buyer ${engagement.leads?.company_name} đã từ chối và đóng hồ sơ này. Buyer sẽ ra khỏi danh sách đang xử lý — bạn có thể xem lại ở tab "Buyer". Lý do bạn ghi bên dưới được lưu lại cùng hồ sơ.`,
+                  `Record that ${engagement.leads?.company_name} declined and close this file. The buyer leaves your in-progress list (still visible under "Buyers"), and the reason below is kept with the record.`,
+                )}
+              </>
+            ) : (
+              t(
+                `Buyer ${engagement.leads?.company_name} sẽ được đưa ra khỏi danh sách đang xử lý.`,
+                `${engagement.leads?.company_name} will be removed from your in-progress list.`,
+              )
             )}
           </DialogDescription>
         </DialogHeader>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder={t("Lý do (tùy chọn)...", "Reason (optional)...")}
+          placeholder={
+            declining
+              ? t("Buyer từ chối vì... (nên ghi lại)", "Why they declined... (worth recording)")
+              : t("Lý do (tùy chọn)...", "Reason (optional)...")
+          }
           rows={3}
         />
         <DialogFooter>
@@ -2524,7 +1504,9 @@ function DropDialog({
             {t("Không hủy", "Keep it")}
           </Button>
           <Button variant="destructive" onClick={handleDrop} disabled={saving}>
-            {t("Xác nhận hủy", "Confirm drop")}
+            {declining
+              ? t("Ghi nhận từ chối & đóng", "Record decline & close")
+              : t("Xác nhận hủy", "Confirm drop")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2532,19 +1514,18 @@ function DropDialog({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Dialog: Transfer the engagement to another AE — covers the case where LR
-// routed the buyer by industry match, but the buyer's actual product ask
-// doesn't fit any client this AE manages.
-// ---------------------------------------------------------------------------
-
-function TransferDialog({
+/**
+ * Transfer the engagement to another AE — covers the case where LR routed the
+ * buyer by industry match, but the buyer's actual product ask doesn't fit any
+ * client this AE manages.
+ */
+export function TransferEngagementDialog({
   engagement,
   locale,
   onClose,
   onTransferred,
 }: {
-  engagement: Engagement
+  engagement: EngagementActionTarget
   locale: "vi" | "en"
   onClose: () => void
   onTransferred: () => void
@@ -2668,19 +1649,18 @@ function TransferDialog({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Dialog: Return a claimed buyer to the shared inbox — the AE cannot work
-// this buyer (wrong industry/overload) and releases it so any AE can claim
-// it again, instead of just dropping it into a dead end.
-// ---------------------------------------------------------------------------
-
-function ReturnToInboxDialog({
+/**
+ * Return a claimed buyer to the shared inbox — the AE cannot work this buyer
+ * (wrong industry / overload) and releases it so any AE can claim it again,
+ * instead of just dropping it into a dead end.
+ */
+export function ReturnToInboxDialog({
   engagement,
   locale,
   onClose,
   onReturned,
 }: {
-  engagement: Engagement
+  engagement: EngagementActionTarget
   locale: "vi" | "en"
   onClose: () => void
   onReturned: () => void

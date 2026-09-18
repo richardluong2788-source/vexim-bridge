@@ -8,26 +8,29 @@
  *      the stage-driven buttons, `EngagementAdminActions` for the header row;
  *   2. the buyer profile's "Phân tích" tab (/admin/buyers/[id]) —
  *      `BuyerEngagementBar`, which shows the stage, how long the buyer has been
- *      sitting in it, a deep link to the next action, and the same admin
- *      actions in a compact "Khác" menu.
+ *      sitting in it, whether they have replied, and the same stage buttons with
+ *      the primary one framed as "Việc tiếp theo".
  *
  * Which buttons a stage offers is decided by lib/buyers/engagement-stages.ts, so
  * the two screens cannot drift apart.
  *
- * DESIGN NOTE — why the profile does not re-implement "Soạn email mở đầu"
+ * DESIGN NOTE — the dialogs are shared, not duplicated
  * ------------------------------------------------------------------------
  * The stage dialogs (requirement email, requirements form, shortlist builder,
- * convert) are large and tightly coupled to the inbox: they read the client
- * list, the AI email generator, the sharing link state. Duplicating them onto
- * the profile would mean shipping a second copy of that machinery. The profile
- * therefore offers the stage's next step as a deep link into the inbox
- * (`/admin/engagements?focus=<id>`, which expands and highlights the card) and
- * keeps the actions that ARE self-contained — transfer / return / drop — as
- * real buttons. The inbox keeps every button exactly where the AE expects it.
+ * convert) are large and stateful. They live once, in
+ * components/admin/engagement-stage-dialogs.tsx, behind `EngagementStageDialogHost`
+ * — dialogs open it with `emailVariant="dialog"`, the profile bar with
+ * `"sheet"` so the analysis stays visible while writing. Both surfaces pass an
+ * engagement row loaded with ENGAGEMENT_SELECT, from
+ * lib/buyers/engagement-queries.ts — so a dialog can never be handed a
+ * half-loaded row on one screen and a full one on the other.
+ *
+ * The inbox keeps every button exactly where the AE expects it; the profile bar
+ * is the same set, now that AE work no longer requires a round trip through the
+ * queue.
  */
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeftRight,
@@ -45,7 +48,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
-import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
+import { EngagementStageDialogHost } from "@/components/admin/engagement-stage-dialogs"
 import { countUnreadReplies, type BuyerReplyRow } from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -81,13 +84,13 @@ import {
 } from "@/app/admin/ae-inbox/engagement-actions"
 import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
 import {
-  getPrimaryStageAction,
   getStageActions,
   STAGE_LABELS,
   stageActionContextFromEngagement,
   type ShortlistVersionLike,
   type StageActionKey,
 } from "@/lib/buyers/engagement-stages"
+import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
 
 /**
  * Everything the bar needs about an engagement. Structurally satisfied by the
@@ -127,10 +130,20 @@ export function EngagementStageActions({
   engagement,
   locale,
   onAction,
+  nextStepFirst = false,
 }: {
   engagement: EngagementActionTarget
   locale: "vi" | "en"
   onAction: (key: StageActionKey) => void
+  /**
+   * Lead with the stage's primary action, labelled "Việc tiếp theo: …".
+   *
+   * The inbox lists a stage's actions in their canonical order (the stage map
+   * sometimes puts a secondary one first, e.g. shortlist_ready offers "chọn nhà
+   * cung" before "duyệt & gửi"). The profile bar is a next-step prompt rather
+   * than a menu, so there the priority has to be the first thing read.
+   */
+  nextStepFirst?: boolean
 }) {
   const actions = getStageActions(
     engagement.stage,
@@ -139,20 +152,33 @@ export function EngagementStageActions({
 
   if (actions.length === 0) return null
 
+  // Stable sort: the primary action moves to the front, everything else keeps
+  // the order the stage map gave it.
+  const ordered = nextStepFirst
+    ? [...actions].sort((a, b) => Number(!!b.primary) - Number(!!a.primary))
+    : actions
+
   return (
     <>
-      {actions.map((action) => {
+      {ordered.map((action) => {
         const Icon = STAGE_ACTION_ICONS[action.key]
+        const framed = nextStepFirst && !!action.primary
         return (
           <Button
             key={action.key}
             size="sm"
-            variant={action.variant}
+            variant={framed ? "default" : action.variant}
             className="gap-2"
             onClick={() => onAction(action.key)}
           >
             <Icon className="h-4 w-4" />
-            {locale === "vi" ? action.labelVi : action.labelEn}
+            {framed
+              ? locale === "vi"
+                ? `Việc tiếp theo: ${action.labelVi}`
+                : `Next: ${action.labelEn}`
+              : locale === "vi"
+                ? action.labelVi
+                : action.labelEn}
           </Button>
         )
       })}
@@ -329,8 +355,13 @@ export function BuyerEngagementBar({
   locale,
   emailContextHints = [],
   replies = [],
+  clients = [],
 }: {
-  engagement: EngagementActionTarget
+  /** FULL engagement row (ENGAGEMENT_SELECT) — the sheet/dialogs need the
+   *  shortlist versions, share links and replies, not just the stage. */
+  engagement: Engagement
+  /** Assignable clients, for the shortlist builder. */
+  clients?: EngagementClient[]
   buyerId: string
   /** Buyer company name, for the dialogs' copy (may be missing on old rows). */
   companyName: string | null
@@ -346,17 +377,16 @@ export function BuyerEngagementBar({
 }) {
   const router = useRouter()
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-  const context = stageActionContextFromEngagement(engagement)
-  const nextAction = getPrimaryStageAction(engagement.stage, context)
   const stageInfo = STAGE_LABELS[engagement.stage]
   const unreadReplies = countUnreadReplies(replies)
 
-  // "Soạn email mở đầu" is the one stage action that makes sense right here:
-  // the AE has just read the analysis, and the composer can now open as a panel
-  // beside it instead of bouncing them to the inbox. Every other stage action
-  // still needs the inbox card's dialogs, so it keeps the deep link.
-  const [composerOpen, setComposerOpen] = useState(false)
-  const composeHere = nextAction?.key === "draft_opening_email"
+  // EVERY stage action now runs here, through the same shared dialogs the inbox
+  // uses. The AE no longer leaves the buyer they are reading to record
+  // requirements, build the shortlist or create the opportunities — which was
+  // the whole point of the tab: one page per buyer, no round trip to the queue.
+  // The composer opens as a side panel so the analysis stays visible while
+  // writing; the rest are ordinary modals.
+  const [stageAction, setStageAction] = useState<StageActionKey | null>(null)
 
   // Same computation as the inbox card, so "12 ngày ở giai đoạn này" means the
   // same thing on both screens.
@@ -408,36 +438,14 @@ export function BuyerEngagementBar({
       </span>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        {composeHere ? (
-          /* Write the opening email right here, next to the analysis. */
-          <Button
-            size="sm"
-            className="gap-2"
-            onClick={() => setComposerOpen(true)}
-          >
-            <Mail className="h-4 w-4" />
-            {t(
-              `Việc tiếp theo: ${nextAction.labelVi}`,
-              `Next: ${nextAction.labelEn}`,
-            )}
-          </Button>
-        ) : (
-          /* Deep link, not a duplicate dialog: the remaining stage dialogs
-             (requirements form, shortlist, convert) live with the inbox card
-             that feeds them. The `focus` param expands the card and rings it,
-             so this is one click into the exact action rather than a hunt. */
-          <Button asChild size="sm" variant={nextAction ? "default" : "outline"} className="gap-2">
-            <Link href={`/admin/engagements?focus=${engagement.id}`}>
-              {nextAction
-                ? t(
-                    `Việc tiếp theo: ${nextAction.labelVi}`,
-                    `Next: ${nextAction.labelEn}`,
-                  )
-                : t("Mở trong Đang xử lý", "Open in In progress")}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        )}
+        {/* Same buttons as the inbox card, from the same stage map — but here
+            the stage's primary action leads, framed as the next step. */}
+        <EngagementStageActions
+          engagement={engagement}
+          locale={locale}
+          onAction={setStageAction}
+          nextStepFirst
+        />
 
         <EngagementAdminActions
           engagement={{ ...engagement, leads: { company_name: companyName } }}
@@ -454,21 +462,21 @@ export function BuyerEngagementBar({
         )}
       </span>
 
-      {composerOpen && (
-        <RequirementEmailComposer
-          engagementId={engagement.id}
-          locale={locale}
-          variant="sheet"
-          contextHints={emailContextHints}
-          onClose={() => setComposerOpen(false)}
-          onSent={() => {
-            setComposerOpen(false)
-            // Stage moves to "requirement_email_sent", so the bar's next action
-            // becomes "Ghi nhận nhu cầu buyer" without a manual reload.
-            router.refresh()
-          }}
-        />
-      )}
+      <EngagementStageDialogHost
+        action={stageAction}
+        engagement={engagement}
+        clients={clients}
+        locale={locale}
+        emailVariant="sheet"
+        emailContextHints={emailContextHints}
+        onClose={() => setStageAction(null)}
+        onDone={() => {
+          setStageAction(null)
+          // The stage moved (email sent, requirements saved, shortlist built,
+          // deals created), so re-render to show the new next step.
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

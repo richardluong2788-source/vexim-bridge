@@ -207,13 +207,10 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
   }
 }
 
-/** The one action that moves this stage forward, if there is one. */
-export function getPrimaryStageAction(
-  stage: string,
-  ctx: StageActionContext = {},
-): StageAction | null {
-  return getStageActions(stage, ctx).find((action) => action.primary) ?? null
-}
+// Note: there is deliberately no getPrimaryStageAction() helper. The `primary`
+// flag on the action is the single encoding of "this is the next step", and the
+// one place that needs it — the profile's action bar, which leads with it —
+// derives it from the list it already has (see EngagementStageActions).
 
 /** Minimal shape of a shortlist version row, as embedded on an engagement. */
 export interface ShortlistVersionLike {

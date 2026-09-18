@@ -3,10 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
-import {
-  BuyerEngagementBar,
-  type EngagementActionTarget,
-} from "@/components/admin/engagement-action-bar"
+import { BuyerEngagementBar } from "@/components/admin/engagement-action-bar"
+import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
 // Rule-based fallback tips. Shared with the "Phân tích" tab's decision about
 // whether to show the card at all or the empty state instead.
 import {
@@ -199,14 +197,6 @@ export interface BuyerOpportunity {
 // imports of `BuyerReply` from this module keep working.
 export type BuyerReply = BuyerReplyRow
 
-export interface AssignableClient {
-  id: string
-  name: string
-  fdaRegistrationNumber: string | null
-  fdaExpiresAt: string | null
-  alreadyAttached: boolean
-}
-
 interface Props {
   buyer: BuyerDetailData
   opportunities: BuyerOpportunity[]
@@ -216,19 +206,21 @@ interface Props {
   canWrite: boolean
   canViewPII: boolean
   canLiftSuppression: boolean
-  /** @deprecated — kept for backward compat, not used after A-Z removal */
-  clients?: AssignableClient[]
   currentRole?: Role
   canAssignAE?: boolean
   /**
    * The buyer's open (pre-opportunity) engagement, when the viewer is allowed
    * to act on it — its owning AE, or an admin. Powers the action bar at the top
    * of the "Phân tích" tab: which stage this buyer is in, how long they have
-   * been there, and a one-click jump to the next action. Null for buyers that
-   * were never claimed, are already converted/dropped, or belong to another AE
-   * (the deep link would land on an inbox that does not contain them).
+   * been there, and the stage's next action — which now runs here, through the
+   * same dialogs the inbox uses, instead of sending the AE back to the queue.
+   *
+   * Null for buyers that were never claimed, are already converted/dropped, or
+   * belong to another AE.
    */
-  engagement?: EngagementActionTarget | null
+  engagement?: Engagement | null
+  /** Active clients (FDA in date) the shortlist builder may offer. */
+  clients?: EngagementClient[]
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -295,6 +287,7 @@ export function BuyerDetailView({
   currentRole,
   canAssignAE,
   engagement,
+  clients = [],
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -577,6 +570,7 @@ export function BuyerDetailView({
                   locale={locale}
                   emailContextHints={emailContextHints}
                   replies={replies}
+                  clients={clients}
                 />
               )}
               {/* The reply lands where the email was written. Without this the AE

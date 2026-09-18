@@ -11,7 +11,11 @@ import {
   type BuyerOpportunity,
   type BuyerReply,
 } from "@/components/admin/buyer-detail-view"
-import type { EngagementActionTarget } from "@/components/admin/engagement-action-bar"
+import type { Engagement, EngagementClient } from "@/lib/buyers/engagement-types"
+import {
+  loadAssignableClients,
+  loadOpenEngagementForLead,
+} from "@/lib/buyers/engagement-queries"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
 import { listContacts } from "@/lib/buyers/contacts-actions"
@@ -92,77 +96,37 @@ export default async function BuyerDetailPage({ params }: PageProps) {
   const contacts: BuyerContact[] = contactsResult.success ? contactsResult.data ?? [] : []
 
   // --- 1c) Open pre-opportunity engagement, if this buyer is claimed ------
-  // Feeds the action bar at the top of the "Phân tích" tab: which stage the
-  // buyer is in, how long they have been there, and a deep link to the next
-  // action (which lives with the inbox card that owns the dialogs).
+  // Feeds the action bar at the top of the "Phân tích" tab. The bar now runs the
+  // SAME stage dialogs as the inbox card (record requirements, build/send the
+  // shortlist, create the opportunities), so it needs the full row — versions,
+  // share links and replies — loaded through the shared select, plus the client
+  // list the shortlist builder picks suppliers from.
   //
   // Only passed down when the viewer can actually act on it — the owning AE, or
-  // an admin. For anyone else the deep link would open an inbox that does not
-  // list this buyer, so they get no bar at all rather than a broken promise.
+  // an admin. Anyone else gets no bar rather than buttons whose server actions
+  // would refuse them.
   const roleCanWorkEngagements =
     current.role === "account_executive" ||
     current.role === "admin" ||
     current.role === "super_admin"
 
-  type OpenEngagementRow = {
-    id: string
-    account_manager_id: string
-    stage: string
-    updated_at: string
-    buyer_engagement_shortlist_versions:
-      | Array<{
-          version_number: number | null
-          status: string | null
-          buyer_engagement_shortlist_items:
-            | Array<{ buyer_interested: boolean | null }>
-            | null
-        }>
-      | null
-  }
+  let engagement: Engagement | null = null
+  let assignableClients: EngagementClient[] = []
 
-  let engagement: EngagementActionTarget | null = null
   if (roleCanWorkEngagements) {
-    const { data: engagementRaw } = await current.admin
-      .from("buyer_engagements")
-      .select(
-        `
-        id,
-        account_manager_id,
-        stage,
-        updated_at,
-        buyer_engagement_shortlist_versions (
-          version_number,
-          status,
-          buyer_engagement_shortlist_items ( buyer_interested )
-        )
-      `,
-      )
-      .eq("lead_id", id)
-      .not("stage", "in", "(converted,dropped)")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const row = engagementRaw as unknown as OpenEngagementRow | null
+    // Loaded with the service-role client, so the ownership check below is what
+    // protects another AE's engagement — it is not left to RLS.
+    const row = await loadOpenEngagementForLead(current.admin, id)
     const isOwner = row?.account_manager_id === current.userId
     const isAdmin = current.role === "admin" || current.role === "super_admin"
 
     if (row && (isOwner || isAdmin)) {
-      engagement = {
-        id: row.id,
-        account_manager_id: row.account_manager_id,
-        stage: row.stage,
-        updated_at: row.updated_at,
-        // Only what the stage map needs: which versions exist and how many of
-        // the buyer's items are flagged interested.
-        buyer_engagement_shortlist_versions: (row.buyer_engagement_shortlist_versions ?? []).map(
-          (version) => ({
-            version_number: version.version_number,
-            status: version.status,
-            buyer_engagement_shortlist_items: version.buyer_engagement_shortlist_items ?? [],
-          }),
-        ),
-      }
+      engagement = row
+      // Same list the inbox shortlist builder offers: active clients (FDA in
+      // date), scoped to the AE's own book unless they are an admin.
+      assignableClients = await loadAssignableClients(current.admin, {
+        accountManagerId: isAdmin ? null : current.userId,
+      })
     }
   }
 
@@ -364,6 +328,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         currentRole={current.role}
         canAssignAE={canAssignBuyer}
         engagement={engagement}
+        clients={assignableClients}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

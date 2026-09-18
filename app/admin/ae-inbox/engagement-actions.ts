@@ -30,6 +30,7 @@ import { assignBuyerToClients } from "@/app/admin/buyers/actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import { SCORING_ENGINE_VERSION } from "@/lib/matching/client-types"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
+import { ENGAGEMENT_SELECT } from "@/lib/buyers/engagement-queries"
 import {
   executeBuyerAssignment,
   ManualAssignmentError,
@@ -942,24 +943,7 @@ export async function getMyEngagements(): Promise<ActionResult<any[]>> {
 
   let query = admin
     .from("buyer_engagements")
-    .select(
-      `
-      id, lead_id, account_manager_id, stage,
-      requested_products, target_price_range, moq, payment_terms,
-      packaging_requirements, other_requirements,
-      contact_channel, contact_channel_note,
-      created_at, updated_at,
-      leads ( id, company_name, contact_person, contact_email, country, industry, main_product, hs_code, hs_codes, product_keywords ),
-      buyer_engagement_shortlist_versions (
-        id, version_number, status, scoring_engine_version, created_at, sent_at, superseded_at,
-        buyer_engagement_shortlist_items ( id, client_id, position, match_score, buyer_interested, buyer_action, buyer_responded_at,
-          total_dwell_ms, first_viewed_at, last_dwell_at,
-          profiles:client_id ( id, company_name, full_name ) )
-      ),
-      shortlist_share_links ( token, version_id, view_count, last_viewed_at, revoked_at ),
-      buyer_replies ( id, from_email, subject, raw_content, translated_vi, ai_intent, ai_summary, ai_suggested_next_step, received_at, read_at, message_id, responded_email_draft_id, responded_at )
-      `,
-    )
+    .select(ENGAGEMENT_SELECT)
     .not("stage", "in", "(converted,dropped)")
     .order("updated_at", { ascending: false })
 

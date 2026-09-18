@@ -6,6 +6,7 @@ import { getCurrentRole } from "@/lib/auth/guard"
 import { createClient } from "@/lib/supabase/server"
 import { EngagementList } from "@/app/admin/ae-inbox/engagement-list"
 import { getMyEngagements } from "@/app/admin/ae-inbox/engagement-actions"
+import { loadAssignableClients } from "@/lib/buyers/engagement-queries"
 
 export const dynamic = "force-dynamic"
 
@@ -32,21 +33,11 @@ export default async function EngagementsPage() {
   const { locale } = await getDictionary()
   const supabase = await createClient()
 
-  let clientsQuery = supabase
-    .from("profiles")
-    .select("id, full_name, company_name, fda_expires_at")
-    .eq("role", "client")
-    .order("company_name")
-
-  if (current.role === "account_executive") {
-    clientsQuery = clientsQuery.eq("account_manager_id", current.userId)
-  }
-
-  const { data: clients } = await clientsQuery
-
-  const validClients = (clients || []).filter((c) => {
-    if (!c.fda_expires_at) return false
-    return new Date(c.fda_expires_at) > new Date()
+  // Active clients only (FDA in date) — the shortlist builder must not offer a
+  // supplier the buyer cannot import from. Shared with the buyer profile so the
+  // two screens offer the same set.
+  const validClients = await loadAssignableClients(supabase, {
+    accountManagerId: current.role === "account_executive" ? current.userId : null,
   })
 
   const engagementsResult = await getMyEngagements()

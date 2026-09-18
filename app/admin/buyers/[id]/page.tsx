@@ -224,17 +224,29 @@ export default async function BuyerDetailPage({ params }: PageProps) {
       : null,
   }))
 
-  // --- 3) Buyer replies across all those opportunities -------------------
-  const oppIds = oppRows.map((o) => o.id)
+  // --- 3) Buyer replies --------------------------------------------------
+  // Keyed on lead_id, NOT on the opportunity ids.
+  //
+  // The inbound webhook (app/api/webhooks/resend/route.ts) stamps lead_id on
+  // EVERY reply it files, but only sets opportunity_id once a client/supplier
+  // has been picked — while the AE is still gathering requirements the reply
+  // carries opportunity_id = null. Filtering by `.in("opportunity_id", oppIds)`
+  // therefore hid every pre-opportunity reply from this page: the AE answered
+  // an opening email and the buyer's reply only existed over in "Đang xử lý".
+  // Querying by lead_id picks up both stages, including buyers with no
+  // opportunity at all (which the old `if (oppIds.length > 0)` guard skipped
+  // entirely).
   let replies: BuyerReply[] = []
-  if (oppIds.length > 0) {
+  {
     const { data: rawReplies } = await current.admin
       .from("buyer_replies")
       .select(
         `
         id,
         opportunity_id,
+        engagement_id,
         received_at,
+        read_at,
         ai_intent,
         ai_summary,
         ai_confidence,
@@ -242,18 +254,22 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         raw_content
       `,
       )
-      .in("opportunity_id", oppIds)
+      .eq("lead_id", id)
       .order("received_at", { ascending: false })
       .limit(50)
 
     const oppToClient = new Map(
-      oppRows.map((o) => [o.id, o.client?.name ?? "—"]),
+      oppRows.map((o) => [o.id, o.client?.name ?? null]),
     )
     replies = (rawReplies ?? []).map((r: any) => ({
       id: r.id,
-      opportunityId: r.opportunity_id,
-      clientName: oppToClient.get(r.opportunity_id) ?? "—",
+      opportunityId: r.opportunity_id ?? null,
+      engagementId: r.engagement_id ?? null,
+      // null (not "—") while there is no client — the list renders
+      // "trước khi gán client" for those instead of "for —".
+      clientName: r.opportunity_id ? oppToClient.get(r.opportunity_id) ?? null : null,
       receivedAt: r.received_at,
+      readAt: r.read_at ?? null,
       intent: r.ai_intent,
       summary: r.ai_summary,
       confidence: r.ai_confidence,

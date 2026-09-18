@@ -39,12 +39,14 @@ import {
   Link2,
   Loader2,
   Mail,
+  MessageSquareText,
   RotateCw,
   Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react"
 import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
+import { countUnreadReplies, type BuyerReplyRow } from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -326,6 +328,7 @@ export function BuyerEngagementBar({
   companyName,
   locale,
   emailContextHints = [],
+  replies = [],
 }: {
   engagement: EngagementActionTarget
   buyerId: string
@@ -334,12 +337,19 @@ export function BuyerEngagementBar({
   locale: "vi" | "en"
   /** Talking points / tips to keep in view inside the email panel. */
   emailContextHints?: string[]
+  /**
+   * Replies already on file for this buyer. Only used to say whether the buyer
+   * has answered — the messages themselves render in the replies list right
+   * below this bar.
+   */
+  replies?: BuyerReplyRow[]
 }) {
   const router = useRouter()
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const context = stageActionContextFromEngagement(engagement)
   const nextAction = getPrimaryStageAction(engagement.stage, context)
   const stageInfo = STAGE_LABELS[engagement.stage]
+  const unreadReplies = countUnreadReplies(replies)
 
   // "Soạn email mở đầu" is the one stage action that makes sense right here:
   // the AE has just read the analysis, and the composer can now open as a panel
@@ -359,6 +369,33 @@ export function BuyerEngagementBar({
       <Badge variant="outline" className="text-xs">
         {stageInfo ? (locale === "vi" ? stageInfo.vi : stageInfo.en) : engagement.stage}
       </Badge>
+
+      {/* The stage does NOT move when a buyer replies (nothing in the inbound
+          webhook touches buyer_engagements.stage — "buyer_responded" is
+          unreachable in this pipeline), so the bar would otherwise look
+          identical before and after an answer arrives. This is the one signal
+          that says "they wrote back". */}
+      {replies.length > 0 && (
+        <Badge
+          variant="secondary"
+          className={
+            unreadReplies > 0
+              ? "border-amber-500/30 bg-amber-500/10 text-xs font-normal text-amber-700 dark:text-amber-400"
+              : "text-xs font-normal"
+          }
+        >
+          <MessageSquareText className="mr-1 h-3 w-3" />
+          {unreadReplies > 0
+            ? t(
+                `Buyer đã trả lời · ${unreadReplies} chưa đọc`,
+                `Buyer replied · ${unreadReplies} unread`,
+              )
+            : t(
+                `Buyer đã trả lời (${replies.length})`,
+                `Buyer replied (${replies.length})`,
+              )}
+        </Badge>
+      )}
 
       <span className="flex items-center gap-1 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />

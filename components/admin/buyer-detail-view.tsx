@@ -15,6 +15,11 @@ import {
   hasVietnamSupplier,
   type SuggestedApproach,
 } from "@/lib/buyers/suggested-approach"
+import {
+  BuyerRepliesList,
+  countUnreadReplies,
+  type BuyerReplyRow,
+} from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
@@ -189,17 +194,10 @@ export interface BuyerOpportunity {
   } | null
 }
 
-export interface BuyerReply {
-  id: string
-  opportunityId: string
-  clientName: string
-  receivedAt: string
-  intent: string | null
-  summary: string | null
-  confidence: number | null
-  translatedVi: string | null
-  rawContent: string | null
-}
+// The reply row shape lives with the shared list that renders it (both the
+// "Phản hồi" tab and the block on "Phân tích"); re-exported here so existing
+// imports of `BuyerReply` from this module keep working.
+export type BuyerReply = BuyerReplyRow
 
 export interface AssignableClient {
   id: string
@@ -278,20 +276,8 @@ const RISK_TONE: Record<RiskLevel, string> = {
   high: "border-destructive/40 bg-destructive/10 text-destructive",
 }
 
-const INTENT_LABEL_VI: Record<string, string> = {
-  price_request: "Hỏi giá",
-  sample_request: "Xin mẫu",
-  objection: "Phản đối",
-  closing_signal: "Tín hiệu chốt",
-  general: "Chung",
-}
-const INTENT_LABEL_EN: Record<string, string> = {
-  price_request: "Price request",
-  sample_request: "Sample request",
-  objection: "Objection",
-  closing_signal: "Closing signal",
-  general: "General",
-}
+// Reply intent labels moved to components/admin/buyer-replies-list.tsx, which
+// renders them for both surfaces.
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -312,7 +298,6 @@ export function BuyerDetailView({
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
-  const INTENT = locale === "vi" ? INTENT_LABEL_VI : INTENT_LABEL_EN
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
   // Fallback tips for buyers with no AI snapshot (migration 079). Derived once
@@ -591,7 +576,14 @@ export function BuyerDetailView({
                   companyName={buyer.company_name}
                   locale={locale}
                   emailContextHints={emailContextHints}
+                  replies={replies}
                 />
+              )}
+              {/* The reply lands where the email was written. Without this the AE
+                  composed the opening email in this tab, then had to go back to
+                  "Đang xử lý" to find out whether the buyer answered. */}
+              {replies.length > 0 && (
+                <BuyerRepliesList replies={replies} locale={locale} limit={3} heading />
               )}
               {buyer.buyer_analysis ? (
                 <BuyerAnalysisCard
@@ -973,75 +965,30 @@ export function BuyerDetailView({
           </TabsContent>
 
           <TabsContent value="replies" className="mt-0">
-            {replies.length === 0 ? (
-              <Card className="border-border">
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>
-                      {locale === "vi" ? "Chưa có phản hồi nào" : "No replies yet"}
-                    </EmptyTitle>
-                    <EmptyDescription>
-                      {locale === "vi"
-                        ? "Phản hồi của buyer được dán vào từng cơ hội sẽ hiện ở đây."
-                        : "Buyer replies pasted into any deal will surface here."}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {replies.map((r) => (
-                  <Card key={r.id} className="border-border">
-                    <CardContent className="flex flex-col gap-2 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {r.intent ? (
-                            <Badge variant="secondary" className="font-normal">
-                              {INTENT[r.intent] ?? r.intent}
-                            </Badge>
-                          ) : null}
-                          <span className="text-xs text-muted-foreground">
-                            {locale === "vi" ? "cho" : "for"}{" "}
-                            <span className="text-foreground font-medium">{r.clientName}</span>
-                          </span>
-                          {typeof r.confidence === "number" ? (
-                            <span className="text-[10px] text-muted-foreground">
-                              {Math.round(r.confidence * 100)}%
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.receivedAt).toLocaleString(dateLocale, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {r.summary ? (
-                        <p className="text-sm text-foreground text-pretty">
-                          {r.summary}
-                        </p>
-                      ) : null}
-                      {r.translatedVi && locale === "vi" ? (
-                        <p className="text-xs text-muted-foreground italic text-pretty">
-                          {r.translatedVi}
-                        </p>
-                      ) : null}
-                      <div className="flex justify-end">
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/admin/pipeline?oppId=${r.opportunityId}`}>
-                            {locale === "vi" ? "Mở cơ hội" : "Open deal"}
-                            <ExternalLink className="ml-1 h-3 w-3" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <BuyerRepliesList
+              replies={replies}
+              locale={locale}
+              heading
+              emptyState={
+                /* Copy fixed: replies arrive through the Resend inbound webhook
+                   now, not by being pasted into a deal — and they land here
+                   while the buyer is still in "Đang xử lý" too. */
+                <Card className="border-border">
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>
+                        {locale === "vi" ? "Chưa có phản hồi nào" : "No replies yet"}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {locale === "vi"
+                          ? "Phản hồi của buyer (qua email) sẽ hiện ở đây — kể cả khi chưa gán client hay tạo cơ hội."
+                          : "Buyer replies (by email) will show up here — including before a client or deal exists."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </Card>
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>

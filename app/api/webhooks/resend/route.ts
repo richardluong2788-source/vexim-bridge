@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { pipelineOppPath } from "@/lib/notifications/paths"
 import { getEmailDomain, isPublicEmailDomain } from "@/lib/email/public-domains"
+import {
+  handleOutboundEmailEvent,
+  isOutboundEmailEvent,
+  type OutboundEventPayload,
+} from "@/lib/email/delivery-events"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -589,13 +595,23 @@ export async function POST(req: NextRequest) {
     console.log("[v0] Webhook raw body length:", rawBody.length)
     console.log("[v0] Webhook raw body preview:", rawBody.slice(0, 500))
     
-    const payload: ResendWebhookPayload = JSON.parse(rawBody)
+    const payload = JSON.parse(rawBody) as ResendWebhookPayload & OutboundEventPayload
     console.log("[v0] Parsed webhook payload type:", payload.type)
 
-    // Only process email.received events
+    // Outbound delivery events (delivered/opened/clicked/bounced/...).
+    if (isOutboundEmailEvent(payload.type)) {
+      const result = await handleOutboundEmailEvent(payload)
+      return NextResponse.json({
+        ok: result.ok,
+        matched: result.matched,
+        action: result.action,
+      })
+    }
+
+    // Only inbound replies are processed below.
     if (payload.type !== "email.received") {
-      console.log("[v0] Skipping non-email.received event:", payload.type)
-      return NextResponse.json({ ok: true, skipped: "not email.received" })
+      console.log("[v0] Skipping unhandled webhook event:", payload.type)
+      return NextResponse.json({ ok: true, skipped: payload.type })
     }
 
     const { data } = payload
@@ -662,6 +678,33 @@ export async function POST(req: NextRequest) {
         // Ignore unique-violation on message_id (Resend re-delivery) — anything
         // else is worth logging since this is our last line of defense.
         console.error("[v0] Failed to store unmatched inbound email:", unmatchedErr)
+      } else {
+        const { data: admins } = await admin
+          .from("profiles")
+          .select("id")
+          .in("role", ["admin", "super_admin"])
+        await Promise.all(
+          (admins ?? []).map((a) =>
+            dispatchNotification({
+              userId: a.id,
+              category: "action_required",
+              linkPath: "/admin/unmatched-emails",
+              dedupKey: `unmatched_inbound:${data.message_id}:${a.id}`,
+              title: {
+                vi: "Email inbound chưa khớp buyer",
+                en: "Unmatched inbound email",
+              },
+              body: {
+                vi: `Từ ${fromEmail}: ${(data.subject ?? "(no subject)").slice(0, 80)}`,
+                en: `From ${fromEmail}: ${(data.subject ?? "(no subject)").slice(0, 80)}`,
+              },
+              ctaLabel: {
+                vi: "Xem hộp thư chưa khớp",
+                en: "Review unmatched inbox",
+              },
+            }),
+          ),
+        )
       }
 
       return NextResponse.json({ ok: true, skipped: "no_match", stored: !unmatchedErr })
@@ -798,7 +841,7 @@ export async function POST(req: NextRequest) {
         if (!oppErr && opp?.account_manager_id) {
           notifyUserId = opp.account_manager_id
           notifyOpportunityId = match.opportunityId
-          notifyLinkPath = `/admin/opportunities/${match.opportunityId}?tab=replies`
+          notifyLinkPath = pipelineOppPath(match.opportunityId, "replies")
         }
       } else if (engagementMatch) {
         notifyUserId = engagementMatch.accountManagerId

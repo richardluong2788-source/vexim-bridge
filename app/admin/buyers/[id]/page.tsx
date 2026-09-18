@@ -10,14 +10,52 @@ import {
   type BuyerDetailData,
   type BuyerOpportunity,
   type BuyerReply,
-  type AssignableClient,
 } from "@/components/admin/buyer-detail-view"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
 import { listContacts } from "@/lib/buyers/contacts-actions"
 import type { BuyerContact } from "@/lib/supabase/types"
+// Type-only imports — this is a server component and must not drag the `ai`
+// package (pulled in by buyer-strategy-generator) into its runtime graph.
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 export const dynamic = "force-dynamic"
+
+/**
+ * Narrow the opaque JSONB snapshot back to its domain shape.
+ *
+ * `leads.buyer_analysis` / `buyer_strategy` are declared as
+ * `Record<string, unknown>` in lib/supabase/types.ts because the DB column is
+ * schemaless JSONB (migration 079). A snapshot that does not at least carry
+ * the three numeric scores is treated as absent, so the "Phân tích" tab falls
+ * back to the heuristic card rather than rendering a half-broken analysis.
+ */
+function readAnalysisSnapshot(
+  analysis: Record<string, unknown> | null,
+  strategy: Record<string, unknown> | null,
+): { analysis: BuyerAnalysisResult | null; strategy: BuyerStrategy | null } {
+  if (!analysis || typeof analysis !== "object") {
+    return { analysis: null, strategy: null }
+  }
+  const scores = [
+    analysis.healthScore,
+    analysis.loyaltyScore,
+    analysis.vietnamReadiness,
+  ]
+  if (scores.some((n) => typeof n !== "number" || !Number.isFinite(n))) {
+    return { analysis: null, strategy: null }
+  }
+  return {
+    analysis: analysis as unknown as BuyerAnalysisResult,
+    // Optional: the LLM call may have fallen back to generateFallbackStrategy,
+    // or the LR may have submitted before it finished. BuyerAnalysisCard
+    // renders scores-only when this is null.
+    strategy: strategy
+      ? (strategy as unknown as BuyerStrategy)
+      : null,
+  }
+}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -42,6 +80,11 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
+
+  const analysisSnapshot = readAnalysisSnapshot(
+    buyer.buyer_analysis,
+    buyer.buyer_strategy,
+  )
 
   // --- 1b) Contacts (multi-contact directory for this buyer company) -----
   const contactsResult = await listContacts(id)
@@ -143,31 +186,6 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     }))
   }
 
-  // --- 4) Clients eligible to be assigned this buyer ---------------------
-  // We only include clients with a non-empty FDA registration number. The
-  // expiry check happens server-side inside assignBuyerToClient, but we
-  // still expose the expiry date so the dialog can warn eagerly.
-  const { data: rawClients } = await current.admin
-    .from("profiles")
-    .select("id, full_name, company_name, fda_registration_number, fda_expires_at")
-    .eq("role", "client")
-    .order("company_name", { ascending: true })
-
-  // Mark clients already attached to this buyer so the dialog can disable
-  // them (prevents accidental duplicate assignment, UNIQUE constraint
-  // violations, and confusion in the pipeline).
-  const attachedClientIds = new Set(
-    oppRows.map((o) => o.client?.id).filter((x): x is string => !!x),
-  )
-
-  const clients: AssignableClient[] = (rawClients ?? []).map((c: any) => ({
-    id: c.id,
-    name: c.company_name ?? c.full_name ?? "—",
-    fdaRegistrationNumber: c.fda_registration_number,
-    fdaExpiresAt: c.fda_expires_at,
-    alreadyAttached: attachedClientIds.has(c.id),
-  }))
-
   const data: BuyerDetailData = {
     id: buyer.id,
     company_name: buyer.company_name,
@@ -217,11 +235,23 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     inquiry_channel: buyer.inquiry_channel ?? null,
     inquiry_notes: buyer.inquiry_notes ?? null,
     inquiry_received_at: buyer.inquiry_received_at ?? null,
+    // Email suppression (migration 077)
+    email_hard_bounced_at: buyer.email_hard_bounced_at ?? null,
+    email_complained_at: buyer.email_complained_at ?? null,
+    email_suppression_note: buyer.email_suppression_note ?? null,
+    // AI buyer analysis snapshot (migration 079)
+    buyer_analysis: analysisSnapshot.analysis,
+    buyer_strategy: analysisSnapshot.strategy,
+    buyer_analysis_at: analysisSnapshot.analysis
+      ? (buyer.buyer_analysis_at ?? null)
+      : null,
   }
+
+  const canAssignBuyer = can(current.role, CAPS.BUYER_ASSIGN)
 
   return (
     <div className="flex flex-col gap-6 p-8">
-      <div>
+      <div className="flex items-start gap-4">
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
           <Link href="/admin/buyers">
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -234,11 +264,13 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         buyer={data}
         opportunities={oppRows}
         replies={replies}
-        clients={clients}
         contacts={contacts}
         locale={locale}
         canWrite={canWrite}
         canViewPII={canViewPII}
+        canLiftSuppression={current.role === "admin" || current.role === "super_admin"}
+        currentRole={current.role}
+        canAssignAE={canAssignBuyer}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

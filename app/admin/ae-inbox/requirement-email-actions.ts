@@ -82,6 +82,13 @@ export async function markFollowUpResentAction(engagementId: string) {
 // Fetch email drafts tied to an engagement (pre-opportunity stage).
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type EngagementEmailDeliveryStatus =
+  | "sent"
+  | "delivered"
+  | "delayed"
+  | "bounced"
+  | "complained"
+
 export type EngagementEmailDraftRow = {
   id: string
   email_type: string
@@ -92,6 +99,13 @@ export type EngagementEmailDraftRow = {
   status: "draft" | "pending_approval" | "sent" | "rejected" | "failed"
   sent_at: string | null
   created_at: string
+  delivery_status: EngagementEmailDeliveryStatus | null
+  opened_count: number | null
+  last_opened_at: string | null
+  clicked_count: number | null
+  last_clicked_at: string | null
+  bounced_at: string | null
+  complained_at: string | null
 }
 
 export type FetchEngagementDraftsResult =
@@ -111,7 +125,7 @@ export async function fetchEngagementEmailDraftsAction(
     const { data, error } = await supabase
       .from("email_drafts")
       .select(
-        "id, email_type, generated_subject, generated_content_en, translated_content_vi, recipient_email, status, sent_at, created_at",
+        "id, email_type, generated_subject, generated_content_en, translated_content_vi, recipient_email, status, sent_at, created_at, delivery_status, opened_count, last_opened_at, clicked_count, last_clicked_at, bounced_at, complained_at",
       )
       .eq("engagement_id", engagementId)
       .order("created_at", { ascending: false })

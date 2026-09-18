@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import {
   DndContext,
   DragOverlay,
@@ -128,6 +128,8 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const { t } = useTranslation()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [opportunities, setOpportunities] = useState(initialOpportunities)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -151,6 +153,16 @@ export function KanbanBoard({
   useEffect(() => {
     setOpportunities(initialOpportunities)
   }, [initialOpportunities])
+
+  // Deep-link from notification CTAs: /admin/pipeline?opp=<id>&tab=replies
+  const deepLinkOpp = searchParams.get("opp")
+  const deepLinkTab = searchParams.get("tab")
+  useEffect(() => {
+    if (!deepLinkOpp) return
+    if (!opportunities.some((o) => o.id === deepLinkOpp)) return
+    setEditingId(deepLinkOpp)
+    setEditingSection(deepLinkTab === "replies" ? "replies" : "status")
+  }, [deepLinkOpp, deepLinkTab, opportunities])
 
   // Auto-refresh the board when a buyer email arrives, instead of making an
   // AE reload the page to see the new reply. buyer_replies is written to by
@@ -303,13 +315,13 @@ export function KanbanBoard({
             duration: 7000,
           })
         } else if (res.error === "notFound") {
-          toast.error(t.kanban.notFoundTitle ?? "Không tìm thấy cơ hội", {
-            description: t.kanban.notFoundDesc ?? "Cơ hội này có thể đã bị xóa hoặc bạn không có quyền truy cập.",
+          toast.error("Không tìm thấy cơ hội", {
+            description: "Cơ hội này có thể đã bị xóa hoặc bạn không có quyền truy cập.",
             duration: 5000,
           })
         } else if (res.error === "forbidden") {
-          toast.error(t.kanban.forbiddenTitle ?? "Không có quyền", {
-            description: t.kanban.forbiddenDesc ?? "Bạn không có quyền di chuyển cơ hội này.",
+          toast.error("Không có quyền", {
+            description: "Bạn không có quyền di chuyển cơ hội này.",
             duration: 5000,
           })
         } else {
@@ -462,7 +474,12 @@ export function KanbanBoard({
         open={editingId !== null}
         initialSection={editingSection}
         onOpenChange={(v) => {
-          if (!v) setEditingId(null)
+          if (!v) {
+            setEditingId(null)
+            if (deepLinkOpp) {
+              router.replace(pathname, { scroll: false })
+            }
+          }
         }}
         onSaved={(updated) => {
           // Merge updated fields back into the local state so the card

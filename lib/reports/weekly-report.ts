@@ -2,6 +2,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Stage, WeeklyReportPayload } from "@/lib/supabase/types"
+import { buildPreFunnelMetrics } from "@/lib/reports/pre-funnel"
 
 /**
  * Weekly client report — shared data layer.
@@ -152,6 +153,15 @@ export async function buildWeeklyReportPayload(
       new Date(o.last_updated).getTime() <= periodEndTs,
   )
 
+  // Pre-kanban funnel: anonymous shortlist introductions & buyer
+  // reactions (see lib/reports/pre-funnel.ts for the privacy contract).
+  const preFunnel = await buildPreFunnelMetrics(
+    admin,
+    client.id,
+    new Date(periodStartTs),
+    new Date(periodEndTs),
+  )
+
   // Recent leads = most recently updated opportunities of the week,
   // masked per R-07 disclosure rules.
   const recentLeads = [...updatedInWeek]
@@ -181,6 +191,7 @@ export async function buildWeeklyReportPayload(
     updatedThisWeek: updatedInWeek.length,
     stageCounts,
     recentLeads,
+    preFunnel,
   }
 }
 

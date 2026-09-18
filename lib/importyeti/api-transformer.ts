@@ -435,8 +435,21 @@ export function transformImportYetiApiResponse(
   response: ImportYetiAPIResponse,
   importYetiUrl: string
 ): Partial<CreateLeadWithAIMatchingInput> {
-  const data = response.data
+  return transformImportYetiData(response.data, importYetiUrl)
+}
 
+/**
+ * Same transform, driven straight from the raw `data` payload.
+ *
+ * Exists so callers that already hold a raw fetch (see
+ * fetchRawImportYetiCompany) can also build the flattened lead shape without
+ * spending a SECOND ImportYeti credit — which is what happens if you call
+ * fetchAndTransformImportYetiData() alongside a raw fetch.
+ */
+export function transformImportYetiData(
+  data: ImportYetiAPIData,
+  importYetiUrl: string
+): Partial<CreateLeadWithAIMatchingInput> {
   // Parse complex fields
   const { topPeakMonths, topLowMonths, dataYear } = parseTimeSeries(data.time_series)
   const importTrendResult = calculateImportTrend(data.avg_teu_per_month)
@@ -500,6 +513,112 @@ export function transformImportYetiApiResponse(
     bolDescription,
     purchaseHistory: purchaseHistorySummary,
     // Note: notes and priorityRating are manually entered by LR
+  }
+}
+
+/**
+ * Fetch the RAW ImportYeti company payload — no transformation.
+ *
+ * `fetchAndTransformImportYetiData()` below returns the flattened
+ * `Partial<CreateLeadWithAIMatchingInput>` shape meant for the intake form.
+ * That projection is lossy: `analyzeBuyer()` needs the original
+ * `suppliers_table`, `hs_codes`, `recent_bols`, `time_series` and `map_table`
+ * to compute health / loyalty / Vietnam-readiness scores, and none of those
+ * survive the transform.
+ *
+ * This is the single canonical raw fetch. Callers:
+ *   - scripts/backfill-buyer-analysis.mjs (migration 079 backfill)
+ * `app/api/importyeti/analyze/route.ts` still has its own inline copy of the
+ * same request; migrating it here is left as follow-up so this change stays
+ * additive and cannot regress the working intake flow.
+ *
+ * Deliberately single-attempt: retry/backoff policy belongs to the caller,
+ * because a user-facing route (30s cap) and a batch script want very
+ * different behaviour on a 429.
+ */
+export async function fetchRawImportYetiCompany(
+  companySlug: string,
+  apiKey: string,
+): Promise<
+  | {
+      success: true
+      data: ImportYetiAPIData
+      /** ImportYeti reports remaining credits — surfaced so batch jobs can log spend. */
+      creditsRemaining: number | null
+      requestCost: number | null
+    }
+  | { success: false; error: string; status: number | null }
+> {
+  if (!companySlug) {
+    return { success: false, error: "Company slug is required", status: null }
+  }
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "ImportYeti API key is not configured",
+      status: null,
+    }
+  }
+
+  const apiUrl = `https://data.importyeti.com/v1.0/company/${encodeURIComponent(companySlug)}`
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { success: false, error: "Invalid ImportYeti API key", status: 401 }
+      }
+      if (response.status === 404) {
+        return {
+          success: false,
+          error: `Company "${companySlug}" not found on ImportYeti`,
+          status: 404,
+        }
+      }
+      if (response.status === 429) {
+        return {
+          success: false,
+          error: "ImportYeti API rate limit exceeded",
+          status: 429,
+        }
+      }
+      return {
+        success: false,
+        error: `ImportYeti API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      }
+    }
+
+    const json: ImportYetiAPIResponse = await response.json()
+
+    if (!json.data) {
+      return {
+        success: false,
+        error: "Invalid response from ImportYeti API",
+        status: null,
+      }
+    }
+
+    return {
+      success: true,
+      data: json.data,
+      creditsRemaining: json.creditsRemaining ?? null,
+      requestCost: json.requestCost ?? null,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch data from ImportYeti",
+      status: null,
+    }
   }
 }
 

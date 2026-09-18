@@ -47,6 +47,9 @@ const MUTED = rgb(0.42, 0.45, 0.5) // #6B7280
 const FAINT = rgb(0.89, 0.91, 0.94) // #E2E8F0 borders
 const SOFT = rgb(0.97, 0.98, 0.99) // #F8FAFC panel bg
 const TEAL = rgb(0.08, 0.72, 0.65) // #14B8A6 accent
+const TEAL_TINT = rgb(0.941, 0.988, 0.98) // #F0FDFA panel bg
+const TEAL_BORDER = rgb(0.6, 0.965, 0.894) // #99F6E4
+const TEAL_DARK = rgb(0.059, 0.463, 0.431) // #0F766E
 const WHITE = rgb(1, 1, 1)
 
 function hexToRgb(hex: string) {
@@ -88,6 +91,14 @@ const LABELS: Record<PreferredLanguage, Dict> = {
     newThisWeek: "lead mới trong tuần",
     updatedThisWeek: "lead có tiến triển",
     noActivity: "Không có hoạt động nào trong tuần này.",
+    preTitle: "Giới thiệu & quan tâm trước đàm phán",
+    preIntroduced: "Được giới thiệu cho buyer",
+    preViewed: "Buyer đã xem hồ sơ",
+    preInfo: "Hỏi thông tin / quan tâm",
+    preStrong: "Xin mẫu / họp / bàn đơn",
+    preStockPending: "đề xuất đang chờ phản hồi",
+    preStockActive: "buyer quan tâm, chưa vào đàm phán",
+    preNote: "Ẩn danh buyer — danh tính chỉ được mở khi vào đàm phán chính thức.",
     stageTitle: "Phân bổ theo giai đoạn",
     recentTitle: "Lead hoạt động gần đây",
     recentEmpty: "Chưa có lead nào được cập nhật trong tuần.",
@@ -114,6 +125,14 @@ const LABELS: Record<PreferredLanguage, Dict> = {
     newThisWeek: "new leads this week",
     updatedThisWeek: "leads progressed",
     noActivity: "No activity during this week.",
+    preTitle: "Pre-negotiation introductions & interest",
+    preIntroduced: "Introduced to buyers",
+    preViewed: "Buyers viewed profile",
+    preInfo: "Info requests / interest",
+    preStrong: "Sample / meeting / order",
+    preStockPending: "introductions awaiting response",
+    preStockActive: "buyers interested, not negotiating yet",
+    preNote: "Buyers stay anonymous until formal negotiations begin.",
     stageTitle: "Pipeline by stage",
     recentTitle: "Recently active leads",
     recentEmpty: "No leads were updated this week.",
@@ -371,6 +390,97 @@ export async function renderWeeklyReportPdf(
   })
 
   y = y - cardHeight - 30
+
+  // ---- 2b) Pre-kanban introductions & interest (anonymous) ------------
+  const pf = payload.preFunnel
+  const pfRows: Array<[string, number, string]> = pf
+    ? [
+        [L.preIntroduced, pf.introducedInWindow, "#0ea5e9"],
+        [L.preViewed, pf.viewedInWindow, "#6366f1"],
+        [L.preInfo, pf.infoInWindow, "#f59e0b"],
+        [L.preStrong, pf.strongInWindow, "#14b8a6"],
+      ]
+    : []
+  const pfHasEvents = pfRows.some(([, n]) => n > 0)
+  const pfHasStock = pf ? pf.pendingResponse > 0 || pf.activeInterest > 0 : false
+  if (pf && (pfHasEvents || pfHasStock)) {
+    const padX = 14
+    const boxH = 118
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - boxH,
+      width: CONTENT_WIDTH,
+      height: boxH,
+      color: TEAL_TINT,
+      borderColor: TEAL_BORDER,
+      borderWidth: 1,
+    })
+    page.drawText(L.preTitle, {
+      x: MARGIN + padX,
+      y: y - 20,
+      size: 10,
+      font: bold,
+      color: TEAL_DARK,
+    })
+
+    // 2x2 mini-stats: colored bold value + muted label on its right.
+    const colW = (CONTENT_WIDTH - padX * 2 - 14) / 2
+    pfRows.forEach(([label, value, colorHex], i) => {
+      const col = i % 2
+      const row = Math.floor(i / 2)
+      const x = MARGIN + padX + col * (colW + 14)
+      const rowY = y - 44 - row * 22
+      const valueText = String(value)
+      page.drawText(valueText, {
+        x,
+        y: rowY,
+        size: 12,
+        font: bold,
+        color: hexToRgb(colorHex),
+      })
+      page.drawText(
+        truncate(
+          label,
+          font,
+          8.5,
+          colW - bold.widthOfTextAtSize(valueText, 12) - 8,
+        ),
+        {
+          x: x + bold.widthOfTextAtSize(valueText, 12) + 8,
+          y: rowY + 1,
+          size: 8.5,
+          font,
+          color: MUTED,
+        },
+      )
+    })
+
+    const stockText = truncate(
+      `${pf.pendingResponse} ${L.preStockPending} · ${pf.activeInterest} ${L.preStockActive}`,
+      font,
+      8.5,
+      CONTENT_WIDTH - padX * 2,
+    )
+    page.drawText(stockText, {
+      x: MARGIN + padX,
+      y: y - 90,
+      size: 8.5,
+      font,
+      color: TEAL_DARK,
+    })
+    page.drawText(
+      truncate(L.preNote, font, 7.5, CONTENT_WIDTH - padX * 2),
+      {
+        x: MARGIN + padX,
+        y: y - 106,
+        size: 7.5,
+        font,
+        color: MUTED,
+      },
+    )
+
+    y = y - boxH - 18
+  }
 
   // ---- 3) Pipeline by stage --------------------------------------------
   page.drawText(L.stageTitle, {

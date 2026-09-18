@@ -242,12 +242,11 @@ export async function respondToClientRequest(
     }
   }
 
-  // Notify the client that their request has been responded to
-  dispatchNotification({
+  await dispatchNotification({
     userId: request.client_id,
     category: "status_update",
     linkPath: `/client/sla`,
-    dedupKey: `client_request_replied:${request.id}:${Math.floor(Date.now() / 1000)}`,
+    dedupKey: `client_request_replied:${request.id}:${parsed.data.note ? hashNote(parsed.data.note) : "first"}`,
     title: {
       vi: `Yêu cầu của bạn có phản hồi mới`,
       en: `Your request has a new reply`,
@@ -260,8 +259,6 @@ export async function respondToClientRequest(
       vi: "Xem chi tiết",
       en: "View details",
     },
-  }).catch((err) => {
-    console.error("[sla] notification dispatch failed", err)
   })
 
   revalidatePath("/admin/sla")
@@ -301,10 +298,9 @@ export async function resolveClientRequest(
     .eq("id", parsed.data.request_id)
   if (error) return { ok: false, error: error.message }
 
-  // Notify the client that their request has been resolved
-  dispatchNotification({
+  await dispatchNotification({
     userId: request.client_id,
-    category: "deal_closed",
+    category: "status_update",
     linkPath: `/client/sla`,
     dedupKey: `client_request_resolved:${request.id}`,
     title: {
@@ -319,8 +315,6 @@ export async function resolveClientRequest(
       vi: "Xem chi tiết",
       en: "View details",
     },
-  }).catch((err) => {
-    console.error("[sla] notification dispatch failed", err)
   })
 
   revalidatePath("/admin/sla")
@@ -448,7 +442,7 @@ export async function replyToClientRequest(
             userId: admin.id,
             category: "action_required",
             linkPath: `/admin/sla`,
-            dedupKey: `client_reply:${request.id}:${admin.id}:${Math.floor(Date.now() / 1000)}`,
+            dedupKey: `client_reply:${request.id}:${admin.id}:${hashNote(parsed.data.body)}`,
             title: {
               vi: `${clientName} đã trả lời yêu cầu SLA`,
               en: `${clientName} replied to SLA request`,
@@ -461,8 +455,6 @@ export async function replyToClientRequest(
               vi: "Xem chi tiết",
               en: "View details",
             },
-          }).catch((err) => {
-            console.error("[sla] notification dispatch failed for admin", admin.id, err)
           })
         )
       )
@@ -472,4 +464,13 @@ export async function replyToClientRequest(
   revalidatePath("/client/sla")
   revalidatePath("/admin/sla")
   return { ok: true }
+}
+
+function hashNote(s: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h = (h ^ s.charCodeAt(i)) >>> 0
+    h = (h * 0x01000193) >>> 0
+  }
+  return h.toString(16)
 }

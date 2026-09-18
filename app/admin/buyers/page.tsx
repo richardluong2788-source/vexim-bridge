@@ -39,6 +39,8 @@ export default async function BuyersDirectoryPage() {
   const canWriteBuyer = (isLR || isAdmin) && !isSR
   // LR and Admin can trigger AI matching for buyers
   const canRunMatch = (isLR || isAdmin) && !isSR
+  // Only super_admin/admin may override AI ownership and pin a buyer to an AE
+  const canAssignBuyer = can(role, CAPS.BUYER_ASSIGN)
 
   // Scope logic:
   // - AE: Only see buyers assigned to them via opportunities
@@ -224,7 +226,7 @@ export default async function BuyersDirectoryPage() {
         )}
       </div>
 
-      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} isLeadResearcher={isLR} canWriteBuyer={canWriteBuyer} />
+      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} isLeadResearcher={isLR} canWriteBuyer={canWriteBuyer} canAssign={canAssignBuyer} currentRole={role} />
     </div>
   )
 }

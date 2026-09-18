@@ -1,12 +1,13 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { upload } from "@vercel/blob/client"
-import { Loader2, Upload, X, ImageIcon, Video } from "lucide-react"
+import { Loader2, X, ImageIcon, Video, Link2Off } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { isValidImageUrl } from "@/lib/utils/image-link"
 
 interface MediaUploadFieldProps {
   id: string
@@ -30,7 +31,13 @@ const MAX_SIZE = {
 
 export function MediaUploadField({ id, label, value, onChange, kind, hint, folder }: MediaUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
+  const [previewBroken, setPreviewBroken] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Reset trạng thái báo lỗi mỗi khi link thay đổi.
+  useEffect(() => {
+    setPreviewBroken(false)
+  }, [value])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -61,6 +68,8 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
   }
 
   const isYoutube = kind === "video" && /youtube\.com|youtu\.be/.test(value)
+  const showImagePreview = kind === "image" && value && isValidImageUrl(value)
+  const showInvalidLinkNote = kind === "image" && value && !isValidImageUrl(value)
 
   return (
     <div className="space-y-2">
@@ -69,7 +78,29 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
       {value ? (
         <div className="relative rounded-lg border border-border overflow-hidden bg-muted/30">
           {kind === "image" ? (
-            <img src={value} alt={label} className="w-full max-h-48 object-contain" />
+            showImagePreview ? (
+              previewBroken ? (
+                <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                  <Link2Off className="h-4 w-4 shrink-0 text-destructive" />
+                  <span className="truncate">
+                    Không tải được ảnh từ link này — kiểm tra lại link có công khai không.
+                  </span>
+                </div>
+              ) : (
+                <img
+                  src={value}
+                  alt={label}
+                  loading="lazy"
+                  onError={() => setPreviewBroken(true)}
+                  className="w-full max-h-48 object-contain"
+                />
+              )
+            ) : showInvalidLinkNote ? (
+              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                <ImageIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">Đang chờ link ảnh hợp lệ (bắt đầu bằng https://)...</span>
+              </div>
+            ) : null
           ) : isYoutube ? (
             <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
               <Video className="h-4 w-4 shrink-0" />
@@ -99,6 +130,10 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           placeholder="https://..."
           className="flex-1"
         />
+        {/* Đã có ảnh (link hợp lệ) thì ẩn nút chọn file để tránh tải nhầm;
+            nút X phía trên sẽ xóa ảnh và đưa nút chọn file trở lại.
+            Riêng video vẫn giữ nút chọn file vì video có thể nặng, cần upload. */}
+        {(kind === "video" || !showImagePreview) && (
         <Button
           type="button"
           variant="outline"
@@ -115,6 +150,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           )}
           {uploading ? "Đang tải..." : "Chọn file"}
         </Button>
+        )}
         <input
           ref={inputRef}
           type="file"

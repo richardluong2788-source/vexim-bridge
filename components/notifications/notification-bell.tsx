@@ -42,7 +42,6 @@ export function NotificationBell({
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(initialUnreadCount)
   const [items, setItems] = useState<Notification[]>(initialRecent)
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [, startTransition] = useTransition()
 
   const refresh = useCallback(async () => {
@@ -51,45 +50,66 @@ export function NotificationBell({
     setItems(snap.recent)
   }, [])
 
-  // Subscribe to realtime notification inserts for instant bell updates
+  // Subscribe to realtime INSERT + UPDATE. Cleanup must run on unmount —
+  // putting removeChannel inside the getUser().then() return is a leak
+  // (that return is not an effect cleanup).
   useEffect(() => {
     const supabase = createClient()
-    
-    // Get current user ID for filtering
-    let userId: string | null = null
-    
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      userId = user.id
-      
-      // Subscribe to new notifications for this user
-      const channel = supabase
-        .channel("notifications-realtime")
+      if (!user || cancelled) return
+      const ch = supabase
+        .channel(`notifications-realtime:${user.id}`)
         .on<Notification>(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${userId}`,
+            filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            // Add new notification to the top of the list
             const newNotification = payload.new as Notification
-            if (!newNotification) return
-            setItems((prev) => [newNotification, ...prev.slice(0, 14)])
-            setUnread((c) => c + 1)
-          }
+            if (!newNotification?.id) return
+            setItems((prev) => {
+              if (prev.some((n) => n.id === newNotification.id)) return prev
+              return [newNotification, ...prev.slice(0, 14)]
+            })
+            if (!newNotification.read_at) {
+              setUnread((c) => c + 1)
+            }
+          },
+        )
+        .on<Notification>(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const updated = payload.new as Notification
+            if (!updated?.id) return
+            setItems((prev) =>
+              prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n)),
+            )
+            const old = payload.old as Notification | undefined
+            if (updated.read_at && old && !old.read_at) {
+              setUnread((c) => Math.max(0, c - 1))
+            }
+          },
         )
         .subscribe()
-      
-      return () => {
-        supabase.removeChannel(channel)
-      }
+      channel = ch
+      if (cancelled) supabase.removeChannel(ch)
     })
-    
+
     return () => {
-      // Cleanup handled in the promise
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
   }, [])
 
@@ -101,11 +121,9 @@ export function NotificationBell({
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
-    // Lazy refresh on first open so the bell badge stays accurate without
-    // polling. Subsequent opens reuse local state unless user explicitly
-    // triggers a mutation below.
-    if (next && !hasLoadedOnce) {
-      setHasLoadedOnce(true)
+    // Refresh every time the popover opens so mark-as-read from another
+    // tab / SSR overwrite cannot leave a stale list.
+    if (next) {
       startTransition(refresh)
     }
   }
@@ -188,15 +206,17 @@ export function NotificationBell({
         sideOffset={8}
         collisionPadding={16}
         avoidCollisions
-        className="flex w-[380px] max-h-[min(520px,var(--radix-popover-content-available-height,520px),70vh)] flex-col overflow-hidden p-0"
+        className="flex w-[min(380px,calc(100vw-2rem))] max-h-[min(520px,var(--radix-popover-content-available-height,520px),70vh)] flex-col overflow-hidden p-0"
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">{t.notifications.title}</h3>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <h3 className="min-w-0 truncate text-sm font-semibold">
+              {t.notifications.title}
+            </h3>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -224,15 +244,18 @@ export function NotificationBell({
             </p>
           </div>
         ) : (
-          <ScrollArea className="min-h-0 flex-1">
-            <ul className="flex flex-col">
+          <ScrollArea className="min-h-0 w-full flex-1">
+            <ul className="flex w-full min-w-0 flex-col">
               {items.map((n) => (
-                <li key={n.id} className="border-b border-border last:border-b-0">
+                <li
+                  key={n.id}
+                  className="w-full min-w-0 border-b border-border last:border-b-0"
+                >
                   <button
                     type="button"
                     onClick={() => handleItemClick(n)}
                     className={cn(
-                      "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40",
+                      "flex w-full min-w-0 items-start gap-3 overflow-hidden px-4 py-3 text-left transition-colors hover:bg-accent/40",
                       !n.read_at && "bg-accent/20",
                     )}
                   >

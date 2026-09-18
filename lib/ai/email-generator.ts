@@ -15,6 +15,14 @@ import { generateText, Output } from "ai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
+import {
+  buildSupplierTrustSignals,
+  buildBuyerSupplierMapping,
+  getVeximPositioningSnippet,
+  getSoftProductDescription,
+  getSoftSeasonalityHook,
+  getSeasonalCapacityAngle,
+} from "@/lib/ai/vexim-positioning"
 
 /**
  * Extract specific purchase history details (supplier names, years, volumes) from raw text.
@@ -69,36 +77,42 @@ function extractPurchaseHistoryDetails(text: string | null): {
  * - PAS Framework: Problem → Agitate → Solution
  */
 const EMAIL_TYPE_GUIDANCE: Record<EmailType, string> = {
-  introduction: `COLD INTRODUCTION - "Buyer Relevance" approach (NOT a sales pitch, NOT a supplier pitch).
+  introduction: `COLD INTRODUCTION - Soft 60/40 Compliance + Product & Seasonality (V4).
 
-═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: THIS EMAIL'S ONLY JOB IS "WE UNDERSTAND WHAT YOU BUY"
-═══════════════════════════════════════════════════════════════════════════════
-This is email 1 of the funnel: Buyer relevance → Supplier credibility → Commercial offer.
-Do NOT try to prove the supplier is good in this email — that is the job of the follow-up,
-sent AFTER the buyer responds and shows interest (see the "3 Pillars of Trust" stage in the
-follow_up guidance). Leading with factory proof / COA / certifications here is premature and
-dilutes the one thing this email needs to land: proof that you did your homework on THIS buyer.
+Vexim positioning (60% — MUST reflect):
+Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company.
+We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness.
+We only work with factories we've visited and audited. We reject 80% that apply. Only those meeting US compliance standards join our network. Direct factory, transparent pricing, no trading companies.
+Buyers get US-compliant suppliers, not random quotes.
 
-CRITICAL RULES:
-- NEVER promise specific percentages (e.g. "15-20% savings") unless the admin explicitly provides verified data.
-- Instead, use softer framing: "very competitive landed cost", "pricing structure worth comparing".
-- Do NOT offer factory video, COA, or certifications in this email — save concrete proof for the follow-up.
-- Position Vexim as a sourcing/export PARTNER, not a broker with a supplier list to push. Prefer:
-  "Rather than sending you a general supplier list, we can shortlist manufacturers based on your
-  current specification, volume and compliance requirements" over "we work with a few Vietnamese
-  manufacturers that may fit your needs."
+BUYER PRODUCT & SEASONALITY (40% — MUST reflect, soft, not surveillance):
+You have internal buyer data for reasoning, but must produce SOFT language using main_product_soft, season_hook_soft, capacity_angle_soft from context:
+- Mention buyer's specific product category softly using main_product_soft (e.g., 'premium cashew kernels', 'arabica coffee', 'black pepper') — DO NOT use HS codes
+- Mention seasonality softly using season_hook_soft and capacity_angle_soft (e.g., 'As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind') — DO NOT mention exact months like 'Oct, Nov, Dec' or 'your peak is Oct-Dec' or shipment counts, TEU, volumes
+- Example desired 40% part from context: example_40_percent — adapt naturally
+- BAD (surveillance): 'I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, with peak around Oct-Dec and 120 shipments, 16,800kg — capacity 80 tons lead time 15 days FDA active'
+- GOOD (soft 40%): 'I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.'
+- GOOD: 'We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with US-compliant factories'
+- This 40% part should be 1-2 sentences at opening, right after greeting, before Vexim intro, or woven into same sentence as Vexim intro
 
-STRUCTURE:
-1. SUBJECT LINE: Personalized + specific. This is a FIRST-CONTACT email — NEVER use "Re:" or "Fwd:" prefixes (there is no prior thread; a fake "Re:" is a major spam/deceptive-subject signal that gets flagged by Gmail/Outlook). Format: "[Name], [value hook] for [Company]'s [product] supply". Example: "Richard, a sourcing partner for Nodom's Arabica supply"
-2. HOOK (1 sentence): One sharp question about their pain point. "Are rising costs on your [origin] supply starting to squeeze your margins?"
-3. BUYER RELEVANCE (1-2 sentences): Show you understand THEIR sourcing profile using real data (product, volume, current origins) — this IS the credibility signal for a first email, not supplier proof. See the funnel-stage guidance below for exactly how specific to be with sourcing-history references.
-4. PARTNER POSITIONING (1-2 sentences): Frame Vexim as a partner that matches manufacturers to their spec, not a broker pushing a list. "Rather than sending you a general supplier list, we can shortlist manufacturers based on your current specification, volume and compliance requirements."
-5. SOFT QUALIFYING CTA (1 sentence): Ask a light question that opens the conversation and starts qualifying — NOT a request to prove supplier quality. "Would you be open to sharing your current specification so we can see if there's a fit?" beats "Would you be open to a call to compare notes on our facility?"
+CRITICAL — SOFT APPROACH & DATA PRIVACY (do not violate):
+- Internal buyer intelligence (_internal_* fields) and supplier vetting (_internal_supplier_vetting) are FOR INTERNAL REASONING ONLY to choose angle and compliance pillar. NEVER expose raw data verbatim.
+- NEVER write HS codes, specific supplier names, shipment counts, TEU, exact peak months, origin/destination ports, BOL descriptions, exact volumes/years, purchase_history details
+- Supplier data also internal: do NOT list 'capacity 80 tons/month, lead time 15 days, FDA active, 5 QC engineers, FOB, T/T + L/C'. Instead soft: 'The factory we work with has been through our US compliance program and audit — FDA registration, HACCP, traceability in place, and we have verified capacity and lead time for this category'
+- 60/40 SPLIT: Email must feel like 40% about buyer's product & seasonal timing + 60% about Vexim compliance consulting
 
-TONE: Peer-to-peer, consultative, curious about THEIR business. Confident without overselling.
-Word count: 100-150 words (shorter = better for cold emails).`,
+STRUCTURE V4 — 60/40 (120-170 words, excluding signature):
+1. SUBJECT: Soft, human, sentence case, compliance angle, under 50 chars. E.g., 'Vietnam {category} — US compliance support' or '{Company} — {product} for US market, compliance included'. NEVER Re:/Fwd.
+2. HOOK — 40% Buyer insight & seasonality (1-2 sentences): Use main_product_soft + season_hook_soft + capacity_angle_soft from context. E.g., 'Hi John, I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.' — this is 40% part. Must be first after greeting.
+3. COMPLIANCE — 60% Vexim compliance consulting (2-3 sentences): E.g., 'I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, helping them meet FDA, HACCP, and traceability requirements. Our factories go through our US compliance program and audit before joining our network — direct factory, not trading companies, only those meeting US standards.' — this is 60% part.
+4. SOFT CTA (1 sentence): 'Would you be open to exploring additional Vietnam sourcing with compliance support included for your {category}? If now isn't the right time, no worries at all.'
+5. CLOSE: Low-pressure out.
 
+TONE: Compliance advisor, peer-to-peer, consultative, confident, soft. Not salesy, not surveillance, not brochure. Like a person who understands both US compliance and seasonal capacity challenges.
+AVOID: marketplace pitch, listing all certs/capacity/payment, 'best price', 'cheapest', 'guaranteed', 'free sample', exclamation, ALL CAPS, raw data exposure.
+MUST INCLUDE: soft product mention using main_product_soft + soft seasonality using season_hook_soft (40%) + compliance consulting (60%: FDA, HACCP, traceability, audit, direct factory).
+
+Word count: 120-170 words (excluding signature).`,
   follow_up: `FOLLOW-UP — this email type covers TWO different sub-modes. Read the admin's Vietnamese
 instruction and the opportunity context to tell which one applies, then follow that structure:
 
@@ -334,7 +348,7 @@ const outputSchema = z.object({
   content_en: z
     .string()
     .describe(
-      "Full English email body, starting with a greeting (e.g. 'Dear [Name]') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT:\n\nBest regards,\n\n[SENDER_FULL_NAME]\n[EXPORTER_COMPANY_NAME]\n[SENDER_EMAIL]\n[SENDER_PHONE]\n\nNEVER use placeholders like '[Your Name]', '[Your Contact]', etc. Use the actual names and contacts provided in the context. If any info is missing, use only what's available. No HTML — use plain line breaks.",
+      "Full English email body, starting with a greeting (e.g. 'Hi [first name],') and ending with a COMPLETE signature using REAL sender information from context. SIGNATURE FORMAT (follow exactly, name then title then legal entity then postal address; never a phone number or email address):\n\nBest regards,\n\n[sender_name]\n[sender_title]\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\n\nFor a COLD first-contact introduction or a follow-up the buyer has NOT answered, add one short human opt-out line as the final body sentence before the signature: 'If this isn't relevant right now, just reply \"no\" and I won't reach out again — no hard feelings.' Never add that line once the buyer is in an active conversation (quotations, negotiations, replies). NEVER use placeholders like '[Your Name]', '[Your Title]'. No HTML — use plain line breaks.",
     ),
   content_vi: z
     .string()
@@ -422,6 +436,7 @@ export async function generateEmailDraft(
     .select(
       `
         id,
+        client_id,
         stage,
         potential_value,
         notes,
@@ -455,6 +470,63 @@ export async function generateEmailDraft(
 
   if (!lead) {
     throw new Error("Opportunity has no associated lead")
+  }
+
+  // ------------------------------------------------------------
+  // 2b) Load supplier vetting data (factory assessment, profile, products, certs)
+  // ------------------------------------------------------------
+  const clientId = (opportunity as any).client_id as string | undefined
+  let supplierVetting: any = null
+  let supplierProducts: any[] = []
+  let supplierCerts: any[] = []
+  let supplierProfile: any = null
+
+  if (clientId) {
+    const [factoryRes, profileRes, productsRes, certsRes, intakeRes] = await Promise.all([
+      supabase.from("client_factory_assessments").select("*").eq("client_id", clientId).maybeSingle(),
+      supabase.from("client_profiles").select("*").eq("client_id", clientId).maybeSingle(),
+      supabase.from("client_products").select("product_name, hs_code, compliance_badges, moq_value, lead_time, category").eq("client_id", clientId).eq("status", "active").limit(5),
+      supabase.from("compliance_docs").select("kind, title, expires_at").eq("owner_id", clientId).limit(10),
+      supabase.from("profiles").select("fda_registration_number, fda_expires_at, company_name, industries, country").eq("id", clientId).maybeSingle(),
+    ])
+
+    const fa = factoryRes.data as any
+    const cp = profileRes.data as any
+    const prof = intakeRes.data as any
+
+    supplierProfile = cp
+    supplierProducts = productsRes.data ?? []
+    supplierCerts = certsRes.data ?? []
+
+    supplierVetting = {
+      companyName: prof?.company_name ?? (opportunity as any).profiles?.company_name ?? null,
+      certifications: cp?.featured_certifications ?? supplierCerts.filter((d: any) => d.kind !== "factory_video" && d.kind !== "factory_photo").map((d: any) => d.title || d.kind),
+      qualitySystems: fa?.quality_systems ?? null,
+      fdaStatus: fa ? (prof?.fda_registration_number ? "registered" : "checking") : (prof?.fda_registration_number ? "registered" : null),
+      fdaNumber: prof?.fda_registration_number ?? null,
+      productionCapacity: cp?.production_capacity ?? fa?.production_capacity_monthly ?? null,
+      moq: cp?.moq ?? null,
+      leadTimeDays: cp?.lead_time_days ?? fa?.lead_time_days ?? null,
+      incoterms: fa?.incoterms ?? null,
+      paymentPolicy: fa?.payment_policy ?? null,
+      traceability: fa?.traceability ?? null,
+      exportMarkets: fa?.export_markets ?? null,
+      exportSinceYear: fa?.export_since_year ?? null,
+      oemOdm: fa?.oem_odm ?? null,
+      companyScale: fa?.company_scale ?? null,
+      hasExportDept: fa?.has_export_dept ?? null,
+      hasEnglishStaff: fa?.has_english_staff ?? null,
+      staffEngineersCount: fa?.staff_engineers_count ?? null,
+      staffWorkersCount: fa?.staff_workers_count ?? null,
+      uspPoints: cp?.usp_points ?? null,
+      products: supplierProducts.map((p: any) => ({
+        productName: p.product_name,
+        hsCode: p.hs_code,
+        complianceBadges: p.compliance_badges,
+        moqValue: p.moq_value,
+        leadTime: p.lead_time,
+      })),
+    }
   }
 
   // ------------------------------------------------------------
@@ -558,12 +630,55 @@ export async function generateEmailDraft(
     at: n.created_at,
   }))
 
+  // Compute supplier trust signals and buyer-supplier mapping + soft 60/40 helpers
+  let supplierTrustText: string | null = null
+  let buyerSupplierMappingText: string | null = null
+  let productSoft: string = "your product category"
+  let seasonHookSoft: string = "upcoming sourcing cycle"
+  let capacityAngleSoft: string = "securing reliable capacity and compliant supply is likely important"
+  try {
+    productSoft = getSoftProductDescription((lead["main_product"] as string) || null)
+    seasonHookSoft = getSoftSeasonalityHook((lead["top_peak_months"] as string) || (lead["peak_months"] as string) || null, new Date())
+    capacityAngleSoft = getSeasonalCapacityAngle(seasonHookSoft)
+  } catch {
+    const mp = (lead["main_product"] as string) || ""
+    if (mp.toLowerCase().includes("cashew")) productSoft = "premium cashew kernels"
+    else if (mp) productSoft = mp.split(",")[0].toLowerCase()
+    const now = new Date()
+    const month = now.getMonth() + 1
+    if (month >= 9 && month <= 11) seasonHookSoft = "peak year-end sourcing period"
+    else if (month >= 6 && month <= 8) seasonHookSoft = "pre-peak preparation period"
+    else seasonHookSoft = "upcoming sourcing cycle"
+    capacityAngleSoft = "securing consistent capacity and compliant supply is likely top of mind"
+  }
+
+  if (supplierVetting) {
+    try {
+      supplierTrustText = buildSupplierTrustSignals(supplierVetting as any)
+    } catch {}
+    try {
+      const buyerForMap = {
+        companyName: (lead["company_name"] as string) || "",
+        country: (lead["country"] as string) || null,
+        mainProduct: (lead["main_product"] as string) || null,
+        hsCode: (lead["hs_code"] as string) || null,
+        purchaseHistory: (lead["purchase_history"] as string) || null,
+        topSuppliers: (lead["top_suppliers"] as any) || null,
+        mainImportCountries: (lead["main_import_countries"] as string) || null,
+        topPeakMonths: (lead["top_peak_months"] as string) || (lead["peak_months"] as string) || null,
+        topLowMonths: (lead["top_low_months"] as string) || null,
+        totalShipments: (lead["total_shipments"] as number) || null,
+        avgTeuPerMonth: (lead["avg_teu_per_month"] as number) || null,
+        originPorts: (lead["origin_ports"] as string) || null,
+        destinationPorts: (lead["destination_ports"] as string) || null,
+      }
+      buyerSupplierMappingText = buildBuyerSupplierMapping(buyerForMap as any, supplierVetting as any)
+    } catch {}
+  }
+
   const contextBlock = JSON.stringify(
     {
-      // === BUYER BASIC INFO ===
-      // buyer_contact/buyer_email ưu tiên liên hệ AE vừa chọn ở cột "Email
-      // chính" (danh bạ đa liên hệ), chỉ fallback về contact_person/
-      // contact_email của lead khi AE không chọn ai cụ thể.
+      // === BUYER BASIC INFO — safe to reference softly ===
       buyer_company: lead["company_name"],
       buyer_contact: input.recipientContactName ?? lead["contact_person"],
       buyer_email: input.recipientContactEmail ?? lead["contact_email"],
@@ -571,40 +686,40 @@ export async function generateEmailDraft(
       buyer_country: lead["country"],
       buyer_notes: lead["notes"],
       
-      // === PRODUCT & HS CODE (Critical for personalization) ===
-      main_product: lead["main_product"], // e.g., "Cashewnut Kernels", "Arabica Green Coffee"
-      hs_code: lead["hs_code"], // Primary HS code
-      secondary_hs_codes: lead["secondary_hs_codes"], // Other HS codes they import
-      bol_description: lead["bol_description"], // Detailed product description from BOL
+      // === PRODUCT — main_product safe for soft category reference, HS and others INTERNAL ONLY ===
+      main_product: lead["main_product"],
+      _internal_hs_code: lead["hs_code"],
+      _internal_secondary_hs_codes: lead["secondary_hs_codes"],
+      _internal_bol_description: lead["bol_description"],
       
-      // === SUPPLY CHAIN INTELLIGENCE (Key for competitive positioning) ===
-      top_suppliers: formattedSuppliers, // Current suppliers with countries
-      has_vietnam_supplier: hasVietnamSupplier, // Already buying from VN?
-      vietnam_supplier_names: vietnamSupplierNames.length > 0 ? vietnamSupplierNames : null,
-      main_import_countries: lead["main_import_countries"], // Origin countries they buy from
+      // === SUPPLY CHAIN INTELLIGENCE — INTERNAL ONLY, never expose verbatim ===
+      _internal_top_suppliers: formattedSuppliers,
+      _internal_has_vietnam_supplier: hasVietnamSupplier,
+      _internal_vietnam_supplier_names: vietnamSupplierNames.length > 0 ? vietnamSupplierNames : null,
+      _internal_main_import_countries: lead["main_import_countries"],
       
-      // === PURCHASE HISTORY & VOLUME (For sizing the opportunity) ===
-      purchase_history: lead["purchase_history"], // Summary of past purchases
-      purchase_history_vietnam_supplier: purchaseHistoryData.vietnamSupplier, // ⭐ EXTRACTED: Specific Vietnam supplier name if mentioned
-      purchase_history_vietnam_year: purchaseHistoryData.vietnamYear, // ⭐ EXTRACTED: Year when they bought from Vietnam
-      purchase_history_current_supplier: purchaseHistoryData.currentSupplier, // ⭐ EXTRACTED: Current/recent supplier name
-      purchase_history_current_year: purchaseHistoryData.currentYear, // ⭐ EXTRACTED: Year of current supplier
-      purchase_history_volume: purchaseHistoryData.volume, // ⭐ EXTRACTED: Specific volume in kg
-      total_shipments: lead["total_shipments"], // Total shipment count
-      avg_teu_per_month: lead["avg_teu_per_month"], // Average volume
-      last_shipment_date: lead["last_shipment_date"], // Recency of activity
+      // === PURCHASE HISTORY & VOLUME — INTERNAL ONLY ===
+      _internal_purchase_history: lead["purchase_history"],
+      _internal_purchase_history_vietnam_supplier: purchaseHistoryData.vietnamSupplier,
+      _internal_purchase_history_vietnam_year: purchaseHistoryData.vietnamYear,
+      _internal_purchase_history_current_supplier: purchaseHistoryData.currentSupplier,
+      _internal_purchase_history_current_year: purchaseHistoryData.currentYear,
+      _internal_purchase_history_volume: purchaseHistoryData.volume,
+      _internal_total_shipments: lead["total_shipments"],
+      _internal_avg_teu_per_month: lead["avg_teu_per_month"],
+      _internal_last_shipment_date: lead["last_shipment_date"],
       
-      // === TIMING (For outreach timing) ===
-      peak_months: lead["peak_months"], // High-demand months
-      top_low_months: lead["top_low_months"], // Low-demand months
+      // === TIMING — INTERNAL ONLY ===
+      _internal_peak_months: lead["peak_months"],
+      _internal_top_low_months: lead["top_low_months"],
       
-      // === LOGISTICS (For operational fit) ===
-      origin_ports: lead["origin_ports"], // Ports they ship from
-      destination_ports: lead["destination_ports"], // Ports they receive at
-      container_types: lead["container_types"], // Container preferences
+      // === LOGISTICS — INTERNAL ONLY ===
+      _internal_origin_ports: lead["origin_ports"],
+      _internal_destination_ports: lead["destination_ports"],
+      _internal_container_types: lead["container_types"],
       
-      // === PRIORITY & QUALIFICATION ===
-      priority_rating: lead["priority_rating"], // 1-5 priority score
+      // === PRIORITY ===
+      priority_rating: lead["priority_rating"],
       
       // === EXPORTER (Our client) INFO ===
       exporter_company: exporter?.["company_name"] ?? null,
@@ -612,17 +727,15 @@ export async function generateEmailDraft(
       exporter_email: exporter?.["email"] ?? null,
       exporter_phone: exporter?.["phone"] ?? null,
       
-      // === SENDER (AE) INFO - Use for email signature ===
-      // NOTE: Only name, title, and company are included.
-      // Personal email and phone are intentionally excluded to prevent
-      // buyers from contacting AEs directly outside the platform.
+      // === SENDER (AE) INFO ===
       sender_name: aeProfile?.full_name ?? null,
       sender_title: 
         aeProfile?.role === "super_admin" ? "Founder & CEO" :
         aeProfile?.role === "account_executive" ? "Account Executive" :
         aeProfile?.role === "staff" ? "Business Development Manager" :
         "Business Development",
-      sender_company: "Vexim Trade",
+      sender_company: "VEXIM GLOBAL CO., LTD",
+      sender_address: "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam",
       
       // === OPPORTUNITY INFO ===
       opportunity_stage: (opportunity as { stage: string }).stage,
@@ -630,7 +743,7 @@ export async function generateEmailDraft(
         .potential_value,
       opportunity_notes: (opportunity as { notes: string | null }).notes,
 
-      // === DEAL COMMERCIAL TERMS (thông tin deal hiện tại) ===
+      // === DEAL COMMERCIAL TERMS ===
       deal_products_interested: opp.products_interested ?? null,
       deal_quantity_required: opp.quantity_required ?? null,
       deal_target_price_usd: opp.target_price_usd ?? null,
@@ -640,11 +753,61 @@ export async function generateEmailDraft(
       deal_destination_port: opp.destination_port ?? null,
       deal_next_step: opp.next_step ?? null,
 
-      // === CONVERSATION HISTORY (8 lượt gần nhất, cũ -> mới) ===
+      // === CONVERSATION HISTORY ===
       conversation_history: conversationHistory,
 
-      // === LIVE BUYER INTEL (AE thu được khi liên hệ trực tiếp) ===
+      // === LIVE BUYER INTEL ===
       buyer_intel_notes: buyerIntel,
+
+      // === SOFT 60/40 HELPERS — safe to use in email ===
+      main_product_soft: productSoft,
+      season_hook_soft: seasonHookSoft,
+      capacity_angle_soft: capacityAngleSoft,
+      current_date: new Date().toISOString().split("T")[0],
+      current_month: new Date().getMonth() + 1,
+      example_40_percent: `I noticed ${lead["company_name"] || "your company"} has a strong presence in ${productSoft} for the US market. As we approach ${seasonHookSoft}, ${capacityAngleSoft}.`,
+
+      // === SUPPLIER VETTING — INTERNAL ONLY, for reasoning, never expose raw specs ===
+      _internal_supplier_vetting: supplierVetting ? {
+        company_name: supplierVetting.companyName,
+        certifications: supplierVetting.certifications,
+        quality_systems: supplierVetting.qualitySystems,
+        fda_status: supplierVetting.fdaStatus,
+        fda_number: supplierVetting.fdaNumber,
+        production_capacity: supplierVetting.productionCapacity,
+        moq: supplierVetting.moq,
+        lead_time: supplierVetting.leadTimeDays,
+        incoterms: supplierVetting.incoterms,
+        payment_policy: supplierVetting.paymentPolicy,
+        traceability: supplierVetting.traceability,
+        export_markets: supplierVetting.exportMarkets,
+        export_since_year: supplierVetting.exportSinceYear,
+        oem_odm: supplierVetting.oemOdm,
+        company_scale: supplierVetting.companyScale,
+        has_export_dept: supplierVetting.hasExportDept,
+        has_english_staff: supplierVetting.hasEnglishStaff,
+        staff_engineers: supplierVetting.staffEngineersCount,
+        staff_workers: supplierVetting.staffWorkersCount,
+        usp_points: supplierVetting.uspPoints,
+        key_products: supplierVetting.products,
+        trust_signals_text: supplierTrustText,
+      } : null,
+
+      // === BUYER-SUPPLIER MAPPING — INTERNAL REASONING ONLY ===
+      _internal_buyer_supplier_mapping: buyerSupplierMappingText,
+
+      // === VEXIM POSITIONING — compliance consulting for VN exporters to US ===
+      vexim_positioning: {
+        who_we_are: "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company",
+        what_we_do: "We help Vietnamese manufacturers meet US compliance: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness",
+        how_we_select: "Only factories we've visited and audited, that meet US compliance standards, join our network. We reject 80% that apply. Direct factory, transparent pricing, no trading companies",
+        trust_pillars_soft: [
+          "Compliance program for US market: FDA, HACCP, ISO, BRC, traceability",
+          "Factory audit by Vexim team, direct factory, 50-300 workers typical",
+          "Quality system: traceability, QC engineers, English export team",
+          "Support: 24h response, video factory tour, flexible payment T/T and L/C at sight",
+        ],
+      },
     },
     null,
     2,
@@ -701,12 +864,12 @@ matched to their specific requirements — NOT a broker blasting out a generic s
     `
 CONTEXT DATA - Do NOT get confused:
 - "exporter_company" = The BUYER's company (e.g., "Công Ty Long An"). This is NOT for the signature.
-- "sender_name", "sender_title", "sender_company", "sender_email", "sender_phone" = The AE's info from VEXIM TRADE. These go in the signature.
+- "sender_name", "sender_title", "sender_company", "sender_address" = The AE's info from VEXIM GLOBAL CO., LTD. These go in the signature (name, title, legal entity, then the postal address on its own line). There is no sender_email or sender_phone in context — never invent or ask for them, and never put a phone number or email address in the email.
 
 Example to avoid confusion:
 - Exporter company: "Công Ty Long An" (This is the buyer we're reaching out to)
-- Sender: "Luong Van Hoc, Account Executive at Vexim Trade" (This is the AE sending the email)
-- The email is FROM Luong Van Hoc (Vexim Trade) TO the buyer at Công Ty Long An.`,
+- Sender: "Luong Van Hoc, Account Executive at VEXIM GLOBAL CO., LTD" (This is the AE sending the email)
+- The email is FROM Luong Van Hoc (Vexim) TO the buyer at Công Ty Long An. In the body, call the company "Vexim"; the signature line is always "VEXIM GLOBAL CO., LTD".`,
     `
 GREETING & SUBJECT PERSONALIZATION:
 - "buyer_contact" is the EXACT person this email is addressed to (the AE explicitly selected them as the main recipient). ALWAYS greet them by this name: "Dear [buyer_contact]," or "Hi [first name],". Never use a generic greeting like "Dear Sir/Madam" or "Dear Team" when buyer_contact is provided.
@@ -721,22 +884,26 @@ GREETING & SUBJECT PERSONALIZATION:
 6. ANTI-SPAM: NO spam triggers: "FREE", "ACT NOW", "LIMITED TIME", "CLICK HERE", "BUY NOW", "GUARANTEED", ALL CAPS, or exclamation marks. Sound like a human peer, not a marketer.
 7. SIGNATURE: ABSOLUTELY CRITICAL - The signature MUST contain ONLY:
    - sender_name (the AE's real name - e.g., "Luong Van Hoc", NOT "[Your Name]")
-   - sender_title (the AE's title/role at Vexim Trade - e.g., "Account Executive" or "Business Development Manager")
-   - sender_company ("Vexim Trade")
-   
+   - sender_title (the AE's title/role - e.g., "Account Executive" or "Business Development Manager")
+   - sender_company, exactly "VEXIM GLOBAL CO., LTD"
+   - sender_address, the registered postal address, verbatim on its own line
+
    SIGNATURE FORMAT (MUST FOLLOW EXACTLY):
    Best regards,
-   
+
    [sender_name]
    [sender_title]
-   Vexim Trade
-   
-   ⚠️ NEVER include personal email addresses (like hocluongvan88@gmail.com) in the signature.
-   ⚠️ NEVER include personal phone numbers in the signature.
+   VEXIM GLOBAL CO., LTD
+   25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
+
+   ⚠️ NEVER include email addresses (personal or work) in the signature.
+   ⚠️ NEVER include phone numbers of any kind in the signature.
    ⚠️ NEVER use placeholder text like "[Your Name]" or "[Your Title]".
    ⚠️ NEVER use the buyer/exporter name in the signature.
-   
-   The signature should be minimal and professional. Buyers will reply to the email directly - no need for additional contact info.
+
+   The signature should be minimal and professional. Buyers reply to the email directly - no need for additional contact info. In the body, refer to the company conversationally as "Vexim"; the legal line "VEXIM GLOBAL CO., LTD" appears only in the signature.
+
+8. CAN-SPAM ON COLD EMAILS: for the cold "introduction" and any "follow_up" sent while the buyer has NOT replied, end the body (just before the signature) with one short, human opt-out line: 'If this isn't relevant right now, just reply "no" and I won't reach out again — no hard feelings.' Do NOT include it once the buyer has replied (quotations, sample offers, negotiations, active replies).
 `,
 `
 ═══════════════════════════════════════════════════════════════════════════════
@@ -822,7 +989,8 @@ STRICT RULES:
 - Never use emoji or excessive punctuation (!!!, ???).
 - If context is thin, write a shorter, tighter email rather than padding with fluff.
 - The Vietnamese translation must be natural business Vietnamese — not literal translation.
-- SIGNATURE: Always end with a COMPLETE signature using sender_name, exporter_company, sender_email, sender_phone from context. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- SIGNATURE: Always end with a COMPLETE signature using ONLY sender_name, sender_title, sender_company ("VEXIM GLOBAL CO., LTD"), and sender_address (registered Hanoi postal address) from context, in that order. No email line, no phone number. NEVER use placeholders like "[Your Name]" or "[Your Contact Information]".
+- OPT-OUT: cold introductions and unanswered follow-ups must close with the one-line human opt-out (reply "no"); omit it in every email inside an active conversation.
 `,
     buildScenarioIntelligenceBlock(isFirstContact, includeThreePillars),
   ].join("\n")

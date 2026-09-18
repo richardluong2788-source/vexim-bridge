@@ -9,12 +9,8 @@ import "server-only"
 
 const TELEGRAM_API_BASE = "https://api.telegram.org"
 
-function getBotToken(): string {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) {
-    throw new Error("Missing TELEGRAM_BOT_TOKEN env var")
-  }
-  return token
+function getBotToken(): string | null {
+  return process.env.TELEGRAM_BOT_TOKEN ?? null
 }
 
 export interface SendTelegramMessageResult {
@@ -37,6 +33,9 @@ export async function sendTelegramMessage(
   options?: { disableLinkPreview?: boolean },
 ): Promise<SendTelegramMessageResult> {
   const token = getBotToken()
+  if (!token) {
+    return { ok: false, error: "TELEGRAM_BOT_TOKEN not configured" }
+  }
   const truncated = text.length > 4000 ? `${text.slice(0, 3990)}…` : text
 
   try {
@@ -80,6 +79,9 @@ export async function getTelegramWebhookInfo(): Promise<{
   error?: string
 }> {
   const token = getBotToken()
+  if (!token) {
+    return { ok: false, error: "TELEGRAM_BOT_TOKEN not configured" }
+  }
   try {
     const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/getWebhookInfo`)
     const json = await res.json()
@@ -105,6 +107,9 @@ export async function setTelegramWebhook(
   secretToken: string,
 ): Promise<SendTelegramMessageResult> {
   const token = getBotToken()
+  if (!token) {
+    return { ok: false, error: "TELEGRAM_BOT_TOKEN not configured" }
+  }
 
   try {
     const res = await fetch(`${TELEGRAM_API_BASE}/bot${token}/setWebhook`, {

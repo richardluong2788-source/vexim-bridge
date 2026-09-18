@@ -18,7 +18,6 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
-  ShieldAlert,
   MessageSquare,
   Kanban,
   Info,
@@ -64,26 +63,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { assessCountryRisk, type RiskLevel } from "@/lib/risk/country-risk"
 import { maskEmail, maskPhone } from "@/lib/buyers/mask"
-import type { Stage, BuyerContact } from "@/lib/supabase/types"
+import type { Stage, BuyerContact, Role } from "@/lib/supabase/types"
 import {
   updateBuyer,
-  assignBuyerToClient,
   assignBuyerToClients,
   getAIMatchedClients,
   type AssignBuyerToClientsResultItem,
 } from "@/app/admin/buyers/actions"
 import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
 import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
+import { EmailSuppressionPanel } from "@/components/admin/email-suppression-panel"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
+import { AssignBuyerDialog as AssignAEDialog } from "@/components/admin/assign-buyer-dialog"
+import { BuyerAnalysisCard } from "@/components/admin/buyer-analysis-card"
+// Type-only: erased at build time, so the `ai` package that
+// buyer-strategy-generator imports never enters this client bundle.
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -145,6 +143,20 @@ export interface BuyerDetailData {
   inquiry_channel: string | null
   inquiry_notes: string | null
   inquiry_received_at: string | null
+
+  // Automatic email suppression (Resend bounce / complaint — migration 077)
+  email_hard_bounced_at: string | null
+  email_complained_at: string | null
+  email_suppression_note: string | null
+
+  // AI buyer analysis snapshot (migration 079). Written once when the LR
+  // creates the buyer from ImportYeti data; read back here so the AE can
+  // actually see the analysis instead of it disappearing with the intake form.
+  // NULL for buyers created before 079 or entered manually without ImportYeti
+  // — the "Phân tích" tab then falls back to SuggestedApproachCard.
+  buyer_analysis: BuyerAnalysisResult | null
+  buyer_strategy: BuyerStrategy | null
+  buyer_analysis_at: string | null
 }
 
 export interface BuyerOpportunity {
@@ -189,11 +201,15 @@ interface Props {
   buyer: BuyerDetailData
   opportunities: BuyerOpportunity[]
   replies: BuyerReply[]
-  clients: AssignableClient[]
   contacts: BuyerContact[]
   locale: "vi" | "en"
   canWrite: boolean
   canViewPII: boolean
+  canLiftSuppression: boolean
+  /** @deprecated — kept for backward compat, not used after A-Z removal */
+  clients?: AssignableClient[]
+  currentRole?: Role
+  canAssignAE?: boolean
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -264,11 +280,13 @@ export function BuyerDetailView({
   buyer,
   opportunities,
   replies,
-  clients,
   contacts,
   locale,
   canWrite,
   canViewPII,
+  canLiftSuppression,
+  currentRole,
+  canAssignAE,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -276,7 +294,6 @@ export function BuyerDetailView({
   const dateLocale = locale === "vi" ? "vi-VN" : "en-US"
 
   const [assignOpen, setAssignOpen] = useState(false)
-  const [assignMode, setAssignMode] = useState<"az" | "ai">("az")
 
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
 
@@ -328,30 +345,39 @@ export function BuyerDetailView({
             </div>
           </div>
         </div>
-        {canWrite && (
+        {(canWrite || (canAssignAE && currentRole)) && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAssignMode("ai")
-                setAssignOpen(true)
-              }}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              AI Match
-            </Button>
-            <Button
-              onClick={() => {
-                setAssignMode("az")
-                setAssignOpen(true)
-              }}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              {locale === "vi" ? "Gán cho client" : "Assign to client"}
-            </Button>
+            {canAssignAE && currentRole && (
+              <AssignAEDialog
+                buyerId={buyer.id}
+                buyerName={buyer.company_name || "Unknown"}
+                currentRole={currentRole}
+                locale={locale}
+              />
+            )}
+            {canWrite && (
+              <Button
+                onClick={() => {
+                  setAssignOpen(true)
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Match
+              </Button>
+            )}
           </div>
         )}
       </div>
+
+      {/* --- Email suppression banner (hard bounce / spam complaint) ------ */}
+      <EmailSuppressionPanel
+        leadId={buyer.id}
+        hardBouncedAt={buyer.email_hard_bounced_at}
+        complainedAt={buyer.email_complained_at}
+        note={buyer.email_suppression_note}
+        canLift={canLiftSuppression}
+        locale={locale}
+      />
 
       {/* --- Active inquiry banner (migration 068) ------------------------ */}
       {buyer.has_active_inquiry && (
@@ -452,8 +478,25 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        <Tabs defaultValue="importyeti" className="flex flex-col gap-4">
+        {/* "Phân tích" is the default tab on purpose: the AE opens this page to
+            understand the buyer before talking to them, not to audit raw customs
+            rows. ImportYeti stays one click away as the evidence behind it.
+
+            The default is conditional so that buyers with no snapshot yet
+            (everything created before migration 079, plus the bulk ImportYeti
+            paste flow) land on real data instead of an empty state. The tab
+            ORDER is not conditional — "Phân tích" is always first, so muscle
+            memory holds; only the initially-open tab adapts. Once the backfill
+            runs this branch always picks "analysis". */}
+        <Tabs
+          defaultValue={buyer.buyer_analysis ? "analysis" : "importyeti"}
+          className="flex flex-col gap-4"
+        >
           <TabsList className="self-start">
+            <TabsTrigger value="analysis" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              {locale === "vi" ? "Phân tích" : "Analysis"}
+            </TabsTrigger>
             <TabsTrigger value="importyeti" className="gap-2">
               <Ship className="h-4 w-4" />
               {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
@@ -480,6 +523,45 @@ export function BuyerDetailView({
               </Badge>
             </TabsTrigger>
           </TabsList>
+
+          {/* Analysis Tab ------------------------------------------------ */}
+          {/* Reads the snapshot persisted when the LR created the buyer
+              (leads.buyer_analysis / buyer_strategy, migration 079). Buyers
+              that predate the migration — or were entered by hand without an
+              ImportYeti link — have no snapshot, so we fall back to
+              SuggestedApproachCard, which derives tips straight from the
+              stored profile fields. It renders null when it has nothing to
+              say, hence the explicit empty state underneath it. */}
+          <TabsContent value="analysis" className="mt-0">
+            {buyer.buyer_analysis ? (
+              <BuyerAnalysisCard
+                analysis={buyer.buyer_analysis}
+                strategy={buyer.buyer_strategy}
+                locale={locale}
+                generatedAt={buyer.buyer_analysis_at}
+              />
+            ) : (
+              <div className="flex flex-col gap-4">
+                <SuggestedApproachCard buyer={buyer} locale={locale} />
+                <Card className="border-border">
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>
+                        {locale === "vi"
+                          ? "Chưa có bản phân tích AI cho buyer này"
+                          : "No AI analysis saved for this buyer yet"}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {locale === "vi"
+                          ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
+                          : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
 
           {/* Contacts Tab */}
           <TabsContent value="contacts" className="mt-0">
@@ -745,8 +827,8 @@ export function BuyerDetailView({
                     </EmptyTitle>
                     <EmptyDescription>
                       {locale === "vi"
-                        ? "Nhấn 'Gán cho client' ở trên để tạo cơ hội đầu tiên."
-                        : "Use 'Assign to client' above to create the first deal."}
+                        ? "Nhấn 'AI Match' ở trên để tạo cơ hội đầu tiên."
+                        : "Use 'AI Match' above to create the first deal."}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -894,13 +976,7 @@ export function BuyerDetailView({
           onOpenChange={setAssignOpen}
           buyerId={buyer.id}
           buyerName={buyer.company_name ?? ""}
-          clients={clients}
           locale={locale}
-          initialMode={assignMode}
-          onAssigned={(opportunityId) => {
-            setAssignOpen(false)
-            router.push(`/admin/pipeline?oppId=${opportunityId}`)
-          }}
           onAssignedMultiple={() => {
             setAssignOpen(false)
             router.push("/admin/pipeline")
@@ -1395,29 +1471,30 @@ export function SuggestedApproachCard({
       s => s.country?.toLowerCase().includes("vietnam") || s.country?.toLowerCase() === "vn"
     )
     
+    const firstName = (buyer.contact_person || "").trim().split(/\s+/)[0]
     const lines: string[] = []
-    lines.push(`Subject: Partnership Opportunity - ${buyer.main_product || "Your Products"}`)
+    lines.push(`Subject: Sourcing ${(buyer.main_product || "your product category").toLowerCase()} from Vietnam`)
     lines.push("")
-    lines.push(`Dear ${buyer.contact_person || "Procurement Team"},`)
+    lines.push(`Hi ${firstName || "there"},`)
     lines.push("")
-    
+
     if (hasVNSupplier) {
-      lines.push(`I noticed ${buyer.company_name} is already sourcing from Vietnam. We'd love to discuss how we can complement your existing supply chain with competitive pricing and reliable quality.`)
+      lines.push(`I came across ${buyer.company_name} while looking into ${(buyer.main_product || "your category").toLowerCase()} buyers, and noticed you already source from Vietnam. I work with manufacturers here, and wondered whether you'd ever be open to evaluating an additional supplier alongside your current ones.`)
     } else {
-      lines.push(`I'm reaching out regarding ${buyer.main_product || "your import needs"}. Our Vietnamese suppliers specialize in HS ${buyer.hs_code || "your product category"} with competitive MOQ and pricing.`)
+      lines.push(`I came across ${buyer.company_name} while looking into ${(buyer.main_product || "your category").toLowerCase()} buyers. I work with Vietnamese manufacturers in the HS ${buyer.hs_code || "same category"} space, and wondered whether you'd ever be open to evaluating sourcing from Vietnam.`)
     }
-    
+
     lines.push("")
-    lines.push("Key highlights:")
-    lines.push(`- ${buyer.total_shipments ? `Volume capability matching your ${buyer.total_shipments}+ shipments history` : "Flexible MOQ for trial orders"}`)
-    lines.push("- Direct factory relationships in Vietnam")
-    lines.push(`- ${buyer.container_types ? `Experience with ${buyer.container_types} shipments` : "Full container and LCL options"}`)
+    lines.push("Would you be open to taking a quick look? If now isn't the right time, no worries at all.")
     lines.push("")
-    lines.push("Would you have 15 minutes this week for a quick call?")
+    lines.push(`If sourcing from Vietnam isn't on your radar right now, just reply "no" and I won't reach out again — no hard feelings.`)
     lines.push("")
     lines.push("Best regards,")
     lines.push("[Your Name]")
-    
+    lines.push("VEXIM GLOBAL CO., LTD")
+    lines.push("[your work email]")
+    lines.push("25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam")
+
     return lines.join("\n")
   }, [buyer])
 
@@ -1623,7 +1700,7 @@ export function NoMatchWarningCard({
 }
 
 // ---------------------------------------------------------------------------
-// Assign-to-client dialog
+// Assign-to-client dialog — AI Match only (A-Z mode removed)
 // ---------------------------------------------------------------------------
 
 function AssignBuyerDialog({
@@ -1631,26 +1708,16 @@ function AssignBuyerDialog({
   onOpenChange,
   buyerId,
   buyerName,
-  clients,
   locale,
-  initialMode = "az",
-  onAssigned,
   onAssignedMultiple,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   buyerId: string
   buyerName: string
-  clients: AssignableClient[]
   locale: "vi" | "en"
-  initialMode?: "az" | "ai"
-  onAssigned: (opportunityId: string) => void
   onAssignedMultiple: (items: AssignBuyerToClientsResultItem[]) => void
 }) {
-  const [mode, setMode] = useState<"az" | "ai">(initialMode)
-  const [clientId, setClientId] = useState<string>("")
-  const [potentialValue, setPotentialValue] = useState<string>("")
-  const [pending, startTransition] = useTransition()
   const [bulkPending, startBulkTransition] = useTransition()
 
   // AI Match state
@@ -1660,36 +1727,11 @@ function AssignBuyerDialog({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([])
 
-  // Re-sync mode + reset transient state whenever the dialog opens.
+  // Reset transient state whenever the dialog opens.
   useEffect(() => {
     if (!open) return
-    setMode(initialMode)
-    setClientId("")
-    setPotentialValue("")
     setSelectedClientIds([])
-  }, [open, initialMode])
-
-  // Pre-compute each client's eligibility once so we can render a helpful
-  // status next to every item instead of silently filtering them out.
-  const rows = useMemo(
-    () =>
-      clients.map((c) => {
-        const hasNumber =
-          !!c.fdaRegistrationNumber && c.fdaRegistrationNumber.trim().length > 0
-        let expired = false
-        if (c.fdaExpiresAt) {
-          const t = new Date()
-          t.setHours(0, 0, 0, 0)
-          expired = new Date(c.fdaExpiresAt) < t
-        }
-        const eligible = hasNumber && !expired && !c.alreadyAttached
-        return { ...c, hasNumber, expired, eligible }
-      }),
-    [clients],
-  )
-
-  const selected = rows.find((r) => r.id === clientId) ?? null
-  const clientNameById = useMemo(() => new Map(rows.map((r) => [r.id, r.name])), [rows])
+  }, [open])
 
   const fetchMatches = useCallback(() => {
     setMatchesLoading(true)
@@ -1705,59 +1747,12 @@ function AssignBuyerDialog({
       .finally(() => setMatchesLoading(false))
   }, [buyerId])
 
-  // Fetch matches once when switching into AI mode (or on first open in AI mode).
+  // Fetch matches once when dialog opens.
   useEffect(() => {
-    if (open && mode === "ai" && matches === null && !matchesLoading) {
+    if (open && matches === null && !matchesLoading) {
       fetchMatches()
     }
-  }, [open, mode, matches, matchesLoading, fetchMatches])
-
-  function handleSubmit(overrideClientId?: string) {
-    const targetId = overrideClientId ?? selected?.id
-    const targetRow = rows.find((r) => r.id === targetId)
-    if (!targetId || (targetRow && !targetRow.eligible)) return
-    startTransition(async () => {
-      const parsedValue = potentialValue ? Number.parseFloat(potentialValue) : null
-      const res = await assignBuyerToClient({
-        buyerId,
-        clientId: targetId,
-        potentialValue: Number.isFinite(parsedValue as number) ? parsedValue : null,
-      })
-      const targetName = targetRow?.name ?? clientNameById.get(targetId) ?? ""
-      if (res.ok) {
-        toast.success(
-          res.data.alreadyExisted
-            ? locale === "vi"
-              ? "Cơ hội đã tồn tại — mở sẵn trên pipeline"
-              : "Deal already existed — opening pipeline"
-            : locale === "vi"
-              ? `Đã gán ${buyerName} cho ${targetName}`
-              : `Assigned ${buyerName} to ${targetName}`,
-        )
-        onAssigned(res.data.opportunityId)
-      } else {
-        const msg =
-          res.error === "fda_missing"
-            ? locale === "vi"
-              ? "Client chưa có FDA — không thể gán"
-              : "Client has no FDA — cannot assign"
-            : res.error === "fda_expired"
-              ? locale === "vi"
-                ? "FDA của client đã hết hạn"
-                : "Client FDA has expired"
-              : res.error === "client_at_capacity"
-                ? locale === "vi"
-                  ? `Client đã có ${MAX_ACTIVE_BUYERS_PER_CLIENT} buyer đang hoạt động — cần đóng (won/lost) 1 buyer trước khi gán thêm`
-                  : `Client already has ${MAX_ACTIVE_BUYERS_PER_CLIENT} active buyers — close one (won/lost) before assigning another`
-                : res.error === "forbidden"
-                  ? locale === "vi"
-                    ? "Bạn không có quyền gán buyer"
-                    : "You do not have permission to assign"
-                  : res.error
-        toast.error(msg)
-      }
-    })
-  }
+  }, [open, matches, matchesLoading, fetchMatches])
 
   function toggleSelectClient(id: string, eligible: boolean) {
     if (!eligible) return
@@ -1778,11 +1773,10 @@ function AssignBuyerDialog({
   function handleSubmitMultiple() {
     if (selectedClientIds.length === 0) return
     startBulkTransition(async () => {
-      const parsedValue = potentialValue ? Number.parseFloat(potentialValue) : null
       const res = await assignBuyerToClients({
         buyerId,
         clientIds: selectedClientIds,
-        potentialValue: Number.isFinite(parsedValue as number) ? parsedValue : null,
+        potentialValue: null,
       })
       if (!res.ok) {
         const msg =
@@ -1842,154 +1836,28 @@ function AssignBuyerDialog({
               : `Assign "${buyerName}" to a client`}
           </DialogTitle>
           <DialogDescription>
-            {mode === "ai"
-              ? locale === "vi"
-                ? `Xếp hạng client theo mức độ phù hợp sản phẩm và độ uy tín. Chọn tối đa ${MAX_BULK_ASSIGN_CLIENTS} supplier để đưa vào pipeline cùng lúc — hệ thống không tự động gán.`
-                : `Clients ranked by product fit and trust signals. Select up to ${MAX_BULK_ASSIGN_CLIENTS} suppliers to add to the pipeline at once — nothing is assigned automatically.`
-              : locale === "vi"
-                ? "Tạo một cơ hội mới nối buyer này với doanh nghiệp xuất khẩu Việt Nam. Chỉ client có FDA hợp lệ mới được gán."
-                : "Creates a new deal linking this buyer to a Vietnamese exporter. Only clients with a valid FDA registration can be assigned."}
+            {locale === "vi"
+              ? `Xếp hạng client theo mức độ phù hợp sản phẩm và độ uy tín. Chọn tối đa ${MAX_BULK_ASSIGN_CLIENTS} supplier để đưa vào pipeline cùng lúc — hệ thống không tự động gán.`
+              : `Clients ranked by product fit and trust signals. Select up to ${MAX_BULK_ASSIGN_CLIENTS} suppliers to add to the pipeline at once — nothing is assigned automatically.`}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={mode} onValueChange={(v) => setMode(v as "az" | "ai")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="ai" className="gap-1.5">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Match
-            </TabsTrigger>
-            <TabsTrigger value="az">
-              {locale === "vi" ? "Danh sách A-Z" : "A-Z list"}
-            </TabsTrigger>
-          </TabsList>
+        <div className="mt-4">
+          <AIMatchList
+            locale={locale}
+            loading={matchesLoading}
+            error={matchesError}
+            matches={matches}
+            expandedId={expandedId}
+            onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+            onRetry={fetchMatches}
+            selectedIds={selectedClientIds}
+            onToggleSelect={toggleSelectClient}
+            maxSelectable={MAX_BULK_ASSIGN_CLIENTS}
+          />
+        </div>
 
-          {/* --- AI Match mode -------------------------------------------- */}
-          <TabsContent value="ai" className="mt-4">
-            <AIMatchList
-              locale={locale}
-              loading={matchesLoading}
-              error={matchesError}
-              matches={matches}
-              expandedId={expandedId}
-              onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-              onRetry={fetchMatches}
-              selectedIds={selectedClientIds}
-              onToggleSelect={toggleSelectClient}
-              maxSelectable={MAX_BULK_ASSIGN_CLIENTS}
-            />
-          </TabsContent>
-
-          {/* --- A-Z mode --------------------------------------------------- */}
-          <TabsContent value="az" className="mt-4">
-            <div className="flex flex-col gap-4">
-              <Field label={locale === "vi" ? "Chọn client" : "Select client"} required>
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        locale === "vi"
-                          ? "Chọn doanh nghiệp xuất khẩu Việt Nam..."
-                          : "Select a Vietnamese exporter..."
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rows.length === 0 ? (
-                      <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                        {locale === "vi" ? "Chưa có client nào" : "No clients yet"}
-                      </div>
-                    ) : (
-                      rows.map((c) => (
-                        <SelectItem key={c.id} value={c.id} disabled={!c.eligible}>
-                          <div className="flex items-center gap-2">
-                            {c.eligible ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-chart-4 shrink-0" />
-                            ) : (
-                              <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />
-                            )}
-                            <span className="truncate">{c.name}</span>
-                            {c.alreadyAttached && (
-                              <span className="text-[10px] text-muted-foreground ml-1">
-                                {locale === "vi" ? "(đã gán)" : "(attached)"}
-                              </span>
-                            )}
-                            {!c.hasNumber && !c.alreadyAttached && (
-                              <span className="text-[10px] text-destructive ml-1">
-                                {locale === "vi" ? "(chưa có FDA)" : "(no FDA)"}
-                              </span>
-                            )}
-                            {c.hasNumber && c.expired && !c.alreadyAttached && (
-                              <span className="text-[10px] text-destructive ml-1">
-                                {locale === "vi" ? "(FDA hết hạn)" : "(FDA expired)"}
-                              </span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {selected && !selected.eligible && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>
-                    {selected.alreadyAttached
-                      ? locale === "vi"
-                        ? "Client này đã được gán với buyer. Mở pipeline để xem cơ hội hiện có."
-                        : "This client is already attached to the buyer. Open the pipeline to see the existing deal."
-                      : !selected.hasNumber
-                        ? locale === "vi"
-                          ? "Client chưa có số đăng ký FDA. Yêu cầu họ bổ sung FDA trước khi gán buyer."
-                          : "Client has no FDA registration. Ask them to add it before assigning buyers."
-                        : locale === "vi"
-                          ? "FDA của client đã hết hạn. Cần gia hạn trước khi gán buyer mới."
-                          : "Client FDA has expired. They must renew before new buyers can be assigned."}
-                  </span>
-                </div>
-              )}
-
-              <Field label={locale === "vi" ? "Giá trị tiềm năng (USD)" : "Potential value (USD)"}>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="50000"
-                  value={potentialValue}
-                  onChange={(e) => setPotentialValue(e.target.value)}
-                />
-              </Field>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {mode === "az" && (
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {locale === "vi" ? "Huỷ" : "Cancel"}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => handleSubmit()}
-              disabled={pending || !selected?.eligible}
-            >
-              {pending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {locale === "vi" ? "Đang gán..." : "Assigning..."}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {locale === "vi" ? "Gán và mở cơ hội" : "Assign and open deal"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        )}
-
-        {mode === "ai" && matches && matches.length > 0 && (
+        {matches && matches.length > 0 && (
           <DialogFooter className="items-center sm:justify-between">
             <span className="text-xs text-muted-foreground">
               {locale === "vi"

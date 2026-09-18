@@ -6,6 +6,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { pipelineOppPath } from "@/lib/notifications/paths"
 import type { Stage } from "@/lib/supabase/types"
 import { stageRequiresSwift } from "@/lib/risk/country-risk"
 import { assessCountryRiskDb } from "@/lib/risk/country-risk-db"
@@ -481,7 +482,7 @@ export async function updateOpportunityStage(
         userId: before.account_manager_id,
         category: "deal_closed",
         opportunityId,
-        linkPath: `/admin/opportunities/${opportunityId}`,
+        linkPath: pipelineOppPath(opportunityId),
         dedupKey: `opp_closed_ae:${opportunityId}:${newStage}`,
         title: {
           vi: newStage === "won" ? `Deal Won: ${label}` : `Deal Lost: ${label}`,

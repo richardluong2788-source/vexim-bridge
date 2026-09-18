@@ -30,6 +30,10 @@ import { assignBuyerToClients } from "@/app/admin/buyers/actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
 import { SCORING_ENGINE_VERSION } from "@/lib/matching/client-types"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
+import {
+  executeBuyerAssignment,
+  ManualAssignmentError,
+} from "@/lib/matching/manual-assignment"
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -876,49 +880,54 @@ export async function transferEngagement(
   if (!reason?.trim()) return { ok: false, error: "reason_required" }
   if (!newAccountManagerId) return { ok: false, error: "target_ae_required" }
 
-  const { data: engagement, error: engErr } = await admin
-    .from("buyer_engagements")
-    .select("id, account_manager_id, stage")
-    .eq("id", engagementId)
-    .single()
-  if (engErr || !engagement) return { ok: false, error: "engagement_not_found" }
-
-  if (role === "account_executive" && engagement.account_manager_id !== userId) {
-    return { ok: false, error: "not_your_engagement" }
-  }
-  if (engagement.account_manager_id === newAccountManagerId) {
-    return { ok: false, error: "already_owned_by_target" }
-  }
-  if (["converted", "dropped"].includes(engagement.stage as string)) {
-    return { ok: false, error: "engagement_already_closed" }
+  // Ownership gate (mirrors claimBuyer): an AE can only hand off a buyer
+  // they currently own; admins/super_admin can transfer any engagement.
+  if (role === "account_executive") {
+    const { data: engagement } = await admin
+      .from("buyer_engagements")
+      .select("id, account_manager_id")
+      .eq("id", engagementId)
+      .maybeSingle()
+    if (!engagement) return { ok: false, error: "engagement_not_found" }
+    if (engagement.account_manager_id !== userId) {
+      return { ok: false, error: "not_your_engagement" }
+    }
   }
 
-  const { data: target, error: targetErr } = await admin
-    .from("profiles")
-    .select("id, role")
-    .eq("id", newAccountManagerId)
-    .single<{ id: string; role: string | null }>()
-  if (targetErr || !target) return { ok: false, error: "target_ae_not_found" }
-  if (!TRANSFERABLE_ROLES.includes(target.role as (typeof TRANSFERABLE_ROLES)[number])) {
-    return { ok: false, error: "target_not_ae" }
-  }
+  try {
+    const { data: actor } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle()
 
-  const { error } = await admin
-    .from("buyer_engagements")
-    .update({
-      account_manager_id: newAccountManagerId,
-      transferred_from_ae_id: engagement.account_manager_id,
-      transfer_reason: reason.trim(),
-      transferred_at: new Date().toISOString(),
-      // Waiting-on-buyer clock restarts under the new AE, same as
-      // markRequirementEmailSent / approveAndSendShortlist above.
-      stale_reminder_sent_at: null,
+    // Shared core enforces the target role + workload cap, updates the
+    // engagement audit columns, syncs open opportunities, stamps the
+    // manual match score, logs an activity and notifies both AEs.
+    await executeBuyerAssignment({
+      admin,
+      engagementId,
+      targetAeId: newAccountManagerId,
+      reason: reason.trim(),
+      performedBy: userId,
+      performedByName: actor?.full_name ?? null,
+      // Capacity override is a super_admin-only power and is gated by the
+      // BUYER_ASSIGN capability (assignBuyerToAE) — AE transfers never
+      // bypass the workload cap.
+      overrideCapacity: false,
     })
-    .eq("id", engagementId)
-  if (error) return { ok: false, error: error.message }
 
-  revalidatePath("/admin/ae-inbox")
-  return { ok: true, data: { success: true } }
+    revalidatePath("/admin/ae-inbox")
+    revalidatePath("/admin/buyers")
+    revalidatePath("/admin/pipeline")
+    return { ok: true, data: { success: true } }
+  } catch (err) {
+    if (err instanceof ManualAssignmentError) {
+      return { ok: false, error: err.code }
+    }
+    console.error("[v0] transferEngagement error:", err)
+    return { ok: false, error: err instanceof Error ? err.message : "transfer_failed" }
+  }
 }
 
 // ---------------------------------------------------------------------------

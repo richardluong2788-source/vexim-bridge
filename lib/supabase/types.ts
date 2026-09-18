@@ -133,6 +133,18 @@ export interface WeeklyReportPayload {
     stage: Stage
     updatedAt: string
   }>
+  /**
+   * Pre-kanban funnel (shortlist introductions & buyer reactions). Always
+   * anonymous — no buyer identity — see lib/reports/pre-funnel.ts.
+   */
+  preFunnel: {
+    introducedInWindow: number
+    viewedInWindow: number
+    infoInWindow: number
+    strongInWindow: number
+    pendingResponse: number
+    activeInterest: number
+  }
 }
 
 export type Database = {
@@ -163,6 +175,10 @@ export type Database = {
           // Supplier Researcher who sourced/onboarded this client (074).
           // Drives SR's billing-proposal + collections scope.
           sourced_by: string | null
+          /** Personal buyer-facing sender address (migration 053). */
+          work_email: string | null
+          /** Staff login username (migration 076); null for clients and legacy staff. */
+          username: string | null
           created_at: string
           // AI Match — KYC verification (Trust Score input)
           is_verified: boolean
@@ -187,6 +203,8 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          work_email?: string | null
+          username?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null
@@ -210,6 +228,8 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          work_email?: string | null
+          username?: string | null
           created_at?: string
           is_verified?: boolean
           verified_at?: string | null
@@ -269,6 +289,17 @@ export type Database = {
           inquiry_channel: string | null
           inquiry_notes: string | null
           inquiry_received_at: string | null
+          email_hard_bounced_at: string | null
+          email_complained_at: string | null
+          email_suppression_note: string | null
+          unsubscribe_token: string | null
+          email_unsubscribed: boolean
+          email_unsubscribed_at: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis: Record<string, unknown> | null
+          buyer_strategy: Record<string, unknown> | null
+          buyer_analysis_at: string | null
+          buyer_analysis_model: string | null
         }
         Insert: {
           id?: string
@@ -321,6 +352,17 @@ export type Database = {
           inquiry_channel?: string | null
           inquiry_notes?: string | null
           inquiry_received_at?: string | null
+          email_hard_bounced_at?: string | null
+          email_complained_at?: string | null
+          email_suppression_note?: string | null
+          unsubscribe_token?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis?: Record<string, unknown> | null
+          buyer_strategy?: Record<string, unknown> | null
+          buyer_analysis_at?: string | null
+          buyer_analysis_model?: string | null
         }
         Update: {
           id?: string
@@ -373,6 +415,17 @@ export type Database = {
           inquiry_channel?: string | null
           inquiry_notes?: string | null
           inquiry_received_at?: string | null
+          email_hard_bounced_at?: string | null
+          email_complained_at?: string | null
+          email_suppression_note?: string | null
+          unsubscribe_token?: string | null
+          email_unsubscribed?: boolean
+          email_unsubscribed_at?: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis?: Record<string, unknown> | null
+          buyer_strategy?: Record<string, unknown> | null
+          buyer_analysis_at?: string | null
+          buyer_analysis_model?: string | null
         }
         Relationships: []
       }
@@ -807,6 +860,7 @@ export type Database = {
           body: string | null
           link_path: string | null
           opportunity_id: string | null
+          dedup_key: string | null
           read_at: string | null
           created_at: string
         }
@@ -818,6 +872,7 @@ export type Database = {
           body?: string | null
           link_path?: string | null
           opportunity_id?: string | null
+          dedup_key?: string | null
           read_at?: string | null
           created_at?: string
         }
@@ -829,6 +884,7 @@ export type Database = {
           body?: string | null
           link_path?: string | null
           opportunity_id?: string | null
+          dedup_key?: string | null
           read_at?: string | null
           created_at?: string
         }
@@ -1445,6 +1501,22 @@ export type Database = {
           created_by: string | null
           approved_by: string | null
           sent_at: string | null
+          resend_message_id: string | null
+          smtp_message_id: string | null
+          delivery_status: "sent" | "delivered" | "delayed" | "bounced" | "complained" | null
+          delivered_at: string | null
+          delayed_at: string | null
+          opened_count: number
+          first_opened_at: string | null
+          last_opened_at: string | null
+          clicked_count: number
+          first_clicked_at: string | null
+          last_clicked_at: string | null
+          bounced_at: string | null
+          bounce_type: string | null
+          bounce_reason: string | null
+          complained_at: string | null
+          last_event_at: string | null
           created_at: string
         }
         Insert: {
@@ -1463,6 +1535,22 @@ export type Database = {
           created_by?: string | null
           approved_by?: string | null
           sent_at?: string | null
+          resend_message_id?: string | null
+          smtp_message_id?: string | null
+          delivery_status?: "sent" | "delivered" | "delayed" | "bounced" | "complained" | null
+          delivered_at?: string | null
+          delayed_at?: string | null
+          opened_count?: number
+          first_opened_at?: string | null
+          last_opened_at?: string | null
+          clicked_count?: number
+          first_clicked_at?: string | null
+          last_clicked_at?: string | null
+          bounced_at?: string | null
+          bounce_type?: string | null
+          bounce_reason?: string | null
+          complained_at?: string | null
+          last_event_at?: string | null
           created_at?: string
         }
         Update: {
@@ -1481,6 +1569,22 @@ export type Database = {
           created_by?: string | null
           approved_by?: string | null
           sent_at?: string | null
+          resend_message_id?: string | null
+          smtp_message_id?: string | null
+          delivery_status?: "sent" | "delivered" | "delayed" | "bounced" | "complained" | null
+          delivered_at?: string | null
+          delayed_at?: string | null
+          opened_count?: number
+          first_opened_at?: string | null
+          last_opened_at?: string | null
+          clicked_count?: number
+          first_clicked_at?: string | null
+          last_clicked_at?: string | null
+          bounced_at?: string | null
+          bounce_type?: string | null
+          bounce_reason?: string | null
+          complained_at?: string | null
+          last_event_at?: string | null
           created_at?: string
         }
         Relationships: []

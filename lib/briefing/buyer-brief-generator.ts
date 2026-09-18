@@ -2,77 +2,211 @@ import type { CreateLeadWithAIMatchingInput } from "@/app/admin/leads/new/action
 import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
 import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
+/**
+ * Buyer Intelligence Brief — Markdown generator.
+ *
+ * REWRITTEN. The previous version interpolated ~13 fields that do not exist on
+ * BuyerAnalysisResult / BuyerStrategy (`vietnamReadinessScore`,
+ * `supplierLoyaltyScore`, `healthTrend`, `concentrationRisk`,
+ * `volatilityLevel`, `productMatchVN`, `vnSupplierHistory`,
+ * `asiaSupplierExperience`, `bestContactMonth`, `supplyChainInsights`,
+ * `vietnamAdvantages`, `strategy.risks[].factor/.mitigation`), so whole
+ * sections rendered "undefined" or silently took the `|| "fallback"` branch.
+ * It also invented the single most quotable number in the document:
+ *
+ *     const yearsActive = lead.companyName ? Math.floor(Math.random() * 15 + 1) : 0
+ *
+ * Every metric here now traces to a real field. Where the old template
+ * hard-coded a confident-sounding value ("Analysis Confidence: High",
+ * "Status: Active", "Analysis Model: AI-Powered Buyer Intelligence System")
+ * the real signal is used instead — `strategy.confidenceScore`, the last
+ * shipment date, and the model that actually ran (or an explicit statement
+ * that the heuristic fallback did).
+ *
+ * `generateBuyerBriefHTML()` was removed: zero callers, and its regex
+ * markdown->HTML pass emitted invalid markup (table rows became
+ * `<table><tr><td>`, `<p>` was closed without ever being opened). The repo
+ * already renders markdown properly via react-markdown / lib/markdown-preview.
+ */
+
 export interface BuyerBriefData {
-  lead: CreateLeadWithAIMatchingInput
+  /**
+   * The flattened intake shape produced by transformImportYetiApiResponse().
+   * Partial because that transform only fills the sections ImportYeti knows
+   * about — contact details in particular are entered by the LR by hand.
+   */
+  lead: Partial<CreateLeadWithAIMatchingInput>
   analysis: BuyerAnalysisResult
   strategy: BuyerStrategy
   metadata?: {
     generatedDate?: string
     buyerId?: string
     documentId?: string
+    /** Model that produced `strategy`, or null when the fallback ran. */
+    model?: string | null
+    strategySource?: "ai" | "fallback"
   }
 }
 
+// ---------------------------------------------------------------------------
+// Formatters
+// ---------------------------------------------------------------------------
+
+const NA = "N/A"
+
+function num(value: number | null | undefined, digits = 0): string {
+  if (value == null || !Number.isFinite(value)) return NA
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+}
+
+function pct(value: number | null | undefined, digits = 1): string {
+  if (value == null || !Number.isFinite(value)) return NA
+  return `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`
+}
+
+function text(value: string | null | undefined): string {
+  const v = value?.trim()
+  return v ? v : NA
+}
+
+function bulletList(items: Array<string | null | undefined>): string {
+  const kept = items.map((i) => i?.trim()).filter((i): i is string => Boolean(i))
+  return kept.length > 0 ? kept.map((i) => `- ${i}`).join("\n") : `- ${NA}`
+}
+
+function healthLevel(score: number): string {
+  if (score >= 75) return "Excellent"
+  if (score >= 50) return "Good"
+  if (score >= 25) return "Fair"
+  return "Poor"
+}
+
+/** Loyalty is inverted: a HIGH score means the buyer is hard to approach. */
+function loyaltyLevel(score: number): string {
+  if (score >= 75) return "High Loyalty — hard to displace"
+  if (score >= 50) return "Moderate Loyalty"
+  return "Low Loyalty — shopping around"
+}
+
+function vietnamReadinessLevel(score: number): string {
+  if (score >= 75) return "Highly Ready"
+  if (score >= 50) return "Ready"
+  if (score >= 25) return "Moderately Ready"
+  return "Not Ready"
+}
+
+function riskLabel(level: BuyerAnalysisResult["healthBreakdown"]["riskLevel"]): string {
+  return level === "low" ? "Low" : level === "high" ? "High" : "Moderate"
+}
+
 /**
- * Generate a comprehensive Markdown buyer intelligence brief
- * that can be sent to suppliers/partners
+ * stabilityScore is 0-25 (25 = perfectly even monthly volume).
+ * Mapped back to a human label rather than exposed as a raw sub-score.
+ */
+function volatilityLabel(stabilityScore: number): string {
+  if (stabilityScore >= 19) return "Low — steady monthly volume"
+  if (stabilityScore >= 12) return "Normal"
+  if (stabilityScore >= 6) return "Elevated — lumpy ordering"
+  return "High — very irregular"
+}
+
+function concentrationLabel(concentrationPct: number): string {
+  if (concentrationPct >= 80) return `High — top 3 suppliers hold ${concentrationPct.toFixed(0)}% of volume`
+  if (concentrationPct >= 50) return `Moderate — top 3 hold ${concentrationPct.toFixed(0)}%`
+  return `Low — sourcing is spread out (top 3 hold ${concentrationPct.toFixed(0)}%)`
+}
+
+function activityStatus(lastShipmentDate: string | null | undefined): string {
+  if (!lastShipmentDate) return "Unknown — no shipment date on record"
+  const then = new Date(lastShipmentDate).getTime()
+  if (Number.isNaN(then)) return `Unknown — unparseable date "${lastShipmentDate}"`
+  const days = Math.floor((Date.now() - then) / 86_400_000)
+  if (days <= 90) return `Active — last shipment ${days}d ago`
+  if (days <= 365) return `Slowing — last shipment ${days}d ago`
+  return `Dormant — last shipment ${Math.round(days / 365)}y ago`
+}
+
+// ---------------------------------------------------------------------------
+// Generator
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a comprehensive Markdown buyer intelligence brief.
  */
 export function generateBuyerIntelligenceBrief(data: BuyerBriefData): string {
-  const {
-    lead,
-    analysis,
-    strategy,
-    metadata = {},
-  } = data
+  const { lead, analysis, strategy, metadata = {} } = data
 
   const now = new Date()
   const generatedDate = metadata.generatedDate || now.toISOString().split("T")[0]
   const documentId = metadata.documentId || `BRIEF-${Date.now()}`
 
-  // Helper to format numbers
-  const formatNumber = (num: number | string): string => {
-    if (typeof num === "string") return num
-    return num.toLocaleString()
-  }
+  const h = analysis.healthBreakdown
+  const l = analysis.loyaltyBreakdown
+  const v = analysis.vietnamBreakdown
 
-  // Calculate metrics
-  const yearsActive = lead.companyName
-    ? Math.floor(Math.random() * 15 + 1)
-    : 0 // Placeholder - could be calculated from date_range
-  const healthLevel = analysis.healthScore >= 75 ? "Excellent" 
-    : analysis.healthScore >= 50 ? "Good" 
-    : analysis.healthScore >= 25 ? "Fair" 
-    : "Poor"
-  const vietnamReadinessLevel = analysis.vietnamReadinessScore >= 75 ? "Highly Ready"
-    : analysis.vietnamReadinessScore >= 50 ? "Ready"
-    : analysis.vietnamReadinessScore >= 25 ? "Moderately Ready"
-    : "Not Ready"
-  const loyaltyLevel = analysis.supplierLoyaltyScore >= 75 ? "High Loyalty"
-    : analysis.supplierLoyaltyScore >= 50 ? "Moderate"
-    : "Low Loyalty / Shopping Around"
+  const modelLine =
+    metadata.strategySource === "ai" && metadata.model
+      ? metadata.model
+      : "Heuristic fallback (LLM strategy unavailable)"
 
-  // Generate from template
-  const template = `# BUYER INTELLIGENCE BRIEF
+  const talkingPoints = strategy.talkingPoints?.length
+    ? strategy.talkingPoints
+        .slice(0, 5)
+        .map((point, idx) => `${idx + 1}. **${point}**`)
+        .join("\n\n")
+    : `- ${NA}`
+
+  const riskFactors = strategy.riskFactors?.length
+    ? strategy.riskFactors.map((risk) => `- ${risk}`).join("\n")
+    : "- No specific risks identified"
+
+  const vnSuppliers = v.vnSuppliers?.length
+    ? v.vnSuppliers
+        .map(
+          (s) =>
+            `- **${s.name}** — ${num(s.shipments)} shipments` +
+            (s.firstYear ? `, since ${s.firstYear}` : "") +
+            (s.businessLength ? ` (${s.businessLength})` : ""),
+        )
+        .join("\n")
+    : "- None on record"
+
+  return `# BUYER INTELLIGENCE BRIEF
 
 **Generated:** ${generatedDate}  
 **Buyer Profile ID:** ${metadata.buyerId || "TBD"}  
-**Analysis Confidence:** High
+**Document ID:** ${documentId}  
+**Analysis Confidence:** ${strategy.confidenceScore ?? 0}/100 (${
+    metadata.strategySource === "ai" ? "AI-generated strategy" : "heuristic fallback"
+  })
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-**Buyer Name:** ${lead.companyName || "N/A"}  
-**Location:** ${lead.importAddress || "N/A"}, ${lead.country || "N/A"}  
-**Website:** ${lead.website || "N/A"}  
-**Industry:** ${lead.mainProduct || "N/A"} | HS Code: ${lead.hsCode || "N/A"}  
-**Years Active:** ${yearsActive}+
+**Buyer Name:** ${text(analysis.companyName || lead.companyName)}  
+**Location:** ${text(lead.importAddress)}, ${text(lead.country)}  
+**Website:** ${text(lead.website)}  
+**Primary Product:** ${text(lead.mainProduct)} | HS Code: ${text(lead.hsCode)}  
+**Years Active:** ${analysis.yearsActive > 0 ? `${analysis.yearsActive}` : NA}
 
 **Quick Assessment:**
-- **Health Status:** ${healthLevel} (${analysis.healthScore}/100)
-- **Import Activity:** ${formatNumber(lead.totalShipments || 0)} shipments | ${lead.avgTeuPerMonth || "N/A"} TEU/month avg
-- **Vietnam Readiness:** ${vietnamReadinessLevel} (${analysis.vietnamReadinessScore}/100)
-- **Recommended Approach:** ${strategy.recommendedAngle || "N/A"}
+- **Health Status:** ${healthLevel(analysis.healthScore)} (${analysis.healthScore}/100, ${riskLabel(
+    h.riskLevel,
+  )} risk)
+- **Import Activity:** ${num(analysis.totalShipments ?? lead.totalShipments)} shipments | ${
+    lead.avgTeuPerMonth != null ? `${num(lead.avgTeuPerMonth, 1)} TEU/month avg` : NA
+  }
+- **Volume Trend:** ${pct(h.growthRate)} year over year
+- **Vietnam Readiness:** ${vietnamReadinessLevel(analysis.vietnamReadiness)} (${
+    analysis.vietnamReadiness
+  }/100)
+- **Recommended Approach:** ${text(strategy.recommendedAngle)}
+
+> ${strategy.approachSummary || "No strategy summary available."}
 
 ---
 
@@ -81,16 +215,17 @@ export function generateBuyerIntelligenceBrief(data: BuyerBriefData): string {
 ### Company Information
 | Field | Value |
 |-------|-------|
-| **Company Name** | ${lead.companyName || "N/A"} |
-| **Address** | ${lead.importAddress || "N/A"} |
-| **Country** | ${lead.country || "N/A"} |
-| **Website** | ${lead.website || "N/A"} |
-| **Phone** | ${lead.contactPhone || "N/A"} |
-| **Years in Business** | ${yearsActive}+ |
+| **Company Name** | ${text(analysis.companyName || lead.companyName)} |
+| **Address** | ${text(lead.importAddress)} |
+| **Country** | ${text(lead.country)} |
+| **Website** | ${text(lead.website)} |
+| **Phone** | ${text(lead.contactPhone)} |
+| **Years in Business** | ${analysis.yearsActive > 0 ? analysis.yearsActive : NA} |
 
 ### Import Activity Timeline
-- **Latest Shipment:** ${lead.lastShipmentDate || "N/A"}
-- **Status:** Active
+- **Latest Shipment:** ${text(lead.lastShipmentDate)}
+- **Status:** ${activityStatus(lead.lastShipmentDate)}
+- **Source:** ${text(lead.importYetiLink)}
 
 ---
 
@@ -99,18 +234,29 @@ export function generateBuyerIntelligenceBrief(data: BuyerBriefData): string {
 ### Historical Import Data
 | Metric | Value |
 |--------|-------|
-| **Total Shipments** | ${formatNumber(lead.totalShipments || 0)} |
-| **Average TEU/Month** | ${lead.avgTeuPerMonth || "N/A"} |
-| **Import Trend** | ${lead.importTrend || "N/A"} |
+| **Total Shipments** | ${num(analysis.totalShipments ?? lead.totalShipments)} |
+| **Average TEU/Month** | ${lead.avgTeuPerMonth != null ? num(lead.avgTeuPerMonth, 1) : NA} |
+| **Import Trend** | ${text(lead.importTrend)} |
+| **YoY Volume Change** | ${pct(h.growthRate)} |
+
+### Score Breakdown (health = sum of four 0-25 sub-scores)
+| Component | Score |
+|-----------|-------|
+| Trend | ${num(h.trendScore, 1)} / 25 |
+| Stability | ${num(h.stabilityScore, 1)} / 25 |
+| Consistency | ${num(h.consistencyScore, 1)} / 25 |
+| 3-Year Growth | ${num(h.growthScore, 1)} / 25 |
 
 ### Seasonal Patterns
 **Peak Import Months:**
-- ${lead.topPeakMonths || "N/A"}
+${bulletList([lead.topPeakMonths])}
 
 **Low Import Months:**
-- ${lead.topLowMonths || "N/A"}
+${bulletList([lead.topLowMonths])}
 
-**📌 Best Contact Timing:** Contact during off-peak months to avoid competition; aim for early peak season.
+**Data Year:** ${lead.peakMonthsDataYear ?? NA}
+
+**📌 Best Contact Timing:** ${text(strategy.timingSuggestion)}
 
 ---
 
@@ -119,42 +265,61 @@ export function generateBuyerIntelligenceBrief(data: BuyerBriefData): string {
 ### Primary Product Category
 | Category | HS Code | Description |
 |----------|---------|-------------|
-| **Main** | ${lead.hsCode || "N/A"} | ${lead.mainProduct || "N/A"} |
+| **Main** | ${text(lead.hsCode)} | ${text(lead.mainProduct)} |
 
 ### Secondary Products
-${lead.secondaryHsCodes ? `- ${lead.secondaryHsCodes}` : "- N/A"}
+${bulletList([lead.secondaryHsCodes])}
+
+### Latest Bill of Lading Description
+${text(lead.bolDescription)}
 
 ---
 
 ## SECTION 4: SUPPLY CHAIN ANALYSIS
 
-### Current Suppliers (Top 5)
-${lead.topSuppliers ? `\`\`\`
-${lead.topSuppliers}
-\`\`\`` : "- N/A"}
+### Current Suppliers
+${lead.topSuppliers ? `\`\`\`\n${lead.topSuppliers}\n\`\`\`` : `- ${NA}`}
 
 ### Sourcing Geography
-${lead.mainImportCountries ? `**Primary Sources:** ${lead.mainImportCountries}` : "- N/A"}
+${lead.mainImportCountries ? `**Primary Sources:** ${lead.mainImportCountries}` : `- ${NA}`}
 
-### Supplier Loyalty Analysis
-| Metric | Score |
+### Purchase History
+${text(lead.purchaseHistory)}
+
+### Named Competitors
+${text(lead.competitors)}
+
+### Supplier Loyalty Analysis (score ${analysis.loyaltyScore}/100 — ${loyaltyLevel(
+    analysis.loyaltyScore,
+  )})
+| Metric | Value |
 |--------|-------|
-| **Supplier Loyalty** | ${analysis.supplierLoyaltyScore}/100 (${loyaltyLevel}) |
-| **Switching Tendency** | ${analysis.supplierLoyaltyScore >= 60 ? "Low - Loyal to current suppliers" : "High - Open to new suppliers"} |
+| **Top Supplier** | ${text(l.topSupplierName)} (${text(l.topSupplierCountry)}) |
+| **Top Supplier Tenure** | ${text(l.topSupplierTenure)} |
+| **Concentration (top 3)** | ${concentrationLabel(l.concentration)} |
+| **Switching Rate (12m)** | ${num(l.switchingRate, 1)}% of volume from newly-added suppliers |
+| **New Supplier Rate** | ${num(l.newSupplierRate, 1)}% of the supplier base is new |
+| **Interpretation** | ${
+    l.switchingRate >= 30
+      ? "Actively trialling new suppliers — receptive to outreach"
+      : l.switchingRate >= 10
+        ? "Some churn — worth an approach"
+        : "Stable book of suppliers — expect a longer sales cycle"
+  } |
 
 ---
 
 ## SECTION 5: LOGISTICS & OPERATIONS
 
 ### Import Ports
-**Entry Ports (USA):**
-${lead.destinationPorts ? `- ${lead.destinationPorts}` : "- N/A"}
+**Entry Ports:**
+${bulletList([lead.destinationPorts])}
 
 **Origin Ports:**
-${lead.originPorts ? `- ${lead.originPorts}` : "- N/A"}
+${bulletList([lead.originPorts])}
 
 ### Container Preferences
-${lead.containerTypes ? `- ${lead.containerTypes}` : "- N/A"}
+${bulletList([lead.containerTypes])}
 
 ---
 
@@ -162,25 +327,45 @@ ${lead.containerTypes ? `- ${lead.containerTypes}` : "- N/A"}
 
 ### Buyer Health Score: ${analysis.healthScore}/100
 
-**Status:** ${healthLevel}
+**Status:** ${healthLevel(analysis.healthScore)}  
+**Risk Level:** ${riskLabel(h.riskLevel)}
 
 #### Assessment
-- **Growth Trend:** ${analysis.healthTrend || "Stable"}
-- **Supply Concentration Risk:** ${analysis.concentrationRisk || "Moderate"}
-- **Volatility:** ${analysis.volatilityLevel || "Normal"}
+- **Growth Trend:** ${pct(h.growthRate)} YoY (${
+    h.growthRate > 5 ? "expanding" : h.growthRate < -5 ? "contracting" : "flat"
+  })
+- **Supply Concentration Risk:** ${concentrationLabel(l.concentration)}
+- **Volatility:** ${volatilityLabel(h.stabilityScore)}
+- **Ordering Consistency:** ${num(h.consistencyScore, 1)}/25 (${
+    h.consistencyScore >= 19 ? "buys nearly every month" : h.consistencyScore >= 12 ? "regular buyer" : "sporadic"
+  })
 
 ---
 
 ## SECTION 7: VIETNAM SOURCING READINESS
 
-### Vietnam Readiness Score: ${analysis.vietnamReadinessScore}/100
+### Vietnam Readiness Score: ${analysis.vietnamReadiness}/100
 
-**Readiness Level:** ${vietnamReadinessLevel}
+**Readiness Level:** ${vietnamReadinessLevel(analysis.vietnamReadiness)}
 
-**Factors:**
-- Product match with VN exports: ${analysis.productMatchVN ? "✅ Yes" : "❌ Limited"}
-- Prior experience with VN suppliers: ${analysis.vnSupplierHistory ? "✅ Yes" : "❌ No"}
-- Experience with Asian suppliers: ${analysis.asiaSupplierExperience ? "✅ Yes" : "❌ No"}
+#### Score Breakdown
+| Component | Score |
+|-----------|-------|
+| Product match with VN export strength | ${num(v.productMatchScore, 1)} / 40 |
+| Prior VN supplier history | ${num(v.vnHistoryScore, 1)} / 30 |
+| Asia sourcing experience | ${num(v.asiaScore, 1)} / 30 |
+
+#### Factors
+- Product match with VN exports: ${
+    v.productMatchScore > 0 ? `✅ Yes (${num(v.productMatchScore, 1)}/40)` : "❌ Limited"
+  }
+- Prior experience with VN suppliers: ${v.hasVnHistory ? "✅ Yes" : "❌ No"}
+- Experience with Asian suppliers: ${
+    v.asiaExperience?.length ? `✅ Yes — ${v.asiaExperience.join(", ")}` : "❌ No"
+  }
+
+#### Existing Vietnam Suppliers
+${vnSuppliers}
 
 ---
 
@@ -188,33 +373,26 @@ ${lead.containerTypes ? `- ${lead.containerTypes}` : "- N/A"}
 
 ### Recommended Approach
 
-**Primary Angle:** ${strategy.recommendedAngle || "N/A"}
+**Primary Angle:** ${text(strategy.recommendedAngle)}
 
-### Talking Points (Top 3)
+${strategy.approachSummary ? `**Summary:** ${strategy.approachSummary}` : ""}
 
-${strategy.talkingPoints
-  ?.slice(0, 3)
-  .map((point, idx) => `${idx + 1}. **${point}**`)
-  .join("\n\n") || "- N/A"}
+### Talking Points
 
-### Potential Objections & Counter-Arguments
+${talkingPoints}
 
-${strategy.risks && Array.isArray(strategy.risks)
-  ? strategy.risks
-    .slice(0, 3)
-    .map(
-      (risk) => `- **${risk.factor}:** ${risk.mitigation || "Plan mitigation strategy"}`
-    )
-    .join("\n")
-  : "- No specific risks identified"}
+### Risk Factors To Anticipate
+
+${riskFactors}
 
 ### Best Contact Strategy
 
 | Element | Recommendation |
 |---------|-----------------|
-| **Best Month to Contact** | ${analysis.bestContactMonth || "Early off-peak"} |
+| **Timing** | ${text(strategy.timingSuggestion)} |
+| **Peak Months** | ${text(lead.topPeakMonths)} |
 | **Contact Method** | Email + LinkedIn research first |
-| **Suggested Opening** | Introduce VN alternative for ${lead.mainProduct || "key product"} |
+| **Suggested Opening** | Introduce VN alternative for ${text(lead.mainProduct)} |
 | **Initial Offer** | Trial order: 1-2 containers |
 | **Follow-up Timeline** | 2 weeks if no response |
 
@@ -223,32 +401,56 @@ ${strategy.risks && Array.isArray(strategy.risks)
 ## SECTION 9: QUICK REFERENCE CHECKLIST
 
 ### Pre-Sales Checklist
-- [ ] Verify buyer still active (last shipment: ${lead.lastShipmentDate || "N/A"})
-- [ ] Research current suppliers: ${lead.topSuppliers?.split(",")[0] || "N/A"}
-- [ ] Confirm HS codes match our products: ${lead.hsCode || "N/A"}
-- [ ] Prepare samples for: ${lead.mainProduct || "N/A"}
-- [ ] Set up meeting for: ${analysis.bestContactMonth || "Next quarter"}
+- [ ] Verify buyer still active (last shipment: ${text(lead.lastShipmentDate)})
+- [ ] Research incumbent supplier: ${text(l.topSupplierName)}
+- [ ] Confirm HS codes match our products: ${text(lead.hsCode)}
+- [ ] Prepare samples for: ${text(lead.mainProduct)}
+- [ ] Time outreach against: ${text(strategy.timingSuggestion)}
 
 ### Pitch Preparation
 - [ ] Highlight competitive advantages
-- [ ] Prepare case study: Vietnamese suppliers in ${lead.mainProduct || "this category"}
-- [ ] Get pricing for MOQ: 500-1000 units
-- [ ] Confirm lead time: 30-45 days
-- [ ] Prepare payment terms: T/T or L/C
-- [ ] Gather certifications: ISO, FDA, etc.
+- [ ] Prepare case study: Vietnamese suppliers in ${text(lead.mainProduct)}
+- [ ] Confirm LR-recorded priority rating: ${
+    lead.priorityRating != null ? `${lead.priorityRating}/5` : NA
+  }
+- [ ] Confirm lead time and payment terms with the factory
+- [ ] Gather certifications relevant to ${text(lead.country)}
 
 ---
 
 ## SECTION 10: KEY INSIGHTS
 
 ### Supply Chain Opportunities
-${analysis.supplyChainInsights || "- Research current supplier pricing and terms"}
+${bulletList([
+    l.switchingRate >= 30
+      ? `Buyer put ${num(l.switchingRate, 1)}% of 12-month volume with newly-added suppliers — they are actively trialling.`
+      : null,
+    l.concentration >= 70
+      ? `Top 3 suppliers hold ${num(l.concentration, 1)}% of volume — a single disruption makes them receptive to a backup source.`
+      : null,
+    h.growthRate > 10
+      ? `Volume is up ${pct(h.growthRate)} YoY — capacity, not just price, is likely the pressure point.`
+      : null,
+    h.growthRate < -10
+      ? `Volume is down ${pct(h.growthRate)} YoY — lead with flexibility and low MOQ rather than a big commitment.`
+      : null,
+    v.hasVnHistory
+      ? `Already importing from Vietnam (${v.vnSuppliers.map((s) => s.name).join(", ")}) — position as an addition, not a replacement.`
+      : `No Vietnam history yet — expect to spend the first call establishing credibility.`
+  ])}
 
-### Vietnam Competitive Advantages
-${analysis.vietnamAdvantages || "- Cost: 15-20% savings vs. current sources"}
-- Quality: International certifications available
-- Flexibility: Smaller MOQs than competitors
-- Diversification: Reduce supply chain risk
+### Vietnam Fit Signals
+${bulletList([
+    v.productMatchScore >= 20
+      ? `HS codes align strongly with VN export strength (${num(v.productMatchScore, 1)}/40).`
+      : null,
+    v.asiaExperience?.length
+      ? `Comfortable sourcing from Asia: ${v.asiaExperience.join(", ")}.`
+      : null,
+    v.vnSuppliers?.length
+      ? `${v.vnSuppliers.length} Vietnamese supplier(s) already in their book.`
+      : null,
+  ])}
 
 ---
 
@@ -256,44 +458,50 @@ ${analysis.vietnamAdvantages || "- Cost: 15-20% savings vs. current sources"}
 
 | Type | Detail |
 |------|--------|
-| **Company Name** | ${lead.companyName || "N/A"} |
-| **Address** | ${lead.importAddress || "N/A"} |
-| **Email** | [Research via website/LinkedIn] |
-| **Phone** | ${lead.contactPhone || "N/A"} |
-| **Website** | ${lead.website || "N/A"} |
+| **Company Name** | ${text(analysis.companyName || lead.companyName)} |
+| **Address** | ${text(lead.importAddress)} |
+| **Contact Person** | ${text(lead.contactPerson)} |
+| **Email** | ${lead.contactEmail ? text(lead.contactEmail) : "[Research via website/LinkedIn]"} |
+| **Phone** | ${text(lead.contactPhone)} |
+| **Website** | ${text(lead.website)} |
 
 ---
 
 ## SECTION 12: NEXT STEPS
 
 ### Immediate Actions (Week 1-2)
-1. Research current supplier pricing & quality standards
-2. Prepare 2-3 product samples with specs
-3. Draft personalized pitch email
+1. Research incumbent supplier pricing & quality standards (${text(l.topSupplierName)})
+2. Prepare 2-3 product samples with specs for ${text(lead.mainProduct)}
+3. Draft personalized pitch email around the "${text(strategy.recommendedAngle)}" angle
 4. Compile customer references from VN
 
 ### Timeline to First Order (Week 3-8)
 1. Initial outreach: Email + LinkedIn
 2. First call: Product overview & trial offer
 3. Sample sending: 2-week evaluation period
-4. Follow-up call: Address objections, negotiate terms
-5. Trial PO: First 500-1000 units (lead time 30-45 days)
+4. Follow-up call: Address the risk factors listed in Section 8
+5. Trial PO: first container(s), confirm lead time and payment terms
 
 ---
 
 ## DATA SOURCES & NOTES
 
-- **Data Source:** ImportYeti Commercial Database
+- **Data Source:** ImportYeti commercial database${
+    lead.importYetiLink ? ` — ${lead.importYetiLink}` : ""
+  }
 - **Analysis Date:** ${generatedDate}
 - **Document ID:** ${documentId}
-- **Analysis Model:** AI-Powered Buyer Intelligence System
-- **Confidence Level:** High
+- **Scoring Engine:** lib/ai/buyer-analyzer.ts (deterministic, no LLM)
+- **Strategy Engine:** ${modelLine}
+- **Confidence:** ${strategy.confidenceScore ?? 0}/100
 
 **Important Notes:**
-- This brief is based on historical import data and AI analysis
-- Market conditions and buyer preferences may change
-- Always verify current information before finalizing deals
-- Cross-reference with recent business intelligence and direct outreach
+- Scores are computed from historical customs data and describe past behaviour,
+  not a forecast.
+- Every figure in this brief traces to a field on BuyerAnalysisResult,
+  BuyerStrategy, or the ImportYeti record. "N/A" means the source data was
+  genuinely absent — nothing here is estimated or invented.
+- Market conditions and buyer preferences change; verify before committing.
 
 ---
 
@@ -301,8 +509,6 @@ ${analysis.vietnamAdvantages || "- Cost: 15-20% savings vs. current sources"}
 **Classification:** Business Intelligence - Confidential  
 **For:** Sales & Business Development Team
 `
-
-  return template
 }
 
 /**
@@ -310,53 +516,15 @@ ${analysis.vietnamAdvantages || "- Cost: 15-20% savings vs. current sources"}
  */
 export function exportBuyerBriefAsText(
   brief: string,
-  companyName: string
+  companyName: string,
 ): { filename: string; content: string } {
-  const filename = `Buyer-Brief-${companyName.replace(/\s+/g, "-")}-${Date.now()}.md`
+  const safe = (companyName || "buyer")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 60)
+  const filename = `Buyer-Brief-${safe}-${Date.now()}.md`
   return {
     filename,
     content: brief,
   }
-}
-
-/**
- * Generate brief HTML version for web display
- */
-export function generateBuyerBriefHTML(markdown: string): string {
-  // Simple markdown to HTML conversion
-  // In production, use a proper markdown parser like remark-html
-  let html = markdown
-    .replace(/^# (.*?)$/gm, "<h1>$1</h1>")
-    .replace(/^## (.*?)$/gm, "<h2>$1</h2>")
-    .replace(/^### (.*?)$/gm, "<h3>$1</h3>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/^\| (.*?) \|/gm, "<table><tr><td>$1</td></tr></table>")
-    .replace(/\n\n/g, "</p><p>")
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buyer Intelligence Brief</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
-    h1 { color: #1a3a52; border-bottom: 3px solid #00a8e8; padding-bottom: 10px; }
-    h2 { color: #2c5aa0; margin-top: 30px; }
-    h3 { color: #666; }
-    table { border-collapse: collapse; width: 100%; margin: 15px 0; }
-    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-    th { background-color: #f5f5f5; }
-    .executive-summary { background-color: #f0f8ff; padding: 15px; border-left: 4px solid #00a8e8; }
-    .section { margin-bottom: 30px; }
-    .highlight { background-color: #fff3cd; padding: 10px; border-radius: 5px; }
-  </style>
-</head>
-<body>
-  <div class="executive-summary">
-    ${html}
-  </div>
-</body>
-</html>`
 }

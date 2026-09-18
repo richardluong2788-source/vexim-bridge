@@ -691,7 +691,9 @@ function renderBuyerShareEmail(d: BuyerEmailData): string {
           </td></tr>
           <tr><td style="padding:22px 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
             Best regards,<br/>
-            <strong>The Vexim Trade Team</strong>
+            <strong>The Vexim Team</strong><br/>
+            <span style="font-weight:400;color:#64748b;">VEXIM GLOBAL CO., LTD<br/>
+            25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam</span>
           </td></tr>
           <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
             Automated message from ${escapeHtml(siteConfig.name)} &middot; ${escapeHtml(siteConfig.url)}<br/>
@@ -827,7 +829,9 @@ function renderBundleBuyerEmail(d: BundleBuyerEmailData): string {
           </td></tr>
           <tr><td style="padding:22px 28px;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;">
             Best regards,<br/>
-            <strong>The Vexim Trade Team</strong>
+            <strong>The Vexim Team</strong><br/>
+            <span style="font-weight:400;color:#64748b;">VEXIM GLOBAL CO., LTD<br/>
+            25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam</span>
           </td></tr>
           <tr><td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
             Automated message from ${escapeHtml(siteConfig.name)} &middot; ${escapeHtml(siteConfig.url)}<br/>

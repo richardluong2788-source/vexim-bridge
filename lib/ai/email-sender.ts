@@ -16,6 +16,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { 
   sendMail, 
   buildPersonalizedSender, 
@@ -124,6 +125,47 @@ export async function sendEmailDraft(
 
   if (!content) {
     throw new Error("Generated email body is empty")
+  }
+
+  // 2a. Suppression guard (CAN-SPAM): refuse to send to a lead that hard-
+  //     bounced or (especially) reported mail as spam. A spam complaint
+  //     blocks the lead outright until an admin clears it; a hard bounce
+  //     only blocks the SAME dead address, so correcting the address via
+  //     an override still allows the resend.
+  {
+    let suppressionLeadId: string | null = draft.lead_id ?? null
+    if (!suppressionLeadId && draft.opportunity_id) {
+      const { data: oppLead } = await supabase
+        .from("opportunities")
+        .select("lead_id")
+        .eq("id", draft.opportunity_id)
+        .maybeSingle()
+      suppressionLeadId = oppLead?.lead_id ?? null
+    }
+
+    if (suppressionLeadId) {
+      const admin = createAdminClient()
+      const { data: lead } = await admin
+        .from("leads")
+        .select("contact_email, email_hard_bounced_at, email_complained_at")
+        .eq("id", suppressionLeadId)
+        .maybeSingle()
+
+      if (lead?.email_complained_at) {
+        throw new Error(
+          "Địa chỉ này đã đánh dấu email là spam — CAN-SPAM không cho phép gửi tiếp. Hãy nhờ quản lý gỡ chặn nếu đã xác minh đây là hiểu lầm.",
+        )
+      }
+      if (
+        lead?.email_hard_bounced_at &&
+        lead.contact_email &&
+        lead.contact_email.trim().toLowerCase() === recipient.trim().toLowerCase()
+      ) {
+        throw new Error(
+          "Địa chỉ email này đã bị hoàn vĩnh viễn (hard bounce). Hãy kiểm tra/cập nhật địa chỉ đúng của buyer trước khi gửi lại.",
+        )
+      }
+    }
   }
 
   // 2b. Look up the owning client (for ref-code initials) so admins can
@@ -257,6 +299,10 @@ export async function sendEmailDraft(
       generated_subject: subject,
       generated_content_en: content,
       resend_message_id: sendRes.data?.id ?? null,
+      // Initial delivery state; the Resend webhook upgrades this to
+      // delivered / opened / clicked / bounced / complained as events arrive.
+      delivery_status: "sent",
+      last_event_at: new Date().toISOString(),
       cc_emails: ccEmails.length > 0 ? ccEmails : null,
     })
     .eq("id", draftId)

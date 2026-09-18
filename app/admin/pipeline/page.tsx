@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { CalendarClock } from "lucide-react"
 import { KanbanBoard, type NeedsReplyItem } from "@/components/admin/kanban-board"
@@ -200,13 +201,15 @@ export default async function AdminPipelinePage() {
           ))}
         </div>
       )}
-      <KanbanBoard
-        opportunities={(opportunities as unknown as OpportunityWithClient[]) ?? []}
-        unreadReplyCountByOpp={unreadByOpp}
-        needsReplyItems={needsReplyItems}
-        daysInStageByOpp={daysInStageByOpp}
-        meetingsByOpp={meetingsByOpp}
-      />
+      <Suspense fallback={null}>
+        <KanbanBoard
+          opportunities={(opportunities as unknown as OpportunityWithClient[]) ?? []}
+          unreadReplyCountByOpp={unreadByOpp}
+          needsReplyItems={needsReplyItems}
+          daysInStageByOpp={daysInStageByOpp}
+          meetingsByOpp={meetingsByOpp}
+        />
+      </Suspense>
     </div>
   )
 }

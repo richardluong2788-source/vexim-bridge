@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBuyerInquiryReceivedEmail } from "@/lib/buyers/confirmation-email"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { pipelineOppPath } from "@/lib/notifications/paths"
 
 export interface ProductQuoteRequest {
   product_id: string
@@ -84,12 +85,12 @@ export async function submitProductQuoteRequest(
 
       // Notify the assigned AE specifically using dispatchNotification for email + in-app
       if (existingOpp.account_manager_id) {
-        dispatchNotification({
+        await dispatchNotification({
           userId: existingOpp.account_manager_id,
           category: "new_assignment",
           opportunityId: existingOpp.id,
-          linkPath: `/admin/opportunities/${existingOpp.id}`,
-          dedupKey: `buyer_responded:${existingOpp.id}:${Date.now()}`,
+          linkPath: pipelineOppPath(existingOpp.id),
+          dedupKey: `buyer_responded:${existingOpp.id}:${lead.id}`,
           title: {
             vi: "Buyer phản hồi qua link sản phẩm",
             en: "Buyer Responded to Product Link",
@@ -102,8 +103,6 @@ export async function submitProductQuoteRequest(
             vi: "Xem chi tiết",
             en: "View details",
           },
-        }).catch((err) => {
-          console.error("[product] notification dispatch failed", err)
         })
       }
     }
@@ -127,11 +126,11 @@ export async function submitProductQuoteRequest(
     const notifyUserId = client?.account_manager_id
     if (notifyUserId) {
       // Use dispatchNotification for proper email + in-app delivery
-      dispatchNotification({
+      await dispatchNotification({
         userId: notifyUserId,
         category: "new_assignment",
         opportunityId: opportunity?.id || undefined,
-        linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/buyers/${lead.id}`,
+        linkPath: opportunity ? pipelineOppPath(opportunity.id) : `/admin/buyers/${lead.id}`,
         dedupKey: `new_quote_request:${lead.id}`,
         title: {
           vi: "Yêu cầu báo giá mới",
@@ -141,13 +140,11 @@ export async function submitProductQuoteRequest(
           vi: `${request.company_name} yêu cầu báo giá cho ${request.product_name}`,
           en: `${request.company_name} requested a quote for ${request.product_name}`,
         },
-        ctaLabel: {
-          vi: "Xem chi tiết",
-          en: "View details",
-        },
-      }).catch((err) => {
-        console.error("[product] notification dispatch failed", err)
-      })
+          ctaLabel: {
+            vi: "Xem chi tiết",
+            en: "View details",
+          },
+        })
     } else {
       // No account manager assigned — broadcast to all admins and super_admins
       const { data: admins } = await adminSupabase
@@ -163,7 +160,7 @@ export async function submitProductQuoteRequest(
               userId: admin.id,
               category: "new_assignment",
               opportunityId: opportunity?.id || undefined,
-              linkPath: opportunity ? `/admin/opportunities/${opportunity.id}` : `/admin/buyers/${lead.id}`,
+              linkPath: opportunity ? pipelineOppPath(opportunity.id) : `/admin/buyers/${lead.id}`,
               dedupKey: `new_quote_request:${lead.id}:${admin.id}`,
               title: {
                 vi: "Yêu cầu báo giá mới",
@@ -177,8 +174,6 @@ export async function submitProductQuoteRequest(
                 vi: "Xem chi tiết",
                 en: "View details",
               },
-            }).catch((err) => {
-              console.error("[product] notification dispatch failed for admin", admin.id, err)
             })
           )
         )

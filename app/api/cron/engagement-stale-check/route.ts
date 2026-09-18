@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
+import { engagementFocusPath } from "@/lib/notifications/paths"
 
 /**
  * Daily cron: warn an AE when a buyer they're waiting on has gone silent.
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     await dispatchNotification({
       userId: engagement.account_manager_id,
       category: "action_required",
-      linkPath: "/admin/engagements",
+      linkPath: engagementFocusPath(String(engagement.id)),
       dedupKey: `engagement_stale:${engagement.id}:${engagement.updated_at}`,
       title: {
         vi: `${companyName} chưa phản hồi sau ${days} ngày`,

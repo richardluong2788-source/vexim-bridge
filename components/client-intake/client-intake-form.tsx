@@ -39,7 +39,7 @@ import {
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { submitClientIntake } from "@/app/client-intake/[token]/actions"
 import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
-import { ImageUploadField } from "@/components/client-intake/image-upload-field"
+import { ImageLinkField } from "@/components/client-intake/image-link-field"
 import {
   ASSESSMENT_LABELS,
   EMPTY_FACTORY_CAPABILITY_ANSWERS,
@@ -860,7 +860,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
               <Label>Logo doanh nghiệp</Label>
-              <ImageUploadField
+              <ImageLinkField
                 max={1}
                 value={form.logoUrl ? [form.logoUrl] : []}
                 onChange={(urls) => update("logoUrl", urls[0] ?? "")}
@@ -869,7 +869,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             </div>
             <div className="flex flex-col gap-2">
               <Label>Ảnh bìa</Label>
-              <ImageUploadField
+              <ImageLinkField
                 max={1}
                 value={form.coverImageUrl ? [form.coverImageUrl] : []}
                 onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
@@ -879,7 +879,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
           </div>
           <div className="flex flex-col gap-2">
             <Label>Ảnh nhà máy / sản phẩm</Label>
-            <ImageUploadField
+            <ImageLinkField
               max={5}
               value={form.factoryImageUrls
                 .split(",")

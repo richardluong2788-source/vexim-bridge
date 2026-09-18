@@ -2,7 +2,10 @@
  * Canonical in-app destinations for notification CTAs.
  *
  * Opportunity detail lives as a sheet on the Kanban board — there is no
- * `/admin/opportunities/[id]` page. Engagements already honour `?focus=`.
+ * `/admin/opportunities/[id]` page. Engagements honour `?focus=`, and the work
+ * queue is the "Đang xử lý" tab of the AE inbox (see
+ * app/admin/ae-inbox/page.tsx); `/admin/engagements` still redirects there for
+ * links already sent.
  */
 
 export function pipelineOppPath(
@@ -15,5 +18,5 @@ export function pipelineOppPath(
 }
 
 export function engagementFocusPath(engagementId: string): string {
-  return `/admin/engagements?focus=${engagementId}`
+  return `/admin/ae-inbox?tab=work&focus=${engagementId}`
 }

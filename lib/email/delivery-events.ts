@@ -296,7 +296,7 @@ export async function handleOutboundEmailEvent(
               ? engagementFocusPath(draft.engagement_id)
               : draft.opportunity_id
                 ? pipelineOppPath(draft.opportunity_id)
-                : "/admin/engagements",
+                : "/admin/ae-inbox?tab=work",
             dedupKey: `email_${type}:${draft.id}`,
             title: isComplaint
               ? {

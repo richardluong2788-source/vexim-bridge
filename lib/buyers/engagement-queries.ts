@@ -1,6 +1,7 @@
 // Loading an engagement row — one select, one shape, both surfaces.
 //
-// The inbox list (/admin/engagements) and the buyer profile's "Phân tích" tab
+// The inbox list (the "Đang xử lý" tab of /admin/ae-inbox) and the buyer
+// profile's "Phân tích" tab
 // (/admin/buyers/[id]) now run the SAME stage dialogs. A dialog reads the
 // shortlist versions, the share links and the buyer replies off the engagement
 // it is handed, so a row loaded with fewer columns would fail differently on
@@ -72,6 +73,15 @@ export async function loadOpenEngagementForLead(
 }
 
 /**
+ * A client the AE may assign to a buyer. Superset of EngagementClient: the
+ * shortlist builder only needs the name, while the assign dialog shows the FDA
+ * expiry (which is also what makes a client assignable in the first place).
+ */
+export interface AssignableClient extends EngagementClient {
+  fda_expires_at: string | null
+}
+
+/**
  * The clients an AE may put on a shortlist: active client profiles, optionally
  * scoped to one AE's book.
  *
@@ -83,7 +93,7 @@ export async function loadOpenEngagementForLead(
 export async function loadAssignableClients(
   supabase: AnyClient,
   opts: { accountManagerId?: string | null } = {},
-): Promise<EngagementClient[]> {
+): Promise<AssignableClient[]> {
   let query = (supabase as any)
     .from("profiles")
     .select("id, full_name, company_name, fda_expires_at")
@@ -104,5 +114,10 @@ export async function loadAssignableClients(
     fda_expires_at: string | null
   }>)
     .filter((c) => !!c.fda_expires_at && new Date(c.fda_expires_at).getTime() > now)
-    .map(({ id, full_name, company_name }) => ({ id, full_name, company_name }))
+    .map(({ id, full_name, company_name, fda_expires_at }) => ({
+      id,
+      full_name,
+      company_name,
+      fda_expires_at,
+    }))
 }

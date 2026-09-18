@@ -47,7 +47,7 @@ import type { Role } from "@/lib/supabase/types"
 // Types
 // ---------------------------------------------------------------------------
 
-interface InboxItem {
+export interface InboxItem {
   id: string
   lead_id: string
   account_manager_id: string
@@ -98,7 +98,7 @@ interface Client {
   fda_expires_at: string | null
 }
 
-interface InboxListProps {
+export interface InboxListProps {
   items: InboxItem[]
   clients: Client[]
   locale: "vi" | "en"

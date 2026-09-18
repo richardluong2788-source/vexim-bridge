@@ -94,6 +94,13 @@ interface EngagementListProps {
   engagements: Engagement[]
   clients: EngagementClient[]
   locale: "vi" | "en"
+  /** Hide the "Đang xử lý (N)" heading — the inbox tab already says it. */
+  showHeader?: boolean
+  /**
+   * Render the card open from the start. The detail pane of the inbox shows one
+   * buyer, so there is nothing gained by making the AE click to reveal them.
+   */
+  defaultExpanded?: boolean
 }
 
 const REPLY_INTENT_META: Record<
@@ -146,7 +153,13 @@ function formatRelativeTime(dateStr: string, locale: "vi" | "en"): string {
   return locale === "vi" ? `${days} ngày trước` : `${days}d ago`
 }
 
-export function EngagementList({ engagements, clients, locale }: EngagementListProps) {
+export function EngagementList({
+  engagements,
+  clients,
+  locale,
+  showHeader = true,
+  defaultExpanded = false,
+}: EngagementListProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [pending, startTransition] = useTransition()
@@ -169,7 +182,15 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
   // (which otherwise makes the DOM grow unbounded as buyers reply more).
   // Buyers with an unread reply start expanded so nothing new gets missed.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set(engagements.filter((e) => (e.buyer_replies ?? []).some((r) => !r.read_at)).map((e) => e.id)),
+    () =>
+      new Set(
+        engagements
+          .filter(
+            (e) =>
+              defaultExpanded || (e.buyer_replies ?? []).some((r) => !r.read_at),
+          )
+          .map((e) => e.id),
+      ),
   )
 
   function toggleExpanded(id: string) {
@@ -181,7 +202,8 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
     })
   }
 
-  // Deep link from a "buyer replied" notification: /admin/engagements?focus=<id>
+  // Deep link from a "buyer replied" notification — the inbox carries
+  // ?tab=work&focus=<id>, and the notification path helper builds it.
   const focusId = searchParams.get("focus")
 
   useEffect(() => {
@@ -213,15 +235,17 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <ClipboardList className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">
-          {t("Đang xử lý", "In progress")}
-        </h2>
-        <Badge variant="outline" className="text-xs">
-          {engagements.length}
-        </Badge>
-      </div>
+      {showHeader && (
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">
+            {t("Đang xử lý", "In progress")}
+          </h2>
+          <Badge variant="outline" className="text-xs">
+            {engagements.length}
+          </Badge>
+        </div>
+      )}
 
       <div className="grid gap-4">
         {ordered.map((eng) => {

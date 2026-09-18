@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nextStageOnBuyerReply } from "@/lib/buyers/engagement-stage-transitions"
+import { engagementFocusPath } from "@/lib/notifications/paths"
 import { classifyBuyerReply } from "@/lib/ai/reply-classifier"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { pipelineOppPath } from "@/lib/notifications/paths"
@@ -883,7 +884,7 @@ export async function POST(req: NextRequest) {
         }
       } else if (engagementMatch) {
         notifyUserId = engagementMatch.accountManagerId
-        notifyLinkPath = `/admin/engagements?focus=${engagementMatch.engagementId}`
+        notifyLinkPath = engagementFocusPath(engagementMatch.engagementId)
       }
 
       if (notifyUserId) {

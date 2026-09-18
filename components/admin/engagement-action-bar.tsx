@@ -4,7 +4,8 @@
  * Engagement action bar — one place that knows what an AE can DO with a
  * pre-opportunity buyer, rendered by both surfaces that show a buyer in flight:
  *
- *   1. the AE inbox card (/admin/engagements) — `EngagementStageActions` for
+ *   1. the AE inbox card — the "Đang xử lý" tab of /admin/ae-inbox —
+ *      `EngagementStageActions` for
  *      the stage-driven buttons, `EngagementAdminActions` for the header row;
  *   2. the buyer profile's "Phân tích" tab (/admin/buyers/[id]) —
  *      `BuyerEngagementBar`, which shows the stage, how long the buyer has been

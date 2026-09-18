@@ -999,6 +999,8 @@ export async function markEngagementRepliesReadAction(
     .is("read_at", null)
 
   if (error) return { ok: false, error: error.message }
-  revalidatePath("/admin/engagements")
+  // The work queue is the "Đang xử lý" tab of the inbox now — /admin/engagements
+  // only redirects, so revalidating that path would leave the tab stale.
+  revalidatePath("/admin/ae-inbox")
   return { ok: true, data: { success: true } }
 }

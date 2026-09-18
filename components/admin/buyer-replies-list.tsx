@@ -19,6 +19,7 @@
 import Link from "next/link"
 import { ExternalLink, Mail } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { engagementFocusPath } from "@/lib/notifications/paths"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -167,7 +168,7 @@ export function BuyerRepliesList({
                 /* Pre-opportunity: the deal does not exist yet, so send the AE
                    to the engagement card this reply belongs to. */
                 <Button asChild variant="ghost" size="sm">
-                  <Link href={`/admin/engagements?focus=${r.engagementId}`}>
+                  <Link href={engagementFocusPath(r.engagementId)}>
                     {t("Mở trong Đang xử lý", "Open in In progress")}
                     <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>

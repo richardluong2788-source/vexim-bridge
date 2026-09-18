@@ -44,6 +44,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
+import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -324,17 +325,28 @@ export function BuyerEngagementBar({
   buyerId,
   companyName,
   locale,
+  emailContextHints = [],
 }: {
   engagement: EngagementActionTarget
   buyerId: string
   /** Buyer company name, for the dialogs' copy (may be missing on old rows). */
   companyName: string | null
   locale: "vi" | "en"
+  /** Talking points / tips to keep in view inside the email panel. */
+  emailContextHints?: string[]
 }) {
+  const router = useRouter()
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const context = stageActionContextFromEngagement(engagement)
   const nextAction = getPrimaryStageAction(engagement.stage, context)
   const stageInfo = STAGE_LABELS[engagement.stage]
+
+  // "Soạn email mở đầu" is the one stage action that makes sense right here:
+  // the AE has just read the analysis, and the composer can now open as a panel
+  // beside it instead of bouncing them to the inbox. Every other stage action
+  // still needs the inbox card's dialogs, so it keeps the deep link.
+  const [composerOpen, setComposerOpen] = useState(false)
+  const composeHere = nextAction?.key === "draft_opening_email"
 
   // Same computation as the inbox card, so "12 ngày ở giai đoạn này" means the
   // same thing on both screens.
@@ -359,21 +371,36 @@ export function BuyerEngagementBar({
       </span>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        {/* Deep link, not a duplicate dialog: the stage dialogs (email, form,
-            shortlist, convert) live with the inbox card that feeds them. The
-            `focus` param expands the card and rings it, so this is one click
-            into the exact action rather than a hunt. */}
-        <Button asChild size="sm" variant={nextAction ? "default" : "outline"} className="gap-2">
-          <Link href={`/admin/engagements?focus=${engagement.id}`}>
-            {nextAction
-              ? t(
-                  `Việc tiếp theo: ${nextAction.labelVi}`,
-                  `Next: ${nextAction.labelEn}`,
-                )
-              : t("Mở trong Đang xử lý", "Open in In progress")}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        {composeHere ? (
+          /* Write the opening email right here, next to the analysis. */
+          <Button
+            size="sm"
+            className="gap-2"
+            onClick={() => setComposerOpen(true)}
+          >
+            <Mail className="h-4 w-4" />
+            {t(
+              `Việc tiếp theo: ${nextAction.labelVi}`,
+              `Next: ${nextAction.labelEn}`,
+            )}
+          </Button>
+        ) : (
+          /* Deep link, not a duplicate dialog: the remaining stage dialogs
+             (requirements form, shortlist, convert) live with the inbox card
+             that feeds them. The `focus` param expands the card and rings it,
+             so this is one click into the exact action rather than a hunt. */
+          <Button asChild size="sm" variant={nextAction ? "default" : "outline"} className="gap-2">
+            <Link href={`/admin/engagements?focus=${engagement.id}`}>
+              {nextAction
+                ? t(
+                    `Việc tiếp theo: ${nextAction.labelVi}`,
+                    `Next: ${nextAction.labelEn}`,
+                  )
+                : t("Mở trong Đang xử lý", "Open in In progress")}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
 
         <EngagementAdminActions
           engagement={{ ...engagement, leads: { company_name: companyName } }}
@@ -389,6 +416,22 @@ export function BuyerEngagementBar({
           `Actions for buyer ${companyName ?? buyerId}`,
         )}
       </span>
+
+      {composerOpen && (
+        <RequirementEmailComposer
+          engagementId={engagement.id}
+          locale={locale}
+          variant="sheet"
+          contextHints={emailContextHints}
+          onClose={() => setComposerOpen(false)}
+          onSent={() => {
+            setComposerOpen(false)
+            // Stage moves to "requirement_email_sent", so the bar's next action
+            // becomes "Ghi nhận nhu cầu buyer" without a manual reload.
+            router.refresh()
+          }}
+        />
+      )}
     </div>
   )
 }

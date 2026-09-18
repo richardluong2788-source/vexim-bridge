@@ -64,7 +64,6 @@ import {
 } from "@/app/admin/ae-inbox/engagement-actions"
 import {
   generateRequirementInquiryEmailAction,
-  markEngagementEmailSentAction,
   generateFollowUpReplyEmailAction,
   markFollowUpResentAction,
 } from "@/app/admin/ae-inbox/requirement-email-actions"
@@ -73,6 +72,9 @@ import {
   EngagementAdminActions,
   EngagementStageActions,
 } from "@/components/admin/engagement-action-bar"
+// The "Soạn email mở đầu" flow, shared with the buyer profile's "Phân tích"
+// tab (which renders it as a side panel instead of this modal).
+import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
 // Stage labels + the stage → button map live in one shared module so this card
 // and the buyer profile's "Phân tích" tab can never disagree about either.
 import { STAGE_LABELS } from "@/lib/buyers/engagement-stages"
@@ -809,8 +811,10 @@ export function EngagementList({ engagements, clients, locale }: EngagementListP
       </div>
 
       {reqEmailDialogFor && (
-        <RequirementEmailDialog
-          engagement={reqEmailDialogFor}
+        // Shared with the buyer profile's "Phân tích" tab, which opens the very
+        // same flow as a side panel. Default variant = the modal used here.
+        <RequirementEmailComposer
+          engagementId={reqEmailDialogFor.id}
           locale={locale}
           onClose={() => setReqEmailDialogFor(null)}
           onSent={() => {
@@ -929,235 +933,6 @@ function ShareLinkRow({ token, locale }: { token: string; locale: "vi" | "en" })
 
 // ---------------------------------------------------------------------------
 // Dialog: Draft & send the requirement inquiry email (stage: claimed)
-// ---------------------------------------------------------------------------
-
-function RequirementEmailDialog({
-  engagement,
-  locale,
-  onClose,
-  onSent,
-}: {
-  engagement: Engagement
-  locale: "vi" | "en"
-  onClose: () => void
-  onSent: () => void
-}) {
-  const [mode, setMode] = useState<"ai" | "manual">("ai")
-  const [viPrompt, setViPrompt] = useState("")
-  const [manualSubject, setManualSubject] = useState("")
-  const [manualContent, setManualContent] = useState("")
-  const [generating, setGenerating] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [draft, setDraft] = useState<{
-    draftId: string
-    subject_en: string
-    content_en: string
-    content_vi: string
-    recipient_email: string | null
-    usedFallback?: boolean
-  } | null>(null)
-
-  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
-
-  const handleGenerate = async () => {
-    if (mode === "manual" && !manualContent.trim()) {
-      toast.error(t("Vui lòng nhập nội dung email", "Please enter the email content"))
-      return
-    }
-    setGenerating(true)
-    const result = await generateRequirementInquiryEmailAction(
-      mode === "manual"
-        ? {
-            engagementId: engagement.id,
-            viPrompt: "",
-            isManual: true,
-            manualSubject: manualSubject.trim() || t("(không có chủ đề)", "(no subject)"),
-            manualContent: manualContent.trim(),
-          }
-        : {
-            engagementId: engagement.id,
-            viPrompt,
-          },
-    )
-    setGenerating(false)
-    if (!result.ok) {
-      toast.error(result.message || result.error)
-      return
-    }
-    if (result.data.usedFallback) {
-      toast.warning(
-        t(
-          "AI tạm không phản hồi — đã dùng mẫu email có sẵn, vui lòng kiểm tra lại trước khi g��i",
-          "AI is temporarily unavailable — a fallback template was used, please review before sending",
-        ),
-      )
-    }
-    setDraft(result.data)
-  }
-
-  const handleSend = async () => {
-    if (!draft) return
-    if (!draft.recipient_email) {
-      toast.error(t("Buyer chưa có email liên hệ", "Buyer has no contact email"))
-      return
-    }
-    setSending(true)
-    const sendResult = await sendEmailDraftAction({ draftId: draft.draftId })
-    if (!sendResult.ok) {
-      setSending(false)
-      toast.error(sendResult.message || sendResult.error)
-      return
-    }
-    await markEngagementEmailSentAction(engagement.id)
-    setSending(false)
-    toast.success(t("Đã gửi email mở đầu", "Opening email sent"))
-    onSent()
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("Soạn email mở đầu cho buyer", "Draft opening email")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              "AI sẽ soạn email giới thiệu Vexim và hỏi buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không. Chưa hỏi chi tiết MOQ/giá/thanh toán/bao bì ở bước này.",
-              "AI will draft an email introducing Vexim and asking whether the buyer would like to evaluate additional sourcing from Vietnam. No MOQ/price/payment/packaging questions at this step.",
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        {!draft ? (
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1">
-              <button
-                type="button"
-                onClick={() => setMode("ai")}
-                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {t("Soạn bằng AI", "AI draft")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("manual")}
-                className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mode === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {t("Soạn tay", "Write manually")}
-              </button>
-            </div>
-
-            {mode === "ai" ? (
-              <>
-                <Label htmlFor="vi-prompt">
-                  {t("Hướng dẫn thêm cho AI (không bắt buộc)", "Extra instructions for AI (optional)")}
-                </Label>
-                <Textarea
-                  id="vi-prompt"
-                  value={viPrompt}
-                  onChange={(e) => setViPrompt(e.target.value)}
-                  placeholder={t(
-                    "VD: nhấn mạnh Vexim đã làm việc với nhiều nhà máy đạt chuẩn xuất khẩu...",
-                    "E.g. emphasize Vexim works with export-certified factories...",
-                  )}
-                  rows={3}
-                />
-              </>
-            ) : (
-              <>
-                <div>
-                  <Label htmlFor="manual-req-subject">{t("Chủ đề", "Subject")}</Label>
-                  <Input
-                    id="manual-req-subject"
-                    value={manualSubject}
-                    onChange={(e) => setManualSubject(e.target.value)}
-                    placeholder={t(
-                      "VD: Sourcing from Vietnam — coconuts & cashew nuts",
-                      "E.g. Sourcing from Vietnam — coconuts & cashew nuts",
-                    )}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="manual-req-content">{t("Nội dung email", "Email content")}</Label>
-                  <Textarea
-                    id="manual-req-content"
-                    value={manualContent}
-                    onChange={(e) => setManualContent(e.target.value)}
-                    placeholder={t(
-                      "Viết nội dung email mở đầu gửi buyer tại đây...",
-                      "Write the opening email content here...",
-                    )}
-                    rows={8}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {draft.usedFallback && (
-              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
-                <span>
-                  {t(
-                    "AI tạm không phản hồi (lỗi hoặc timeout) — nội dung dưới đây là mẫu email có sẵn (fallback), vui lòng đọc kỹ và chỉnh sửa trước khi gửi.",
-                    "AI did not respond (error or timeout) — the content below is a static fallback template. Please review and edit before sending.",
-                  )}
-                </span>
-              </div>
-            )}
-            <div>
-              <Label>{t("Chủ đề", "Subject")}</Label>
-              <Input
-                value={draft.subject_en}
-                onChange={(e) => setDraft({ ...draft, subject_en: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>{t("Nội dung (English)", "Content (English)")}</Label>
-              <Textarea
-                value={draft.content_en}
-                onChange={(e) => setDraft({ ...draft, content_en: e.target.value })}
-                rows={8}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t("Người nhận: ", "Recipient: ")}
-              {draft.recipient_email || t("(chưa có email)", "(no email on file)")}
-            </div>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {t("Hủy", "Cancel")}
-          </Button>
-          {!draft ? (
-            <Button onClick={handleGenerate} disabled={generating} className="gap-2">
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode === "manual" ? (
-                <CornerUpLeft className="h-4 w-4" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {mode === "manual" ? t("Xem lại email", "Review email") : t("Soạn bằng AI", "Generate with AI")}
-            </Button>
-          ) : (
-            <Button onClick={handleSend} disabled={sending} className="gap-2">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              {t("Gửi email", "Send email")}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Dialog: Manually resend a follow-up when the buyer has gone quiet — either
 // because the earlier email never reached them, or they simply haven't

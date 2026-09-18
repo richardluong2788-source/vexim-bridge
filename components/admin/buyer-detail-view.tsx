@@ -324,6 +324,21 @@ export function BuyerDetailView({
   )
   const hasFallback = hasSuggestedApproachContent(fallbackApproach)
 
+  // Bullets kept in view inside the "Soạn email mở đầu" panel on this tab, so
+  // the opening email can reference the same material the AE is reading. Prefer
+  // the AI strategy; fall back to the rule-based tips for buyers without one.
+  const emailContextHints = useMemo(() => {
+    const strategy = buyer.buyer_strategy
+    if (strategy) {
+      return [
+        strategy.recommendedAngle,
+        ...(strategy.talkingPoints ?? []).slice(0, 3),
+        strategy.timingSuggestion,
+      ].filter(Boolean)
+    }
+    return [...fallbackApproach.warnings, ...fallbackApproach.tips].slice(0, 4)
+  }, [buyer.buyer_strategy, fallbackApproach])
+
   const [assignOpen, setAssignOpen] = useState(false)
 
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
@@ -575,6 +590,7 @@ export function BuyerDetailView({
                   buyerId={buyer.id}
                   companyName={buyer.company_name}
                   locale={locale}
+                  emailContextHints={emailContextHints}
                 />
               )}
               {buyer.buyer_analysis ? (

@@ -3,6 +3,10 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import {
+  BuyerEngagementBar,
+  type EngagementActionTarget,
+} from "@/components/admin/engagement-action-bar"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
 import {
@@ -210,6 +214,15 @@ interface Props {
   clients?: AssignableClient[]
   currentRole?: Role
   canAssignAE?: boolean
+  /**
+   * The buyer's open (pre-opportunity) engagement, when the viewer is allowed
+   * to act on it — its owning AE, or an admin. Powers the action bar at the top
+   * of the "Phân tích" tab: which stage this buyer is in, how long they have
+   * been there, and a one-click jump to the next action. Null for buyers that
+   * were never claimed, are already converted/dropped, or belong to another AE
+   * (the deep link would land on an inbox that does not contain them).
+   */
+  engagement?: EngagementActionTarget | null
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -287,6 +300,7 @@ export function BuyerDetailView({
   canLiftSuppression,
   currentRole,
   canAssignAE,
+  engagement,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -533,34 +547,48 @@ export function BuyerDetailView({
               stored profile fields. It renders null when it has nothing to
               say, hence the explicit empty state underneath it. */}
           <TabsContent value="analysis" className="mt-0">
-            {buyer.buyer_analysis ? (
-              <BuyerAnalysisCard
-                analysis={buyer.buyer_analysis}
-                strategy={buyer.buyer_strategy}
-                locale={locale}
-                generatedAt={buyer.buyer_analysis_at}
-              />
-            ) : (
-              <div className="flex flex-col gap-4">
-                <SuggestedApproachCard buyer={buyer} locale={locale} />
-                <Card className="border-border">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyTitle>
-                        {locale === "vi"
-                          ? "Chưa có bản phân tích AI cho buyer này"
-                          : "No AI analysis saved for this buyer yet"}
-                      </EmptyTitle>
-                      <EmptyDescription>
-                        {locale === "vi"
-                          ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
-                          : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </Card>
-              </div>
-            )}
+            <div className="flex flex-col gap-4">
+              {/* Where is this buyer in the pipeline, and what is the next
+                  thing to do about them? Without this the tab answers "who is
+                  this buyer" but leaves the AE to go hunting for the action
+                  back in the inbox. */}
+              {engagement && (
+                <BuyerEngagementBar
+                  engagement={engagement}
+                  buyerId={buyer.id}
+                  companyName={buyer.company_name}
+                  locale={locale}
+                />
+              )}
+              {buyer.buyer_analysis ? (
+                <BuyerAnalysisCard
+                  analysis={buyer.buyer_analysis}
+                  strategy={buyer.buyer_strategy}
+                  locale={locale}
+                  generatedAt={buyer.buyer_analysis_at}
+                />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <SuggestedApproachCard buyer={buyer} locale={locale} />
+                  <Card className="border-border">
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyTitle>
+                          {locale === "vi"
+                            ? "Chưa có bản phân tích AI cho buyer này"
+                            : "No AI analysis saved for this buyer yet"}
+                        </EmptyTitle>
+                        <EmptyDescription>
+                          {locale === "vi"
+                            ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
+                            : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </Card>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Contacts Tab */}

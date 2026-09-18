@@ -166,8 +166,24 @@ export async function generateBuyerStrategy(
     temperature: 0.7,
   })
 
-  // Extract the parsed object from result
-  const strategy = result.object
+  // AI SDK v6: generateText() returns a DefaultGenerateTextResult whose
+  // structured payload lives on `.output` (with `.experimental_output` as the
+  // legacy alias the other modules in lib/ai use). There is NO `.object`
+  // property on it — that getter only exists on the generateObject/stream
+  // results.
+  //
+  // This used to read `result.object`, which was always undefined, so the
+  // function fell through to generateFallbackStrategy() on EVERY call — after
+  // the LLM had already been invoked and paid for. The "AI" strategy the
+  // feature is named after never actually reached a buyer.
+  let strategy: BuyerStrategy | undefined
+  try {
+    // `.output` throws NoOutputGeneratedError when the provider produced no
+    // structured output at all, which is a soft failure here, not a crash.
+    strategy = result.output ?? undefined
+  } catch {
+    strategy = undefined
+  }
 
   if (!strategy) {
     // Return fallback strategy if AI fails

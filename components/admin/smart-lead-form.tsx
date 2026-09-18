@@ -183,6 +183,9 @@ export function SmartLeadForm() {
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [buyerAnalysis, setBuyerAnalysis] = useState<BuyerAnalysisResult | null>(null)
   const [buyerStrategy, setBuyerStrategy] = useState<BuyerStrategy | null>(null)
+  // Which model produced `buyerStrategy` (null = the deterministic fallback ran
+  // because the LLM call failed). Persisted so the AE can tell later.
+  const [buyerAnalysisModel, setBuyerAnalysisModel] = useState<string | null>(null)
 
   const riskAssessment = country.trim() ? assessCountryRisk(country) : null
   const isCompanyNameMissing = !companyName.trim()
@@ -290,6 +293,7 @@ export function SmartLeadForm() {
     setAnalysisLoading(true)
     setBuyerAnalysis(null)
     setBuyerStrategy(null)
+    setBuyerAnalysisModel(null)
 
     try {
       const response = await fetch("/api/importyeti/analyze", {
@@ -310,6 +314,7 @@ export function SmartLeadForm() {
 
       setBuyerAnalysis(result.analysis)
       setBuyerStrategy(result.strategy)
+      setBuyerAnalysisModel(result.meta?.model ?? null)
       
       toast.success(locale === "vi"
         ? "Đã hoàn thành phân tích buyer!"
@@ -407,6 +412,17 @@ export function SmartLeadForm() {
       inquiryTimeline: inquiryTimeline || null,
       inquiryChannel: inquiryChannel || null,
       inquiryNotes: inquiryNotes || null,
+
+      // AI buyer analysis snapshot (migration 079).
+      // runBuyerAnalysis() fires in the background right after auto-fill, so
+      // these are non-null in the normal flow: LR reads the analysis card,
+      // then submits. If LR submits before it resolves (or pastes no
+      // ImportYeti link at all) both stay null and the buyer profile's
+      // "Phân tích" tab falls back to the heuristic SuggestedApproachCard
+      // rather than showing an empty tab.
+      buyerAnalysis: buyerAnalysis ?? null,
+      buyerStrategy: buyerStrategy ?? null,
+      buyerAnalysisModel: buyerAnalysisModel ?? null,
 
       // Legacy
       capacityNeeded: needsCapacity ? parseFloat(needsCapacity) : null,

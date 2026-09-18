@@ -33,6 +33,13 @@ export type BuyerStrategy = z.infer<typeof BuyerStrategySchema>
 export interface FullBuyerAnalysis {
   analysis: BuyerAnalysisResult
   strategy: BuyerStrategy
+  /**
+   * "ai"      — generateText succeeded.
+   * "fallback" — the LLM call threw and generateFallbackStrategy() produced a
+   *              deterministic strategy instead. Callers should NOT attribute
+   *              this to a model name.
+   */
+  strategySource: "ai" | "fallback"
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -132,6 +139,15 @@ Lưu ý:
 // ══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Model backing the approach strategy.
+ *
+ * Exported so callers can persist it next to the snapshot
+ * (`leads.buyer_analysis_model`, migration 079) instead of keeping a second
+ * hard-coded copy of the string that silently drifts when this is bumped.
+ */
+export const BUYER_STRATEGY_MODEL = "openai/gpt-4o-mini"
+
+/**
  * Generate AI-powered approach strategy for a buyer
  */
 export async function generateBuyerStrategy(
@@ -142,7 +158,7 @@ export async function generateBuyerStrategy(
   const prompt = buildStrategyPrompt(analysis, rawData)
   
   const result = await generateText({
-    model: "openai/gpt-4o-mini",
+    model: BUYER_STRATEGY_MODEL,
     output: Output.object({
       schema: BuyerStrategySchema,
     }),
@@ -150,8 +166,24 @@ export async function generateBuyerStrategy(
     temperature: 0.7,
   })
 
-  // Extract the parsed object from result
-  const strategy = result.object
+  // AI SDK v6: generateText() returns a DefaultGenerateTextResult whose
+  // structured payload lives on `.output` (with `.experimental_output` as the
+  // legacy alias the other modules in lib/ai use). There is NO `.object`
+  // property on it — that getter only exists on the generateObject/stream
+  // results.
+  //
+  // This used to read `result.object`, which was always undefined, so the
+  // function fell through to generateFallbackStrategy() on EVERY call — after
+  // the LLM had already been invoked and paid for. The "AI" strategy the
+  // feature is named after never actually reached a buyer.
+  let strategy: BuyerStrategy | undefined
+  try {
+    // `.output` throws NoOutputGeneratedError when the provider produced no
+    // structured output at all, which is a soft failure here, not a crash.
+    strategy = result.output ?? undefined
+  } catch {
+    strategy = undefined
+  }
 
   if (!strategy) {
     // Return fallback strategy if AI fails
@@ -227,10 +259,10 @@ export async function analyzeAndGenerateStrategy(
 ): Promise<FullBuyerAnalysis> {
   try {
     const strategy = await generateBuyerStrategy(analysis, rawData)
-    return { analysis, strategy }
+    return { analysis, strategy, strategySource: "ai" }
   } catch (error) {
     console.error("[BuyerStrategyGenerator] AI generation failed, using fallback:", error)
     const fallbackStrategy = generateFallbackStrategy(analysis)
-    return { analysis, strategy: fallbackStrategy }
+    return { analysis, strategy: fallbackStrategy, strategySource: "fallback" }
   }
 }

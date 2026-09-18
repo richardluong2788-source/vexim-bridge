@@ -206,15 +206,17 @@ export function NotificationBell({
         sideOffset={8}
         collisionPadding={16}
         avoidCollisions
-        className="flex w-[380px] max-h-[min(520px,var(--radix-popover-content-available-height,520px),70vh)] flex-col overflow-hidden p-0"
+        className="flex w-[min(380px,calc(100vw-2rem))] max-h-[min(520px,var(--radix-popover-content-available-height,520px),70vh)] flex-col overflow-hidden p-0"
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">{t.notifications.title}</h3>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <h3 className="min-w-0 truncate text-sm font-semibold">
+              {t.notifications.title}
+            </h3>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -242,15 +244,18 @@ export function NotificationBell({
             </p>
           </div>
         ) : (
-          <ScrollArea className="min-h-0 flex-1">
-            <ul className="flex flex-col">
+          <ScrollArea className="min-h-0 w-full flex-1">
+            <ul className="flex w-full min-w-0 flex-col">
               {items.map((n) => (
-                <li key={n.id} className="border-b border-border last:border-b-0">
+                <li
+                  key={n.id}
+                  className="w-full min-w-0 border-b border-border last:border-b-0"
+                >
                   <button
                     type="button"
                     onClick={() => handleItemClick(n)}
                     className={cn(
-                      "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40",
+                      "flex w-full min-w-0 items-start gap-3 overflow-hidden px-4 py-3 text-left transition-colors hover:bg-accent/40",
                       !n.read_at && "bg-accent/20",
                     )}
                   >

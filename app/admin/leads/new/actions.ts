@@ -13,6 +13,10 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
 import { sendBuyerInquiryReceivedEmailAction } from "@/app/admin/leads/new/buyer-email-actions"
+// Type-only: erased at compile time, so this "use server" module does not pull
+// the `ai` package (imported by buyer-strategy-generator) into its runtime.
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 /**
  * Parse top suppliers string into JSONB array format.
@@ -92,6 +96,41 @@ export interface AdditionalContactInput {
   isDecisionMaker?: boolean
 }
 
+/**
+ * Shape-guard the client-supplied AI analysis before it lands in a JSONB column.
+ *
+ * `leads.buyer_analysis` is rendered straight back out by BuyerAnalysisCard, so
+ * a malformed snapshot would blank the whole "Phân tích" tab rather than fail
+ * loudly. Callers are restricted to LR/admin above, but the payload crosses the
+ * server-action boundary as plain JSON and is cheap to validate.
+ *
+ * Returns the DB-facing `Record<string, unknown>` shape declared in
+ * lib/supabase/types.ts — the domain interfaces are `interface`s, which TS will
+ * not implicitly widen to an index signature, hence the explicit cast.
+ */
+function sanitizeBuyerAnalysis(
+  value: BuyerAnalysisResult | null | undefined,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null
+  const scores = [value.healthScore, value.loyaltyScore, value.vietnamReadiness]
+  if (scores.some((n) => typeof n !== "number" || !Number.isFinite(n))) return null
+  if (!value.healthBreakdown || typeof value.healthBreakdown !== "object") return null
+  if (!value.loyaltyBreakdown || typeof value.loyaltyBreakdown !== "object") return null
+  if (!value.vietnamBreakdown || typeof value.vietnamBreakdown !== "object") return null
+  return value as unknown as Record<string, unknown>
+}
+
+/** Strategy is LLM output — keep it only when the schema-critical fields survived. */
+function sanitizeBuyerStrategy(
+  value: BuyerStrategy | null | undefined,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null
+  if (typeof value.recommendedAngle !== "string") return null
+  if (typeof value.approachSummary !== "string") return null
+  if (!Array.isArray(value.talkingPoints) || !Array.isArray(value.riskFactors)) return null
+  return value as unknown as Record<string, unknown>
+}
+
 export interface CreateLeadWithAIMatchingInput {
   companyName: string
   contactPerson?: string | null
@@ -148,6 +187,20 @@ export interface CreateLeadWithAIMatchingInput {
   inquiryTimeline?: string | null
   inquiryChannel?: string | null
   inquiryNotes?: string | null
+
+  // AI buyer analysis snapshot (migration 079)
+  // smart-lead-form đã gọi /api/importyeti/analyze và giữ kết quả trong state
+  // ngay lúc LR đang nhập buyer. Gửi kèm lên đây để lưu xuống leads — nếu
+  // không thì bản phân tích biến mất ngay sau khi submit và AE không bao giờ
+  // xem lại được (xem comment ở migration 079).
+  //
+  // Cả hai đều optional: LR có thể submit trước khi analysis chạy xong, hoặc
+  // buyer nhập tay không qua ImportYeti. Khi đó leads.buyer_analysis = NULL và
+  // tab "Phân tích" trên hồ sơ buyer fallback sang gợi ý heuristic.
+  buyerAnalysis?: BuyerAnalysisResult | null
+  buyerStrategy?: BuyerStrategy | null
+  /** Model đã sinh ra buyerStrategy — để truy vết khi đổi prompt. */
+  buyerAnalysisModel?: string | null
 
   // Legacy fields for AI matching
   productKeyword?: string | null
@@ -268,6 +321,17 @@ export async function createLeadWithAIMatchingAction(
         ? (input.inquiryNotes?.trim() ?? null)
         : null,
       inquiry_received_at: input.hasActiveInquiry ? new Date().toISOString() : null,
+
+      // AI buyer analysis snapshot (migration 079)
+      buyer_analysis: sanitizeBuyerAnalysis(input.buyerAnalysis),
+      buyer_strategy: sanitizeBuyerStrategy(input.buyerStrategy),
+      buyer_analysis_at: input.buyerAnalysis
+        ? new Date().toISOString()
+        : null,
+      buyer_analysis_model:
+        input.buyerAnalysis && input.buyerAnalysisModel
+          ? String(input.buyerAnalysisModel).slice(0, 120)
+          : null,
 
       created_by: user.id,
     })

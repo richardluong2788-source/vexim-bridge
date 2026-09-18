@@ -77,6 +77,11 @@ import { BuyerContactsManager } from "@/components/admin/buyer-contacts-manager"
 import { EmailSuppressionPanel } from "@/components/admin/email-suppression-panel"
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 import { AssignBuyerDialog as AssignAEDialog } from "@/components/admin/assign-buyer-dialog"
+import { BuyerAnalysisCard } from "@/components/admin/buyer-analysis-card"
+// Type-only: erased at build time, so the `ai` package that
+// buyer-strategy-generator imports never enters this client bundle.
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -143,6 +148,15 @@ export interface BuyerDetailData {
   email_hard_bounced_at: string | null
   email_complained_at: string | null
   email_suppression_note: string | null
+
+  // AI buyer analysis snapshot (migration 079). Written once when the LR
+  // creates the buyer from ImportYeti data; read back here so the AE can
+  // actually see the analysis instead of it disappearing with the intake form.
+  // NULL for buyers created before 079 or entered manually without ImportYeti
+  // — the "Phân tích" tab then falls back to SuggestedApproachCard.
+  buyer_analysis: BuyerAnalysisResult | null
+  buyer_strategy: BuyerStrategy | null
+  buyer_analysis_at: string | null
 }
 
 export interface BuyerOpportunity {
@@ -464,8 +478,25 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        <Tabs defaultValue="importyeti" className="flex flex-col gap-4">
+        {/* "Phân tích" is the default tab on purpose: the AE opens this page to
+            understand the buyer before talking to them, not to audit raw customs
+            rows. ImportYeti stays one click away as the evidence behind it.
+
+            The default is conditional so that buyers with no snapshot yet
+            (everything created before migration 079, plus the bulk ImportYeti
+            paste flow) land on real data instead of an empty state. The tab
+            ORDER is not conditional — "Phân tích" is always first, so muscle
+            memory holds; only the initially-open tab adapts. Once the backfill
+            runs this branch always picks "analysis". */}
+        <Tabs
+          defaultValue={buyer.buyer_analysis ? "analysis" : "importyeti"}
+          className="flex flex-col gap-4"
+        >
           <TabsList className="self-start">
+            <TabsTrigger value="analysis" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              {locale === "vi" ? "Phân tích" : "Analysis"}
+            </TabsTrigger>
             <TabsTrigger value="importyeti" className="gap-2">
               <Ship className="h-4 w-4" />
               {locale === "vi" ? "Dữ liệu ImportYeti" : "ImportYeti Data"}
@@ -492,6 +523,45 @@ export function BuyerDetailView({
               </Badge>
             </TabsTrigger>
           </TabsList>
+
+          {/* Analysis Tab ------------------------------------------------ */}
+          {/* Reads the snapshot persisted when the LR created the buyer
+              (leads.buyer_analysis / buyer_strategy, migration 079). Buyers
+              that predate the migration — or were entered by hand without an
+              ImportYeti link — have no snapshot, so we fall back to
+              SuggestedApproachCard, which derives tips straight from the
+              stored profile fields. It renders null when it has nothing to
+              say, hence the explicit empty state underneath it. */}
+          <TabsContent value="analysis" className="mt-0">
+            {buyer.buyer_analysis ? (
+              <BuyerAnalysisCard
+                analysis={buyer.buyer_analysis}
+                strategy={buyer.buyer_strategy}
+                locale={locale}
+                generatedAt={buyer.buyer_analysis_at}
+              />
+            ) : (
+              <div className="flex flex-col gap-4">
+                <SuggestedApproachCard buyer={buyer} locale={locale} />
+                <Card className="border-border">
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>
+                        {locale === "vi"
+                          ? "Chưa có bản phân tích AI cho buyer này"
+                          : "No AI analysis saved for this buyer yet"}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {locale === "vi"
+                          ? "Dữ liệu hải quan thô vẫn nằm ở tab 'Dữ liệu ImportYeti' bên cạnh. Các gợi ý ở trên — nếu có — được suy ra trực tiếp từ hồ sơ mà LR đã nhập."
+                          : "The raw customs data is still in the 'ImportYeti Data' tab. Any suggestions above are derived directly from the profile the LR entered."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
 
           {/* Contacts Tab */}
           <TabsContent value="contacts" className="mt-0">

@@ -295,6 +295,11 @@ export type Database = {
           unsubscribe_token: string | null
           email_unsubscribed: boolean
           email_unsubscribed_at: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis: Record<string, unknown> | null
+          buyer_strategy: Record<string, unknown> | null
+          buyer_analysis_at: string | null
+          buyer_analysis_model: string | null
         }
         Insert: {
           id?: string
@@ -353,6 +358,11 @@ export type Database = {
           unsubscribe_token?: string | null
           email_unsubscribed?: boolean
           email_unsubscribed_at?: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis?: Record<string, unknown> | null
+          buyer_strategy?: Record<string, unknown> | null
+          buyer_analysis_at?: string | null
+          buyer_analysis_model?: string | null
         }
         Update: {
           id?: string
@@ -411,6 +421,11 @@ export type Database = {
           unsubscribe_token?: string | null
           email_unsubscribed?: boolean
           email_unsubscribed_at?: string | null
+          // AI buyer analysis snapshot (migration 079)
+          buyer_analysis?: Record<string, unknown> | null
+          buyer_strategy?: Record<string, unknown> | null
+          buyer_analysis_at?: string | null
+          buyer_analysis_model?: string | null
         }
         Relationships: []
       }

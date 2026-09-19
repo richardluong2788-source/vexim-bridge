@@ -20,6 +20,7 @@ import {
   ArrowRight,
   Check,
   ClipboardList,
+  Files,
   CornerUpLeft,
   Inbox,
   Link2,
@@ -64,6 +65,11 @@ import {
   type TransferCandidateAE,
 } from "@/app/admin/ae-inbox/engagement-actions"
 import { returnBuyerToInbox } from "@/app/admin/buyers/assignment-actions"
+import {
+  createEngagementDocumentShareAction,
+  listEngagementDocumentOptions,
+  type EngagementDocumentOption,
+} from "@/app/admin/ae-inbox/engagement-document-actions"
 import {
   generateFollowUpReplyEmailAction,
   generateRequirementInquiryEmailAction,
@@ -1273,6 +1279,284 @@ function ConvertDialog({
 
 
 
+// ---------------------------------------------------------------------------
+// Dialog: Send a supplier dossier / factory video through the secure share flow
+// ---------------------------------------------------------------------------
+
+function SendDocumentsDialog({
+  engagement,
+  locale,
+  onClose,
+  onSent,
+}: {
+  engagement: Engagement
+  locale: "vi" | "en"
+  onClose: () => void
+  onSent: () => void
+}) {
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [buyer, setBuyer] = useState<{ name: string; email: string | null } | null>(null)
+  const [documents, setDocuments] = useState<EngagementDocumentOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set())
+  const [ttlDays, setTtlDays] = useState("14")
+  const [subject, setSubject] = useState("")
+  const [emailBody, setEmailBody] = useState("")
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+
+  useEffect(() => {
+    let cancelled = false
+    void listEngagementDocumentOptions(engagement.id).then((result) => {
+      if (cancelled) return
+      setLoading(false)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setBuyer(result.data.buyer)
+      setSubject(
+        t(
+          `Hồ sơ supplier cho ${result.data.buyer.name}`,
+          `Supplier documents for ${result.data.buyer.name}`,
+        ),
+      )
+      setEmailBody(
+        t(
+          `Chào ${result.data.buyer.name},\n\nNhư đã trao đổi, tôi gửi anh/chị hồ sơ/video của supplier để tham khảo.\n\n{{secure_share_link}}\n\nLink sẽ hết hạn theo thời gian hiển thị trên trang chia sẻ. Nếu cần thêm thông tin, anh/chị cứ reply email này.`,
+          `Hi ${result.data.buyer.name},\n\nAs discussed, I am sharing the supplier documents/video for your review.\n\n{{secure_share_link}}\n\nThe link will expire as shown on the share page. Please reply to this email if you need anything else.`,
+        ),
+      )
+      setDocuments(result.data.documents)
+      setSelectedClientId(result.data.documents[0]?.ownerId ?? "")
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [engagement.id])
+
+  const suppliers = Array.from(
+    new Map(documents.map((doc) => [doc.ownerId, doc.ownerName])).entries(),
+  )
+  const visibleDocuments = documents.filter((doc) => doc.ownerId === selectedClientId)
+
+  const toggleDocument = (id: string) => {
+    setSelectedDocIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleClientChange = (clientId: string) => {
+    setSelectedClientId(clientId)
+    setSelectedDocIds(new Set())
+  }
+
+  const handleSend = async () => {
+    if (!selectedClientId || selectedDocIds.size === 0) {
+      toast.error(t("Chọn ít nhất một hồ sơ/video", "Select at least one document/video"))
+      return
+    }
+    if (!buyer?.email) {
+      toast.error(t("Buyer chưa có email nhận hồ sơ", "This buyer has no recipient email"))
+      return
+    }
+
+    setSending(true)
+    setError(null)
+    const result = await createEngagementDocumentShareAction({
+      engagementId: engagement.id,
+      clientId: selectedClientId,
+      docIds: Array.from(selectedDocIds),
+      ttlDays: Number(ttlDays) || 14,
+      subjectOverride: subject.trim() || null,
+      bodyOverride: emailBody.trim() || null,
+    })
+    setSending(false)
+
+    if (!result.ok) {
+      setError(result.error)
+      toast.error(result.error)
+      return
+    }
+
+    if (!result.data.emailSent) {
+      toast.error(
+        t(
+          "Tạo link thành công nhưng chưa gửi được email. Kiểm tra cấu hình email rồi thử lại.",
+          "The share link was created, but the email was not sent. Check email configuration and try again.",
+        ),
+      )
+      return
+    }
+
+    toast.success(t("Đã gửi hồ sơ/video cho buyer", "Documents/video sent to buyer"))
+    onSent()
+  }
+
+  const formatSize = (bytes: number | null) => {
+    if (!bytes) return ""
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Files className="h-5 w-5 text-primary" />
+            {t("Gửi hồ sơ/video", "Send documents/video")}
+          </DialogTitle>
+          <DialogDescription>
+            {t(
+              "Chọn hồ sơ đã upload của supplier trong shortlist. Buyer chỉ nhận một link Vexim Trade, không nhận URL Blob hoặc file đính kèm trực tiếp.",
+              "Choose uploaded documents from a shortlisted supplier. The buyer receives one Vexim Trade share link, never a raw Blob URL or direct email attachment.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {t("Đang tải hồ sơ supplier...", "Loading supplier documents...")}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="font-medium">{buyer?.name}</div>
+              <div className="text-muted-foreground">{buyer?.email ?? t("Chưa có email", "No email")}</div>
+            </div>
+
+            {!buyer?.email && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                {t("Cần bổ sung email buyer trước khi gửi.", "Add a buyer email before sending.")}
+              </div>
+            )}
+
+            {suppliers.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t("Supplier", "Supplier")}</Label>
+                <Select value={selectedClientId} onValueChange={handleClientChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("Chọn supplier", "Select supplier")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map(([id, name]) => (
+                      <SelectItem key={id} value={id}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {visibleDocuments.length > 0 ? (
+              <div className="space-y-2">
+                <Label>{t("Hồ sơ/video sẽ chia sẻ", "Documents/video to share")}</Label>
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
+                  {visibleDocuments.map((doc) => (
+                    <label
+                      key={doc.id}
+                      className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selectedDocIds.has(doc.id)}
+                        onCheckedChange={() => toggleDocument(doc.id)}
+                        className="mt-0.5"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {doc.title || t("Tài liệu không tên", "Untitled document")}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {doc.kind.replaceAll("_", " ")}{doc.mimeType ? ` · ${doc.mimeType}` : ""}{doc.sizeBytes ? ` · ${formatSize(doc.sizeBytes)}` : ""}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                {t(
+                  "Chưa có hồ sơ/video shareable cho supplier này. Upload trong Compliance workspace trước rồi quay lại đây.",
+                  "No shareable documents/video for this supplier yet. Upload them in the Compliance workspace first, then return here.",
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="share-subject">{t("Chủ đề email", "Email subject")}</Label>
+                <Input
+                  id="share-subject"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  maxLength={180}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="share-body">{t("Nội dung email", "Email body")}</Label>
+                <Textarea
+                  id="share-body"
+                  value={emailBody}
+                  onChange={(event) => setEmailBody(event.target.value)}
+                  rows={7}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "Giữ {{secure_share_link}} để hệ thống chèn link share an toàn; không dán URL Blob vào đây.",
+                    "Keep {{secure_share_link}} so the system inserts the secure share link; do not paste a Blob URL here.",
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="space-y-2">
+                <Label htmlFor="share-ttl">{t("Hạn link", "Link expiry")}</Label>
+                <Select value={ttlDays} onValueChange={setTtlDays}>
+                  <SelectTrigger id="share-ttl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 {t("ngày", "days")}</SelectItem>
+                    <SelectItem value="14">14 {t("ngày", "days")}</SelectItem>
+                    <SelectItem value="30">30 {t("ngày", "days")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+            </div>
+
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              {t(
+                "Test flow: file Blob đang public, nhưng buyer vẫn phải đi qua share page có token và thời hạn. AE cần chỉ chia sẻ tài liệu đã kiểm tra.",
+                "Test flow: Blob storage is public for now, but the buyer still goes through a tokenized, expiring share page. Only share documents the AE has reviewed.",
+              )}
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>{t("Hủy", "Cancel")}</Button>
+          <Button
+            onClick={handleSend}
+            disabled={loading || sending || !buyer?.email || selectedDocIds.size === 0}
+            className="gap-2"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Files className="h-4 w-4" />}
+            {t("Tạo link & gửi", "Create link & send")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Host — map a stage-action key to the dialog that performs it
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1360,6 +1644,15 @@ export function EngagementStageDialogHost({
     case "approve_shortlist":
       return (
         <SendShortlistDialog
+          engagement={engagement}
+          locale={locale}
+          onClose={onClose}
+          onSent={onDone}
+        />
+      )
+    case "send_documents":
+      return (
+        <SendDocumentsDialog
           engagement={engagement}
           locale={locale}
           onClose={onClose}

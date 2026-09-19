@@ -42,6 +42,7 @@ import {
   Mail,
   RotateCw,
   Sparkles,
+  Files,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -79,6 +80,7 @@ const STAGE_ACTION_ICONS: Record<StageActionKey, LucideIcon> = {
   resend_email: RotateCw,
   pick_suppliers: Sparkles,
   approve_shortlist: Link2,
+  send_documents: Files,
   new_shortlist_version: Sparkles,
   convert_to_opportunity: ArrowRight,
 }

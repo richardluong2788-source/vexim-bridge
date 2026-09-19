@@ -30,7 +30,6 @@ import {
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { EmailType, BuyerContact } from "@/lib/supabase/types"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
-import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 import { listContactsByOpportunity, createContact } from "@/lib/buyers/contacts-actions"
 
 type FlowState = "compose" | "review" | "success"
@@ -71,7 +70,6 @@ export function OpportunityEmailSection({
   const [sending, setSending] = useState(false)
   const [draft, setDraft] = useState<GenerateEmailResult | null>(null)
   const [draftId, setDraftId] = useState<string | null>(null)
-  const [attachments, setAttachments] = useState<UploadedAttachment[]>([])
 
   // Multi-contact directory for this buyer — lets AE CC other contacts
   // (departments / market reps) when sending.
@@ -212,7 +210,6 @@ export function OpportunityEmailSection({
         overrideContent: overrides.content,
         overrideRecipient: overrides.recipient,
         overrideCc: ccEmails.length > 0 ? ccEmails : undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!res.ok) {
         if (res.error === "noRecipient") {
@@ -282,7 +279,6 @@ export function OpportunityEmailSection({
         overrideContent: content,
         overrideRecipient: recipient,
         overrideCc: ccEmails.length > 0 ? ccEmails : undefined,
-        attachments: attachments.length > 0 ? attachments : undefined,
       })
       if (!sendRes.ok) {
         if (sendRes.error === "noRecipient") {
@@ -312,7 +308,6 @@ export function OpportunityEmailSection({
     setFlowState("compose")
     setDraft(null)
     setDraftId(null)
-    setAttachments([])
     setCcEmails([])
   }
 
@@ -341,8 +336,6 @@ export function OpportunityEmailSection({
             onSendManual={handleSendManual}
             quoteReply={quoteReply}
             onClearQuote={onClearQuote}
-            attachments={attachments}
-            onAttachmentsChange={setAttachments}
             opportunityId={opportunityId}
             clientId={clientId}
             contacts={contacts}
@@ -362,8 +355,6 @@ export function OpportunityEmailSection({
             onSend={handleSend}
             onReject={handleReject}
             onBack={resetFlow}
-            attachments={attachments}
-            onRemoveAttachment={(index) => setAttachments((prev) => prev.filter((_, i) => i !== index))}
             ccEmails={ccEmails}
           />
         )}

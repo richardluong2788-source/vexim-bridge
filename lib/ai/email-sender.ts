@@ -25,7 +25,6 @@ import {
 import {
   buildRefCode,
 } from "@/lib/email/ref-code"
-import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 export class EmailSenderAuthError extends Error {
   constructor(message = "Unauthorized") {
@@ -57,8 +56,6 @@ export async function sendEmailDraft(
     overrideRecipient?: string
     /** Additional recipients CC'd (e.g. other contacts at the buyer company). */
     overrideCc?: string[]
-    /** File attachments to include in email */
-    attachments?: UploadedAttachment[]
     /**
      * RFC Message-ID of the buyer message this draft is replying to (e.g.
      * a `buyer_replies.message_id`). When set, threads the outgoing email
@@ -226,12 +223,6 @@ export async function sendEmailDraft(
     .map((para) => `<p>${para.replace(/\n/g, "<br/>")}</p>`)
     .join("")
 
-  // Add attachment section if any attachments are provided
-  if (opts?.attachments && opts.attachments.length > 0) {
-    const attachmentHtml = renderAttachmentsHtml(opts.attachments)
-    htmlBody += attachmentHtml
-  }
-
   // Generate unique ID for this email to prevent Gmail threading issues.
   // IMPORTANT: only apply this when we are NOT explicitly threading the
   // email as a reply (replyToMessageId unset). X-Entity-Ref-ID tells Gmail
@@ -343,93 +334,4 @@ export async function rejectEmailDraft(draftId: string): Promise<void> {
     .from("email_drafts")
     .update({ status: "rejected", approved_by: user.id })
     .eq("id", draftId)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Attachment HTML Rendering
-// ─────────────────────────────────────��───────────────────────────────────────
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-/**
- * Render attachments as styled HTML blocks for email body.
- * 
- * Strategy:
- * - Images: inline thumbnail + download link (buyer can preview without clicking)
- * - Documents: styled file card with icon + name + size (trusted appearance)
- * - All links go to Vercel Blob public URLs which show veximtrade.com domain
- */
-function renderAttachmentsHtml(attachments: UploadedAttachment[]): string {
-  if (!attachments.length) return ""
-
-  const attachmentBlocks = attachments.map((att) => {
-    const isImage = att.contentType.startsWith("image/")
-    const size = formatFileSize(att.size)
-
-    if (isImage) {
-      // Image: show inline preview + download link
-      return `
-        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; background-color: #fafafa;">
-          <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none;">
-            <img src="${att.url}" alt="${att.filename}" style="max-width: 100%; max-height: 300px; border-radius: 4px; display: block; margin-bottom: 8px;" />
-          </a>
-          <p style="margin: 0; font-size: 13px; color: #374151;">
-            <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-weight: 500;">
-              ${att.filename}
-            </a>
-            <span style="color: #6b7280; margin-left: 8px;">(${size})</span>
-          </p>
-        </div>
-      `
-    } else {
-      // Document: styled file card
-      const icon = getFileIcon(att.contentType)
-      return `
-        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; margin: 12px 0; background-color: #fafafa; display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 24px;">${icon}</span>
-          <div style="flex: 1;">
-            <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-weight: 500; font-size: 14px;">
-              ${att.filename}
-            </a>
-            <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">
-              ${getFileTypeName(att.contentType)} &bull; ${size}
-            </p>
-          </div>
-          <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 500;">
-            Download
-          </a>
-        </div>
-      `
-    }
-  })
-
-  return `
-    <div style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
-      <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
-        Attachments (${attachments.length})
-      </p>
-      ${attachmentBlocks.join("")}
-    </div>
-  `
-}
-
-function getFileIcon(contentType: string): string {
-  if (contentType.includes("pdf")) return "📄"
-  if (contentType.includes("word") || contentType.includes("document")) return "📝"
-  if (contentType.includes("excel") || contentType.includes("sheet")) return "📊"
-  if (contentType.includes("text")) return "📃"
-  return "📎"
-}
-
-function getFileTypeName(contentType: string): string {
-  if (contentType.includes("pdf")) return "PDF"
-  if (contentType.includes("word") || contentType.includes("document")) return "Word Document"
-  if (contentType.includes("excel") || contentType.includes("sheet")) return "Excel Spreadsheet"
-  if (contentType.includes("text/csv")) return "CSV"
-  if (contentType.includes("text/plain")) return "Text File"
-  return "File"
 }

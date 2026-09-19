@@ -796,6 +796,10 @@ export type Database = {
           // leave this NULL and list docs in `tokenized_share_link_docs`.
           doc_id: string | null
           owner_id: string
+          engagement_id: string | null
+          buyer_email: string | null
+          sent_at: string | null
+          sent_by: string | null
           created_by: string | null
           expires_at: string
           revoked_at: string | null
@@ -808,6 +812,10 @@ export type Database = {
           token?: string
           doc_id?: string | null
           owner_id: string
+          engagement_id?: string | null
+          buyer_email?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           created_by?: string | null
           expires_at: string
           revoked_at?: string | null
@@ -820,6 +828,10 @@ export type Database = {
           token?: string
           doc_id?: string | null
           owner_id?: string
+          engagement_id?: string | null
+          buyer_email?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           created_by?: string | null
           expires_at?: string
           revoked_at?: string | null

@@ -12,6 +12,17 @@ import type {
   ClientMatchResult,
 } from "@/lib/matching/client-types"
 import { MAX_BULK_ASSIGN_CLIENTS, MAX_ACTIVE_BUYERS_PER_CLIENT } from "@/lib/buyers/constants"
+import {
+  extractSlugFromUrl,
+  fetchRawImportYetiCompany,
+} from "@/lib/importyeti/api-transformer"
+import { analyzeBuyer } from "@/lib/ai/buyer-analyzer"
+import {
+  analyzeAndGenerateStrategy,
+  BUYER_STRATEGY_MODEL,
+} from "@/lib/ai/buyer-strategy-generator"
+import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
+import type { BuyerStrategy } from "@/lib/ai/buyer-strategy-generator"
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -452,6 +463,162 @@ export async function getAIMatchedClients(
 }
 
 // ---------------------------------------------------------------------------
+// Regenerate AI buyer analysis for an existing buyer (migration 079 backfill)
+// ---------------------------------------------------------------------------
+
+function sanitizeBuyerAnalysisForSave(
+  value: BuyerAnalysisResult | null | undefined,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null
+  const scores = [value.healthScore, value.loyaltyScore, value.vietnamReadiness]
+  if (scores.some((n) => typeof n !== "number" || !Number.isFinite(n))) return null
+  if (!value.healthBreakdown || typeof value.healthBreakdown !== "object") return null
+  if (!value.loyaltyBreakdown || typeof value.loyaltyBreakdown !== "object") return null
+  if (!value.vietnamBreakdown || typeof value.vietnamBreakdown !== "object") return null
+  return value as unknown as Record<string, unknown>
+}
+
+function sanitizeBuyerStrategyForSave(
+  value: BuyerStrategy | null | undefined,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null
+  if (typeof value.recommendedAngle !== "string") return null
+  if (typeof value.approachSummary !== "string") return null
+  if (!Array.isArray(value.talkingPoints) || !Array.isArray(value.riskFactors)) return null
+  return value as unknown as Record<string, unknown>
+}
+
+export interface RegenerateAnalysisResult {
+  analysis: BuyerAnalysisResult
+  strategy: BuyerStrategy | null
+  model: string | null
+  generatedAt: string
+  creditsRemaining: number | null
+}
+
+/**
+ * Re-runs ImportYeti fetch + AI analysis for a buyer that currently has no
+ * `buyer_analysis` snapshot (pre-079, bulk paste, manual entry).
+ *
+ * Requires BUYER_WRITE (same cap as creating a buyer) because it spends an
+ * ImportYeti credit and overwrites `leads.buyer_analysis`.
+ *
+ * Flow:
+ *  1. Load lead, ensure `source_ref` is a valid ImportYeti URL
+ *  2. Fetch raw ImportYeti company payload (costs 1 credit)
+ *  3. analyzeBuyer() -> deterministic scores
+ *  4. analyzeAndGenerateStrategy() -> LLM strategy (may fallback)
+ *  5. Persist snapshot to leads table, revalidate buyer pages
+ */
+export async function regenerateBuyerAnalysis(
+  buyerId: string,
+): Promise<ActionResult<RegenerateAnalysisResult>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  // 1) Load buyer
+  const { data: buyer, error: buyerErr } = await admin
+    .from("leads")
+    .select("id, company_name, source_ref")
+    .eq("id", buyerId)
+    .single()
+  if (buyerErr || !buyer) {
+    return { ok: false, error: "buyer_not_found" }
+  }
+
+  const sourceRef = (buyer.source_ref ?? "").trim()
+  if (!sourceRef) {
+    return {
+      ok: false,
+      error:
+        "missing_importyeti_link: Buyer này chưa có ImportYeti link (source_ref). Hãy bổ sung link ImportYeti trước khi tạo phân tích AI.",
+    }
+  }
+
+  const slug = extractSlugFromUrl(sourceRef)
+  if (!slug) {
+    return {
+      ok: false,
+      error:
+        "invalid_importyeti_link: Link ImportYeti không hợp lệ. Định dạng đúng: https://importyeti.com/company/company-name",
+    }
+  }
+
+  const apiKey = process.env.IMPORTYETI_API_KEY
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "importyeti_api_key_missing: Chưa cấu hình IMPORTYETI_API_KEY trên server.",
+    }
+  }
+
+  // 2) Fetch raw ImportYeti data (costs 1 credit)
+  const raw = await fetchRawImportYetiCompany(slug, apiKey)
+  if (!raw.success) {
+    return { ok: false, error: `importyeti_fetch_failed: ${raw.error}` }
+  }
+
+  // 3) Deterministic analysis
+  const baseAnalysis = analyzeBuyer(raw.data)
+
+  // 4) AI strategy (may fallback to deterministic)
+  let full: {
+    analysis: BuyerAnalysisResult
+    strategy: BuyerStrategy
+    strategySource: "ai" | "fallback"
+  }
+  try {
+    full = await analyzeAndGenerateStrategy(baseAnalysis, raw.data)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: `ai_generation_failed: ${msg}` }
+  }
+
+  const sanitizedAnalysis = sanitizeBuyerAnalysisForSave(full.analysis)
+  const sanitizedStrategy = sanitizeBuyerStrategyForSave(full.strategy)
+
+  if (!sanitizedAnalysis) {
+    return {
+      ok: false,
+      error: "sanitize_failed: Kết quả phân tích không hợp lệ sau khi sanitize.",
+    }
+  }
+
+  const nowIso = new Date().toISOString()
+  const model = full.strategySource === "ai" ? BUYER_STRATEGY_MODEL : null
+
+  // 5) Persist
+  const { error: updateErr } = await admin
+    .from("leads")
+    .update({
+      buyer_analysis: sanitizedAnalysis,
+      buyer_strategy: sanitizedStrategy,
+      buyer_analysis_at: nowIso,
+      buyer_analysis_model: model,
+    })
+    .eq("id", buyerId)
+
+  if (updateErr) {
+    return { ok: false, error: `db_update_failed: ${updateErr.message}` }
+  }
+
+  revalidatePath("/admin/buyers")
+  revalidatePath(`/admin/buyers/${buyerId}`)
+
+  return {
+    ok: true,
+    data: {
+      analysis: full.analysis,
+      strategy: full.strategy,
+      model,
+      generatedAt: nowIso,
+      creditsRemaining: raw.creditsRemaining,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Delete buyer (a.k.a. `leads` row)
 // ---------------------------------------------------------------------------
 //
@@ -486,10 +653,7 @@ export async function deleteBuyer(buyerId: string): Promise<ActionResult<void>> 
   }
 
   // 3) Delete the buyer
-  const { error: delErr } = await admin
-    .from("leads")
-    .delete()
-    .eq("id", buyerId)
+  const { error: delErr } = await admin.from("leads").delete().eq("id", buyerId)
   if (delErr) {
     return { ok: false, error: delErr.message }
   }

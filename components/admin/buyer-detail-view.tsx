@@ -96,6 +96,7 @@ import { EmailSuppressionPanel } from "@/components/admin/email-suppression-pane
 import type { ClientMatchResult, TrustLabel, CommercialFlagLevel } from "@/lib/matching/client-types"
 import { AssignBuyerDialog as AssignAEDialog } from "@/components/admin/assign-buyer-dialog"
 import { BuyerAnalysisCard } from "@/components/admin/buyer-analysis-card"
+import { RegenerateAnalysisButton } from "@/components/admin/regenerate-analysis-button"
 // Type-only: erased at build time, so the `ai` package that
 // buyer-strategy-generator imports never enters this client bundle.
 import type { BuyerAnalysisResult } from "@/lib/ai/buyer-analyzer"
@@ -319,7 +320,7 @@ export function BuyerDetailView({
   // the opening email can reference the same material the AE is reading. Prefer
   // the AI strategy; fall back to the rule-based tips for buyers without one.
   const emailContextHints = useMemo(() => {
-    const strategy = buyer.buyer_strategy
+    const strategy = effectiveStrategy ?? buyer.buyer_strategy
     if (strategy) {
       return [
         strategy.recommendedAngle,
@@ -328,7 +329,7 @@ export function BuyerDetailView({
       ].filter(Boolean)
     }
     return [...fallbackApproach.warnings, ...fallbackApproach.tips].slice(0, 4)
-  }, [buyer.buyer_strategy, fallbackApproach])
+  }, [effectiveStrategy, buyer.buyer_strategy, fallbackApproach])
 
   // Buyer's pipeline position, for the header. Same numbers as the action bar
   // used to print, computed once.
@@ -340,6 +341,27 @@ export function BuyerDetailView({
     : 0
 
   const [assignOpen, setAssignOpen] = useState(false)
+
+  // Local override for AI analysis — allows immediate render after regeneration
+  // without waiting for router.refresh() to pull new buyer prop from server.
+  const [localAnalysis, setLocalAnalysis] = useState<BuyerAnalysisResult | null>(
+    (buyer.buyer_analysis as BuyerAnalysisResult) ?? null,
+  )
+  const [localStrategy, setLocalStrategy] = useState<BuyerStrategy | null>(
+    (buyer.buyer_strategy as BuyerStrategy) ?? null,
+  )
+  const [localAt, setLocalAt] = useState<string | null>(buyer.buyer_analysis_at ?? null)
+
+  useEffect(() => {
+    setLocalAnalysis((buyer.buyer_analysis as BuyerAnalysisResult) ?? null)
+    setLocalStrategy((buyer.buyer_strategy as BuyerStrategy) ?? null)
+    setLocalAt(buyer.buyer_analysis_at ?? null)
+  }, [buyer.buyer_analysis, buyer.buyer_strategy, buyer.buyer_analysis_at])
+
+  const effectiveAnalysis = localAnalysis ?? (buyer.buyer_analysis as BuyerAnalysisResult | null)
+  const effectiveStrategy = localStrategy ?? (buyer.buyer_strategy as BuyerStrategy | null)
+  const effectiveAt = localAt ?? buyer.buyer_analysis_at
+
 
   const risk = useMemo(() => assessCountryRisk(buyer.country), [buyer.country])
 
@@ -556,20 +578,10 @@ export function BuyerDetailView({
         />
 
         {/* Right: tabs */}
-        {/* "Phân tích" is the default tab on purpose: the AE opens this page to
+        {/* "Phân tích" is always the default tab: AE opens this page to
             understand the buyer before talking to them, not to audit raw customs
-            rows. ImportYeti stays one click away as the evidence behind it.
-
-            The default is conditional so that buyers with no snapshot yet
-            (everything created before migration 079, plus the bulk ImportYeti
-            paste flow) land on real data instead of an empty state. The tab
-            ORDER is not conditional — "Phân tích" is always first, so muscle
-            memory holds; only the initially-open tab adapts. Once the backfill
-            runs this branch always picks "analysis". */}
-        <Tabs
-          defaultValue={buyer.buyer_analysis ? "analysis" : "importyeti"}
-          className="flex flex-col gap-4"
-        >
+            rows. ImportYeti stays one click away as the evidence behind it. */}
+        <Tabs defaultValue="analysis" className="flex flex-col gap-4">
           <TabsList className="self-start">
             <TabsTrigger value="analysis" className="gap-2">
               <Sparkles className="h-4 w-4" />
@@ -637,33 +649,67 @@ export function BuyerDetailView({
                   composed the opening email in this tab, then had to go back to
                   "Đang xử lý" to find out whether the buyer answered. */}
               {replies.length > 0 && (
-                <BuyerRepliesList replies={replies} locale={locale} limit={3} heading />
-              )}
-              {buyer.buyer_analysis ? (
-                <BuyerAnalysisCard
-                  analysis={buyer.buyer_analysis}
-                  strategy={buyer.buyer_strategy}
+                <BuyerRepliesList
+                  replies={replies}
                   locale={locale}
-                  generatedAt={buyer.buyer_analysis_at}
+                  limit={3}
+                  heading
+                  engagement={engagement}
+                  onReplySent={() => router.refresh()}
                 />
-              ) : hasFallback ? (
-                /* The fallback has real content, so show it — and only a one-line
-                   note about what is missing. The full empty-state card used to
-                   render here too, regardless, so a buyer WITH tips got the tips
-                   and, underneath, a panel announcing there was no analysis:
-                   contradictory, and it read as a broken blank block. The card
-                   now appears only when the tab would otherwise be empty. */
+              )}
+              {effectiveAnalysis ? (
                 <div className="flex flex-col gap-3">
+                  <BuyerAnalysisCard
+                    analysis={effectiveAnalysis}
+                    strategy={effectiveStrategy}
+                    locale={locale}
+                    generatedAt={effectiveAt}
+                  />
+                  {canWrite && (
+                    <div className="flex justify-end">
+                      <RegenerateAnalysisButton
+                        buyerId={buyer.id}
+                        sourceRef={buyer.source_ref}
+                        locale={locale}
+                        variant="regenerate"
+                        size="sm"
+                        onRegenerated={({ analysis, strategy, generatedAt }) => {
+                          setLocalAnalysis(analysis)
+                          setLocalStrategy(strategy)
+                          setLocalAt(generatedAt)
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : hasFallback ? (
+                <div className="flex flex-col gap-4">
                   <SuggestedApproachCard
                     buyer={buyer}
                     locale={locale}
                     approach={fallbackApproach}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {locale === "vi"
-                      ? "Chưa có bản phân tích AI đầy đủ cho buyer này — các gợi ý ở trên được suy ra bằng quy tắc từ hồ sơ đã lưu, không phải kết quả phân tích AI."
-                      : "No full AI analysis for this buyer yet — the tips above are rule-based, derived from the stored profile rather than an AI run."}
-                  </p>
+                  <div className="flex flex-col gap-3 rounded-lg border border-dashed border-chart-1/30 bg-chart-1/5 p-4">
+                    <p className="text-xs text-muted-foreground">
+                      {locale === "vi"
+                        ? "Chưa có bản phân tích AI đầy đủ cho buyer này — các gợi ý ở trên được suy ra bằng quy tắc từ hồ sơ đã lưu, không phải kết quả phân tích AI."
+                        : "No full AI analysis for this buyer yet — the tips above are rule-based, derived from the stored profile rather than an AI run."}
+                    </p>
+                    {canWrite && (
+                      <RegenerateAnalysisButton
+                        buyerId={buyer.id}
+                        sourceRef={buyer.source_ref}
+                        locale={locale}
+                        variant="create"
+                        onRegenerated={({ analysis, strategy, generatedAt }) => {
+                          setLocalAnalysis(analysis)
+                          setLocalStrategy(strategy)
+                          setLocalAt(generatedAt)
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               ) : (
                 <Card className="border-border">
@@ -680,6 +726,21 @@ export function BuyerDetailView({
                           : "This buyer has no analysis snapshot yet (created before the feature shipped, or added through the bulk ImportYeti paste flow). The raw customs data is still in the 'ImportYeti Data' tab next to this one."}
                       </EmptyDescription>
                     </EmptyHeader>
+                    {canWrite && (
+                      <div className="mt-4 flex justify-center">
+                        <RegenerateAnalysisButton
+                          buyerId={buyer.id}
+                          sourceRef={buyer.source_ref}
+                          locale={locale}
+                          variant="create"
+                          onRegenerated={({ analysis, strategy, generatedAt }) => {
+                            setLocalAnalysis(analysis)
+                            setLocalStrategy(strategy)
+                            setLocalAt(generatedAt)
+                          }}
+                        />
+                      </div>
+                    )}
                   </Empty>
                 </Card>
               )}
@@ -1023,6 +1084,8 @@ export function BuyerDetailView({
               replies={replies}
               locale={locale}
               heading
+              engagement={engagement}
+              onReplySent={() => router.refresh()}
               emptyState={
                 /* Copy fixed: replies arrive through the Resend inbound webhook
                    now, not by being pasted into a deal — and they land here

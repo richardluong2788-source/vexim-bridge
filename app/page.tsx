@@ -19,6 +19,7 @@ import {
   Mail,
   Menu,
   Search,
+  Scale,
   ShieldCheck,
   Target,
   TrendingUp,
@@ -35,16 +36,25 @@ import { siteConfig } from "@/lib/site-config"
 
 const content = {
   vi: {
-    nav: ["Vấn đề", "Giải pháp", "Quy trình", "FAQ"],
+    nav: ["Buyer & Supplier", "Giải pháp", "Quy trình", "FAQ"],
     signIn: "Đăng nhập",
     contact: "Đăng ký tư vấn",
     eyebrow: "DỊCH VỤ PHÒNG SALE XUẤT KHẨU",
-    heroTitle: "Có sản phẩm tốt nhưng chưa có một đội ngũ sale đủ mạnh để tiếp cận buyer quốc tế?",
+    heroTitle: "Kết nối buyer Mỹ với supplier Việt Nam đủ chuẩn — minh bạch cho cả hai phía.",
     heroText:
-      "Vexim trở thành phòng sale xuất khẩu thuê ngoài, đại diện cho Supplier tiếp cận và kết nối trực tiếp với buyer tại thị trường Mỹ dựa trên dữ liệu hải quan thực tế và đội ngũ chuyên gia tại Hoa Kỳ.",
+      "Vexim Trade xây dựng cầu nối hai chiều: buyer tiếp cận nguồn cung Việt Nam đã được sàng lọc, còn supplier chất lượng được kết nối với nhu cầu thật của thị trường Mỹ.",
     heroCta: "Đăng ký tư vấn 1:1",
     heroSecondary: "Xem 8 bước quy trình",
-    heroNote: "Chi phí vận hành tương đương một nhân sự văn phòng — nhưng Supplier có cả một hệ thống phía sau.",
+    heroNote: "Không hứa thay buyer. Không nói thay supplier. Chúng tôi chuẩn hóa thông tin để hai bên ra quyết định công bằng hơn.",
+    audienceEyebrow: "MỘT MẠNG LƯỚI — HAI PHÍA GIÁ TRỊ",
+    audienceTitle: "Buyer cần nguồn cung đáng tin. Supplier cần buyer có nhu cầu thật.",
+    audienceText: "Vexim Trade chỉ tạo ra giá trị khi cả hai phía đều được bảo vệ bằng thông tin chính xác, tiêu chí rõ ràng và kỳ vọng thực tế.",
+    audiences: [
+      ["Dành cho Buyer Mỹ", "Nguồn cung Việt Nam đã được sàng lọc", "Xem đúng năng lực, hồ sơ tuân thủ, MOQ, công suất và điều kiện thương mại — không dựa trên lời giới thiệu chưa xác minh.", Users],
+      ["Dành cho Supplier Việt Nam", "Sẵn sàng đáp ứng yêu cầu thị trường Mỹ", "Được đánh giá readiness về sản phẩm, chất lượng, chứng từ, nhãn mác và năng lực giao hàng trước khi giới thiệu tới buyer phù hợp.", Factory],
+    ] as const,
+    fairnessTitle: "Một chuẩn minh bạch cho cả hai phía.",
+    fairnessText: "Buyer nhận thông tin đúng để đánh giá. Supplier nhận phản hồi đúng để cải thiện và thương lượng. Vexim không ưu tiên một phía bằng cách che giấu rủi ro của phía còn lại.",
     statOne: "Dữ liệu Bill of Lading thực",
     statTwo: "Tiêu chí sàng lọc buyer",
     statThree: "Báo cáo tiến độ",
@@ -61,8 +71,8 @@ const content = {
       ["Gánh nặng xây sales nội bộ", "Tuyển dụng, trả lương ngoại tệ, đào tạo và quản lý một đội export sales riêng rất tốn kém.", AlertTriangle],
     ] as const,
     solutionEyebrow: "GIẢI PHÁP TOÀN DIỆN",
-    solutionTitle: "Không chỉ cung cấp danh sách buyer — Vexim xây dựng một hệ thống bán hàng xuất khẩu.",
-    solutionText: "Từ dữ liệu hải quan đến cuộc họp đàm phán, mọi hoạt động được chuẩn hóa, phân công và cập nhật minh bạch trên Vexim Trade.",
+    solutionTitle: "Không chỉ cung cấp danh sách buyer — Vexim vận hành một hệ thống giao thương hai chiều.",
+    solutionText: "Từ sàng lọc buyer đến đánh giá supplier, mọi thông tin quan trọng được chuẩn hóa, phân công và cập nhật minh bạch trên Vexim Trade.",
     solutions: [
       ["Buyer intelligence", "Phân tích dữ liệu Bill of Lading và tín hiệu nhập khẩu để chọn đúng buyer trước khi tiếp cận.", Search],
       ["Supplier readiness", "Chuẩn hóa hồ sơ, năng lực nhà máy, sản phẩm và tài liệu tuân thủ trước khi chào hàng.", Factory],
@@ -112,15 +122,24 @@ const content = {
     footerNote: "Dữ liệu thật · Giá trị thật",
   },
   en: {
-    nav: ["The challenge", "Solution", "Process", "FAQ"],
+    nav: ["Buyer & Supplier", "Solution", "Process", "FAQ"],
     signIn: "Sign in",
     contact: "Request a consultation",
     eyebrow: "OUTSOURCED EXPORT SALES",
-    heroTitle: "Great products deserve a sales team strong enough to reach international buyers.",
-    heroText: "Vexim becomes your outsourced export sales department, representing Vietnamese suppliers to reach and connect with U.S. buyers using real customs data and U.S.-based expertise.",
+    heroTitle: "Connecting U.S. buyers with qualified Vietnamese suppliers — transparently.",
+    heroText: "Vexim Trade builds a two-sided bridge: buyers discover screened Vietnamese supply, while quality suppliers connect with real U.S. demand and clear expectations.",
     heroCta: "Request a 1:1 consultation",
     heroSecondary: "Explore the 8-step process",
-    heroNote: "Operating cost comparable to one office employee — with an entire system behind your factory.",
+    heroNote: "No promises on behalf of buyers. No unverified claims on behalf of suppliers. Just clearer information for fairer decisions.",
+    audienceEyebrow: "ONE NETWORK — TWO SIDES OF VALUE",
+    audienceTitle: "Buyers need dependable supply. Suppliers need real demand.",
+    audienceText: "Vexim Trade creates value only when both sides are protected by accurate information, clear criteria and realistic expectations.",
+    audiences: [
+      ["For U.S. Buyers", "Screened Vietnamese supply", "Review real capability, compliance documents, MOQ, capacity and trade terms — not unverified sales claims.", Users],
+      ["For Vietnamese Suppliers", "Ready for U.S. market requirements", "Assess product, quality, documentation, labeling and delivery readiness before making the right introduction.", Factory],
+    ] as const,
+    fairnessTitle: "One transparent standard for both sides.",
+    fairnessText: "Buyers get the information needed to evaluate. Suppliers get the feedback needed to improve and negotiate. Vexim never hides one side's risk to make the other side look better.",
     statOne: "Real Bill of Lading data",
     statTwo: "Buyer screening criteria",
     statThree: "Progress reporting",
@@ -137,8 +156,8 @@ const content = {
       ["Building an in-house export team", "Hiring, foreign-currency payroll, training and management create a heavy fixed cost.", AlertTriangle],
     ] as const,
     solutionEyebrow: "THE COMPLETE SOLUTION",
-    solutionTitle: "Not just a buyer list — an export sales operating system.",
-    solutionText: "From customs data to negotiation meetings, every activity is structured, assigned and visible through Vexim Trade.",
+    solutionTitle: "Not just a buyer list — a two-sided trade operating system.",
+    solutionText: "From buyer screening to supplier readiness, every critical detail is structured, assigned and visible through Vexim Trade.",
     solutions: [
       ["Buyer intelligence", "Analyze Bill of Lading and import signals to choose the right buyers before outreach.", Search],
       ["Supplier readiness", "Prepare factory capability, product information and compliance documents before the first conversation.", Factory],
@@ -212,7 +231,7 @@ export default async function RootPage() {
             <span className="text-base font-bold tracking-tight text-primary">Vexim Trade</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground lg:flex" aria-label="Primary navigation">
-            <a href="#challenge" className="transition-colors hover:text-primary">{t.nav[0]}</a>
+            <a href="#audience" className="transition-colors hover:text-primary">{t.nav[0]}</a>
             <a href="#solution" className="transition-colors hover:text-primary">{t.nav[1]}</a>
             <a href="#process" className="transition-colors hover:text-primary">{t.nav[2]}</a>
             <a href="#faq" className="transition-colors hover:text-primary">{t.nav[3]}</a>
@@ -222,7 +241,7 @@ export default async function RootPage() {
               <Menu className="h-4 w-4" />
             </summary>
             <div className="absolute right-0 top-11 z-50 w-48 rounded-xl border border-border bg-card p-2 shadow-xl">
-              <a href="#challenge" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[0]}</a>
+              <a href="#audience" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[0]}</a>
               <a href="#solution" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[1]}</a>
               <a href="#process" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[2]}</a>
               <a href="#faq" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[3]}</a>
@@ -235,11 +254,27 @@ export default async function RootPage() {
       <section className="relative isolate overflow-hidden bg-primary text-primary-foreground">
         <div className="pointer-events-none absolute -left-32 -top-40 h-[32rem] w-[32rem] rounded-full bg-accent/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-cta/10 blur-3xl" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[0.95fr_1.05fr] lg:px-10 lg:py-28">
-          <div className="max-w-2xl"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.16em] text-sky-100"><span className="h-1.5 w-1.5 rounded-full bg-cta" />{t.eyebrow}</div><h1 className="max-w-2xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-balance sm:text-6xl lg:text-[4.15rem]">{t.heroTitle}</h1><p className="mt-6 max-w-xl text-base leading-8 text-slate-200 sm:text-lg">{t.heroText}</p><div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"><Button asChild size="lg" className="h-12 bg-cta px-6 text-cta-foreground shadow-lg shadow-amber-950/20 hover:bg-cta/90"><a href="#consultation">{t.heroCta}<ArrowRight className="h-4 w-4" /></a></Button><Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white"><a href="#process">{t.heroSecondary}</a></Button></div><div className="mt-8 flex items-start gap-3 text-sm leading-6 text-slate-300"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-accent" />{t.heroNote}</div></div>
-          <div className="relative mx-auto w-full max-w-xl lg:ml-auto"><div className="absolute -inset-4 rounded-[2rem] bg-accent/10 blur-2xl" /><div className="relative overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/10 p-2 shadow-2xl shadow-slate-950/30 backdrop-blur-sm"><div className="relative aspect-[1.08/1] overflow-hidden rounded-[1rem]"><Image src="/landing/hero-dashboard.jpg" alt="Export operations in a modern warehouse" fill priority sizes="(max-width: 1024px) 90vw, 48vw" className="object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-transparent to-transparent" /><div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-100/80">Vexim operating system</p><p className="mt-1 text-lg font-semibold text-white">Demand → supplier → deal</p></div><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cta text-cta-foreground shadow-lg"><ArrowRight className="h-5 w-5" /></div></div></div></div><div className="absolute -bottom-5 -left-4 hidden rounded-xl border border-white/20 bg-slate-950/80 px-4 py-3 shadow-xl backdrop-blur-md sm:block"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-accent"><BarChart3 className="h-4 w-4" /></span><div><p className="text-[10px] uppercase tracking-wider text-slate-400">Pipeline visibility</p><p className="text-sm font-semibold text-white">Built for action</p></div></div></div><div className="absolute -right-4 top-8 hidden rounded-xl border border-white/20 bg-white px-4 py-3 shadow-xl sm:block"><div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-primary" /><p className="text-sm font-semibold text-primary">Compliance-ready</p></div></div></div>
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10 lg:py-28">
+          <div className="max-w-xl lg:pr-4"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.16em] text-sky-100"><span className="h-1.5 w-1.5 rounded-full bg-cta" />{t.eyebrow}</div><h1 className="max-w-2xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-balance sm:text-5xl lg:text-[3.75rem]">{t.heroTitle}</h1><p className="mt-6 max-w-xl text-base leading-8 text-slate-200 sm:text-lg">{t.heroText}</p><div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"><Button asChild size="lg" className="h-12 bg-cta px-6 text-cta-foreground shadow-lg shadow-amber-950/20 hover:bg-cta/90"><a href="#consultation">{t.heroCta}<ArrowRight className="h-4 w-4" /></a></Button><Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white"><a href="#process">{t.heroSecondary}</a></Button></div><div className="mt-8 flex items-start gap-3 text-sm leading-6 text-slate-300"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-accent" />{t.heroNote}</div></div>
+          <div className="relative mx-auto w-full max-w-lg lg:ml-auto lg:justify-self-end"><div className="absolute -inset-4 rounded-[2rem] bg-accent/10 blur-2xl" /><div className="relative overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/10 p-2 shadow-2xl shadow-slate-950/30 backdrop-blur-sm"><div className="relative aspect-[1.18/1] overflow-hidden rounded-[1rem]"><Image src="/landing/hero-dashboard.jpg" alt="Export operations in a modern warehouse" fill priority sizes="(max-width: 1024px) 90vw, 48vw" className="object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-transparent to-transparent" /><div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-100/80">Vexim operating system</p><p className="mt-1 text-lg font-semibold text-white">Demand → supplier → deal</p></div><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cta text-cta-foreground shadow-lg"><ArrowRight className="h-5 w-5" /></div></div></div></div><div className="absolute -bottom-5 -left-4 hidden rounded-xl border border-white/20 bg-slate-950/80 px-4 py-3 shadow-xl backdrop-blur-md sm:block"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-accent"><BarChart3 className="h-4 w-4" /></span><div><p className="text-[10px] uppercase tracking-wider text-slate-400">Pipeline visibility</p><p className="text-sm font-semibold text-white">Built for action</p></div></div></div><div className="absolute -right-4 top-8 hidden rounded-xl border border-white/20 bg-white px-4 py-3 shadow-xl sm:block"><div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-primary" /><p className="text-sm font-semibold text-primary">Compliance-ready</p></div></div></div>
         </div>
         <div className="relative mx-auto grid max-w-7xl grid-cols-2 border-t border-white/10 px-5 sm:grid-cols-4 sm:px-8 lg:px-10"><Stat value="100%" label={t.statOne} /><Stat value="7" label={t.statTwo} /><Stat value={locale === "vi" ? "Hàng tuần" : "Weekly"} label={t.statThree} /><Stat value="USA" label={t.statFour} /></div>
+      </section>
+
+      <section id="audience" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+        <SectionHeading eyebrow={t.audienceEyebrow} title={t.audienceTitle} text={t.audienceText} />
+        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+          {t.audiences.map(([title, subtitle, text, Icon]) => (
+            <article key={title} className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+              <div className="flex items-start justify-between gap-5"><div><p className="text-xs font-bold tracking-[0.16em] text-accent-foreground">{subtitle}</p><h3 className="mt-3 text-2xl font-semibold tracking-tight text-primary">{title}</h3></div><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-primary"><Icon className="h-6 w-6" /></span></div>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-muted-foreground">{text}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-accent/30 bg-accent/10 p-5 sm:flex-row sm:items-center sm:p-6">
+          <Scale className="h-7 w-7 shrink-0 text-primary" />
+          <div><h3 className="font-semibold text-primary">{t.fairnessTitle}</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">{t.fairnessText}</p></div>
+        </div>
       </section>
 
       <section id="challenge" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28"><SectionHeading eyebrow={t.painEyebrow} title={t.painTitle} text={t.painText} /><div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{t.painPoints.map(([title, text, Icon], index) => <article key={title} className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-cta/50 hover:shadow-xl hover:shadow-primary/5"><div className="flex items-center justify-between"><span className="text-xs font-bold tracking-[0.2em] text-muted-foreground">0{index + 1}</span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cta/15 text-cta-foreground transition-colors group-hover:bg-cta"><Icon className="h-5 w-5" /></span></div><h3 className="mt-6 text-lg font-semibold text-primary">{title}</h3><p className="mt-3 text-sm leading-7 text-muted-foreground">{text}</p></article>)}</div></section>

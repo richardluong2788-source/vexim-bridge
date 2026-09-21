@@ -335,7 +335,7 @@ function FdaCell({ number, expiresAt, locale, t }: FdaCellProps) {
     )
   }
 
-  const info = getFdaStatus(expiresAt)
+  const info = getFdaStatus(expiresAt, new Date(), number)
 
   let Icon = CheckCircle2
   let iconClass = "text-chart-4"
@@ -343,7 +343,15 @@ function FdaCell({ number, expiresAt, locale, t }: FdaCellProps) {
     <span className="text-[11px] text-muted-foreground">{t.fdaNoExpiry}</span>
   )
 
-  if (info.status === "expired") {
+  if (info.status === "pending_supplement") {
+    Icon = Clock
+    iconClass = "text-blue-500"
+    secondaryLine = (
+      <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+        {locale === "vi" ? "Đang bổ sung" : "In progress"}
+      </span>
+    )
+  } else if (info.status === "expired") {
     Icon = XCircle
     iconClass = "text-destructive"
     secondaryLine = (
@@ -374,7 +382,9 @@ function FdaCell({ number, expiresAt, locale, t }: FdaCellProps) {
     <div className="flex items-start gap-1.5 min-w-[160px]">
       <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconClass}`} />
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-mono text-foreground leading-tight">{number}</span>
+        <span className="text-xs font-mono text-foreground leading-tight">
+          {info.status === "pending_supplement" ? (locale === "vi" ? "Đang bổ sung" : "PENDING") : number}
+        </span>
         {secondaryLine}
       </div>
     </div>

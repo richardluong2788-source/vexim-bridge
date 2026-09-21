@@ -12,6 +12,7 @@
  */
 
 import type { FactorBreakdown } from "./types"
+import { isFdaPending } from "@/lib/fda/status"
 import {
   CLIENT_MATCH_WEIGHTS,
   CLIENT_TRUST_WEIGHTS,
@@ -196,7 +197,8 @@ function scoreCompliance(
   let score = 0
   const notes: string[] = []
 
-  const hasFda = !!trust.fda_registration_number?.trim()
+  const isPending = isFdaPending(trust.fda_status, trust.fda_registration_number)
+  const hasFda = !!trust.fda_registration_number?.trim() && !isPending
   const fdaValid =
     hasFda &&
     (!trust.fda_expires_at || new Date(trust.fda_expires_at) >= new Date(new Date().setHours(0, 0, 0, 0)))
@@ -204,6 +206,9 @@ function scoreCompliance(
   if (fdaValid) {
     score += 60
     notes.push("FDA còn hiệu lực")
+  } else if (isPending) {
+    score += 45
+    notes.push("FDA: Đang bổ sung hồ sơ (In Progress)")
   } else if (hasFda) {
     notes.push("FDA đã hết hạn")
   } else {
@@ -407,17 +412,21 @@ export function scoreClientProduct(
 
   const finalScore = Math.round(matchScore * MATCH_SCORE_SHARE + trustScore * TRUST_SCORE_SHARE)
 
-  const hasFda = !!trust.fda_registration_number?.trim()
+  const isPending = isFdaPending(trust.fda_status, trust.fda_registration_number)
+  const hasFda = !!trust.fda_registration_number?.trim() && !isPending
   const fdaExpired =
     hasFda && !!trust.fda_expires_at && new Date(trust.fda_expires_at) < new Date(new Date().setHours(0, 0, 0, 0))
 
+  // Suppliers with FDA in progress (pending_supplement) are ELIGIBLE for buyer introduction!
   const ineligibleReason = opts.alreadyAttached
     ? "already_attached"
-    : !hasFda
-      ? "fda_missing"
-      : fdaExpired
-        ? "fda_expired"
-        : null
+    : isPending
+      ? null
+      : !hasFda
+        ? "fda_missing"
+        : fdaExpired
+          ? "fda_expired"
+          : null
 
   return {
     clientId: product.client_id,

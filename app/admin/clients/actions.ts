@@ -19,6 +19,8 @@ export interface UpdateFdaInput {
   registeredAt: string | null
   /** ISO date (YYYY-MM-DD) or null to clear. */
   expiresAt: string | null
+  /** Status: 'valid' | 'expired' | 'pending_supplement' | 'missing' */
+  fdaStatus?: string | null
 }
 
 /**
@@ -40,32 +42,54 @@ export async function updateFdaRegistration(
   input: UpdateFdaInput,
 ): Promise<UpdateFdaResult> {
   // --- Normalize + validate number ---------------------------------------
-  const normalized =
+  let normalized =
     typeof input.fdaNumber === "string" && input.fdaNumber.trim().length > 0
       ? input.fdaNumber.trim()
       : null
 
-  if (normalized !== null) {
+  const isPending =
+    input.fdaStatus === "pending_supplement" ||
+    input.fdaStatus === "in_progress" ||
+    normalized?.toLowerCase() === "pending" ||
+    normalized?.toLowerCase() === "dang_bo_sung" ||
+    normalized?.toLowerCase() === "đang bổ sung"
+
+  let fdaStatusValue: string = "missing"
+
+  if (isPending) {
+    fdaStatusValue = "pending_supplement"
+    if (
+      !normalized ||
+      normalized.toLowerCase() === "pending" ||
+      normalized.toLowerCase() === "dang_bo_sung" ||
+      normalized.toLowerCase() === "đang bổ sung"
+    ) {
+      normalized = "PENDING"
+    }
+  } else if (normalized !== null) {
     if (normalized.length < 3 || normalized.length > 32) {
       return { ok: false, error: "invalidLength" }
     }
     if (!/^[A-Za-z0-9\-]+$/.test(normalized)) {
       return { ok: false, error: "invalidFormat" }
     }
+    fdaStatusValue = "valid"
   }
 
   // --- Normalize + validate dates ----------------------------------------
-  const registeredAt = normalizeIsoDate(input.registeredAt)
-  const expiresAt = normalizeIsoDate(input.expiresAt)
+  const registeredAt = isPending ? null : normalizeIsoDate(input.registeredAt)
+  const expiresAt = isPending ? null : normalizeIsoDate(input.expiresAt)
 
-  if (input.registeredAt && !registeredAt) {
-    return { ok: false, error: "invalidRegisteredAt" }
-  }
-  if (input.expiresAt && !expiresAt) {
-    return { ok: false, error: "invalidExpiresAt" }
-  }
-  if (registeredAt && expiresAt && expiresAt < registeredAt) {
-    return { ok: false, error: "expiresBeforeRegistered" }
+  if (!isPending) {
+    if (input.registeredAt && !registeredAt) {
+      return { ok: false, error: "invalidRegisteredAt" }
+    }
+    if (input.expiresAt && !expiresAt) {
+      return { ok: false, error: "invalidExpiresAt" }
+    }
+    if (registeredAt && expiresAt && expiresAt < registeredAt) {
+      return { ok: false, error: "expiresBeforeRegistered" }
+    }
   }
   // If the client provided an FDA number, dates are strongly recommended.
   // We don't hard-enforce here — admins sometimes only know the number.
@@ -124,6 +148,7 @@ export async function updateFdaRegistration(
       fda_registration_number: normalized,
       fda_registered_at: registeredAt,
       fda_expires_at: expiresAt,
+      fda_status: fdaStatusValue,
       // Only wipe the notify marker when dates actually changed — preserves
       // dedup behavior when admin just corrects a typo in the number.
       ...(windowChanged ? { fda_renewal_notified_at: null } : {}),

@@ -69,6 +69,7 @@ export interface ClientTrustInput {
   is_verified: boolean
   fda_registration_number: string | null
   fda_expires_at: string | null
+  fda_status?: string | null
   /** `client_factory_assessments.score_total`, null if never assessed. */
   factoryScoreTotal: number | null
   /** Total deals ever created for this client (via opportunities). */

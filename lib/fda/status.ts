@@ -15,6 +15,7 @@ export type FdaStatus =
   | "expired" // expires_at is in the past
   | "expiring_soon" // expires within FDA_WARNING_DAYS
   | "valid" // > FDA_WARNING_DAYS left
+  | "pending_supplement" // Đang bổ sung hồ sơ FDA (cam kết hoàn tất khi có buyer/đơn hàng)
 
 export interface FdaStatusInfo {
   status: FdaStatus
@@ -26,6 +27,26 @@ export interface FdaStatusInfo {
 }
 
 const MS_PER_DAY = 86_400_000
+
+/** Checks if the FDA registration is in "pending supplement / in progress" state. */
+export function isFdaPending(
+  fdaStatus?: string | null,
+  registrationNumber?: string | null,
+): boolean {
+  if (!fdaStatus && !registrationNumber) return false
+  const s = (fdaStatus || "").trim().toLowerCase()
+  const r = (registrationNumber || "").trim().toLowerCase()
+  return (
+    s === "pending_supplement" ||
+    s === "in_progress" ||
+    s === "pending" ||
+    s === "dang_bo_sung" ||
+    s === "đang bổ sung" ||
+    r.startsWith("pending") ||
+    r.startsWith("dang_bo_sung") ||
+    r.startsWith("đang bổ sung")
+  )
+}
 
 /** Midnight-UTC of a YYYY-MM-DD string or Date. Returns null on bad input. */
 function toUtcMidnight(v: string | Date | null | undefined): Date | null {
@@ -44,7 +65,13 @@ function toUtcMidnight(v: string | Date | null | undefined): Date | null {
 export function getFdaStatus(
   expiresAt: string | Date | null | undefined,
   today: Date = new Date(),
+  registrationNumber?: string | null | undefined,
+  fdaStatusOverride?: string | null | undefined,
 ): FdaStatusInfo {
+  if (isFdaPending(fdaStatusOverride, registrationNumber)) {
+    return { status: "pending_supplement", daysUntilExpiry: null }
+  }
+
   const expiry = toUtcMidnight(expiresAt)
   const todayUtc = toUtcMidnight(today)!
 

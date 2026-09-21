@@ -57,6 +57,7 @@ export type StageActionKey =
   | "resend_email"
   | "pick_suppliers"
   | "approve_shortlist"
+  | "send_documents"
   | "new_shortlist_version"
   | "convert_to_opportunity"
 
@@ -105,6 +106,16 @@ function pickSuppliersAction(hasDraftShortlist: boolean, primary: boolean): Stag
     labelEn: hasDraftShortlist ? "Edit shortlist (draft)" : "Pick suppliers (AI-assisted)",
     variant: "secondary",
     ...(primary ? { primary: true } : {}),
+  }
+}
+
+/** Share supplier compliance documents only after the engagement has a shortlist. */
+function sendDocumentsAction(): StageAction {
+  return {
+    key: "send_documents",
+    labelVi: "Gửi hồ sơ/video",
+    labelEn: "Send documents/video",
+    variant: "outline",
   }
 }
 
@@ -211,6 +222,7 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
           variant: "default",
           primary: true,
         })
+        actions.push(sendDocumentsAction())
       }
       return actions
     }
@@ -239,6 +251,7 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
       // Requirements are known: the reply is a reaction to the shortlist (or
       // to our last email), so the AE either reworks the shortlist or converts.
       return [
+        ...(shortlistItemCount > 0 ? [sendDocumentsAction()] : []),
         {
           key: "new_shortlist_version",
           labelVi: "Tạo phiên bản shortlist mới",
@@ -259,6 +272,8 @@ export function getStageActions(stage: string, ctx: StageActionContext = {}): St
     case "buyer_viewed":
     case "qualified_interest": {
       const actions: StageAction[] = []
+
+      if (shortlistItemCount > 0) actions.push(sendDocumentsAction())
 
       // Only worth resending after the buyer has actually received something
       // (still "sent"/"viewed"); once they reply, a resend is noise.

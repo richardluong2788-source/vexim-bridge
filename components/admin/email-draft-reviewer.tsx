@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Mail, Send, X, Copy, ChevronDown, ChevronUp, Check, Edit3, Paperclip, FileText } from "lucide-react"
+import { Mail, Send, X, Copy, ChevronDown, ChevronUp, Check, Edit3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { GenerateEmailResult } from "@/lib/ai/email-generator"
-import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 interface Props {
   draft: GenerateEmailResult
@@ -18,10 +17,6 @@ interface Props {
   onSend: (overrides: { subject?: string; content?: string; recipient?: string }) => void
   onReject: () => void
   onBack: () => void
-  /** Attachments to include with the email */
-  attachments: UploadedAttachment[]
-  /** Callback to remove an attachment */
-  onRemoveAttachment: (index: number) => void
   /** CC recipients selected in the composer (read-only confirmation here) */
   ccEmails?: string[]
 }
@@ -32,8 +27,6 @@ export function EmailDraftReviewer({
   onSend, 
   onReject, 
   onBack,
-  attachments,
-  onRemoveAttachment,
   ccEmails = [],
 }: Props) {
   const { t } = useTranslation()
@@ -154,55 +147,6 @@ export function EmailDraftReviewer({
         )}
       </div>
 
-      {/* Attachments preview */}
-      {attachments.length > 0 && (
-        <Field>
-          <FieldLabel className="flex items-center gap-2">
-            <Paperclip className="h-4 w-4" />
-            {s.attachments ?? "Đính kèm"} ({attachments.length})
-          </FieldLabel>
-          <ul className="space-y-2 mt-2">
-            {attachments.map((att, index) => (
-              <li
-                key={att.url}
-                className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2"
-              >
-                {att.contentType.startsWith("image/") ? (
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                    <img
-                      src={att.url}
-                      alt={att.filename}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-muted">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-medium">{att.filename}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(att.size)}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => onRemoveAttachment(index)}
-                  disabled={sending}
-                >
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Xóa</span>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </Field>
-      )}
-
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2 pt-2">
         <Button
@@ -262,12 +206,6 @@ export function EmailDraftReviewer({
       </div>
     </div>
   )
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 const fallbackStrings = {

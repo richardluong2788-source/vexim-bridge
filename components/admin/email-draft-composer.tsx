@@ -16,12 +16,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Spinner } from "@/components/ui/spinner"
 import { useTranslation } from "@/components/i18n/language-provider"
-import { EmailAttachmentPicker } from "@/components/admin/email-attachment-picker"
 import { ProductLinkPicker } from "@/components/admin/product-link-picker"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Users, UserCheck } from "lucide-react"
 import type { EmailType, BuyerContact } from "@/lib/supabase/types"
-import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 const EMAIL_TYPES: { value: EmailType; labelKey: string; descKey: string }[] = [
   { value: "introduction", labelKey: "typeIntro", descKey: "typeIntroDesc" },
@@ -39,10 +37,6 @@ interface Props {
   quoteReply?: string
   /** Callback when quote is cleared */
   onClearQuote?: () => void
-  /** Current attachments */
-  attachments: UploadedAttachment[]
-  /** Callback when attachments change */
-  onAttachmentsChange: (attachments: UploadedAttachment[]) => void
   /** Opportunity ID for product link tracking */
   opportunityId?: string
   /** Client ID for fetching products */
@@ -71,8 +65,6 @@ export function EmailDraftComposer({
   onSendManual,
   quoteReply, 
   onClearQuote,
-  attachments,
-  onAttachmentsChange,
   opportunityId,
   clientId,
   contacts = [],
@@ -390,15 +382,6 @@ export function EmailDraftComposer({
               </FieldDescription>
             </Field>
 
-            <Field>
-              <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
-              <EmailAttachmentPicker
-                attachments={attachments}
-                onChange={onAttachmentsChange}
-                disabled={loading}
-              />
-            </Field>
-
             {/* Product Link Picker */}
             {opportunityId && clientId && (
               <Field>
@@ -482,15 +465,6 @@ export function EmailDraftComposer({
               <FieldDescription>
                 Nhập trực tiếp nội dung email (tiếng Anh). Email sẽ được gửi đúng như bạn nhập.
               </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel>{s.attachmentsLabel ?? "Đính kèm"}</FieldLabel>
-              <EmailAttachmentPicker
-                attachments={attachments}
-                onChange={onAttachmentsChange}
-                disabled={loading}
-              />
             </Field>
 
             {/* Product Link Picker */}

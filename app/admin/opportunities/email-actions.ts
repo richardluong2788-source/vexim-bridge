@@ -4,7 +4,6 @@ import { generateEmailDraft, type GenerateEmailInput, type GenerateEmailResult, 
 import { sendEmailDraft, rejectEmailDraft, type SendDraftResult, EmailSenderAuthError } from "@/lib/ai/email-sender"
 import { createClient } from "@/lib/supabase/server"
 import type { EmailType } from "@/lib/supabase/types"
-import type { UploadedAttachment } from "@/app/api/attachments/upload/route"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generate Email Draft Action
@@ -65,7 +64,6 @@ export type SendEmailActionInput = {
   overrideContent?: string
   overrideRecipient?: string
   overrideCc?: string[]
-  attachments?: UploadedAttachment[]
   /** Threads this send as a reply to a buyer's inbound message (see lib/ai/email-sender.ts). */
   replyToMessageId?: string | null
   /** Marks a specific buyer_replies row as answered once this send succeeds. */
@@ -85,7 +83,6 @@ export async function sendEmailDraftAction(
       overrideContent: input.overrideContent,
       overrideRecipient: input.overrideRecipient,
       overrideCc: input.overrideCc,
-      attachments: input.attachments,
       replyToMessageId: input.replyToMessageId,
       markReplyId: input.markReplyId,
     })

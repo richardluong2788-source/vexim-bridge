@@ -5,50 +5,54 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ESH Brand: Navy primary, teal accent, clean neutrals */
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.13 0.02 250);
+  /* Vexim Trade brand: deep navy, clear sky blue, confident amber CTA */
+  --background: oklch(0.985 0.006 235);
+  --foreground: oklch(0.19 0.035 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.02 250);
+  --card-foreground: oklch(0.19 0.035 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.02 250);
-  /* Navy primary #0F172A */
-  --primary: oklch(0.22 0.04 264);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.95 0.005 264);
-  --secondary-foreground: oklch(0.22 0.04 264);
-  --muted: oklch(0.95 0.005 264);
-  --muted-foreground: oklch(0.52 0.02 264);
-  /* Teal accent #14B8A6 */
-  --accent: oklch(0.7 0.12 185);
-  --accent-foreground: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.035 250);
+  /* Deep navy #102A43 */
+  --primary: oklch(0.25 0.065 250);
+  --primary-foreground: oklch(0.985 0.006 235);
+  /* Cool blue surfaces */
+  --secondary: oklch(0.95 0.018 230);
+  --secondary-foreground: oklch(0.25 0.065 250);
+  --muted: oklch(0.955 0.012 235);
+  --muted-foreground: oklch(0.48 0.035 250);
+  /* Light blue accent #7DD3FC */
+  --accent: oklch(0.82 0.12 225);
+  --accent-foreground: oklch(0.22 0.06 250);
+  /* CTA amber/orange #F59E0B */
+  --cta: oklch(0.78 0.16 75);
+  --cta-foreground: oklch(0.2 0.045 50);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.89 0.005 264);
-  --input: oklch(0.89 0.005 264);
-  --ring: oklch(0.7 0.12 185);
-  /* Kanban stage chart colors */
-  --chart-1: oklch(0.6 0.15 264);
-  --chart-2: oklch(0.7 0.12 185);
-  --chart-3: oklch(0.75 0.15 85);
-  --chart-4: oklch(0.65 0.18 145);
-  --chart-5: oklch(0.55 0.2 27);
-  --radius: 0.5rem;
-  /* Sidebar: Deep navy */
-  --sidebar: oklch(0.17 0.03 264);
-  --sidebar-foreground: oklch(0.92 0.01 264);
-  --sidebar-primary: oklch(0.7 0.12 185);
-  --sidebar-primary-foreground: oklch(0.17 0.03 264);
-  --sidebar-accent: oklch(0.22 0.04 264);
-  --sidebar-accent-foreground: oklch(0.92 0.01 264);
-  --sidebar-border: oklch(0.27 0.03 264);
-  --sidebar-ring: oklch(0.7 0.12 185);
-  /* ESH custom tokens */
-  --stage-new: oklch(0.6 0.15 264);
-  --stage-contacted: oklch(0.75 0.15 85);
-  --stage-quoted: oklch(0.65 0.18 50);
-  --stage-won: oklch(0.65 0.18 145);
-  --stage-lost: oklch(0.55 0.2 27);
+  --border: oklch(0.89 0.018 235);
+  --input: oklch(0.89 0.018 235);
+  --ring: oklch(0.72 0.13 225);
+  /* Reporting palette: legible on white and consistent with the brand */
+  --chart-1: oklch(0.48 0.13 250);
+  --chart-2: oklch(0.72 0.13 225);
+  --chart-3: oklch(0.78 0.16 75);
+  --chart-4: oklch(0.62 0.14 155);
+  --chart-5: oklch(0.58 0.19 27);
+  --radius: 0.65rem;
+  /* Sidebar: darker navy for a clear application shell */
+  --sidebar: oklch(0.19 0.055 250);
+  --sidebar-foreground: oklch(0.93 0.02 230);
+  --sidebar-primary: oklch(0.78 0.16 75);
+  --sidebar-primary-foreground: oklch(0.2 0.045 50);
+  --sidebar-accent: oklch(0.27 0.07 250);
+  --sidebar-accent-foreground: oklch(0.98 0.01 230);
+  --sidebar-border: oklch(0.3 0.055 250);
+  --sidebar-ring: oklch(0.72 0.13 225);
+  /* Pipeline stage colors */
+  --stage-new: oklch(0.48 0.13 250);
+  --stage-contacted: oklch(0.78 0.16 75);
+  --stage-quoted: oklch(0.68 0.16 45);
+  --stage-won: oklch(0.62 0.14 155);
+  --stage-lost: oklch(0.58 0.19 27);
 }
 
 @theme inline {
@@ -68,6 +72,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -98,5 +104,9 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--accent) 55%, transparent);
+    color: var(--primary);
   }
 }

@@ -137,9 +137,9 @@ export async function finalizeClientDocUploadAction(args: {
       owner_id: ownerId,
       kind,
       title,
-      // `compliance_docs.url` now holds the blob *pathname*, not a
-      // public URL — the store is private and files are served via
-      // `/api/files?path=<pathname>`.
+      // `compliance_docs.url` holds the blob pathname. The Blob store remains
+      // public during this controlled test phase; the buyer still receives
+      // only the expiring tokenized app share URL.
       url: pathname,
       mime_type: mimeType,
       size_bytes: sizeBytes,
@@ -296,7 +296,9 @@ export async function createShareLinkAction(args: {
       timeZone: "Asia/Ho_Chi_Minh",
     }).format(new Date(expiresAt))
 
+    const sender = await resolveCallerSender(adminClient, userId)
     const result = await sendMail({
+      from: sender.from,
       to: buyerEmail,
       subject: `[Vexim Trade] ${docLabel} from ${clientCompany}`,
       html: renderBuyerShareEmail({
@@ -319,9 +321,7 @@ export async function createShareLinkAction(args: {
         ttlDays,
         senderMessage: args.senderMessage?.trim() || null,
       }),
-      // When the buyer hits "Reply", it should go to the Zoho mailbox
-      // the team monitors (same as consultation form).
-      headers: { "Reply-To": getFromAddress() },
+      replyTo: sender.replyTo,
     })
 
     if (result.error) {
@@ -332,6 +332,13 @@ export async function createShareLinkAction(args: {
       emailError = result.error.message
     } else {
       emailSent = true
+      await adminClient
+        .from("tokenized_share_links")
+        .update({
+          sent_at: new Date().toISOString(),
+          sent_by: userId ?? null,
+        })
+        .eq("token", token)
     }
   }
 
@@ -355,6 +362,13 @@ export async function createBundleShareLinkAction(args: {
   buyerName?: string | null
   buyerCompany?: string | null
   senderMessage?: string | null
+  /** Optional AE-reviewed subject/body. The secure link is inserted at the marker. */
+  subjectOverride?: string | null
+  bodyOverride?: string | null
+  /** Optional pre-opportunity engagement that requested this dossier. */
+  engagementId?: string | null
+  /** RFC Message-ID used to keep the share email in the buyer's thread. */
+  replyToMessageId?: string | null
 }): Promise<
   ActionResult<{ token: string; emailSent: boolean; emailError?: string }>
 > {
@@ -406,6 +420,10 @@ export async function createBundleShareLinkAction(args: {
     .insert({
       doc_id: null,
       owner_id: ownerId,
+      engagement_id: args.engagementId ?? null,
+      buyer_email: args.buyerEmail?.trim() || null,
+      sent_at: null,
+      sent_by: null,
       expires_at: expiresAt,
       note: args.note ?? null,
       created_by: userId ?? null,
@@ -476,10 +494,24 @@ export async function createBundleShareLinkAction(args: {
       title: (d.title ?? null) as string | null,
     }))
 
+    const sender = await resolveCallerSender(adminClient, userId)
+    const subject =
+      args.subjectOverride?.trim() ||
+      `[Vexim Trade] Dossier from ${clientCompany} (${shareableDocs.length} documents)`
+    const bodyOverride = args.bodyOverride?.trim() || null
     const result = await sendMail({
+      from: sender.from,
       to: buyerEmail,
-      subject: `[Vexim Trade] Dossier from ${clientCompany} (${shareableDocs.length} documents)`,
-      html: renderBundleBuyerEmail({
+      subject,
+      html: bodyOverride
+        ? renderCustomBundleBuyerEmail({
+            buyerName: args.buyerName?.trim() || null,
+            body: bodyOverride,
+            shareUrl,
+            expiresLabel,
+            ttlDays,
+          })
+        : renderBundleBuyerEmail({
         buyerName: args.buyerName?.trim() || null,
         buyerCompany: args.buyerCompany?.trim() || null,
         clientCompany,
@@ -489,16 +521,30 @@ export async function createBundleShareLinkAction(args: {
         ttlDays,
         senderMessage: args.senderMessage?.trim() || null,
       }),
-      text: renderBundleBuyerEmailText({
-        buyerName: args.buyerName?.trim() || null,
-        clientCompany,
-        docs: docItems,
-        shareUrl,
-        expiresLabel,
-        ttlDays,
-        senderMessage: args.senderMessage?.trim() || null,
-      }),
-      headers: { "Reply-To": getFromAddress() },
+      text: bodyOverride
+        ? renderCustomBundleBuyerEmailText({
+            buyerName: args.buyerName?.trim() || null,
+            body: bodyOverride,
+            shareUrl,
+            expiresLabel,
+            ttlDays,
+          })
+        : renderBundleBuyerEmailText({
+            buyerName: args.buyerName?.trim() || null,
+            clientCompany,
+            docs: docItems,
+            shareUrl,
+            expiresLabel,
+            ttlDays,
+            senderMessage: args.senderMessage?.trim() || null,
+          }),
+      replyTo: sender.replyTo,
+      headers: args.replyToMessageId
+        ? {
+            "In-Reply-To": args.replyToMessageId,
+            References: args.replyToMessageId,
+          }
+        : undefined,
     })
 
     if (result.error) {
@@ -528,7 +574,7 @@ export async function resendShareLinkEmailAction(args: {
 }): Promise<ActionResult<{ emailSent: boolean }>> {
   const guard = await requireCap(CAPS.CLIENT_COMPLIANCE_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  const { admin: adminClient } = guard
+  const { admin: adminClient, userId } = guard
 
   const buyerEmail = args.buyerEmail?.trim()
   if (!buyerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail)) {
@@ -578,7 +624,9 @@ export async function resendShareLinkEmailAction(args: {
     ),
   )
 
+  const sender = await resolveCallerSender(adminClient, userId)
   const result = await sendMail({
+    from: sender.from,
     to: buyerEmail,
     subject: `[Vexim Trade] ${docLabel} from ${clientCompany}`,
     html: renderBuyerShareEmail({
@@ -601,7 +649,7 @@ export async function resendShareLinkEmailAction(args: {
       ttlDays,
       senderMessage: args.senderMessage?.trim() || null,
     }),
-    headers: { "Reply-To": getFromAddress() },
+    replyTo: sender.replyTo,
   })
 
   if (result.error) {
@@ -883,6 +931,61 @@ function renderBundleBuyerEmailText(d: BundleBuyerEmailTextData): string {
     siteConfig.url,
   )
   return lines.join("\n")
+}
+
+interface CustomBundleBuyerEmailData {
+  buyerName: string | null
+  body: string
+  shareUrl: string
+  expiresLabel: string
+  ttlDays: number
+}
+
+const SECURE_SHARE_MARKER = /\{\{\s*secure_share_link\s*\}\}/gi
+const SECURE_SHARE_MARKER_TEST = /\{\{\s*secure_share_link\s*\}\}/i
+
+function renderCustomBundleBuyerEmail(d: CustomBundleBuyerEmailData): string {
+  const greeting = d.buyerName ? `Hi ${escapeHtml(d.buyerName)},` : "Hello,"
+  const hasMarker = SECURE_SHARE_MARKER_TEST.test(d.body)
+  const safeBody = escapeHtml(d.body).replace(
+    SECURE_SHARE_MARKER,
+    `<a href="${escapeAttr(d.shareUrl)}" style="color:#0f172a;font-weight:600;">View the secure document link</a>`,
+  )
+  const linkBlock = hasMarker
+    ? ""
+    : `<p style="margin:20px 0 0;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><a href="${escapeAttr(d.shareUrl)}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;">View documents securely</a></p>`
+
+  return `<!DOCTYPE html>
+<html lang="en"><body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;max-width:560px;width:100%;">
+      <tr><td style="background:#0f172a;padding:20px 28px;color:#fff;font-weight:700;font-size:18px;">Vexim Trade</td></tr>
+      <tr><td style="padding:28px;color:#334155;font:14px/22px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        <p style="margin:0 0 16px;color:#475569;">${greeting}</p>
+        <div style="white-space:pre-wrap;">${safeBody.replace(/\n/g, "<br />")}</div>
+        ${linkBlock}
+        <p style="margin:20px 0 0;color:#64748b;font-size:12px;">Link valid until ${escapeHtml(d.expiresLabel)} (about ${d.ttlDays} days).</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`
+}
+
+function renderCustomBundleBuyerEmailText(d: CustomBundleBuyerEmailData): string {
+  const hasMarker = SECURE_SHARE_MARKER_TEST.test(d.body)
+  const body = d.body.replace(SECURE_SHARE_MARKER, d.shareUrl)
+  const link = hasMarker ? "" : `\n\nView documents securely:\n${d.shareUrl}`
+  return [
+    d.buyerName ? `Hi ${d.buyerName},` : "Hello,",
+    "",
+    body,
+    link,
+    "",
+    `Link valid until ${d.expiresLabel} (about ${d.ttlDays} days).`,
+    "",
+    "You can reply to this email if you would like to discuss the documents.",
+    "— The Vexim Trade Team",
+  ].join("\n")
 }
 
 function escapeHtml(s: string): string {

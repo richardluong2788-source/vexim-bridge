@@ -170,10 +170,13 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // AI matching inbox — the AE's main daily queue.
     CAPS.MATCH_INBOX_VIEW,
 
-    // Clients
+    // Clients & Supplier Sourcing (AE kiêm nhiệm SR)
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
+    CAPS.BILLING_PLAN_PROPOSE,
+    CAPS.INVOICE_VIEW_OWN,
+    CAPS.OWNERSHIP_BYPASS,
 
     // Read-only signals.
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country

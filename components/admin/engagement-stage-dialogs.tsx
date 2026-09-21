@@ -911,6 +911,7 @@ function ShortlistBuilderDialog({
                     : m.finalScore < MEDIUM_MATCH_SCORE_THRESHOLD
                       ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
                       : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                const isFdaPending = m.matchBreakdown.some((f) => f.detail?.includes("Đang bổ sung"))
                 return (
                   <label
                     key={m.clientId}
@@ -921,7 +922,17 @@ function ShortlistBuilderDialog({
                       onCheckedChange={() => toggle(m.clientId)}
                     />
                     <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
-                    <span className="flex-1 truncate text-sm font-medium">{m.clientName}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate text-sm font-medium">{m.clientName}</span>
+                        {isFdaPending && (
+                          <Badge variant="outline" className="text-[9px] border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 py-0 px-1">
+                            {t("⏳ FDA: Đang bổ sung", "⏳ FDA in progress")}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="truncate text-xs text-muted-foreground block">{m.productName}</span>
+                    </div>
                     {m.finalScore < LOW_MATCH_SCORE_THRESHOLD && (
                       <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
                     )}

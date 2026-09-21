@@ -22,6 +22,7 @@ export interface CreateClientInput {
   industries: Industry[]
   fda_registration_number?: string | null
   fda_expires_at?: string | null // YYYY-MM-DD
+  fda_status?: string | null
   phone?: string | null
   /**
    * Country the client (supplier) company is based in. Free text — feeds
@@ -95,7 +96,29 @@ export async function createClientAccount(
     }
     fdaExpiresAt = input.fda_expires_at
   }
-  const fdaNumber = input.fda_registration_number?.trim() || null
+  const rawFdaNumber = input.fda_registration_number?.trim() || null
+
+  const isPending =
+    input.fda_status === "pending_supplement" ||
+    input.fda_status === "in_progress" ||
+    rawFdaNumber?.toLowerCase() === "pending" ||
+    rawFdaNumber?.toLowerCase() === "dang_bo_sung" ||
+    rawFdaNumber?.toLowerCase() === "đang bổ sung"
+
+  const fdaStatusValue = isPending
+    ? "pending_supplement"
+    : rawFdaNumber
+      ? "valid"
+      : "missing"
+
+  const fdaNumber =
+    isPending &&
+    (!rawFdaNumber ||
+      rawFdaNumber.toLowerCase() === "pending" ||
+      rawFdaNumber.toLowerCase() === "dang_bo_sung" ||
+      rawFdaNumber.toLowerCase() === "đang bổ sung")
+      ? "PENDING"
+      : rawFdaNumber
 
   // ---- 2. Caller auth + role check ------------------------------------------
   const supabase = await createClient()
@@ -203,7 +226,8 @@ export async function createClientAccount(
         phone: input.phone?.trim() || null,
         country: input.country?.trim() || null,
         fda_registration_number: fdaNumber,
-        fda_expires_at: fdaExpiresAt,
+        fda_expires_at: isPending ? null : fdaExpiresAt,
+        fda_status: fdaStatusValue,
         // Auto-assign AE as account manager when they create the client
         account_manager_id: isAE ? caller.id : null,
         // SR who sourced this supplier (for billing-proposal / collections)

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isFdaPending } from "@/lib/fda/status"
 import { rankClientsForBuyer } from "@/lib/matching/client-scorer"
 import type {
   BuyerMatchInput,
@@ -167,7 +168,7 @@ async function assignOneClient(
   // 1) Load client + FDA status
   const { data: client, error: clientErr } = await admin
     .from("profiles")
-    .select("id, role, full_name, company_name, fda_registration_number, fda_expires_at")
+    .select("id, role, full_name, company_name, fda_registration_number, fda_expires_at, fda_status")
     .eq("id", clientId)
     .single()
   if (clientErr || !client) {
@@ -177,14 +178,18 @@ async function assignOneClient(
   if (client.role !== "client") {
     return { clientId, clientName: clientLabel, ok: false, error: "not_a_client" }
   }
-  if (!client.fda_registration_number || !client.fda_registration_number.trim()) {
-    return { clientId, clientName: clientLabel, ok: false, error: "fda_missing" }
-  }
-  if (client.fda_expires_at) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (new Date(client.fda_expires_at) < today) {
-      return { clientId, clientName: clientLabel, ok: false, error: "fda_expired" }
+
+  const isPending = isFdaPending((client as any).fda_status, client.fda_registration_number)
+  if (!isPending) {
+    if (!client.fda_registration_number || !client.fda_registration_number.trim()) {
+      return { clientId, clientName: clientLabel, ok: false, error: "fda_missing" }
+    }
+    if (client.fda_expires_at) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (new Date(client.fda_expires_at) < today) {
+        return { clientId, clientName: clientLabel, ok: false, error: "fda_expired" }
+      }
     }
   }
 
@@ -349,7 +354,7 @@ export async function getAIMatchedClients(
        incoterm, payment_terms, compliance_badges,
        profiles:client_id (
          id, company_name, full_name, phone, industries,
-         is_verified, fda_registration_number, fda_expires_at
+         is_verified, fda_registration_number, fda_expires_at, fda_status
        )`,
     )
     .eq("status", "active")
@@ -450,6 +455,7 @@ export async function getAIMatchedClients(
       is_verified: !!profile.is_verified,
       fda_registration_number: profile.fda_registration_number,
       fda_expires_at: profile.fda_expires_at,
+      fda_status: profile.fda_status ?? null,
       factoryScoreTotal: factoryScoreByClient.get(p.client_id) ?? null,
       dealsTotal: dealsTotalByClient.get(p.client_id) ?? 0,
       dealsSwiftVerified: dealsSwiftByClient.get(p.client_id) ?? 0,

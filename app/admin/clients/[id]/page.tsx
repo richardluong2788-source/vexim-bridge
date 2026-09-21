@@ -100,7 +100,12 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
     doc_ids: l.doc_id ? [l.doc_id] : (bundleMembership[l.token] ?? []),
   }))
 
-  const fdaInfo = getFdaStatus(client.fda_expires_at)
+  const fdaInfo = getFdaStatus(
+    client.fda_expires_at,
+    new Date(),
+    client.fda_registration_number,
+    (client as any).fda_status,
+  )
   const companyLabel =
     clientProfile?.display_name ??
     client.company_name ??
@@ -185,7 +190,13 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
 
             {/* FDA at-a-glance */}
             <div className="flex items-center gap-3 flex-wrap mt-2">
-              {client.fda_registration_number ? (
+              {fdaInfo.status === "pending_supplement" ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium">
+                    {locale === "vi" ? "⏳ FDA: Đang bổ sung hồ sơ" : "⏳ FDA: Registration in progress"}
+                  </Badge>
+                </div>
+              ) : client.fda_registration_number ? (
                 <div className="flex flex-col gap-0.5">
                   <p className="text-xs text-muted-foreground">{s.fdaRegistration}</p>
                   <p className="font-mono text-sm text-foreground">

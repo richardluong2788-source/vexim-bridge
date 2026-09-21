@@ -46,6 +46,7 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   const [selectedIndustries, setSelectedIndustries] = useState<Industry[]>([])
   const [phone, setPhone] = useState("")
   const [country, setCountry] = useState("")
+  const [fdaMode, setFdaMode] = useState<"has_number" | "pending_supplement" | "none">("has_number")
   const [fdaNumber, setFdaNumber] = useState("")
   const [fdaExpiresAt, setFdaExpiresAt] = useState("")
 
@@ -112,8 +113,9 @@ export function NewClientForm({ locale }: NewClientFormProps) {
         industries: selectedIndustries,
         phone: phone || null,
         country: country || null,
-        fda_registration_number: fdaNumber || null,
-        fda_expires_at: fdaExpiresAt || null,
+        fda_registration_number: fdaMode === "pending_supplement" ? "PENDING" : fdaNumber || null,
+        fda_expires_at: fdaMode === "pending_supplement" ? null : fdaExpiresAt || null,
+        fda_status: fdaMode === "pending_supplement" ? "pending_supplement" : fdaNumber ? "valid" : "missing",
       })
 
       if (!result.ok) {
@@ -129,6 +131,7 @@ export function NewClientForm({ locale }: NewClientFormProps) {
       setSelectedIndustries([])
       setPhone("")
       setCountry("")
+      setFdaMode("has_number")
       setFdaNumber("")
       setFdaExpiresAt("")
       router.refresh()
@@ -385,43 +388,93 @@ export function NewClientForm({ locale }: NewClientFormProps) {
           </div>
 
           {/* FDA section */}
-          <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-            <div className="md:col-span-2">
+          <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
+            <div>
               <Label className="text-sm font-medium">
-                {tr(
-                  "Thông tin FDA (tùy chọn — có thể bổ sung sau)",
-                  "FDA Registration (optional — can be added later)",
-                )}
+                {tr("Tình trạng chứng chỉ FDA", "FDA Registration Status")}
               </Label>
               <p className="mt-1 text-xs text-muted-foreground">
                 {tr(
-                  "Cần thiết trước khi gán Buyer và đẩy cơ hội qua giai đoạn Sample. Nếu chưa có, bạn có thể bổ sung trong hồ sơ khách hàng.",
-                  "Required before assigning buyers and advancing past Sample. Can be added later from the client profile.",
+                  "Nhà cung cấp ở trạng thái 'Đang bổ sung' vẫn đủ điều kiện để AI gợi ý và giới thiệu cho Buyer (sẽ hoàn tất trước khi xuất hàng).",
+                  "Suppliers with 'In Progress' status are eligible for AI suggestions and Buyer introductions (will complete before shipping).",
                 )}
               </p>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaNumber" className="text-xs">
-                {tr("Số đăng ký FDA", "FDA Registration Number")}
-              </Label>
-              <Input
-                id="fdaNumber"
-                value={fdaNumber}
-                onChange={(e) => setFdaNumber(e.target.value)}
-                placeholder="12345678901"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setFdaMode("has_number")}
+                className={cn(
+                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
+                  fdaMode === "has_number"
+                    ? "border-primary bg-primary/10 text-primary font-semibold"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                {tr("✓ Đã có mã số FDA", "✓ Valid FDA Number")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFdaMode("pending_supplement")}
+                className={cn(
+                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
+                  fdaMode === "pending_supplement"
+                    ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                {tr("⏳ Đang bổ sung FDA", "⏳ In Progress")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFdaMode("none")}
+                className={cn(
+                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
+                  fdaMode === "none"
+                    ? "border-muted-foreground bg-muted text-foreground font-semibold"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                {tr("✕ Chưa có FDA", "✕ No FDA")}
+              </button>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaExpires" className="text-xs">
-                {tr("Ngày hết hạn", "Expiry Date")}
-              </Label>
-              <Input
-                id="fdaExpires"
-                type="date"
-                value={fdaExpiresAt}
-                onChange={(e) => setFdaExpiresAt(e.target.value)}
-              />
-            </div>
+
+            {fdaMode === "has_number" && (
+              <div className="grid gap-4 md:grid-cols-2 pt-2 border-t border-border/50">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="fdaNumber" className="text-xs">
+                    {tr("Số đăng ký FDA", "FDA Registration Number")}
+                  </Label>
+                  <Input
+                    id="fdaNumber"
+                    value={fdaNumber}
+                    onChange={(e) => setFdaNumber(e.target.value)}
+                    placeholder="12345678901"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="fdaExpires" className="text-xs">
+                    {tr("Ngày hết hạn", "Expiry Date")}
+                  </Label>
+                  <Input
+                    id="fdaExpires"
+                    type="date"
+                    value={fdaExpiresAt}
+                    onChange={(e) => setFdaExpiresAt(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {fdaMode === "pending_supplement" && (
+              <div className="rounded-md border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-800 dark:text-blue-300">
+                {tr(
+                  "Nhà cung cấp đã cam kết hoàn thành đăng ký FDA khi chốt đơn hàng với Buyer. Hệ thống sẽ cho phép giới thiệu nhà cung cấp này trong danh sách Shortlist.",
+                  "Supplier committed to completing FDA registration upon deal confirmation. The system will allow shortlisting and introducing this supplier to buyers.",
+                )}
+              </div>
+            )}
           </div>
 
           {/* Error */}

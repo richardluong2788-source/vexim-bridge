@@ -4,9 +4,11 @@
  *
  * Two scope kinds:
  *   - "all"   : full visibility. Granted to every role with OWNERSHIP_BYPASS
- *               (super_admin, admin, finance).
+ *               (super_admin, admin, finance, supplier_researcher).
  *   - "owned" : limited to records the current user owns. Used by AE,
  *               Lead Researcher, and the legacy `staff` role.
+ *               account_executive must NOT be given OWNERSHIP_BYPASS —
+ *               /admin/clients filters on this scope.
  *
  * Ownership is tracked on TWO columns:
  *   - profiles.account_manager_id      → LIVE pointer ("who currently owns

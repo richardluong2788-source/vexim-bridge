@@ -117,10 +117,13 @@ export const CAPS = {
   //   `profiles.account_manager_id` (live) and
   //   `opportunities.account_manager_id` (snapshot) columns.
   //
-  //   Roles that get bypass: super_admin, admin, finance.
+  //   Roles that get bypass: super_admin, admin, finance, supplier_researcher.
   //   Roles WITHOUT bypass — account_executive, lead_researcher, staff —
   //   are scoped to records they own. This is what makes per-AE revenue
   //   accounting reliable: AEs cannot accidentally touch another AE's deals.
+  //   Do NOT grant this to account_executive just because AE also sources
+  //   suppliers. Pool-wide supplier counts live on /admin/sourcing; the
+  //   client directory, pipeline and exports must stay ownership-scoped.
   OWNERSHIP_BYPASS:            "ownership:bypass",
 } as const
 
@@ -170,13 +173,18 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // AI matching inbox — the AE's main daily queue.
     CAPS.MATCH_INBOX_VIEW,
 
-    // Clients & Supplier Sourcing (AE kiêm nhiệm SR)
+    // Clients & Supplier Sourcing (AE kiêm nhiệm SR).
+    // CLIENT_VIEW/WRITE lets an AE onboard a client they will own.
+    // OWNERSHIP_BYPASS is intentionally absent: the clients directory,
+    // client detail, pipeline, activities and CSV export all key off that
+    // cap, and an AE must only see clients assigned to them
+    // (profiles.account_manager_id). Supplier Researcher keeps the bypass
+    // so sourcing can see the whole pool and avoid duplicates.
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
     CAPS.BILLING_PLAN_PROPOSE,
     CAPS.INVOICE_VIEW_OWN,
-    CAPS.OWNERSHIP_BYPASS,
 
     // Read-only signals.
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country

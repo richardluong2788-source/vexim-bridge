@@ -10,7 +10,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { updateUserRole, updateUserIndustries, generateWorkEmailForUser } from "@/app/admin/users/actions"
-import { ROLE_META, assignableRoles } from "@/lib/auth/permissions"
+import { CAPS, ROLE_META, assignableRoles, can } from "@/lib/auth/permissions"
+import { EditNotificationEmailDialog } from "@/components/admin/edit-notification-email-dialog"
 import { AeIndustryPicker } from "@/components/admin/ae-industry-picker"
 import { ResetStaffPasswordDialog } from "@/components/admin/reset-staff-password-dialog"
 import type { Role } from "@/lib/supabase/types"
@@ -64,6 +65,9 @@ export function UsersTable({
   const [filterRole, setFilterRole] = useState<Role | "all">("all")
   const [workEmailPendingId, setWorkEmailPendingId] = useState<string | null>(null)
   const [workEmailPending, workEmailStartTransition] = useTransition()
+  const [emailOverrides, setEmailOverrides] = useState<Record<string, string | null>>({})
+
+  const canManageEmails = currentUserRole ? can(currentUserRole, CAPS.USERS_MANAGE) : false
 
   // Roles that send buyer-facing email and therefore get a personal sender
   // address (see lib/email/work-email.ts). Kept in sync with
@@ -192,6 +196,9 @@ export function UsersTable({
             <tr className="text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <th className="px-6 py-3">{t.admin.users.user}</th>
               <th className="px-6 py-3">
+                {locale === "vi" ? "Email nhận thông báo" : "Notification email"}
+              </th>
+              <th className="px-6 py-3">
                 {locale === "vi" ? "Email gửi buyer" : "Sender email"}
               </th>
               <th className="px-6 py-3">{t.admin.users.role}</th>
@@ -205,11 +212,18 @@ export function UsersTable({
           <tbody className="divide-y divide-border">
             {filtered.map((u) => {
               const isSelf = u.id === currentUserId
-              const displayName = u.full_name ?? u.email ?? "—"
+              const displayName = u.full_name ?? u.username ?? u.email ?? "—"
+              const notificationEmail =
+                emailOverrides[u.id] !== undefined ? emailOverrides[u.id] : u.email
               const isPending = pending && pendingId === u.id
               const meta = ROLE_META[u.role]
               const isSuperTarget = u.role === "super_admin"
               const callerIsSuper = currentUserRole === "super_admin"
+              const canEditEmail =
+                canManageEmails &&
+                (isSelf ||
+                  callerIsSuper ||
+                  (u.role !== "admin" && u.role !== "super_admin"))
               // Lock the row if the target is super_admin and caller is not.
               const locked = isSelf || (isSuperTarget && !callerIsSuper)
 
@@ -221,8 +235,34 @@ export function UsersTable({
                       {u.username ? (
                         <span className="font-mono text-xs text-foreground/80">@{u.username}</span>
                       ) : null}
-                      {u.email ? (
-                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col items-start gap-1.5">
+                      {notificationEmail ? (
+                        <span className="text-xs text-foreground">{notificationEmail}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {locale === "vi" ? "Chưa có" : "None"}
+                        </span>
+                      )}
+                      {canEditEmail ? (
+                        <EditNotificationEmailDialog
+                          userId={u.id}
+                          currentEmail={notificationEmail}
+                          hasUsername={Boolean(u.username)}
+                          targetLabel={displayName}
+                          locale={locale}
+                          onSaved={(next) =>
+                            setEmailOverrides((prev) => ({ ...prev, [u.id]: next }))
+                          }
+                        />
+                      ) : canManageEmails &&
+                        !isSelf &&
+                        (u.role === "admin" || u.role === "super_admin") ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          {locale === "vi" ? "Chỉ Super Admin sửa được" : "Only a super admin can edit this"}
+                        </span>
                       ) : null}
                     </div>
                   </td>
@@ -339,7 +379,7 @@ export function UsersTable({
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">
                   {t.admin.users.noResults ?? "No users match these filters."}
                 </td>
               </tr>

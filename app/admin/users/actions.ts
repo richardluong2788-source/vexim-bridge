@@ -22,12 +22,14 @@ import { CAPS, normaliseRole } from "@/lib/auth/permissions"
   import { normalizeIndustry } from "@/lib/constants/industries"
   import { reserveWorkEmail } from "@/lib/email/work-email"
   import {
+    STAFF_EMAIL_DOMAIN,
     STAFF_PASSWORD_MIN_LENGTH,
     isValidUsername,
     normalizeUsername,
     staffAuthEmail,
   } from "@/lib/auth/staff-login"
   import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
+  import { writeNotificationEmail } from "@/lib/profile/notification-email"
   import type { Role } from "@/lib/supabase/types"
 
 // Roles that send buyer-facing emails and therefore benefit from their own
@@ -348,8 +350,11 @@ export async function createStaffAccount(
   }
   if (
     contactEmail &&
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)
+    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) ||
+      contactEmail.endsWith(`@${STAFF_EMAIL_DOMAIN}`))
   ) {
+    // The staff subdomain has no mailbox — storing it as the notification
+    // address would make every email notification silently disappear.
     return { ok: false, error: "invalid_contact_email" }
   }
 
@@ -608,5 +613,88 @@ export async function resetStaffPassword(
   }
 
   revalidatePath("/admin/users")
+  return { ok: true }
+}
+
+// ============================================================================
+// Notification email (the mailbox the dispatcher actually sends to)
+// ============================================================================
+
+export interface UpdateNotificationEmailResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Add or change the address system notifications are delivered to.
+ *
+ * This is the gap left by createStaffAccount: the "notification email" field
+ * is optional, and until now nothing could fill it in afterwards. For
+ * username accounts it only writes profiles.email (login stays the username).
+ * For legacy email-invited staff it also updates auth.users, because that
+ * address is their login — see lib/profile/notification-email.ts.
+ *
+ * Security mirrors resetStaffPassword: USERS_MANAGE, never a client, and a
+ * non-super-admin cannot rewrite an admin / super-admin login address.
+ * Unlike the password reset, the caller MAY edit their own row.
+ */
+export async function updateStaffNotificationEmail(
+  userId: string,
+  email: string,
+): Promise<UpdateNotificationEmailResult> {
+  const guard = await requireCap(CAPS.USERS_MANAGE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin, userId: callerId, role: callerRole } = guard
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("role, username, email")
+    .eq("id", userId)
+    .maybeSingle<{ role: string | null; username: string | null; email: string | null }>()
+
+  if (!target) return { ok: false, error: "not_found" }
+
+  const targetRole = normaliseRole(target.role)
+  if (!targetRole || targetRole === "client") {
+    return { ok: false, error: "invalid_target" }
+  }
+  if (
+    callerId !== userId &&
+    (targetRole === "admin" || targetRole === "super_admin") &&
+    callerRole !== "super_admin"
+  ) {
+    return { ok: false, error: "super_admin_only" }
+  }
+
+  const next = email.trim().toLowerCase()
+  const previous = target.email?.trim().toLowerCase() ?? ""
+  if (next === previous) return { ok: true }
+
+  const written = await writeNotificationEmail(admin, userId, next)
+  if (!written.ok) {
+    return { ok: false, error: written.error === "notFound" ? "not_found" : written.error }
+  }
+
+  try {
+    await admin.from("activities").insert({
+      opportunity_id: null,
+      action_type: "team_notification_email_updated",
+      description: JSON.stringify({
+        target_user_id: userId,
+        target_username: target.username,
+        target_role: targetRole,
+        previous_email: target.email,
+        next_email: next || null,
+        login_changed: written.loginChanged ?? false,
+        updated_by_role: callerRole,
+      }),
+      performed_by: callerId,
+    })
+  } catch (auditErr) {
+    console.error("[v0] updateStaffNotificationEmail: audit log failed:", auditErr)
+  }
+
+  revalidatePath("/admin/users")
+  revalidatePath("/settings/profile")
   return { ok: true }
 }

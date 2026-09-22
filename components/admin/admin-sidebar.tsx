@@ -32,6 +32,7 @@ import type { Profile, Role } from "@/lib/supabase/types"
 import { CAPS, can, canAny, ROLE_META, type Capability } from "@/lib/auth/permissions"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { SidebarAvatar } from "@/components/sidebar-avatar"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { SidebarBadgeCounts } from "@/lib/nav/sidebar-badges"
 
@@ -102,7 +103,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     { href: "/admin/finance",           label: t.nav.finance ?? "Tài chính",              icon: Wallet,                 cap: CAPS.FINANCE_READ },
     { href: "/admin/users",             label: t.nav.users,                               icon: UserCog,                cap: CAPS.USERS_VIEW },
     { href: "/admin/knowledge",         label: locale === "vi" ? "Kiến thức" : "Knowledge", icon: BookOpen,              cap: null },
-    { href: "/settings/notifications",  label: t.nav_extra.settings,                      icon: Settings,               cap: null },
+    { href: "/settings/profile",        label: t.nav_extra.settings,                      icon: Settings,               cap: null },
   ]
 
   const navItems = allItems.filter((item) => {
@@ -180,15 +181,16 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
 
       {/* User footer */}
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 px-2 py-2 mb-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
-            {(fullName ?? email ?? "A").charAt(0).toUpperCase() || "A"}
+        <Link
+          href="/settings/profile"
+          className="mb-1 flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-sidebar-accent/50"
+        >
+          <SidebarAvatar name={fullName ?? email ?? "A"} avatarUrl={profile?.avatar_url} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-medium">{fullName ?? email}</span>
+            <span className="truncate text-[11px] text-sidebar-foreground/50">{roleLabel}</span>
           </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-medium truncate">{fullName ?? email}</span>
-            <span className="text-[11px] text-sidebar-foreground/50 truncate">{roleLabel}</span>
-          </div>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           size="sm"

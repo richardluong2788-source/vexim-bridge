@@ -2,11 +2,15 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NotificationPreferencesForm } from "@/components/settings/notification-preferences-form"
-import { SettingsPageHeader } from "@/components/settings/settings-page-header"
 import type { NotificationPreferences, PreferredLanguage } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
 
+/**
+ * Notification channels + email language. The page header, back link and tab
+ * navigation live in `app/settings/layout.tsx` (shared with /settings/profile),
+ * so this page renders content only.
+ */
 export default async function NotificationSettingsPage() {
   const supabase = await createClient()
   const {
@@ -20,15 +24,8 @@ export default async function NotificationSettingsPage() {
 
   const [{ data: prefsRow }, { data: profile }] = await Promise.all([
     admin.from("notification_preferences").select("*").eq("user_id", user.id).maybeSingle(),
-    admin.from("profiles").select("preferred_language, role").eq("id", user.id).single(),
+    admin.from("profiles").select("preferred_language").eq("id", user.id).single(),
   ])
-
-  // Role determines where "Back to dashboard" sends the user. Clients should
-  // never accidentally land on /admin even if they navigate here directly.
-  const backHref =
-    profile?.role && ["admin", "staff", "super_admin"].includes(profile.role)
-      ? "/admin"
-      : "/client"
 
   let prefs: NotificationPreferences
   if (prefsRow) {
@@ -67,13 +64,10 @@ export default async function NotificationSettingsPage() {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Veximtrade_bot"
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <SettingsPageHeader backHref={backHref} />
-      <NotificationPreferencesForm
-        initial={prefs}
-        initialLanguage={initialLanguage}
-        botUsername={botUsername}
-      />
-    </div>
+    <NotificationPreferencesForm
+      initial={prefs}
+      initialLanguage={initialLanguage}
+      botUsername={botUsername}
+    />
   )
 }

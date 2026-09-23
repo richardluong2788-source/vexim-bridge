@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import type { ClientProfileWithRelations, ClientProduct } from "@/lib/supabase/types"
 import { markdownToPlainText } from "@/lib/markdown-preview"
+import { formatPrice } from "@/lib/product-format"
 
 interface ProfileProductsProps {
   profile: ClientProfileWithRelations
@@ -20,22 +21,6 @@ const COMPLIANCE_BADGE_LABELS: Record<string, string> = {
   kosher: "Kosher",
   brcgs: "BRCGS",
   haccp: "HACCP",
-}
-
-function formatPrice(min: number | null, max: number | null, currency: string): string | null {
-  if (!min && !max) return null
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(n)
-
-  if (min && max && min !== max) {
-    return `${fmt(min)} - ${fmt(max)}`
-  }
-  return fmt(min || max || 0)
 }
 
 function formatCapacity(units: number | null, uom: string): string | null {

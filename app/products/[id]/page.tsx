@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation"
+import { cache } from "react"
+import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +17,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
+import { siteConfig } from "@/lib/site-config"
+import { formatPrice, toMetaDescription } from "@/lib/product-format"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
 import { ProductMarkdown } from "@/components/product"
@@ -25,6 +29,9 @@ interface PageProps {
   searchParams: Promise<{ ref?: string }>
 }
 
+// force-dynamic only because the queries below run through the session client
+// (cookies). Dropping them onto an anon-key client is what allows
+// `export const revalidate = 300` + generateStaticParams in the locale pass.
 export const dynamic = "force-dynamic"
 
 const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> = {
@@ -38,20 +45,104 @@ const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> 
   haccp: { label: "HACCP", color: "bg-teal-50 text-teal-700 border-teal-200" },
 }
 
-function formatPrice(min: number | null, max: number | null, currency: string): string | null {
-  if (!min && !max) return null
+/**
+ * Product row + the public identity of its supplier, resolved once per request
+ * so `generateMetadata` and the page body never run the same two queries twice
+ * (React `cache()` de-dupes within a render pass).
+ *
+ * Returns null only when the row does not exist or is not readable — an
+ * unpublished supplier profile still resolves to `profileSlug: null`, which the
+ * body uses to drop the link to /profile/[slug] while keeping the product
+ * readable for people who already hold the URL.
+ */
+const loadPublicProduct = cache(async (id: string) => {
+  const supabase = await createClient()
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(n)
+  const { data, error } = await supabase
+    .from("client_products")
+    .select(
+      `
+      *,
+      client:client_id (
+        id,
+        company_name
+      )
+    `,
+    )
+    .eq("id", id)
+    .single()
 
-  if (min && max && min !== max) {
-    return `${fmt(min)} - ${fmt(max)}`
+  if (error || !data) return null
+
+  const clientId = (data as { client_id?: string }).client_id
+  let profileSlug: string | null = null
+  if (clientId) {
+    const { data: clientProfile } = await supabase
+      .from("client_profiles")
+      .select("slug")
+      .eq("client_id", clientId)
+      .eq("is_published", true)
+      .single()
+    profileSlug = clientProfile?.slug ?? null
   }
-  return fmt(min || max || 0)
+
+  const product = data as unknown as ClientProduct & {
+    client: { id: string; company_name: string } | null
+  }
+
+  return { product, profileSlug }
+})
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const loaded = await loadPublicProduct(id)
+
+  if (!loaded) {
+    return {
+      title: `Product not found — ${siteConfig.name}`,
+      robots: { index: false, follow: true },
+    }
+  }
+
+  const { product } = loaded
+  const supplier = product.client?.company_name
+  const title = supplier
+    ? `${product.product_name} — ${supplier}`
+    : `${product.product_name} — ${siteConfig.name}`
+  const price = formatPrice(product.min_unit_price, product.max_unit_price, product.currency)
+  const summary = [
+    supplier ? `${supplier} (Vietnam)` : null,
+    product.category ?? null,
+    price ? `Indicative price ${price} per ${product.unit_of_measure}` : null,
+    product.moq_value ? `MOQ ${product.moq_value} ${product.moq_unit ?? product.unit_of_measure}` : null,
+    product.lead_time ? `Lead time ${product.lead_time}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ")
+  const description = summary
+    ? toMetaDescription(`${summary}. ${product.usp ?? product.description ?? ""}`)
+    : toMetaDescription(product.description)
+  const ogImage = product.image_urls?.find((url) => url.startsWith("http"))
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `${siteConfig.url}/products/${id}` },
+    openGraph: {
+      title,
+      description,
+      url: `${siteConfig.url}/products/${id}`,
+      type: "website",
+      ...(ogImage ? { images: [{ url: ogImage, alt: product.product_name }] } : {}),
+    },
+    // A product page is always public (RLS only exposes active rows to anon), so
+    // it is indexable; the share/shortlist token pages stay noindex.
+    robots: { index: true, follow: true },
+  }
 }
 
 export default async function ProductPage({ params, searchParams }: PageProps) {
@@ -68,44 +159,13 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     }
   }
 
-  const supabase = await createClient()
+  const loaded = await loadPublicProduct(id)
 
-  // Fetch product with client info
-  const { data: product, error } = await supabase
-    .from("client_products")
-    .select(`
-      *,
-      client:client_id(
-        id,
-        company_name
-      )
-    `)
-    .eq("id", id)
-    .single()
-
-  if (error || !product) {
+  if (!loaded) {
     notFound()
   }
 
-  // Fetch client profile slug separately
-  let profileSlug: string | null = null
-  if (product.client_id) {
-    const { data: clientProfile } = await supabase
-      .from("client_profiles")
-      .select("slug")
-      .eq("client_id", product.client_id)
-      .eq("is_published", true)
-      .single()
-    
-    profileSlug = clientProfile?.slug ?? null
-  }
-
-  const typedProduct = product as ClientProduct & {
-    client: {
-      id: string
-      company_name: string
-    } | null
-  }
+  const { product: typedProduct, profileSlug } = loaded!
 
   const companyName = typedProduct.client?.company_name
   const priceDisplay = formatPrice(
@@ -122,6 +182,10 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">
               Home
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <Link href="/products" className="hover:text-foreground transition-colors">
+              Export catalog
             </Link>
             <ChevronRight className="w-4 h-4" />
             {typedProduct.category && (

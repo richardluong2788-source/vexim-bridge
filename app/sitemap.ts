@@ -11,6 +11,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
 
   return [
+    // Buyer-facing catalog. The individual product pages are not listed yet —
+    // they are reachable from this index and from every published supplier
+    // profile, and they get their own sitemap rows with the ISR/locale pass.
+    {
+      url: `${base}/products`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
     {
       url: `${base}/auth/login`,
       lastModified: now,

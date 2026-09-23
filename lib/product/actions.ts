@@ -16,8 +16,38 @@ export interface ProductQuoteRequest {
   phone?: string
   quantity_volume?: string
   notes?: string
+  /** Trade terms the buyer filled in on the product page dialog. */
+  incoterm?: string
+  destination_port?: string
+  target_price_usd?: number
   /** Existing opportunity ID from tracking link (to link buyer response with existing opportunity) */
   opportunity_ref?: string
+}
+
+/**
+ * The AE reads this block verbatim in the inbox, so every field the buyer
+ * filled in on the quote dialog has to appear here — `incoterm`,
+ * `destination_port` and `target_price_usd` were collected by the dialog but
+ * dropped on the floor, which left the desk re-asking for terms by email.
+ */
+function buildQuoteRequestNotes(request: ProductQuoteRequest): string {
+  const lines = [
+    "Quote request from product page.",
+    "",
+    `Product: ${request.product_name}`,
+    `Quantity/Volume: ${request.quantity_volume || "Not specified"}`,
+  ]
+
+  if (request.incoterm) lines.push(`Incoterm: ${request.incoterm}`)
+  if (request.destination_port) lines.push(`Destination port: ${request.destination_port}`)
+  if (typeof request.target_price_usd === "number") {
+    lines.push(
+      `Target price: USD ${request.target_price_usd.toLocaleString("en-US", { maximumFractionDigits: 2 })}`,
+    )
+  }
+
+  lines.push("", `Notes: ${request.notes || "None"}`)
+  return lines.join("\n")
 }
 
 /**
@@ -48,7 +78,7 @@ export async function submitProductQuoteRequest(
       country: "United States",
       industry: client?.industry ?? null,
       source: "product_page",
-      notes: `Quote request from product page.\n\nProduct: ${request.product_name}\nQuantity/Volume: ${request.quantity_volume || "Not specified"}\n\nNotes: ${request.notes || "None"}`,
+      notes: buildQuoteRequestNotes(request),
     })
     .select()
     .single()

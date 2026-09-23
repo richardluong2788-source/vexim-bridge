@@ -2,6 +2,20 @@
 
 Kèm theo `docs/CLIENT_INTAKE_PRODUCTS.md` (bản trích xuất hiện trạng). Tài liệu này chỉ bàn **cách sửa**, sắp xếp theo tỷ lệ giá trị / rủi ro.
 
+> **TRẠNG THÁI (2026-09-23).** **P1/PR2 đã làm xong** — xem
+> `docs/MAIN_PRODUCTS_NORMALIZATION.md`: bộ tách `main_products` + row
+> `client_products` `inactive` có provenance (`scripts/083`), hook trong
+> `approveIntakeSubmission` + preview chips ở màn duyệt, và
+> `scripts/backfill-main-products.mjs` cho dữ liệu cũ. Hai điểm làm khác đề xuất
+> ban đầu: (a) `source_submission_id` là cột thật chứ không phải audit table
+> `client_products_seeded_from_intake` — ít bề mặt hơn, xóa được một đợt seed;
+> (b) checkbox seed **mặc định bật** kèm preview trực tiếp, vì sửa text chính là
+> cách sửa danh mục. **Chưa làm:** P0-1..P0-7 (trừ P0-4/P0-5 đã sửa ở PR khác),
+> P1/PR1 (chống drift + `verify-schema.mjs` + sinh `Database` type + bỏ
+> `ignoreBuildErrors`), P1/PR3, P2. Riêng "sửa view `ae_client_products` lọc
+> `status='active'`" vẫn chờ bạn quyết §6.1 của tài liệu mới — hiện hàng nháp
+> **có** tính vào AI matching, đó là chủ đích.
+
 **Bối cảnh thi công:** sandbox không có `node_modules` và không có `.env` → tôi không chạy được `next build`/`pnpm lint` và **không đối chiếu được schema live trên Supabase**. Vì vậy mọi thứ chia làm 2 loại: (A) sửa code an toàn không cần đụng DB; (B) cần chạy SQL/verify schema trước. Tôi có thể code cả hai, nhưng phần (B) phải do bạn apply migration (hoặc cho tôi `POSTGRES_URL`/`NEXT_PUBLIC_SUPABASE_URL` + service key trong env để tôi tự kiểm tra).
 
 ---

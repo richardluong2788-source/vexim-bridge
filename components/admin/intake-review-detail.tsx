@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { INDUSTRIES, INDUSTRY_LABELS_VI, type Industry } from "@/lib/constants/industries"
+import { splitMainProducts } from "@/lib/client-intake/split-main-products"
 import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
 import {
   EMPTY_FACTORY_CAPABILITY_ANSWERS,
@@ -155,6 +156,10 @@ export function IntakeReviewDetail({
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
   const [approved, setApproved] = useState(submission.status === "approved")
+  // Seeding is on by default and reversible (the rows are inactive drafts), but
+  // it stays a choice: an SR cleaning up a messy intake text may prefer to skip it.
+  const [seedDrafts, setSeedDrafts] = useState(true)
+  const [notice, setNotice] = useState<string | null>(null)
   const [rejected, setRejected] = useState(submission.status === "rejected")
 
   const tr = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -358,6 +363,16 @@ export function IntakeReviewDetail({
     }
   }
 
+  /**
+   * Live preview of exactly what approving will create. The textarea is the
+   * editor: fixing the text fixes the chips, so no separate product editor is
+   * needed before a row exists anywhere.
+   */
+  const productPreview = useMemo(
+    () => splitMainProducts(form.mainProducts, { companyName: form.companyName }),
+    [form.mainProducts, form.companyName],
+  )
+
   function handleApprove() {
     if (missingRequired.length > 0) {
       setError(
@@ -369,13 +384,24 @@ export function IntakeReviewDetail({
       return
     }
     setError(null)
+    setNotice(null)
     startTransition(async () => {
-      const result = await approveIntakeSubmission(submission.id, buildFields())
+      const result = await approveIntakeSubmission(submission.id, buildFields(), undefined, {
+        seedProductsFromIntake: seedDrafts,
+      })
       if (!result.ok) {
         setError(translateError(result.error ?? "unknown"))
         return
       }
       setApproved(true)
+      if (result.seededProducts) {
+        setNotice(
+          tr(
+            `Đã tạo ${result.seededProducts} sản phẩm nháp (ẩn với buyer tới khi bạn bật lên ở Quản lý hồ sơ).`,
+            `Created ${result.seededProducts} draft product(s) (hidden from buyers until you publish them in the profile manager).`,
+          ),
+        )
+      }
       router.refresh()
     })
   }
@@ -583,6 +609,55 @@ export function IntakeReviewDetail({
                   value={form.mainProducts}
                   onChange={(e) => update("mainProducts", e.target.value)}
                 />
+                <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/30 p-3">
+                  {productPreview.candidates.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {productPreview.candidates.map((candidate) => (
+                        <Badge
+                          key={candidate.nameKey}
+                          variant={candidate.confidence === "low" ? "outline" : "secondary"}
+                          className="font-normal"
+                          title={candidate.hsCode ? `HS ${candidate.hsCode}` : undefined}
+                        >
+                          {candidate.productName}
+                          {candidate.hsCode ? ` · ${candidate.hsCode}` : ""}
+                          {candidate.category ? ` · ${candidate.category}` : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {tr(
+                        "Chưa tách được sản phẩm nào từ phần này — viết mỗi sản phẩm một dòng (hoặc cách nhau bởi dấu phẩy) để hệ thống tự lập danh mục.",
+                        "Nothing separable here yet — put one product per line (or comma-separate them) so the catalog can be built automatically.",
+                      )}
+                    </p>
+                  )}
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={seedDrafts}
+                      onCheckedChange={(checked) => setSeedDrafts(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      {tr(
+                        `Duyệt xong tạo ${productPreview.candidates.length} sản phẩm nháp từ danh sách trên (ẩn với buyer). Bỏ chọn nếu bạn sẽ tự nhập.`,
+                        `On approval, create ${productPreview.candidates.length} draft product(s) from the list above (hidden from buyers). Uncheck if you will type them yourself.`,
+                      )}
+                    </span>
+                  </label>
+                  {productPreview.dropped.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {tr(
+                        `Bỏ qua ${productPreview.dropped.length} cụm từ không phải tên sản phẩm (${[...new Set(productPreview.dropped.map((d) => d.reason))].join(", ")}).`,
+                        `Skipped ${productPreview.dropped.length} non-product phrase(s) (${[...new Set(productPreview.dropped.map((d) => d.reason))].join(", ")}).`,
+                      )}
+                    </p>
+                  )}
+                </div>
+                {notice && (
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{notice}</p>
+                )}
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-2">

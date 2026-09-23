@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClientAccount, type CreateClientInput } from "@/app/admin/clients/new/actions"
 import { upsertAssessment, type AssessmentInput } from "@/lib/assessment/actions"
+import { seedProductsFromMainProducts } from "@/lib/client-intake/split-main-products"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 
 export interface IntakeEditableFields {
@@ -188,6 +189,21 @@ export async function updateIntakeSubmission(
   return { ok: true }
 }
 
+export interface ApproveIntakeOptions {
+  /**
+   * Split the free-text "Sản phẩm chính" into `client_products` rows while
+   * provisioning the account. Default true.
+   *
+   * Rows land as `status = 'inactive'`, which every buyer-facing surface filters
+   * out (`app/products`, the product page, `/profile/<slug>`,
+   * `/api/products/search`), so approving an intake never puts unproofed text in
+   * front of a US buyer. An AE promotes what is good and deletes what is not in
+   * "Quản lý hồ sơ" → tab Sản phẩm. Seeding is best-effort: a failure here is
+   * logged, never a reason for an approval to fail.
+   */
+  seedProductsFromIntake?: boolean
+}
+
 /**
  * AE-only: approve a submitted intake. Provisions the client account
  * (reusing the same `createClientAccount` flow as manual admin creation),
@@ -195,11 +211,13 @@ export async function updateIntakeSubmission(
  * "Quản lý hồ sơ" opens already populated. Marks the submission approved
  * and links it to the new profile id.
  */
+
 export async function approveIntakeSubmission(
   id: string,
   fields: IntakeEditableFields,
   reviewNotes?: string,
-): Promise<ActionResult & { clientId?: string }> {
+  options: ApproveIntakeOptions = {},
+): Promise<ActionResult & { clientId?: string; seededProducts?: number }> {
   const { caller, callerProfile } = await getCallerOrForbidden()
   if (!caller) return { ok: false, error: "unauthenticated" }
   if (!callerProfile || !REVIEWER_ROLES.includes(callerProfile.role)) {
@@ -344,6 +362,28 @@ export async function approveIntakeSubmission(
     // profile manually in "Quản lý hồ sơ" if this mirror step had an issue.
   }
 
+  // ---- Seed the product catalog from the free-text product list ------------
+  // `onlyWhenClientEmpty`: a client whose catalog an AE already curated is never
+  // appended to automatically — the AE decides that, per client, with
+  // `scripts/backfill-main-products.mjs --mode=fill-gaps`.
+  let seededProducts = 0
+  if (options.seedProductsFromIntake !== false) {
+    const seeded = await seedProductsFromMainProducts(admin, {
+      clientId,
+      mainProducts: fields.main_products,
+      submissionId: id,
+      createdBy: caller.id,
+      companyName: fields.company_name,
+      status: "inactive",
+      onlyWhenClientEmpty: true,
+    })
+    if (!seeded.ok) {
+      console.error("[v0] intake product seeding failed after approval:", seeded.error)
+    } else {
+      seededProducts = seeded.inserted
+    }
+  }
+
   // ---- Mark submission approved --------------------------------------------
   await admin
     .from("client_intake_submissions")
@@ -360,7 +400,11 @@ export async function approveIntakeSubmission(
     await admin.from("activities").insert({
       opportunity_id: null,
       action_type: "client_intake_approved",
-      description: JSON.stringify({ submission_id: id, new_client_id: clientId }),
+      description: JSON.stringify({
+        submission_id: id,
+        new_client_id: clientId,
+        seeded_products: seededProducts,
+      }),
       performed_by: caller.id,
     })
   } catch (auditErr) {
@@ -370,7 +414,7 @@ export async function approveIntakeSubmission(
   revalidatePath("/admin/clients/intake")
   revalidatePath("/admin/clients")
 
-  return { ok: true, clientId }
+  return { ok: true, clientId, seededProducts }
 }
 
 /**

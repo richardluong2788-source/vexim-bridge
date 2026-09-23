@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { Suspense, useState, useTransition } from "react"
 import { Loader2, CheckCircle, Send } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { submitProductQuoteRequest } from "@/lib/product/actions"
+import { useQuoteOpportunityRef } from "@/components/product/use-quote-opportunity-ref"
 
 const INCOTERM_OPTIONS = [
   { value: "FOB", label: "FOB - Free on Board" },
@@ -37,18 +38,39 @@ interface ProductRequestQuoteDialogProps {
   productId: string
   productName: string
   clientId: string
-  /** Opportunity ID from tracking link (to link buyer response with existing opportunity) */
+  /**
+   * Opportunity ID from a tracking link, so the quote can be tied back to the
+   * opportunity it came from. Leave it out and the dialog reads `?ref=` from
+   * the URL itself (base64 of the opportunity id, exactly what /api/share/link
+   * emits) - which is what lets the public product page stay a static document.
+   */
   opportunityRef?: string | null
   children: React.ReactNode
 }
 
-export function ProductRequestQuoteDialog({
+/**
+ * `useSearchParams` needs a Suspense boundary while the route is prerendered,
+ * so the boundary lives here and callers keep using the same component. The
+ * fallback is the trigger itself: the CTA is visible in the static HTML, only
+ * the dialog body arrives one tick later.
+ */
+export function ProductRequestQuoteDialog(props: ProductRequestQuoteDialogProps) {
+  return (
+    <Suspense fallback={props.children}>
+      <ProductRequestQuoteDialogContent {...props} />
+    </Suspense>
+  )
+}
+
+function ProductRequestQuoteDialogContent({
   productId,
   productName,
   clientId,
   opportunityRef,
   children,
 }: ProductRequestQuoteDialogProps) {
+  const refFromUrl = useQuoteOpportunityRef()
+  const resolvedOpportunityRef = opportunityRef ?? refFromUrl
   const [isPending, startTransition] = useTransition()
   const [isSuccess, setIsSuccess] = useState(false)
   const [reference, setReference] = useState<string>("")
@@ -87,7 +109,7 @@ export function ProductRequestQuoteDialog({
         destination_port: destinationPort || undefined,
         target_price_usd: targetPrice ? parseFloat(targetPrice) : undefined,
         notes: notes || undefined,
-        opportunity_ref: opportunityRef || undefined,
+        opportunity_ref: resolvedOpportunityRef || undefined,
       })
 
       if (result.success) {

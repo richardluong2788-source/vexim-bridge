@@ -21,7 +21,7 @@ import type { ClientProduct } from "@/lib/supabase/types"
 import { siteConfig } from "@/lib/site-config"
 import { formatPrice, toMetaDescription } from "@/lib/product-format"
 import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
-import { CATALOG_CACHE_TAG } from "@/lib/catalog/cache"
+import { CATALOG_CACHE_TAG, CATALOG_REVALIDATE_SECONDS } from "@/lib/catalog/cache"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
@@ -30,14 +30,27 @@ import { InfoTile, ProductOrderTradeInfo, ProductPackagingAndSpecs } from "@/com
 
 interface PageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ ref?: string }>
 }
 
-// No `force-dynamic` any more: the data below comes from a session-free,
-// tag-busted 5-minute cache. The route still renders per request because the
-// quote attribution lives in `?ref=` (searchParams), but it no longer pays an
-// auth round-trip or a cold query. `export const revalidate` would do nothing
-// here while the root layout awaits `getLocale()` — see app/products/page.tsx.
+// Real ISR now: the root layout no longer reads cookies, and `?ref=` (quote
+// attribution) is decoded inside the quote dialog, so nothing in this route
+// touches a per-request API. Next prerenders it at build time for the ids from
+// generateStaticParams() and for every other product on first request, caches
+// the HTML on the CDN for five minutes, and revalidates in the
+// background. Saving a product or publishing a profile calls revalidateCatalog()
+// (lib/catalog/cache.ts), which busts both this document and the data below.
+// Must stay in step with CATALOG_REVALIDATE_SECONDS (the TTL of the data below):
+// Next only accepts a literal for a segment config, so it cannot reference the const.
+export const revalidate = 300
+
+// Prerender the freshest catalog pages at build so the first US buyer to arrive
+// does not wait on a cold render + Postgres round-trip. Bounded on purpose:
+// the point is a warm cache for what a crawler reaches first, not a full copy
+// of the catalog. Anything not listed here is rendered on demand instead.
+const PRERENDER_PRODUCT_COUNT = 200
+
+/** Keep in step with the catalog index's supplier scan limit. */
+const SUPPLIER_SCAN_LIMIT = 500
 
 const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> = {
   fda: { label: "FDA Registered", color: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -121,17 +134,54 @@ const loadPublicProductUncached = async (id: string) => {
 }
 
 const loadPublicProductCached = unstable_cache(loadPublicProductUncached, ["catalog-product"], {
-  revalidate: 300,
+  revalidate: CATALOG_REVALIDATE_SECONDS,
   tags: [CATALOG_CACHE_TAG],
 })
 
 const loadPublicProduct = cache(loadPublicProductCached)
 
+export async function generateStaticParams(): Promise<Array<{ id: string }>> {
+  // Same visibility rules as the catalog index and the page body: only active
+  // products of suppliers who publish a profile may be prerendered.
+  try {
+    const admin = createAdminClient()
+    const { data: supplierData } = await admin
+      .from("client_profiles")
+      .select("client_id")
+      .eq("is_published", true)
+      .order("updated_at", { ascending: false })
+      .limit(SUPPLIER_SCAN_LIMIT)
+
+    const clientIds = [
+      ...new Set(
+        (supplierData ?? [])
+          .map((row: { client_id?: string | null }) => row.client_id)
+          .filter((value: string | null | undefined): value is string => Boolean(value))
+      ),
+    ]
+    if (clientIds.length === 0) return []
+
+    const { data, error } = await admin
+      .from("client_products")
+      .select("id")
+      .eq("status", "active")
+      .in("client_id", clientIds)
+      .order("created_at", { ascending: false })
+      .limit(PRERENDER_PRODUCT_COUNT)
+
+    if (error || !data) return []
+    return (data as Array<{ id: string }>).map((row) => ({ id: row.id }))
+  } catch (cause) {
+    // A build without database access (CI, a preview without secrets) still has
+    // to succeed: products not prerendered are simply rendered on demand.
+    console.error("[catalog] prerender list unavailable:", cause)
+    return []
+  }
+}
+
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ id: string }>
-}): Promise<Metadata> {
+}: PageProps): Promise<Metadata> {
   const { id } = await params
   const loaded = await loadPublicProduct(id)
 
@@ -177,19 +227,8 @@ export async function generateMetadata({
   }
 }
 
-export default async function ProductPage({ params, searchParams }: PageProps) {
+export default async function ProductPage({ params }: PageProps) {
   const { id } = await params
-  const { ref: trackingRef } = await searchParams
-
-  // Decode tracking ref to get opportunity ID (if present)
-  let opportunityId: string | null = null
-  if (trackingRef) {
-    try {
-      opportunityId = atob(trackingRef)
-    } catch {
-      // Invalid base64, ignore
-    }
-  }
 
   const loaded = await loadPublicProduct(id)
 
@@ -244,7 +283,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main lang="en" className="min-h-screen bg-background">
       <JsonLd data={productJsonLd} id="product-json-ld" />
 
       {/* Breadcrumb */}
@@ -415,7 +454,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 productId={typedProduct.id}
                 productName={typedProduct.product_name}
                 clientId={typedProduct.client_id}
-                opportunityRef={opportunityId}
               >
                 <Button size="lg" className="w-full">
                   <Mail className="w-4 h-4 mr-2" />

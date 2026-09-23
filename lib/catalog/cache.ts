@@ -7,6 +7,14 @@ import { revalidateTag, updateTag } from "next/cache"
 export const CATALOG_CACHE_TAG = "catalog"
 
 /**
+ * How long a buyer-facing catalog document may be served from cache before it
+ * has to be refreshed: the TTL of the `unstable_cache` entries the pages read.
+ * The routes' own `export const revalidate` must be kept equal to it — Next only
+ * accepts a literal in a segment config, so it cannot reference this const.
+ */
+export const CATALOG_REVALIDATE_SECONDS = 300
+
+/**
  * Bust the catalog's cached reads after anything a buyer can see changed:
  * product create/update/delete, or a supplier publishing/unpublishing their
  * profile.

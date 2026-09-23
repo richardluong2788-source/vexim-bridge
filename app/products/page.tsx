@@ -8,7 +8,7 @@ import { getDictionary } from "@/lib/i18n/server"
 import { localizePath } from "@/lib/i18n/routing"
 import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
 import { siteConfig } from "@/lib/site-config"
-import { CATALOG_CACHE_TAG } from "@/lib/catalog/cache"
+import { CATALOG_CACHE_TAG, CATALOG_REVALIDATE_SECONDS } from "@/lib/catalog/cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProductCard, type CatalogProduct } from "@/components/product/product-card"
@@ -32,9 +32,14 @@ import { JsonLd } from "@/components/seo/json-ld"
  * buyer with an account and an AE, so nothing here may depend on cookies.
  * That is also what makes `unstable_cache` legal — every read is cached for 5
  * minutes under `CATALOG_CACHE_TAG` and busted by the admin/client product
- * actions and by profile publish/unpublish. (A `export const revalidate` on
- * this route would do nothing while the root layout still awaits `getLocale()`;
- * that needs a cookie-free marketing layout.)
+ * actions and by profile publish/unpublish.
+ *
+ * This route stays dynamic while `/products/[id]` is not: filters and paging are
+ * `searchParams`, and reading them is itself a per-request API. That is the
+ * trade we want - `?category=`/`?q=`/`?page=` have to stay ordinary crawlable GET
+ * links (which is why they are not client-side state), so a cached, possibly
+ * stale first page would be worse than the ~1 ms of rendering. The expensive part
+ * (Postgres) is cached; only the HTML assembly runs per request.
  *
  * Everything is server-rendered with plain GET links (no client JS): search,
  * category and pagination are query-string state, so a filtered catalog can be
@@ -243,7 +248,7 @@ async function loadCatalog(query: CatalogQuery): Promise<CatalogResult> {
 }
 
 const loadCachedCatalog = unstable_cache(loadCatalog, ["catalog"], {
-  revalidate: 300,
+  revalidate: CATALOG_REVALIDATE_SECONDS,
   tags: [CATALOG_CACHE_TAG],
 })
 
@@ -297,7 +302,7 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main lang={locale} className="min-h-screen bg-background">
       <JsonLd data={itemListOf} id="catalog-item-list" />
 
       <div className="border-b bg-muted/30">

@@ -5,6 +5,10 @@ import { siteConfig } from "@/lib/site-config"
 /**
  * Shell tối giản cho các trang /legal/*.
  *
+ * Toàn bộ văn bản ở đây là tiếng Việt và trang được phục vụ tĩnh cho cả
+ * /legal lẫn /vi/legal, nên `lang="vi"` được đặt ngay ở gốc cây: <html lang>
+ * trong layout tĩnh chỉ có thể mang locale mặc định.
+ *
  * Trước đây layout này dùng lại header/footer của landing page; sau khi
  * landing page bị gỡ (viết lại toàn bộ), layout tự cung cấp chrome riêng
  * để các văn bản pháp lý vẫn hiển thị độc lập và index được trên Google.
@@ -13,7 +17,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
   const year = new Date().getFullYear()
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div lang="vi" className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link

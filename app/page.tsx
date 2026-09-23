@@ -261,7 +261,7 @@ export default async function RootPage() {
   const t = content[locale]
 
   return (
-    <main className="min-h-screen overflow-hidden bg-background text-foreground">
+    <main lang={locale} className="min-h-screen overflow-hidden bg-background text-foreground">
       <JsonLd data={organizationJsonLd} id="organization-json-ld" />
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">

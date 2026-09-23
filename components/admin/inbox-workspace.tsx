@@ -297,37 +297,33 @@ export function InboxWorkspace({
                 }
               />
             </div>
+          ) : tab === "pending" ? (
+            pendingColumns.map((column) => (
+              <BuyerColumn key={column[0]?.id ?? "empty"} multiColumn={multiColumn}>
+                {column.map((item) => (
+                  <PendingRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    selected={item.id === pendingId}
+                    onSelect={() => setPendingId(item.id)}
+                  />
+                ))}
+              </BuyerColumn>
+            ))
           ) : (
-            worklistColumns.map((_, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "flex shrink-0 flex-col gap-2",
-                  // 10 or fewer: one column, same width the list used to have.
-                  // 11+: a fixed track so column 2 is a real column, not a wrap.
-                  multiColumn ? "w-[min(100%,20rem)] lg:w-80" : "w-full lg:w-[23.75rem]",
-                )}
-              >
-                {tab === "pending"
-                  ? (column as InboxItem[]).map((item) => (
-                      <PendingRow
-                        key={item.id}
-                        item={item}
-                        locale={locale}
-                        selected={item.id === pendingId}
-                        onSelect={() => setPendingId(item.id)}
-                      />
-                    ))
-                  : (column as Engagement[]).map((engagement) => (
-                      <EngagementRow
-                        key={engagement.id}
-                        engagement={engagement}
-                        locale={locale}
-                        selected={engagement.id === engagementId}
-                        onSelect={() => setEngagementId(engagement.id)}
-                      />
-                    ))}
-              </div>
+            workColumns.map((column) => (
+              <BuyerColumn key={column[0]?.id ?? "empty"} multiColumn={multiColumn}>
+                {column.map((engagement) => (
+                  <EngagementRow
+                    key={engagement.id}
+                    engagement={engagement}
+                    locale={locale}
+                    selected={engagement.id === engagementId}
+                    onSelect={() => setEngagementId(engagement.id)}
+                  />
+                ))}
+              </BuyerColumn>
             ))
           )}
         </div>
@@ -890,6 +886,27 @@ function Placeholder({ title, body }: { title: string; body: string }) {
     <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-8 text-center">
       <h3 className="text-sm font-medium text-foreground">{title}</h3>
       <p className="max-w-sm text-xs text-muted-foreground text-pretty">{body}</p>
+    </div>
+  )
+}
+
+function BuyerColumn({
+  children,
+  multiColumn,
+}: {
+  children: ReactNode
+  multiColumn: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 flex-col gap-2",
+        // 10 or fewer: one column, same width the list used to have.
+        // 11+: a fixed track so column 2 is a real column, not a wrap.
+        multiColumn ? "w-[min(100%,20rem)] lg:w-80" : "w-full lg:w-[23.75rem]",
+      )}
+    >
+      {children}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { can, CAPS, normaliseRole } from '@/lib/auth/permissions';
 import { ownershipScopeFor, assertClientOwned } from '@/lib/auth/scope';
 import { redirect } from 'next/navigation';
+import { revalidateCatalog } from "@/lib/catalog/cache"
 
 type AdminSB = ReturnType<typeof createAdminClient>;
 
@@ -217,6 +218,10 @@ export async function addClientProductAction(
     },
   ]);
 
+  // A new listing must show up in the public catalog immediately, not after
+  // the 5-minute revalidation window.
+  revalidateCatalog();
+
   return { success: true, data: product };
 }
 
@@ -303,6 +308,8 @@ export async function updateClientProductAction(
   },
   ]);
   
+  revalidateCatalog();
+
   return { success: true, data: updated };
   }
   
@@ -347,6 +354,8 @@ export async function updateClientProductAction(
   performed_by: userId,
   },
   ]);
+
+  revalidateCatalog();
 
   return { success: true };
 }

@@ -40,6 +40,28 @@ export interface ProductCardProps {
   /** Public profile slug, or null when the supplier is not published. */
   supplierSlug?: string | null
   className?: string
+
+  /**
+   * Field labels. The catalog index passes the active dictionary so a Vietnamese
+   * visitor reads "Giá theo yêu cầu"; the defaults keep the card usable from
+   * English-only surfaces (and from client components, which have no dictionary
+   * on the server).
+   */
+  labels?: Partial<ProductCardLabels>
+}
+
+export interface ProductCardLabels {
+  priceOnRequest: string
+  moq: string
+  leadTime: string
+  samples: string
+}
+
+const DEFAULT_LABELS: ProductCardLabels = {
+  priceOnRequest: "Price on request",
+  moq: "MOQ",
+  leadTime: "Lead time",
+  samples: "Samples available",
 }
 
 /**
@@ -50,7 +72,8 @@ export interface ProductCardProps {
  * title link's stretched pseudo-element (`after:absolute after:inset-0`), which
  * keeps the supplier link a separate, valid anchor instead of nesting anchors.
  */
-export function ProductCard({ product, supplierName, supplierSlug, className }: ProductCardProps) {
+export function ProductCard({ product, supplierName, supplierSlug, labels, className }: ProductCardProps) {
+  const t = { ...DEFAULT_LABELS, ...labels }
   const image = product.image_urls?.[0] ?? null
   const price = formatPrice(product.min_unit_price, product.max_unit_price, product.currency ?? "USD")
   const moq = formatMoq(product.moq_value, product.moq_unit)
@@ -121,13 +144,21 @@ export function ProductCard({ product, supplierName, supplierSlug, className }: 
               ) : null}
             </p>
           ) : (
-            <p className="text-sm font-medium text-muted-foreground">Price on request</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.priceOnRequest}</p>
           )}
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {moq ? <span>MOQ {moq}</span> : null}
-            {product.lead_time ? <span>Lead time {product.lead_time}</span> : null}
-            {product.sample_available ? <span>Samples available</span> : null}
+            {moq ? (
+              <span>
+                {t.moq} {moq}
+              </span>
+            ) : null}
+            {product.lead_time ? (
+              <span>
+                {t.leadTime} {product.lead_time}
+              </span>
+            ) : null}
+            {product.sample_available ? <span>{t.samples}</span> : null}
           </div>
 
           {badges.length > 0 ? (

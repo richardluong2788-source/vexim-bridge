@@ -32,12 +32,68 @@ import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 import { ConsultationForm } from "@/components/landing/consultation-form"
 import { Button } from "@/components/ui/button"
 import { siteConfig } from "@/lib/site-config"
+import { localizePath } from "@/lib/i18n/routing"
+import { localizedAlternates } from "@/lib/seo/alternates"
+import { JsonLd } from "@/components/seo/json-ld"
+import type { Metadata } from "next"
+
+/**
+ * The landing page is the site's entry point for both audiences, so it carries
+ * the canonical + hreflang pair for `/` and `/vi` (English is the default locale
+ * and therefore unprefixed — see lib/i18n/routing.ts) plus the Organization node
+ * that every other page's metadata refers to.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const title =
+    locale === "vi"
+      ? "Vexim Trade — Phòng kinh doanh xuất khẩu thuê ngoài cho nhà máy Việt"
+      : "Vexim Trade — Outsourced export sales desk for Vietnamese factories"
+  const description = locale === "vi" ? siteConfig.description : siteConfig.descriptionEn
+
+  return {
+    title,
+    description,
+    alternates: localizedAlternates("/", { bilingual: true, locale }),
+    openGraph: {
+      title,
+      description,
+      url: `${siteConfig.url}/`,
+      type: "website",
+      locale: locale === "vi" ? "vi_VN" : "en_US",
+      images: [{ url: siteConfig.ogImage, width: 1600, height: 1000, alt: title }],
+    },
+  }
+}
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: siteConfig.legalName,
+      alternateName: siteConfig.name,
+      description: siteConfig.descriptionEn,
+      url: siteConfig.url,
+      email: siteConfig.contact.email,
+      telephone: siteConfig.contact.phone,
+      address: { "@type": "PostalAddress", ...siteConfig.contact.addressParts },
+    },
+    {
+      "@type": "WebSite",
+      name: siteConfig.name,
+      url: `${siteConfig.url}/`,
+      inLanguage: ["vi-VN", "en-US"],
+    },
+  ],
+}
 
 const content = {
   vi: {
     nav: ["Vấn đề", "Giải pháp", "Quy trình", "FAQ"],
     signIn: "Đăng nhập",
     contact: "Đăng ký tư vấn",
+    catalog: "Danh mục sản phẩm",
     eyebrow: "DỊCH VỤ PHÒNG SALE XUẤT KHẨU",
     heroTitle: "Có sản phẩm tốt nhưng chưa có một đội ngũ sale đủ mạnh để tiếp cận buyer quốc tế?",
     heroText:
@@ -115,6 +171,7 @@ const content = {
     nav: ["The challenge", "Solution", "Process", "FAQ"],
     signIn: "Sign in",
     contact: "Request a consultation",
+    catalog: "Product catalog",
     eyebrow: "OUTSOURCED EXPORT SALES",
     heroTitle: "Great products deserve a sales team strong enough to reach international buyers.",
     heroText: "Vexim becomes your outsourced export sales department, representing Vietnamese suppliers to reach and connect with U.S. buyers using real customs data and U.S.-based expertise.",
@@ -205,6 +262,7 @@ export default async function RootPage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
+      <JsonLd data={organizationJsonLd} id="organization-json-ld" />
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">
           <Link href="/" className="group flex items-center gap-3" aria-label="Vexim Trade home">
@@ -216,6 +274,15 @@ export default async function RootPage() {
             <a href="#solution" className="transition-colors hover:text-primary">{t.nav[1]}</a>
             <a href="#process" className="transition-colors hover:text-primary">{t.nav[2]}</a>
             <a href="#faq" className="transition-colors hover:text-primary">{t.nav[3]}</a>
+            {/* The catalog is the one thing on this page a buyer can browse without
+                talking to anyone, so it leads the nav rather than hiding in the
+                footer. Locale-prefixed so a /vi visitor stays in /vi. */}
+            <Link
+              href={localizePath("/products", locale)}
+              className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-semibold text-primary transition-colors hover:border-accent hover:bg-accent/20"
+            >
+              {t.catalog}
+            </Link>
           </nav>
           <details className="relative lg:hidden">
             <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border text-primary hover:bg-muted [&::-webkit-details-marker]:hidden" aria-label={localeLabel(locale, "Mở menu", "Open menu")}>
@@ -226,6 +293,7 @@ export default async function RootPage() {
               <a href="#solution" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[1]}</a>
               <a href="#process" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[2]}</a>
               <a href="#faq" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[3]}</a>
+              <Link href={localizePath("/products", locale)} className="block rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">{t.catalog}</Link>
             </div>
           </details>
           <div className="flex items-center gap-2"><LanguageSwitcher compact /><Button asChild variant="outline" className="hidden border-primary/20 text-primary hover:bg-primary/5 sm:inline-flex"><Link href="/auth/login">{t.signIn}</Link></Button><Button asChild className="bg-cta text-cta-foreground shadow-sm hover:bg-cta/90"><a href="#consultation">{t.contact}</a></Button></div>
@@ -256,7 +324,7 @@ export default async function RootPage() {
 
       <section id="consultation" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28"><div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start"><div className="pt-3"><p className="text-xs font-bold tracking-[0.2em] text-primary">{t.formEyebrow}</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">{t.formTitle}</h2><p className="mt-5 text-base leading-8 text-muted-foreground">{t.formText}</p><div className="mt-8 space-y-4"><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><ClipboardCheck className="h-4 w-4" /></span>{localeLabel(locale, "Đánh giá sơ bộ mức độ phù hợp", "Initial fit review")}</div><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><Calendar className="h-4 w-4" /></span>{localeLabel(locale, "Phản hồi trong 2–4 giờ làm việc", "Response within 2–4 business hours")}</div><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><BadgeCheck className="h-4 w-4" /></span>{localeLabel(locale, "Bảo mật thông tin nhà máy", "Factory information stays confidential")}</div></div></div><ConsultationForm locale={locale} /></div></section>
 
-      <footer className="border-t border-border bg-background"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10"><div className="flex items-center gap-2 font-semibold text-primary"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground"><TrendingUp className="h-4 w-4" /></span>Vexim Trade</div><p>{t.footerNote}</p><a href={`tel:${siteConfig.contact.phone}`} className="font-semibold text-primary hover:text-cta">{siteConfig.contact.hotline}</a></div></footer>
+      <footer className="border-t border-border bg-background"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10"><div className="flex items-center gap-2 font-semibold text-primary"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground"><TrendingUp className="h-4 w-4" /></span>Vexim Trade</div><p>{t.footerNote}</p><div className="flex items-center gap-4"><Link href={localizePath("/products", locale)} className="font-medium text-primary hover:text-cta">{t.catalog}</Link><a href={`tel:${siteConfig.contact.phone}`} className="font-semibold text-primary hover:text-cta">{siteConfig.contact.hotline}</a></div></div></footer>
     </main>
   )
 }

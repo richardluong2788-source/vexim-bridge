@@ -1,20 +1,25 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { unstable_cache } from "next/cache"
+import { notFound } from "next/navigation"
 import { ArrowRight, ChevronLeft, ChevronRight, Package, Search, Store, X } from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getDictionary } from "@/lib/i18n/server"
+import { localizePath } from "@/lib/i18n/routing"
+import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
 import { siteConfig } from "@/lib/site-config"
+import { CATALOG_CACHE_TAG } from "@/lib/catalog/cache"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProductCard, type CatalogProduct } from "@/components/product/product-card"
+import { JsonLd } from "@/components/seo/json-ld"
 
 /**
- * Public product catalog (`/products`).
+ * Public product catalog (`/products`, Vietnamese twin at `/vi/products`).
  *
  * Buyer-facing index over `client_products`, enforcing the same visibility
  * rules as the product page it links into:
- *  - `status = 'active'` (the anon RLS policy on `client_products` also checks
- *    this, but an AE or the owning client would see more, so we never rely on
- *    the session for a public page);
+ *  - `status = 'active'`;
  *  - only suppliers whose `client_profiles.is_published = true`.
  *
  * The second rule is *not* enforced by RLS on `client_products`, so it lives
@@ -22,14 +27,18 @@ import { ProductCard, type CatalogProduct } from "@/components/product/product-c
  * profile as not existing publicly. Without it, a supplier turning off their
  * public profile would still be listed and searchable.
  *
+ * Reads go through `createAdminClient()` rather than the session client on
+ * purpose: the catalog is the same document for an anonymous crawler, a US
+ * buyer with an account and an AE, so nothing here may depend on cookies.
+ * That is also what makes `unstable_cache` legal — every read is cached for 5
+ * minutes under `CATALOG_CACHE_TAG` and busted by the admin/client product
+ * actions and by profile publish/unpublish. (A `export const revalidate` on
+ * this route would do nothing while the root layout still awaits `getLocale()`;
+ * that needs a cookie-free marketing layout.)
+ *
  * Everything is server-rendered with plain GET links (no client JS): search,
- * category and pagination are all query-string state, so a filtered catalog can
- * be pasted into an email and crawled by Google.
-
- * Rendering: `createClient()` reads cookies and the page reads searchParams, so
- * Next renders it per request. Once the /en + /vi locale tree lands, the query
- * below moves to an anon-key client (no cookies) and this route gains
- * `export const revalidate = 300` so the catalog can be cached at the CDN.
+ * category and pagination are query-string state, so a filtered catalog can be
+ * pasted into an email and crawled by Google.
  */
 
 const PAGE_SIZE = 24
@@ -83,20 +92,6 @@ interface PageProps {
   searchParams: Promise<{ category?: string; q?: string; page?: string }>
 }
 
-export const metadata: Metadata = {
-  title: `Export Catalog — ${siteConfig.name}`,
-  description:
-    "Verified Vietnamese exporters: live product listings with indicative unit prices, MOQ, lead times, HS codes and current US compliance status. Request a quote directly from the factory.",
-  alternates: { canonical: `${siteConfig.url}/products` },
-  openGraph: {
-    title: `Export Catalog — ${siteConfig.name}`,
-    description:
-      "Browse verified Vietnamese suppliers: prices, MOQ, lead times, HS codes and compliance certifications in one catalog.",
-    url: `${siteConfig.url}/products`,
-    type: "website",
-  },
-}
-
 function firstParam(value: string | string[] | undefined): string | null {
   const raw = (Array.isArray(value) ? value[0] : value)?.trim()
   return raw ? raw : null
@@ -123,25 +118,35 @@ function normalizeCategory(value: string | null): string | null {
   return CATEGORY_PATTERN.test(value) ? value : null
 }
 
-function catalogHref(query: CatalogQuery, overrides: Partial<CatalogQuery> = {}): string {
+function readQuery(raw: { category?: string; q?: string; page?: string }): CatalogQuery {
+  const requested = Number.parseInt(firstParam(raw.page) ?? "1", 10)
+  return {
+    category: normalizeCategory(firstParam(raw.category)),
+    q: normalizeSearchTerm(firstParam(raw.q)),
+    page: Number.isFinite(requested) && requested > 1 ? Math.floor(requested) : 1,
+  }
+}
+
+/** Localized, filter-preserving link back into this page. */
+function catalogHref(query: CatalogQuery, overrides: Partial<CatalogQuery> = {}, locale: "en" | "vi" = "en"): string {
   const merged = { ...query, ...overrides }
   const params = new URLSearchParams()
   if (merged.category) params.set("category", merged.category)
   if (merged.q) params.set("q", merged.q)
   if (merged.page > 1) params.set("page", String(merged.page))
   const search = params.toString()
-  return search ? `/products?${search}` : "/products"
+  return localizePath(search ? `/products?${search}` : "/products", locale)
 }
 
 async function loadCatalog(query: CatalogQuery): Promise<CatalogResult> {
   const empty: CatalogResult = { entries: [], total: 0, categories: [], supplierCount: 0, error: null }
 
-  // A public crawlable page should degrade to an empty catalog instead of a raw
-  // 500 when the Supabase env is missing (e.g. a misconfigured deploy) — the
-  // createClient() call itself throws in that case, before any query runs.
-  let supabase: Awaited<ReturnType<typeof createClient>>
+  // A public, crawlable page should degrade to an empty catalog instead of a raw
+  // 500 when the Supabase env is missing (e.g. a misconfigured deploy) —
+  // createAdminClient() throws in that case, before any query runs.
+  let supabase: ReturnType<typeof createAdminClient>
   try {
-    supabase = await createClient()
+    supabase = createAdminClient()
   } catch (cause) {
     console.error("[catalog] supabase client unavailable:", cause)
     return { ...empty, error: "supabase_unconfigured" }
@@ -237,35 +242,78 @@ async function loadCatalog(query: CatalogQuery): Promise<CatalogResult> {
   }
 }
 
-export default async function ProductsCatalogPage({ searchParams }: PageProps) {
-  const params = await searchParams
-  const query: CatalogQuery = {
-    category: normalizeCategory(firstParam(params.category)),
-    q: normalizeSearchTerm(firstParam(params.q)),
-    page: (() => {
-      const requested = Number.parseInt(firstParam(params.page) ?? "1", 10)
-      return Number.isFinite(requested) && requested > 1 ? Math.floor(requested) : 1
-    })(),
-  }
+const loadCachedCatalog = unstable_cache(loadCatalog, ["catalog"], {
+  revalidate: 300,
+  tags: [CATALOG_CACHE_TAG],
+})
 
-  const { entries, total, categories, supplierCount, error } = await loadCatalog(query)
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const { locale, t } = await getDictionary()
+  const { total } = await loadCachedCatalog(readQuery(await searchParams))
+
+  const title = `${t.catalog.title} — ${siteConfig.name}`
+  const description =
+    total > 0
+      ? `${total.toLocaleString("en-US")} ${total === 1 ? t.catalog.productWord : t.catalog.productsWord} from Vietnamese exporters: unit prices, MOQ, lead times, HS codes and US compliance status.`
+      : t.catalog.intro
+
+  return {
+    title,
+    description,
+    alternates: localizedAlternates("/products", { bilingual: true, locale }),
+    openGraph: {
+      title,
+      description,
+      url: `${siteConfig.url}/products`,
+      type: "website",
+    },
+    robots: INDEXABLE,
+  }
+}
+
+export default async function ProductsCatalogPage({ searchParams }: PageProps) {
+  const { locale, t } = await getDictionary()
+  const query = readQuery(await searchParams)
+
+  const { entries, total, categories, supplierCount, error } = await loadCachedCatalog(query)
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const page = Math.min(query.page, totalPages)
   const hasFilters = Boolean(query.category || query.q)
 
+  // A category that carries no products at all is a mistyped link, not a
+  // catalog state — 404 it so it is never indexed. A search that returns
+  // nothing is a normal outcome and keeps its empty state.
+  if (query.category && !query.q && total === 0 && page === 1) notFound()
+
+  const itemListOf = {
+    "@type": "ItemList" as const,
+    numberOfItems: total,
+    itemListElement: entries.slice(0, 12).map((entry, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: entry.product_name,
+      url: `${siteConfig.url}/products/${entry.id}`,
+    })),
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      <JsonLd data={itemListOf} id="catalog-item-list" />
+
       <div className="border-b bg-muted/30">
         <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <nav className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/" className="shrink-0 font-semibold text-foreground hover:text-primary">
+            <Link
+              href={localizePath("/", locale)}
+              className="shrink-0 font-semibold text-foreground hover:text-primary"
+            >
               {siteConfig.name}
             </Link>
             <span aria-hidden>·</span>
-            <span className="truncate">Export catalog</span>
+            <span className="truncate">{t.catalog.breadcrumb}</span>
           </nav>
           <Button asChild size="sm" variant="outline">
-            <Link href="/auth/login">Supplier sign in</Link>
+            <Link href="/auth/login">{t.catalog.signIn}</Link>
           </Button>
         </div>
       </div>
@@ -273,33 +321,29 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
       <section className="border-b bg-muted/20">
         <div className="container mx-auto px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            For US buyers
+            {t.catalog.eyebrow}
           </p>
           <h1 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Vietnamese export catalog
+            {t.catalog.title}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-            Live listings from suppliers Vexim works with — indicative unit prices, minimum order
-            quantities, lead times, HS codes and current US compliance status. Pick a category or
-            search a product, then request a quote and our desk confirms the terms with the
-            factory.
-          </p>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">{t.catalog.intro}</p>
           <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <Package className="h-4 w-4 text-primary" />
-              {total.toLocaleString("en-US")} {total === 1 ? "product" : "products"}
+              {total.toLocaleString("en-US")}{" "}
+              {total === 1 ? t.catalog.productWord : t.catalog.productsWord}
             </span>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-2">
               <Store className="h-4 w-4 text-primary" />
               {supplierCount.toLocaleString("en-US")}{" "}
-              {supplierCount === 1 ? "verified supplier" : "verified suppliers"}
+              {supplierCount === 1 ? t.catalog.supplierWord : t.catalog.suppliersWord}
             </span>
           </div>
           <div className="mt-6">
             <Button asChild>
-              <Link href="/#consultation">
-                Talk to our export desk
+              <Link href={localizePath("/#consultation", locale)}>
+                {t.catalog.cta}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -309,9 +353,9 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
 
       <section className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter catalog by category">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t.catalog.allCategories}>
             <Link
-              href={catalogHref(query, { category: null, page: 1 })}
+              href={catalogHref(query, { category: null, page: 1 }, locale)}
               aria-current={query.category ? undefined : "page"}
               className={
                 query.category
@@ -319,14 +363,14 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
                   : "inline-flex h-8 items-center rounded-full border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground"
               }
             >
-              All categories
+              {t.catalog.allCategories}
             </Link>
             {categories.map((facet) => {
               const active = facet.name === query.category
               return (
                 <Link
                   key={facet.name}
-                  href={catalogHref(query, { category: active ? null : facet.name, page: 1 })}
+                  href={catalogHref(query, { category: active ? null : facet.name, page: 1 }, locale)}
                   aria-current={active ? "page" : undefined}
                   className={
                     active
@@ -341,7 +385,11 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
             })}
           </div>
 
-          <form action="/products" method="get" className="flex w-full items-center gap-2 lg:w-auto">
+          <form
+            action={localizePath("/products", locale)}
+            method="get"
+            className="flex w-full items-center gap-2 lg:w-auto"
+          >
             {query.category ? <input type="hidden" name="category" value={query.category} /> : null}
             <div className="relative w-full sm:w-72">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -349,17 +397,17 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
                 type="search"
                 name="q"
                 defaultValue={query.q ?? ""}
-                placeholder="Search product, SKU or description"
-                aria-label="Search the catalog"
+                placeholder={t.catalog.searchPlaceholder}
+                aria-label={t.catalog.searchLabel}
                 className="pl-8"
               />
             </div>
-            <Button type="submit">Search</Button>
+            <Button type="submit">{t.catalog.search}</Button>
             {hasFilters ? (
               <Button asChild variant="ghost" size="sm">
-                <Link href="/products">
+                <Link href={localizePath("/products", locale)}>
                   <X className="h-4 w-4" />
-                  Clear
+                  {t.catalog.clear}
                 </Link>
               </Button>
             ) : null}
@@ -368,24 +416,20 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
 
         {error ? (
           <div className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            The catalog is temporarily unavailable. Please try again in a few minutes.
+            {t.catalog.unavailable}
           </div>
         ) : entries.length === 0 ? (
           <div className="mt-8 flex flex-col items-center gap-3 rounded-lg border border-dashed p-12 text-center">
             <Package className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm font-medium">
-              {hasFilters
-                ? "No products match this search."
-                : "No products are published in the catalog yet."}
+              {hasFilters ? t.catalog.emptySearchTitle : t.catalog.emptyCatalogTitle}
             </p>
             <p className="max-w-md text-sm text-muted-foreground">
-              {hasFilters
-                ? "Try a different keyword, or clear the category filter."
-                : "Suppliers add products from their dashboard; approved listings appear here as soon as their profile is published."}
+              {hasFilters ? t.catalog.emptySearchText : t.catalog.emptyCatalogText}
             </p>
             {hasFilters ? (
               <Button asChild size="sm" variant="outline">
-                <Link href="/products">Browse all products</Link>
+                <Link href={localizePath("/products", locale)}>{t.catalog.browseAll}</Link>
               </Button>
             ) : null}
           </div>
@@ -398,28 +442,37 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
                   product={entry}
                   supplierName={entry.supplier?.name ?? null}
                   supplierSlug={entry.supplier?.slug ?? null}
+                  labels={{
+                    priceOnRequest: t.catalog.card.priceOnRequest,
+                    moq: t.catalog.card.moq,
+                    leadTime: t.catalog.card.leadTime,
+                    samples: t.catalog.card.samples,
+                  }}
                 />
               ))}
             </div>
 
             {totalPages > 1 ? (
-              <nav className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t pt-6" aria-label="Catalog pagination">
+              <nav
+                className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
+                aria-label="Catalog pagination"
+              >
                 <p className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages}
+                  {t.catalog.pageWord} {page} {t.catalog.ofWord} {totalPages}
                 </p>
                 <div className="flex items-center gap-2">
                   {page > 1 ? (
                     <Button asChild variant="outline" size="sm">
-                      <Link href={catalogHref(query, { page: page - 1 })}>
+                      <Link href={catalogHref(query, { page: page - 1 }, locale)}>
                         <ChevronLeft className="h-4 w-4" />
-                        Previous
+                        {t.catalog.previous}
                       </Link>
                     </Button>
                   ) : null}
                   {page < totalPages ? (
                     <Button asChild variant="outline" size="sm">
-                      <Link href={catalogHref(query, { page: page + 1 })}>
-                        Next
+                      <Link href={catalogHref(query, { page: page + 1 }, locale)}>
+                        {t.catalog.next}
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </Button>

@@ -5,6 +5,7 @@ import "./globals.css"
 import { LanguageProvider } from "@/components/i18n/language-provider"
 import { getLocale } from "@/lib/i18n/server"
 import { getDictionarySync } from "@/lib/i18n/dictionaries"
+import { siteConfig } from "@/lib/site-config"
 import { Toaster } from "sonner"
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -14,6 +15,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale()
   const t = getDictionarySync(locale)
   return {
+    // Canonical origin for every relative URL in metadata (og:image, canonical,
+    // sitemap refs). Set from NEXT_PUBLIC_SITE_URL so a preview deployment never
+    // publishes localhost as a canonical URL.
+    metadataBase: new URL(siteConfig.url),
     title: t.app.name,
     description: t.app.tagline,
     generator: "v0.app",

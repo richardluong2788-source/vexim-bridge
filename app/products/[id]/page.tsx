@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation"
 import { cache } from "react"
 import type { Metadata } from "next"
-import { createClient } from "@/lib/supabase/server"
+import { unstable_cache } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -19,6 +20,9 @@ import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
 import { siteConfig } from "@/lib/site-config"
 import { formatPrice, toMetaDescription } from "@/lib/product-format"
+import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
+import { CATALOG_CACHE_TAG } from "@/lib/catalog/cache"
+import { JsonLd } from "@/components/seo/json-ld"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
 import { ProductMarkdown } from "@/components/product"
@@ -29,10 +33,11 @@ interface PageProps {
   searchParams: Promise<{ ref?: string }>
 }
 
-// force-dynamic only because the queries below run through the session client
-// (cookies). Dropping them onto an anon-key client is what allows
-// `export const revalidate = 300` + generateStaticParams in the locale pass.
-export const dynamic = "force-dynamic"
+// No `force-dynamic` any more: the data below comes from a session-free,
+// tag-busted 5-minute cache. The route still renders per request because the
+// quote attribution lives in `?ref=` (searchParams), but it no longer pays an
+// auth round-trip or a cold query. `export const revalidate` would do nothing
+// here while the root layout awaits `getLocale()` — see app/products/page.tsx.
 
 const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> = {
   fda: { label: "FDA Registered", color: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -46,17 +51,34 @@ const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> 
 }
 
 /**
- * Product row + the public identity of its supplier, resolved once per request
- * so `generateMetadata` and the page body never run the same two queries twice
- * (React `cache()` de-dupes within a render pass).
+ * Product row + the public identity of its supplier.
  *
- * Returns null only when the row does not exist or is not readable — an
- * unpublished supplier profile still resolves to `profileSlug: null`, which the
- * body uses to drop the link to /profile/[slug] while keeping the product
- * readable for people who already hold the URL.
+ * Two layers of de-duplication: `unstable_cache` (5 minutes, `CATALOG_CACHE_TAG`)
+ * so a crawler sweeping the catalog does not hit Postgres per URL, and React
+ * `cache()` so `generateMetadata` and the page body share one pass per request.
+ *
+ * The read deliberately uses the service-role client instead of the session
+ * client: the page is one document for an anonymous buyer, a supplier previewing
+ * their own listing and an AE opening a tracked link, and cookies on a public
+ * page would both defeat caching and change what a preview shows. Because RLS no
+ * longer filters for us, the visibility rules the anon policy enforced are stated
+ * here: only `status = 'active'` products, and the supplier link only for a
+ * published profile. Never widen this `select("*")` by joining `profiles` beyond
+ * (id, company_name) — that is how `/api/products/search` ended up exposing
+ * supplier emails and FDA registration numbers to anonymous callers.
+ *
+ * A non-active product therefore returns 404 rather than a preview; the admin and
+ * client product dialogs render the row themselves, so nothing internal depends
+ * on this URL for editing.
  */
-const loadPublicProduct = cache(async (id: string) => {
-  const supabase = await createClient()
+const loadPublicProductUncached = async (id: string) => {
+  let supabase: ReturnType<typeof createAdminClient>
+  try {
+    supabase = createAdminClient()
+  } catch (cause) {
+    console.error("[catalog] supabase client unavailable:", cause)
+    return null
+  }
 
   const { data, error } = await supabase
     .from("client_products")
@@ -70,6 +92,7 @@ const loadPublicProduct = cache(async (id: string) => {
     `,
     )
     .eq("id", id)
+    .eq("status", "active")
     .single()
 
   if (error || !data) return null
@@ -90,8 +113,19 @@ const loadPublicProduct = cache(async (id: string) => {
     client: { id: string; company_name: string } | null
   }
 
-  return { product, profileSlug }
+  // `created_by` is an internal profile id; it has no business in the HTML or in
+  // the RSC payload of a public page.
+  const { created_by: _createdBy, ...publicProduct } = product
+
+  return { product: publicProduct as ClientProduct & { client: typeof product.client }, profileSlug }
+}
+
+const loadPublicProductCached = unstable_cache(loadPublicProductUncached, ["catalog-product"], {
+  revalidate: 300,
+  tags: [CATALOG_CACHE_TAG],
 })
+
+const loadPublicProduct = cache(loadPublicProductCached)
 
 export async function generateMetadata({
   params,
@@ -131,7 +165,6 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical: `${siteConfig.url}/products/${id}` },
     openGraph: {
       title,
       description,
@@ -139,9 +172,8 @@ export async function generateMetadata({
       type: "website",
       ...(ogImage ? { images: [{ url: ogImage, alt: product.product_name }] } : {}),
     },
-    // A product page is always public (RLS only exposes active rows to anon), so
-    // it is indexable; the share/shortlist token pages stay noindex.
-    robots: { index: true, follow: true },
+    alternates: localizedAlternates(`/products/${id}`),
+    robots: INDEXABLE,
   }
 }
 
@@ -174,8 +206,47 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     typedProduct.currency
   )
 
+  // schema.org/Product so a Google shopping/industrial listing shows price,
+  // supplier and availability instead of a bare snippet. Every value below is
+  // supplier-authored, which is why it is rendered through <JsonLd> (it escapes
+  // < and > so a "</script>" inside a product description cannot break out).
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: typedProduct.product_name,
+    description: toMetaDescription(typedProduct.usp || typedProduct.description),
+    ...(typedProduct.image_urls?.length ? { image: typedProduct.image_urls } : {}),
+    ...(typedProduct.product_code ? { sku: typedProduct.product_code } : {}),
+    ...(typedProduct.hs_code ? { mpn: typedProduct.hs_code } : {}),
+    ...(companyName
+      ? {
+          brand: {
+            "@type": "Organization",
+            name: companyName,
+            ...(profileSlug ? { url: `${siteConfig.url}/profile/${profileSlug}` } : {}),
+          },
+        }
+      : {}),
+    ...(priceDisplay && typedProduct.min_unit_price
+      ? {
+          offers: {
+            "@type": "Offer",
+            // A published price range is announced at its floor: schema.org has
+            // no "from" price, and quoting the top of the range would make the
+            // listing look more expensive than the supplier's own page.
+            price: typedProduct.min_unit_price,
+            priceCurrency: typedProduct.currency,
+            availability: "https://schema.org/InStock",
+            url: `${siteConfig.url}/products/${id}`,
+          },
+        }
+      : {}),
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      <JsonLd data={productJsonLd} id="product-json-ld" />
+
       {/* Breadcrumb */}
       <div className="border-b bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">

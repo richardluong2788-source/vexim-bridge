@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getProfileBySlug } from "@/lib/profile/actions"
+import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
 import { getPublicCapabilityByClientId } from "@/lib/assessment/actions"
 import { ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileHeaderCard } from "@/components/profile/profile-header-card"
@@ -32,6 +33,11 @@ export async function generateMetadata({
     description:
       profile.tagline ||
       `Learn more about ${displayName} - a trusted supplier for US buyers.`,
+    // English-only page (it is written for US buyers), so the canonical is the
+    // unprefixed URL: /vi/profile/<slug> reaches the same document through the
+    // middleware rewrite and must not become a second indexable copy.
+    alternates: localizedAlternates(`/profile/${slug}`),
+    robots: INDEXABLE,
     openGraph: {
       title: displayName,
       description:

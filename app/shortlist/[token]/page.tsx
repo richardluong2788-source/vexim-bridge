@@ -26,8 +26,18 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { InterestButton } from "./interest-button"
 import { DwellTracker } from "./dwell-tracker"
+import type { Metadata } from "next"
+import { NOINDEX } from "@/lib/seo/alternates"
 
 export const dynamic = "force-dynamic"
+
+// A shortlist snapshot names suppliers and their terms for one buyer. It is
+// reachable by anyone holding the link, so it is kept out of indexes here and
+// in app/robots.ts.
+export const metadata: Metadata = {
+  title: "Supplier shortlist",
+  robots: NOINDEX,
+}
 
 interface PageProps {
   params: Promise<{ token: string }>

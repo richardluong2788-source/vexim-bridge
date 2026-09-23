@@ -34,8 +34,18 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { privateFileHref } from "@/lib/blob/file-url"
+import type { Metadata } from "next"
+import { NOINDEX } from "@/lib/seo/alternates"
 
 export const dynamic = "force-dynamic"
+
+// The token in the URL is the only thing keeping this bundle private, so it
+// must never reach a search index. `app/robots.ts` disallows /share/ as the
+// belt to this braces: a robots rule is advisory, <meta robots> is not.
+export const metadata: Metadata = {
+  title: "Shared documents",
+  robots: NOINDEX,
+}
 
 interface PageProps {
   params: Promise<{ token: string }>

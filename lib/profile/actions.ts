@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
+import { revalidateCatalog } from "@/lib/catalog/cache"
 import type {
   ClientProfile,
   ClientProfileWithRelations,
@@ -419,6 +420,9 @@ export async function publishProfile(
     return { success: false, error: error.message }
   }
 
+  // Publishing is what makes a supplier (and their products) appear in the
+  // public catalog, so the cached catalog reads have to be dropped with it.
+  revalidateCatalog();
   return { success: true }
 }
 
@@ -465,6 +469,8 @@ export async function unpublishProfile(
     return { success: false, error: error.message }
   }
 
+  // Unpublishing must remove the supplier from /products in the same click.
+  revalidateCatalog();
   return { success: true }
 }
 

@@ -139,6 +139,44 @@ Verified against the production build in the sandbox: `/landing/hero-dashboard.j
 → 400 `"url" parameter is not allowed`, i.e. the allowlist is enforced and the
 component never asks for that request.
 
+### 5a. The rule this caught in production (2026-09-23)
+
+`next/image` throws — **at render time**, not at request time — when a *local* src
+carries a query string and `images.localPatterns` is unset:
+
+```
+Error: Image with src "/api/files?path=clients%2F…%2Fmat-truoc.png" is using a
+query string which is not configured in images.localPatterns.
+```
+
+Before the profile pages were prerendered, that exception only broke one page view.
+Once `/profile/[slug]` had `generateStaticParams`, Vercel fed it a real row whose
+certificate thumbnail comes from `/api/files?path=…`, and the whole build died at
+"Generating static pages". The fix is *not* `images.localPatterns`: the proxy needs
+the caller's cookies, so an optimizer fetch would come back 401 and the picture
+would be broken anyway. The fix is that **no component may hand a DB-supplied URL
+to `next/image` directly** — the profile components (`profile-hero`,
+`profile-header-card`, `profile-media-gallery`, `profile-video`,
+`profile-certifications`) and the intake image-link preview now render through
+`SmartImage`, which picks `<img>` for exactly those sources and keeps the
+optimizer for the hosts it can actually fetch.
+
+Corollary for `SmartImage` itself: its `<img>` fallback duplicates what `fill`
+does inline (`position:absolute; inset:0; width/height:100%`), because `fill` is a
+`next/image` behaviour and a bare `<img>` would stop covering its parent. A
+fallback must never render worse than the old code.
+
+Guardrails to keep it that way:
+
+* `grep -rn 'from "next/image"' app components lib` should only ever list
+  `components/ui/smart-image.tsx` plus pages whose srcs are **committed** files in
+  `public/` (today: `app/page.tsx`). Anything reading a column belongs behind
+  `SmartImage`.
+* A build-time prerender of DB rows turns any one bad row into a failed deploy.
+  If that becomes a habit, the answer is to stop feeding garbage into
+  `generateStaticParams` (e.g. cap it, or render the first profile page on demand),
+  not to wrap every component in try/catch.
+
 ## 6. Still open (in rough order of value)
 
 1. Translate the product detail page and the supplier profile into the dictionary, then

@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import { X } from "lucide-react"
 
 import { ImageLinkInput } from "@/components/ui/image-link-input"
@@ -53,7 +53,7 @@ export function ImageLinkField({
               key={url}
               className="group relative h-24 w-24 overflow-hidden rounded-md border border-border bg-muted"
             >
-              <Image
+              <SmartImage
                 src={url || "/placeholder.svg"}
                 alt={`Ảnh đã thêm ${i + 1}`}
                 fill

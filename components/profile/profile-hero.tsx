@@ -1,6 +1,6 @@
 "use client"
 
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileHeroProps {
@@ -20,7 +20,7 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
     <section className="relative w-full bg-white">
       <div className="relative w-full h-32 sm:h-44 lg:h-56 overflow-hidden">
         {coverUrl ? (
-          <Image
+          <SmartImage
             src={coverUrl}
             alt={`${displayName} cover`}
             fill

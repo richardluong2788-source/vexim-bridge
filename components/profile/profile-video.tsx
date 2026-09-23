@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import { Factory, Play } from "lucide-react"
 import {
   Carousel,
@@ -72,7 +72,7 @@ export function ProfileVideo({ profile }: ProfileVideoProps) {
                   {factoryImages.map((url, index) => (
                     <CarouselItem key={`${url}-${index}`}>
                       <div className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg">
-                        <Image
+                        <SmartImage
                           src={url || "/placeholder.svg"}
                           alt={`Factory photo ${index + 1}`}
                           fill

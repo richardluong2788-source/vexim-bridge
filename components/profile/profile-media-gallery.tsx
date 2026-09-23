@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import { ChevronLeft, ChevronRight, Factory, Play, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
@@ -93,11 +93,12 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
         )}
 
         {active.type === "image" ? (
-          <Image
+          <SmartImage
             src={active.url || "/placeholder.svg"}
             alt="Factory"
             fill
             className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 900px"
           />
         ) : isPlaying ? (
           youtubeId ? (
@@ -177,7 +178,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
           <DialogTitle className="sr-only">Factory media preview</DialogTitle>
           <div className="relative flex min-h-[50vh] items-center justify-center rounded-lg bg-muted/30">
             {active.type === "image" ? (
-              <Image
+              <SmartImage
                 src={active.url || "/placeholder.svg"}
                 alt="Factory"
                 width={1600}

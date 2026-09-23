@@ -43,9 +43,24 @@ export function SmartImage({
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL || undefined
 
   if (!isOptimizableImageSrc(src, siteOrigin)) {
+    const { style, ...imgRest } = rest
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={alt} loading={priority ? "eager" : "lazy"} {...rest} />
+      <img
+        src={src}
+        alt={alt}
+        loading={priority ? "eager" : "lazy"}
+        // `fill` is a next/image behaviour, not an <img> one: without these
+        // styles a fallback image stops covering its parent and the layout
+        // collapses. Duplicating what next/image inlines keeps both branches
+        // visually identical, which is the whole promise of this component.
+        style={
+          fill
+            ? { position: "absolute", inset: 0, height: "100%", width: "100%", maxWidth: "100%", ...style }
+            : style
+        }
+        {...imgRest}
+      />
     )
   }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import {
   Building2,
   CalendarDays,
@@ -76,7 +76,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                 {/* Logo */}
                 <div className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg border border-border bg-background overflow-hidden">
                   {logoUrl ? (
-                    <Image
+                    <SmartImage
                       src={logoUrl}
                       alt={`${displayName} logo`}
                       fill

@@ -3,6 +3,7 @@ import { Building2, Package } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { COMPLIANCE_BADGES } from "@/lib/constants/product-options"
 import { formatMoq, formatPrice } from "@/lib/product-format"
+import { SmartImage } from "@/components/ui/smart-image"
 import { cn } from "@/lib/utils"
 
 /**
@@ -87,14 +88,14 @@ export function ProductCard({ product, supplierName, supplierSlug, labels, class
         className,
       )}
     >
-      <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SmartImage
             src={image}
             alt={product.product_name}
-            loading="lazy"
-            className="h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
+            className="object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">

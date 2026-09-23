@@ -77,12 +77,28 @@ export function newLeadReference(): string {
  * Salt + UTC date make the value useless for cross-day correlation while still
  * stable inside one day, which is exactly the window the throttle needs.
  */
+let saltWarned = false
+
 export function hashClientIp(ip: string | null | undefined, now: Date = new Date()): string | null {
   const trimmed = ip?.trim()
   if (!trimmed || trimmed === "unknown") return null
-  const salt = process.env.MARKETING_LEAD_IP_SALT ?? "vexim-marketing-lead"
+
+  // The fallback keeps the feature working in dev, but a known constant salt
+  // makes the hash brute-forceable (the input space is just "some IPv4 + some
+  // date"), so say once, loudly, that production should set the env var.
+  const salt = process.env.MARKETING_LEAD_IP_SALT
+  if (!salt && !saltWarned) {
+    saltWarned = true
+    console.warn(
+      "[marketing_leads] MARKETING_LEAD_IP_SALT is not set — storing IP hashes " +
+        "derived from a public constant. Set a private value in production.",
+    )
+  }
   const day = now.toISOString().slice(0, 10)
-  return createHash("sha256").update(`${salt}|${trimmed.toLowerCase()}|${day}`).digest("hex").slice(0, 32)
+  return createHash("sha256")
+    .update(`${salt ?? "vexim-marketing-lead"}|${trimmed.toLowerCase()}|${day}`)
+    .digest("hex")
+    .slice(0, 32)
 }
 
 /**

@@ -118,6 +118,22 @@ const PRIORITY_TONE: Record<string, string> = {
   low: "bg-slate-500/10 text-slate-600 border-slate-500/20",
 }
 
+/**
+ * The worklist used to be one unbounded column, so 30 buyers meant a page-long
+ * strip beside the peek. Cap each column and flow the overflow sideways:
+ * buyers 1–10 stay in column 1, 11–20 move to column 2, and so on. Priority
+ * order is unchanged — column 1 is still the most urgent.
+ */
+const BUYERS_PER_COLUMN = 10
+
+function chunkColumns<T>(items: T[], size: number): T[][] {
+  const columns: T[][] = []
+  for (let i = 0; i < items.length; i += size) {
+    columns.push(items.slice(i, i + size))
+  }
+  return columns
+}
+
 export function InboxWorkspace({
   pendingItems,
   engagements,
@@ -161,6 +177,22 @@ export function InboxWorkspace({
   }, [tab, engagementId, pendingId])
 
   const unreadTotal = ordered.filter((e) => summarizeEngagement(e).needsAttention).length
+  const pendingColumns = chunkColumns(pendingItems, BUYERS_PER_COLUMN)
+  const workColumns = chunkColumns(ordered, BUYERS_PER_COLUMN)
+  const worklistColumns = tab === "pending" ? pendingColumns : workColumns
+  const multiColumn = worklistColumns.length > 1
+
+  // A notification can land on a buyer that now sits in column 2+. Bring that
+  // column into view without jumping the rest of the page. Skip it while the
+  // list is hidden (the mobile peek), or scrollIntoView scrolls a display:none
+  // node and yanks the page.
+  useEffect(() => {
+    const id = tab === "work" ? engagementId : pendingId
+    if (!id) return
+    const row = document.getElementById(`inbox-row-${id}`)
+    if (!row || row.offsetParent === null) return
+    row.scrollIntoView({ block: "nearest", inline: "nearest" })
+  }, [tab, engagementId, pendingId, worklistColumns.length])
 
   const tabs: Array<{
     key: InboxTab
@@ -231,47 +263,77 @@ export function InboxWorkspace({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        {/* ---- The worklist ---- */}
-        <div className={cn("flex flex-col gap-2", focusIsSet && "hidden lg:flex")}>
-          {tab === "pending" ? (
-            pendingItems.length === 0 ? (
+      <div
+        className={cn(
+          "flex flex-col gap-4",
+          // One column of buyers still sits beside the peek. Two or more need
+          // a wider track, so the peek drops below until the viewport can
+          // hold both columns and the peek.
+          multiColumn ? "xl:flex-row xl:items-start" : "lg:flex-row lg:items-start",
+        )}
+      >
+        {/* ---- The worklist: at most 10 buyers per column ---- */}
+        <div
+          className={cn(
+            "flex min-w-0 items-start gap-2",
+            focusIsSet && "hidden lg:flex",
+            // Two columns (20rem + 20rem + gap) stay fully visible. A third
+            // scrolls inside this track instead of stretching the page or
+            // lengthening column 2. shrink-0 so the peek cannot eat column 2.
+            multiColumn &&
+              "overflow-x-auto overscroll-x-contain pb-1 xl:w-[41rem] xl:max-w-full xl:shrink-0",
+          )}
+        >
+          {worklistColumns.length === 0 ? (
+            <div className="w-full lg:w-[23.75rem]">
               <EmptyQueue
-                label={t("Không có buyer nào chờ nhận", "No buyers waiting to be claimed")}
+                label={
+                  tab === "pending"
+                    ? t("Không có buyer nào chờ nhận", "No buyers waiting to be claimed")
+                    : t(
+                        "Chưa có buyer nào đang xử lý. Nhận buyer ở tab “Chờ nhận” để bắt đầu.",
+                        "No buyers in progress. Claim one from “To claim” to start.",
+                      )
+                }
               />
-            ) : (
-              pendingItems.map((item) => (
-                <PendingRow
-                  key={item.id}
-                  item={item}
-                  locale={locale}
-                  selected={item.id === pendingId}
-                  onSelect={() => setPendingId(item.id)}
-                />
-              ))
-            )
-          ) : ordered.length === 0 ? (
-            <EmptyQueue
-              label={t(
-                "Chưa có buyer nào đang xử lý. Nhận buyer ở tab “Chờ nhận” để bắt đầu.",
-                "No buyers in progress. Claim one from “To claim” to start.",
-              )}
-            />
+            </div>
           ) : (
-            ordered.map((engagement) => (
-              <EngagementRow
-                key={engagement.id}
-                engagement={engagement}
-                locale={locale}
-                selected={engagement.id === engagementId}
-                onSelect={() => setEngagementId(engagement.id)}
-              />
+            worklistColumns.map((_, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "flex shrink-0 flex-col gap-2",
+                  // 10 or fewer: one column, same width the list used to have.
+                  // 11+: a fixed track so column 2 is a real column, not a wrap.
+                  multiColumn ? "w-[min(100%,20rem)] lg:w-80" : "w-full lg:w-[23.75rem]",
+                )}
+              >
+                {tab === "pending"
+                  ? (column as InboxItem[]).map((item) => (
+                      <PendingRow
+                        key={item.id}
+                        item={item}
+                        locale={locale}
+                        selected={item.id === pendingId}
+                        onSelect={() => setPendingId(item.id)}
+                      />
+                    ))
+                  : (column as Engagement[]).map((engagement) => (
+                      <EngagementRow
+                        key={engagement.id}
+                        engagement={engagement}
+                        locale={locale}
+                        selected={engagement.id === engagementId}
+                        onSelect={() => setEngagementId(engagement.id)}
+                      />
+                    ))}
+              </div>
             ))
           )}
         </div>
 
         {/* ---- Read-only peek ---- */}
-        <div className={cn("min-w-0", !focusIsSet && "hidden lg:block")}>
+        <div className={cn("min-w-0 flex-1", !focusIsSet && "hidden lg:block")}>
           {focusIsSet && (
             <Button
               variant="ghost"
@@ -337,6 +399,7 @@ function PendingRow({
 
   return (
     <MasterRow
+      rowId={item.id}
       leadId={item.lead_id}
       selected={selected}
       onSelect={onSelect}
@@ -397,6 +460,7 @@ function EngagementRow({
 
   return (
     <MasterRow
+      rowId={engagement.id}
       leadId={engagement.lead_id}
       selected={selected}
       attention={summary.needsAttention}
@@ -456,6 +520,7 @@ function EngagementRow({
  */
 function MasterRow({
   children,
+  rowId,
   leadId,
   selected,
   attention = false,
@@ -463,6 +528,8 @@ function MasterRow({
   openLabel,
 }: {
   children: ReactNode
+  /** Inbox item or engagement id — used to scroll a focused buyer into view. */
+  rowId: string
   leadId: string
   selected: boolean
   attention?: boolean
@@ -471,6 +538,7 @@ function MasterRow({
 }) {
   return (
     <div
+      id={`inbox-row-${rowId}`}
       className={cn(
         "flex items-stretch gap-1 rounded-lg border bg-card text-card-foreground shadow-sm transition-colors",
         selected && "border-primary bg-primary/5",

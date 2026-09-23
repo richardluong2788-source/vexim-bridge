@@ -1145,6 +1145,7 @@ emailSectionHint:
       savedProfile: "Profile updated",
       savedEmail: "Email updated",
       savedPassword: "Password changed",
+      copied: "Copied",
       saveError: "Could not save. Please try again.",
       errFullNameRequired: "Please enter your name.",
       errInvalidEmail: "Please enter a valid email address.",

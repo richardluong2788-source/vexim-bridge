@@ -286,7 +286,7 @@ export function MyProfileForm({ initial }: Props) {
                       className="size-6"
                       onClick={() => {
                         navigator.clipboard.writeText(initial.workEmail!)
-                        toast.success(locale === "vi" ? "Đã sao chép" : "Copied")
+                        toast.success(p.copied)
                       }}
                       aria-label={p.workEmail}
                     >

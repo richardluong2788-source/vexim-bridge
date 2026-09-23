@@ -82,12 +82,21 @@ interface Caller {
   admin: AdminSB
 }
 
-async function resolveCaller(): Promise<Caller | { error: ProfileErrorCode }> {
+/**
+ * Either the caller's own row handle, or the failure the action must return
+ * verbatim. The failure branch carries `ok: false` so `return caller` at the
+ * call sites satisfies ProfileActionResult. Without it the function returned a
+ * bare `{ error }` — harmless at runtime (the form reads `res.ok`, undefined is
+ * falsy, so it showed the error toast) but a type error, and the repo builds
+ * with `typescript.ignoreBuildErrors: true`, so nothing else was going to catch
+ * a future call site that does `if (res.ok === false)`.
+ */
+async function resolveCaller(): Promise<Caller | { ok: false; error: ProfileErrorCode }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "unauthenticated" }
+  if (!user) return { ok: false, error: "unauthenticated" }
   return { userId: user.id, admin: createAdminClient() }
 }
 

@@ -1679,6 +1679,141 @@ export type Database = {
         }
         Relationships: []
       }
+      // ---------------------------------------------------------------------
+      // Marketing lead capture (migration 082) — inbound submissions from
+      // public forms. Written ONLY by app/api/consultation (and future marketing
+      // forms) via the service-role client; read/triaged at /admin/marketing-leads.
+      // ---------------------------------------------------------------------
+      marketing_leads: {
+        Row: {
+          id: string
+          created_at: string
+          audience: string
+          source: string
+          status: string
+          reference: string | null
+          full_name: string | null
+          email: string | null
+          phone: string | null
+          company_name: string | null
+          industry: string | null
+          preferred_time: string | null
+          message: string | null
+          locale: string | null
+          page_path: string | null
+          referrer: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_term: string | null
+          gclid: string | null
+          user_agent: string | null
+          ip_hash: string | null
+          raw_payload: Record<string, unknown>
+          assigned_to: string | null
+          notes: string | null
+          last_contacted_at: string | null
+          triaged_at: string | null
+          triaged_by: string | null
+          converted_lead_id: string | null
+          converted_client_id: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          audience?: string
+          source: string
+          status?: string
+          reference?: string | null
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          company_name?: string | null
+          industry?: string | null
+          preferred_time?: string | null
+          message?: string | null
+          locale?: string | null
+          page_path?: string | null
+          referrer?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          gclid?: string | null
+          user_agent?: string | null
+          ip_hash?: string | null
+          raw_payload?: Record<string, unknown>
+          assigned_to?: string | null
+          notes?: string | null
+          last_contacted_at?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
+          converted_lead_id?: string | null
+          converted_client_id?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          audience?: string
+          source?: string
+          status?: string
+          reference?: string | null
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          company_name?: string | null
+          industry?: string | null
+          preferred_time?: string | null
+          message?: string | null
+          locale?: string | null
+          page_path?: string | null
+          referrer?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          gclid?: string | null
+          user_agent?: string | null
+          ip_hash?: string | null
+          raw_payload?: Record<string, unknown>
+          assigned_to?: string | null
+          notes?: string | null
+          last_contacted_at?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
+          converted_lead_id?: string | null
+          converted_client_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_leads_triaged_by_fkey"
+            columns: ["triaged_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_leads_converted_lead_id_fkey"
+            columns: ["converted_lead_id"]
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_leads_converted_client_id_fkey"
+            columns: ["converted_client_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_key: string]: {

@@ -48,6 +48,12 @@ export interface SidebarBadgeCounts {
    * links they generated (ae_id = self); admin/super_admin see every one.
    */
   pendingIntake: number
+  /**
+   * Un-triaged submissions in `marketing_leads` (status = 'new', migration 082).
+   * AE/staff only count rows nobody has claimed yet — an enquiry someone else
+   * assigned to themselves is not their badge.
+   */
+  marketingLeads: number
 }
 
 /** All-zero counts — the fallback wherever the query must not block rendering. */
@@ -59,6 +65,7 @@ export const EMPTY_BADGE_COUNTS: SidebarBadgeCounts = {
   buyers: 0,
   unmatchedEmails: 0,
   pendingIntake: 0,
+  marketingLeads: 0,
 }
 
 export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
@@ -68,7 +75,7 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
   const scope = ownershipScopeFor(role, userId)
   const isAE = role === "account_executive"
 
-  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake] =
+  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake, marketingLeads] =
     await Promise.all([
       countMyBuyers(admin, isAE, userId),
       countInProgressWithUnread(admin, isAE, userId),
@@ -76,6 +83,7 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
       countBuyers(admin, role, userId),
       countUnmatchedEmails(admin, role),
       countPendingIntake(admin, role, userId),
+      countMarketingLeads(admin, role, userId),
     ])
 
   return {
@@ -87,7 +95,28 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
     buyers,
     unmatchedEmails,
     pendingIntake,
+    marketingLeads,
   }
+}
+
+// ---------------------------------------------------------------------------
+// 7. "Lead website" — marketing_leads with status = 'new' (migration 082).
+//    Admin/super_admin/SR/LR see the whole queue; AE & staff only see rows
+//    nobody has claimed, so one busy inbox doesn't shout at every AE at once.
+// ---------------------------------------------------------------------------
+async function countMarketingLeads(
+  admin: AdminSB,
+  role: string,
+  userId: string,
+): Promise<number> {
+  const isFrontline = role === "account_executive" || role === "staff"
+  let q = admin
+    .from("marketing_leads")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "new")
+  if (isFrontline) q = q.or(`assigned_to.is.null,assigned_to.eq.${userId}`)
+  const { count } = await q
+  return count ?? 0
 }
 
 // ---------------------------------------------------------------------------

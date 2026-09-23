@@ -91,6 +91,15 @@ export const CAPS = {
   ACTIVITY_LOG_VIEW:           "system:activity_log:view",
   NOTIFICATIONS_MANAGE:        "system:notifications:manage",
 
+  // --- Marketing inbound (added in 082) ---
+  // marketing_leads = submissions from public forms (landing consultation
+  // form today, US-buyer RFQ forms later). VIEW lists the queue; TRIAGE
+  // changes status / assigns an owner / writes internal notes. Nothing here
+  // creates buyers or clients — converting a lead still goes through the
+  // normal gates (BUYER_MANUAL_INTAKE / CLIENT_WRITE / the AI inbox).
+  MARKETING_LEADS_VIEW:        "marketing:leads:view",
+  MARKETING_LEADS_TRIAGE:      "marketing:leads:triage",
+
   // --- Analytics / Reporting (added in 029) ---
   // VIEW_ALL — see every client's history (admin/super_admin/finance).
   // VIEW_OWN — see only clients where profiles.account_manager_id = current user
@@ -186,6 +195,12 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     CAPS.BILLING_PLAN_PROPOSE,
     CAPS.INVOICE_VIEW_OWN,
 
+    // Inbound website enquiries (migration 082): a VN factory asking Vexim to
+    // sell for them, or — once the EN buyer pages ship — a US importer asking
+    // for a quote. The AE owns the first call, so they triage as well as read.
+    CAPS.MARKETING_LEADS_VIEW,
+    CAPS.MARKETING_LEADS_TRIAGE,
+
     // Read-only signals.
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
     // risk register is owned by super_admin / admin to keep classifications
@@ -215,6 +230,11 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // AE Inbox component which gates write actions on `BUYER_WRITE`
     // + role check.
     CAPS.MATCH_INBOX_VIEW,
+    // Inbound website enquiries — READ ONLY. LR handles buyer-side demand, so
+    // they can see buyer-audience rows (a US importer asking for a quote), but
+    // must not change status: UI gates triage controls on MARKETING_LEADS_TRIAGE
+    // (which LR is deliberately NOT given).
+    CAPS.MARKETING_LEADS_VIEW,
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
     // risk register is curated by super_admin / admin only to avoid
     // inconsistent classifications. LR can still SEE per-country risk on
@@ -262,6 +282,14 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // Demand signals for sourcing priorities (aggregate-only page —
     // /admin/sourcing is gated on CLIENT_VIEW and never shows buyer PII).
+    //
+    // Inbound supplier enquiries from the public landing page are SR's own
+    // pipeline (migration 082): a factory that asked Vexim to sell for it
+    // arrives with contact details + industry already filled in. TRIAGE lets
+    // SR own the follow-up and mark junk; converting the enquiry into a real
+    // client still goes through CLIENT_WRITE, not this queue.
+    CAPS.MARKETING_LEADS_VIEW,
+    CAPS.MARKETING_LEADS_TRIAGE,
   ],
 
   finance: [

@@ -3,22 +3,55 @@ import { z } from "zod"
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
 import { INDUSTRIES } from "@/lib/constants/industries"
 import { siteConfig } from "@/lib/site-config"
+import { checkRateLimit, type RateRule } from "@/lib/security/rate-limit"
+import { clientIpFromHeaders, recordMarketingLead } from "@/lib/marketing/leads"
 
 /**
  * Public endpoint powering the landing "Đặt lịch tư vấn 1:1" form.
  *
  * Flow:
- *   1. Validate payload with zod (server-side — never trust the client).
- *   2. Send an internal notification email to the inbox via Resend.
- *   3. Send an auto-reply confirmation to the lead so they know we got it.
+ *   1. Throttle by client IP (before we even parse the body — floods are the
+ *      only case where parsing is a cost we pay for free).
+ *   2. Validate payload with zod (server-side — never trust the client).
+ *   3. Persist to `public.marketing_leads` (migration 082) with a source tag
+ *      and utm/referrer attribution. THIS IS THE SYSTEM OF RECORD.
+ *   4. Send an internal notification email + an auto-reply to the lead.
  *
- * We deliberately do NOT persist to the DB here — the user said they
- * manage the database themselves. If they later want leads inserted
- * into the `leads` table, we can extend this route without touching
- * the form UI.
+ * Ordering matters. Before 082 this route only emailed, which meant a lead was
+ * worth exactly as much as the SMTP connection that carried it. Now:
+ *   - DB write fails (no service-role key in a preview, migration not applied
+ *     yet, transient PostgREST error) → we still send the email and still
+ *     answer 200, because the human on the other end did nothing wrong.
+ *   - DB write OK but internal email fails → answer 200. The lead is captured;
+ *     telling the visitor "try again" would only produce a duplicate.
+ *   - Both failed → 502, so the form can show a fallback contact address.
+ *
+ * Audience note: this form is submitted by VIETNAMESE SUPPLIERS (factories
+ * wanting Vexim to sell for them), so the row is tagged audience='supplier'
+ * and lands in the sourcing queue. It is deliberately NOT inserted into
+ * `public.leads`, which is the BUYER table feeding AI matching (see the header
+ * of scripts/082_marketing_leads.sql).
  */
 
 export const runtime = "nodejs"
+
+/**
+ * Two cheap windows are enough for a form that should see a handful of
+ * submissions a day: a burst guard and a slow-drip guard. Both are per
+ * instance — see lib/security/rate-limit.ts for why the durable backstop is
+ * the unique index in 082, not this map.
+ *
+ * 8/10min per IP is deliberately loose for a NAT'd office (one egress IP,
+ * several real factories) and tight enough that a scraper has to pace itself.
+ * Behind Vercel `x-forwarded-for` is always present; the shared "unknown"
+ * bucket only exists in dev, where the same limit applies to the whole
+ * machine — use the env var below when testing the form repeatedly.
+ */
+const IP_RULE: RateRule = { limit: 8, windowMs: 10 * 60 * 1000 }
+const EMAIL_RULE: RateRule = { limit: 3, windowMs: 60 * 60 * 1000 }
+
+/** Escape hatch for local QA / load testing: MARKETING_LEAD_RATE_LIMIT_DISABLED=1 */
+const RATE_LIMIT_DISABLED = process.env.MARKETING_LEAD_RATE_LIMIT_DISABLED === "1"
 
 const ALLOWED_TIMES = [
   "morning",       // 9:00 – 12:00
@@ -33,6 +66,9 @@ const TIME_LABELS_VI: Record<(typeof ALLOWED_TIMES)[number], string> = {
   evening: "Buổi tối (18:00 – 21:00)",
   anytime: "Giờ nào cũng được",
 }
+
+/** Optional, free-text marketing fields: absent or empty both mean "not given". */
+const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""))
 
 const payloadSchema = z.object({
   fullName: z.string().trim().min(2, "Họ tên quá ngắn").max(120),
@@ -51,9 +87,29 @@ const payloadSchema = z.object({
   message: z.string().trim().max(2000).optional().or(z.literal("")),
   // Honeypot — real humans leave this empty. Bots auto-fill it.
   website: z.string().optional(),
+  // ---- Attribution (additive: the form sends these, older clients may not) ----
+  locale: z.enum(["vi", "en"]).optional(),
+  pagePath: optionalText(200),
+  referrer: optionalText(300),
+  utmSource: optionalText(120),
+  utmMedium: optionalText(120),
+  utmCampaign: optionalText(200),
+  utmContent: optionalText(200),
+  utmTerm: optionalText(200),
+  gclid: optionalText(120),
 })
 
 export async function POST(req: Request) {
+  const ip = clientIpFromHeaders(req.headers)
+
+  // 1) Flood gate. Runs before parsing so a spam burst costs us one Map lookup,
+  //    not a JSON parse + zod pass + SMTP call. Language comes from the locale
+  //    cookie here, because the body has not been read yet.
+  if (!RATE_LIMIT_DISABLED) {
+    const ipVerdict = checkRateLimit(`consultation:ip:${ip ?? "unknown"}`, IP_RULE)
+    if (!ipVerdict.allowed) return rateLimited(ipVerdict.retryAfterSeconds, requestLocale(req))
+  }
+
   let json: unknown
   try {
     json = await req.json()
@@ -75,9 +131,58 @@ export async function POST(req: Request) {
 
   const data = parsed.data
 
-  // Honeypot tripped — silently accept (don't signal to bots that we filtered them).
+  // Honeypot tripped — silently accept (don't signal to bots that we filtered
+  // them). No DB write, no email; the IP bucket above already counted the hit,
+  // so a bot that sprays this field still walks into the 429.
   if (data.website && data.website.trim().length > 0) {
     return NextResponse.json({ ok: true })
+  }
+
+  // 2) Slow-drip gate per address, so one company can't occupy the queue.
+  const emailVerdict = checkRateLimit(`consultation:email:${data.email.toLowerCase()}`, EMAIL_RULE)
+  if (!emailVerdict.allowed) {
+    return rateLimited(emailVerdict.retryAfterSeconds, data.locale ?? requestLocale(req))
+  }
+
+  // 3) Persist first — the row is the system of record, the email is a
+  //    notification about it. `recordMarketingLead` never throws: a missing
+  //    service-role key or an unapplied 082 migration comes back as
+  //    stored=false and we fall through to the email-only behaviour we had
+  //    before (no lead lost, just no DB copy).
+  const lead = await recordMarketingLead({
+    audience: "supplier",
+    source: "landing_consultation",
+    fullName: data.fullName,
+    email: data.email,
+    phone: data.phone,
+    company: data.company,
+    industry: data.industry,
+    preferredTime: data.preferredTime,
+    message: data.message,
+    locale: data.locale,
+    attribution: {
+      pagePath: data.pagePath,
+      // Same-origin fetch sends Referer, so we get the submitting page even if
+      // an older build of the form doesn't send pagePath.
+      referrer: data.referrer || req.headers.get("referer"),
+      utmSource: data.utmSource,
+      utmMedium: data.utmMedium,
+      utmCampaign: data.utmCampaign,
+      utmContent: data.utmContent,
+      utmTerm: data.utmTerm,
+      gclid: data.gclid,
+      userAgent: req.headers.get("user-agent"),
+      ip,
+    },
+    // Keep what the visitor actually sent (minus the honeypot) so future form
+    // fields aren't silently dropped when the schema grows.
+    rawPayload: { ...data, website: undefined },
+  })
+
+  // Same person, same still-untouched row → nothing new to route. Confirm
+  // receipt and re-show the original reference instead of emailing twice.
+  if (lead.duplicate) {
+    return NextResponse.json({ ok: true, reference: lead.reference ?? undefined, duplicate: true })
   }
 
   const submittedAt = new Date()
@@ -95,6 +200,7 @@ export async function POST(req: Request) {
   const internalRecipient = process.env.ZOHO_SMTP_USER ?? getFromAddress()
 
   const internalHtml = renderInternalEmail({
+    reference: lead.reference,
     fullName: data.fullName,
     email: data.email,
     phone: data.phone,
@@ -105,9 +211,10 @@ export async function POST(req: Request) {
     submittedAt: submittedAtLabel,
   })
 
-  const internalText = [
+  const internalTextLines = [
     "Yêu cầu đặt lịch tư vấn 1:1 mới",
     "----------------------------------",
+    lead.reference ? `Mã lead:       ${lead.reference}` : "Mã lead:       (không có — DB chưa ghi được)",
     `Họ tên:        ${data.fullName}`,
     `Email:         ${data.email}`,
     `Điện thoại:    ${data.phone}`,
@@ -115,11 +222,23 @@ export async function POST(req: Request) {
     `Ngành hàng:    ${data.industry}`,
     `Thời gian:     ${preferredTimeLabel}`,
     "",
+    "Nguồn:",
+    `  page:        ${data.pagePath || "/#consultation"}`,
+    `  referrer:    ${data.referrer || "(trực tiếp)"}`,
+    `  utm:         ${[data.utmSource, data.utmMedium, data.utmCampaign].filter(Boolean).join(" / ") || "(không có)"}`,
+    "",
     "Nội dung:",
     data.message?.trim() || "(không có)",
     "",
     `Gửi lúc: ${submittedAtLabel}`,
-  ].join("\n")
+  ]
+  if (!lead.stored) {
+    internalTextLines.push(
+      "",
+      "CẢNH BÁO: không ghi được vào bảng marketing_leads — lead này chỉ tồn tại trong email.",
+    )
+  }
+  const internalText = internalTextLines.join("\n")
 
   const customerHtml = renderCustomerEmail({
     fullName: data.fullName,
@@ -146,11 +265,12 @@ export async function POST(req: Request) {
     siteConfig.url,
   ].join("\n")
 
-  // Fire both emails. We await internal first (must succeed — that's how
-  // the team sees the lead). The customer auto-reply is best-effort.
+  // Fire both emails. Internal first (that's how the team sees the lead); the
+  // customer auto-reply is best-effort.
+  const referenceTag = lead.reference ? ` #${lead.reference}` : ""
   const internalResult = await sendMail({
     to: internalRecipient,
-    subject: `[Tư vấn 1:1] ${data.company} · ${data.fullName}`,
+    subject: `[Tư vấn 1:1${referenceTag}] ${data.company} · ${data.fullName}`,
     html: internalHtml,
     text: internalText,
     // Let the team hit "Reply" and go straight to the lead.
@@ -162,10 +282,21 @@ export async function POST(req: Request) {
       "[v0] consultation: internal email failed:",
       internalResult.error.message,
     )
+    // If the row is in the DB the enquiry is not lost — failing the request
+    // here would only teach the visitor to submit twice. Escalate to an error
+    // only when both the DB write and the email are gone.
+    if (lead.stored) {
+      return NextResponse.json({ ok: true, reference: lead.reference ?? undefined, queued: false })
+    }
     return NextResponse.json(
       {
-        error:
-          "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp hello@veximtrade.com.",
+        error: localized(
+          {
+            vi: "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp hello@veximtrade.com.",
+            en: "We could not submit your request. Please try again, or email hello@veximtrade.com directly.",
+          },
+          data.locale ?? requestLocale(req),
+        ),
       },
       { status: 502 },
     )
@@ -179,14 +310,58 @@ export async function POST(req: Request) {
   })
 
   if (customerResult.error) {
-    // Don't fail the request — we've already captured the lead internally.
+    // Don't fail the request — the lead is captured and the team was notified.
     console.warn(
       "[v0] consultation: customer auto-reply failed:",
       customerResult.error.message,
     )
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, reference: lead.reference ?? undefined })
+}
+
+// --------------------------------------------------------------------------
+// Responses
+// --------------------------------------------------------------------------
+
+/** Picks the copy for the submitter's language, defaulting to VI (the landing's primary audience). */
+function localized(copies: { vi: string; en: string }, locale?: "vi" | "en"): string {
+  return locale === "en" ? copies.en : copies.vi
+}
+
+/**
+ * Locale before the body is parsed — the same `esh_locale` cookie the app's own
+ * locale switcher writes (lib/i18n/config.ts). Needed because the flood gate
+ * answers 429 without ever reading the payload, and an English-speaking visitor
+ * should not be told to retry in Vietnamese.
+ */
+function requestLocale(req: Request): "vi" | "en" | undefined {
+  const raw = req.headers.get("cookie")
+  if (!raw) return undefined
+  for (const part of raw.split(";")) {
+    const [name, value] = part.trim().split("=")
+    if (name === "esh_locale" && (value === "en" || value === "vi")) return value
+  }
+  return undefined
+}
+
+function rateLimited(retryAfterSeconds: number, locale?: "vi" | "en") {
+  return NextResponse.json(
+    {
+      error: localized(
+        {
+          vi: "Bạn vừa gửi quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.",
+          en: "Too many requests from you right now. Please try again in a few minutes.",
+        },
+        locale,
+      ),
+      retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds), "X-RateLimit-Remaining": "0" },
+    },
+  )
 }
 
 // --------------------------------------------------------------------------
@@ -194,6 +369,8 @@ export async function POST(req: Request) {
 // --------------------------------------------------------------------------
 
 interface InternalEmailData {
+  /** Row id in marketing_leads — null when the DB write was unavailable. */
+  reference: string | null
   fullName: string
   email: string
   phone: string
@@ -245,6 +422,7 @@ function renderInternalEmail(d: InternalEmailData): string {
           </td></tr>
           <tr><td style="padding:8px 24px 24px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+              ${d.reference ? row("Mã lead", d.reference) : ""}
               ${row("Họ và tên", d.fullName)}
               ${row("Email", d.email)}
               ${row("Điện thoại", d.phone)}
@@ -260,7 +438,11 @@ function renderInternalEmail(d: InternalEmailData): string {
             </div>
           </td></tr>
           <tr><td style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;font:12px/18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#94a3b8;">
-            Gửi lúc ${escapeHtml(d.submittedAt)} (giờ Việt Nam) · Nguồn: landing page ${escapeHtml(siteConfig.url)}
+            Gửi lúc ${escapeHtml(d.submittedAt)} (giờ Việt Nam) · Nguồn: landing page ${escapeHtml(siteConfig.url)}${
+              d.reference
+                ? ` · Đã lưu vào bảng <code>marketing_leads</code> — tra theo mã ${escapeHtml(d.reference)}`
+                : " · ⚠ Chưa lưu được vào DB (kiểm tra migration 082 / service-role key)"
+            }
           </td></tr>
         </table>
       </td></tr>

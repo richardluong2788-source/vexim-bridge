@@ -336,7 +336,14 @@ export interface CreateIntakeLinkResult {
  * already in REVIEWER_ROLES (intake/actions.ts) so they can approve it
  * later too.
  */
-export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
+export async function createIntakeLink(prefill?: {
+  email?: string
+  company_name?: string
+  contact_name?: string
+  phone?: string
+  industries?: string[]
+  client_id?: string
+}): Promise<CreateIntakeLinkResult> {
   const supabase = await createClient()
   const {
     data: { user: caller },
@@ -363,11 +370,71 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
   const token = randomBytes(24).toString("base64url")
   const admin = createAdminClient()
 
-  const { data: row, error } = await admin
-    .from("client_intake_submissions")
-    .insert({ token, ae_id: caller.id })
-    .select("expires_at")
-    .single()
+  // Prefill from existing client if client_id provided
+  let prefillData: Record<string, any> = {}
+  if (prefill?.client_id) {
+    const { data: client } = await admin
+      .from("profiles")
+      .select("email, full_name, company_name, industries, phone")
+      .eq("id", prefill.client_id)
+      .maybeSingle()
+    if (client) {
+      prefillData = {
+        email: client.email ?? prefill.email ?? null,
+        contact_name: client.full_name ?? prefill.contact_name ?? null,
+        company_name: client.company_name ?? prefill.company_name ?? null,
+        industries: client.industries ?? prefill.industries ?? [],
+        phone: client.phone ?? prefill.phone ?? null,
+      }
+    }
+  } else if (prefill) {
+    prefillData = {
+      email: prefill.email ?? null,
+      company_name: prefill.company_name ?? null,
+      contact_name: prefill.contact_name ?? null,
+      phone: prefill.phone ?? null,
+      industries: prefill.industries ?? [],
+    }
+  }
+
+  const insertPayload: Record<string, any> = {
+    token,
+    ae_id: caller.id,
+    ...prefillData,
+  }
+
+  // If client_id provided, also store in a dedicated column if exists (fallback to created_client_id for tracking)
+  // We use a JSON column or just keep in company_name etc. For future, we store linked client id in review_notes as JSON
+  // But we also try to insert into a column client_id if migration added it – ignore error if column missing
+  // So we attempt with client_id, and fallback without
+
+  let row: any = null
+  let error: any = null
+
+  // Try insert with client_id column (new flow)
+  const tryPayloads = [
+    { ...insertPayload, client_id: prefill?.client_id ?? null },
+    insertPayload,
+  ]
+
+  for (const payload of tryPayloads) {
+    const res = await admin
+      .from("client_intake_submissions")
+      .insert(payload)
+      .select("expires_at")
+      .single()
+    if (!res.error) {
+      row = res.data
+      error = null
+      break
+    }
+    // If error is about missing column client_id, try next
+    if (res.error?.message?.includes("client_id") || res.error?.code === "42703") {
+      continue
+    }
+    error = res.error
+    break
+  }
 
   if (error) {
     return { ok: false, error: error.message }
@@ -377,7 +444,7 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     await admin.from("activities").insert({
       opportunity_id: null,
       action_type: "client_intake_link_created",
-      description: JSON.stringify({ token_prefix: token.slice(0, 8) }),
+      description: JSON.stringify({ token_prefix: token.slice(0, 8), prefill: !!prefillData.company_name, client_id: prefill?.client_id ?? null }),
       performed_by: caller.id,
     })
   } catch (auditErr) {
@@ -391,4 +458,9 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     url: `${siteConfig.url}/client-intake/${token}`,
     expiresAt: row?.expires_at,
   }
+}
+
+// Helper for supplement flow after account creation – creates link tied to existing client
+export async function createSupplementLinkForClient(clientId: string): Promise<CreateIntakeLinkResult> {
+  return createIntakeLink({ client_id: clientId })
 }

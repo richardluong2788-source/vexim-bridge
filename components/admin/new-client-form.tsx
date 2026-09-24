@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, CheckCircle2, Loader2, Star, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2, Star, X, Link2, Copy, Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,8 @@ import {
   type Industry,
 } from "@/lib/constants/industries"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
-import { createClientAccount } from "@/app/admin/clients/new/actions"
+import { createClientAccount, createSupplementLinkForClient } from "@/app/admin/clients/new/actions"
+import { Link2, Copy, Check } from "lucide-react" 
 
 type Locale = "vi" | "en"
 
@@ -37,6 +38,7 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   const [success, setSuccess] = useState<{
     email: string
     company: string
+    userId: string
   } | null>(null)
 
   const [email, setEmail] = useState("")
@@ -49,6 +51,9 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   const [fdaMode, setFdaMode] = useState<"has_number" | "pending_supplement" | "none">("has_number")
   const [fdaNumber, setFdaNumber] = useState("")
   const [fdaExpiresAt, setFdaExpiresAt] = useState("")
+  const [supplementLink, setSupplementLink] = useState<{ url: string; expiresAt?: string } | null>(null)
+  const [isLinkPending, startLinkTransition] = useTransition()
+  const [copied, setCopied] = useState(false)
 
   const tr = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
@@ -123,11 +128,9 @@ export function NewClientForm({ locale }: NewClientFormProps) {
         return
       }
 
-      setSuccess({ email, company: companyName })
-      // Reset the form so the admin can add another
-      setEmail("")
+      setSuccess({ email, company: companyName, userId: result.userId! })
+      // Keep email/company for supplement link, but reset other fields
       setFullName("")
-      setCompanyName("")
       setSelectedIndustries([])
       setPhone("")
       setCountry("")
@@ -487,19 +490,70 @@ export function NewClientForm({ locale }: NewClientFormProps) {
 
           {/* Success */}
           {success && (
-            <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-              <div className="flex flex-col gap-1">
-                <span className="font-medium">
-                  {tr("Đã tạo khách hàng", "Client created")}:{" "}
-                  {success.company}
-                </span>
-                <span className="text-xs opacity-80">
-                  {tr(
-                    `Email magic-link đã được gửi tới ${success.email}. Khách hàng có thể đăng nhập ngay.`,
-                    `Magic-link email sent to ${success.email}. They can sign in immediately.`,
-                  )}
-                </span>
+            <div className="flex flex-col gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">
+                    {tr("Đã tạo khách hàng", "Client created")}:{" "}
+                    {success.company}
+                  </span>
+                  <span className="text-xs opacity-80">
+                    {tr(
+                      `Email magic-link đã được gửi tới ${success.email}. Khách hàng có thể đăng nhập ngay.`,
+                      `Magic-link email sent to ${success.email}. They can sign in immediately.`,
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-md bg-background border p-3 flex flex-col gap-2">
+                <p className="text-xs font-medium text-foreground">
+                  {tr("Bước tiếp theo: gửi link bổ sung hồ sơ (từ bước Giới thiệu doanh nghiệp, bỏ Liên hệ & Đăng ký)", "Next: send supplement link (from Company intro, skip Contact & Registration)")}
+                </p>
+                {!supplementLink ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit gap-2"
+                    disabled={isLinkPending}
+                    onClick={() => {
+                      setCopied(false)
+                      startLinkTransition(async () => {
+                        const res = await createSupplementLinkForClient(success.userId)
+                        if (res.ok && res.url) {
+                          setSupplementLink({ url: res.url, expiresAt: res.expiresAt })
+                        }
+                      })
+                    }}
+                  >
+                    {isLinkPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                    {tr("Tạo link bổ sung hồ sơ", "Generate supplement link")}
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Input readOnly value={supplementLink.url} className="font-mono text-xs" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(supplementLink.url)
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 2000)
+                        }}
+                      >
+                        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {tr("Link này chỉ dùng để bổ sung Giới thiệu doanh nghiệp, Năng lực & Chứng nhận, Đánh giá nhà máy – không bao gồm Liên hệ & Đăng ký vì tài khoản đã tạo.", "This link is for supplementing Company intro, Capability & Factory assessment – excludes Contact & Registration because account already exists.")}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

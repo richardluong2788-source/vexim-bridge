@@ -142,7 +142,6 @@ interface FormState {
 }
 
 const STEPS = [
-  { key: "contact", label: "Liên hệ & đăng ký", icon: User },
   { key: "company", label: "Giới thiệu doanh nghiệp", icon: Building2 },
   { key: "capability", label: "Năng lực & chứng nhận", icon: FileCheck2 },
   { key: "assessment", label: "Đánh giá năng lực nhà máy", icon: ClipboardCheck },
@@ -298,12 +297,6 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
   }
 
   function goNext() {
-    if (step === 0 && !step1Valid) {
-      setError(
-        "Vui lòng điền đầy đủ các trường bắt buộc (*) trước khi tiếp tục.",
-      )
-      return
-    }
     setError(null)
     setStep((s) => Math.min(s + 1, STEPS.length - 1))
   }
@@ -409,12 +402,19 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-balance text-foreground">
-          Hồ sơ đăng ký nhà cung cấp
+          Bổ sung hồ sơ nhà cung cấp
         </h1>
         <p className="text-sm text-pretty text-muted-foreground">
-          Vui lòng cung cấp thông tin doanh nghiệp để{" "}
-          {initial.ae_full_name ?? "nhân viên kinh doanh"} xem xét và tạo tài
-          khoản quản lý xuất khẩu cho bạn.
+          Tài khoản xuất khẩu của bạn đã được tạo bởi Vexim. Vui lòng bổ sung
+          thông tin doanh nghiệp, năng lực và chứng nhận để{" "}
+          {initial.ae_full_name ?? "nhân viên phụ trách"} hoàn thiện hồ sơ và đưa
+          sản phẩm của bạn đến buyer Mỹ.{" "}
+          {initial.email && (
+            <span>
+              Bạn sẽ đăng nhập bằng email <strong>{initial.email}</strong> sau
+              khi hồ sơ được duyệt.
+            </span>
+          )}
         </p>
       </div>
 
@@ -465,36 +465,34 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         <CardHeader>
           <CardTitle>{current.label}</CardTitle>
           <CardDescription>
-            {step === 0 &&
-              "5 thông tin bắt buộc để nhân viên kinh doanh tạo tài khoản cho bạn."}
-            {step === 1 && "Giúp buyer hiểu rõ hơn về doanh nghiệp của bạn."}
+            {step === 0 && "Giới thiệu doanh nghiệp, sản phẩm chính, công suất, MOQ – giúp buyer hiểu rõ hơn về bạn."}
+            {step === 1 &&
+              "Điểm mạnh, chứng nhận và hình ảnh nhà máy – tải ảnh chứng nhận để hiển thị trên trang hồ sơ công khai."}
             {step === 2 &&
-              "Điểm mạnh, chứng nhận và hình ảnh nhà máy — có thể bổ sung sau."}
-            {step === 3 &&
-              "9 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy — có thể bổ sung sau."}
-            {step === 4 && "Kiểm tra lại thông tin trước khi gửi."}
+              "9 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác – có thể bổ sung sau."}
+            {step === 3 && "Kiểm tra lại thông tin trước khi gửi cho Vexim."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {step === 0 && (
             <>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="companyName">
-                  Tên doanh nghiệp <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="companyName"
-                  value={form.companyName}
-                  onChange={(e) => update("companyName", e.target.value)}
-                  placeholder="Công ty TNHH Xuất khẩu ABC"
-                />
-              </div>
-
+              {(initial.company_name === null || initial.company_name === "" || initial.contact_name === null || initial.contact_name === "") && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  Tài khoản của bạn đã được tạo, nhưng chúng tôi chưa có thông tin liên hệ đầy đủ. Vui lòng bổ sung nếu thiếu.
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="contactName">
-                    Người liên hệ <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="companyName">Tên doanh nghiệp</Label>
+                  <Input
+                    id="companyName"
+                    value={form.companyName}
+                    onChange={(e) => update("companyName", e.target.value)}
+                    placeholder="Công ty TNHH Xuất khẩu ABC"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="contactName">Người liên hệ</Label>
                   <Input
                     id="contactName"
                     value={form.contactName}
@@ -502,13 +500,23 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                     placeholder="Nguyễn Văn A"
                   />
                 </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="phone">
-                    Số điện thoại <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => update("email", e.target.value)}
+                    placeholder="lienhe@congty.com"
+                    disabled={!!initial.email}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="phone">Số điện thoại</Label>
                   <Input
                     id="phone"
-                    type="tel"
                     value={form.phone}
                     onChange={(e) => update("phone", e.target.value)}
                     placeholder="+84 90 123 4567"
@@ -516,163 +524,24 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">
-                  Email <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => update("email", e.target.value)}
-                  placeholder="lienhe@congty.com"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Email này sẽ dùng để đăng nhập vào hệ thống Vexim Trade sau
-                  khi hồ sơ được duyệt.
-                </p>
-              </div>
-
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 block text-sm font-medium">
-                  Ngành nghề <span className="text-destructive">*</span>{" "}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    (chọn một hoặc nhiều)
-                  </span>
-                </legend>
+                <legend className="text-sm font-medium">Ngành nghề (chọn một hoặc nhiều)</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {INDUSTRIES.map((ind) => {
                     const checked = form.industries.includes(ind)
-                    const isPrimary = primary === ind
                     return (
-                      <button
-                        key={ind}
-                        type="button"
-                        role="checkbox"
-                        aria-checked={checked}
-                        onClick={() => toggleIndustry(ind)}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          checked
-                            ? "border-primary bg-primary/5 text-foreground"
-                            : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                            checked
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-input bg-background",
-                          )}
-                          aria-hidden="true"
-                        >
-                          {checked && <Check className="h-3 w-3" />}
+                      <label key={ind} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                        <Checkbox checked={checked} onCheckedChange={() => toggleIndustry(ind)} />
+                        <span className="flex flex-col">
+                          <span className="font-medium">{ind}</span>
+                          <span className="text-xs text-muted-foreground">{INDUSTRY_LABELS_VI[ind]}</span>
                         </span>
-                        <span className="flex flex-1 flex-col gap-0.5 leading-tight">
-                          <span className="font-medium text-foreground">{ind}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {INDUSTRY_LABELS_VI[ind]}
-                          </span>
-                        </span>
-                        {isPrimary && (
-                          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                            <Star className="h-2.5 w-2.5 fill-primary" />
-                            Chính
-                          </span>
-                        )}
-                      </button>
+                      </label>
                     )
                   })}
                 </div>
-                {form.industries.length > 1 && (
-                  <div className="mt-1 rounded-md border border-dashed border-border bg-muted/30 p-3">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                      Nhấn ngôi sao để đặt ngành chính
-                    </p>
-                    <ol className="flex flex-wrap gap-2">
-                      {form.industries.map((ind, idx) => (
-                        <li
-                          key={ind}
-                          className={cn(
-                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
-                            idx === 0
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border bg-background text-foreground",
-                          )}
-                        >
-                          {idx !== 0 && (
-                            <button
-                              type="button"
-                              onClick={() => promoteToPrimary(ind)}
-                              className="text-muted-foreground hover:text-primary"
-                            >
-                              <Star className="h-3 w-3" />
-                            </button>
-                          )}
-                          {idx === 0 && (
-                            <Star className="h-3 w-3 fill-primary text-primary" />
-                          )}
-                          <span>{ind}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
               </fieldset>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="country">Quốc gia</Label>
-                  <Input
-                    id="country"
-                    value={form.country}
-                    onChange={(e) => update("country", e.target.value)}
-                    placeholder="Vietnam"
-                    list="intake-country-suggestions"
-                  />
-                  <datalist id="intake-country-suggestions">
-                    {COUNTRY_SUGGESTIONS.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="taxCode">Mã số thuế</Label>
-                  <Input
-                    id="taxCode"
-                    value={form.taxCode}
-                    onChange={(e) => update("taxCode", e.target.value)}
-                    placeholder="0312345678"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="address">Địa chỉ</Label>
-                <Input
-                  id="address"
-                  value={form.address}
-                  onChange={(e) => update("address", e.target.value)}
-                  placeholder="Số 1, Đường ABC, Quận/Huyện, Tỉnh/Thành phố"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  value={form.website}
-                  onChange={(e) => update("website", e.target.value)}
-                  placeholder="https://congty.com"
-                />
-              </div>
-            </>
-          )}
-
-          {step === 1 && (
-            <>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="tagline">Slogan</Label>
                 <Input
@@ -734,7 +603,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             </>
           )}
 
-          {step === 2 && (
+          
+
+{step === 1 && (
             <>
               <fieldset className="flex flex-col gap-3">
                 <legend className="text-sm font-medium">
@@ -872,11 +743,15 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             </>
           )}
 
-          {step === 3 && (
+          
+
+{step === 2 && (
             <FactoryCapabilityStep values={form.assessment} onChange={updateAssessment} token={token} />
           )}
 
-          {step === 4 && (
+          
+
+{step === 3 && (
             <div className="flex flex-col gap-4 text-sm">
               <ReviewSection
                 title="Liên hệ & đăng ký"
@@ -974,7 +849,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             </div>
           )}
 
-          {step !== 3 && error && (
+          
+
+{step !== 2 && error && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span className="text-pretty">{error}</span>

@@ -323,7 +323,75 @@ export default async function RootPage() {
 
       <section id="consultation" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28"><div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start"><div className="pt-3"><p className="text-xs font-bold tracking-[0.2em] text-primary">{t.formEyebrow}</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">{t.formTitle}</h2><p className="mt-5 text-base leading-8 text-muted-foreground">{t.formText}</p><div className="mt-8 space-y-4"><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><ClipboardCheck className="h-4 w-4" /></span>{localeLabel(locale, "Đánh giá sơ bộ mức độ phù hợp", "Initial fit review")}</div><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><Calendar className="h-4 w-4" /></span>{localeLabel(locale, "Phản hồi trong 2–4 giờ làm việc", "Response within 2–4 business hours")}</div><div className="flex items-center gap-3 text-sm text-primary"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15"><BadgeCheck className="h-4 w-4" /></span>{localeLabel(locale, "Bảo mật thông tin nhà máy", "Factory information stays confidential")}</div></div></div><ConsultationForm locale={locale} /></div></section>
 
-      <footer className="border-t border-border bg-background"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10"><div className="flex items-center gap-2 font-semibold text-primary"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground"><TrendingUp className="h-4 w-4" /></span>Vexim Trade</div><p>{t.footerNote}</p><div className="flex items-center gap-4"><Link href={localizePath("/products", locale)} className="font-medium text-primary hover:text-cta">{t.catalog}</Link><a href={`tel:${siteConfig.contact.phone}`} className="font-semibold text-primary hover:text-cta">{siteConfig.contact.hotline}</a></div></div></footer>
+      <footer className="border-t border-border bg-[#0f172a] text-slate-200">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#0f172a]">
+                  <TrendingUp className="h-5 w-5" />
+                </span>
+                <span className="text-base font-bold tracking-tight text-white">Vexim Trade</span>
+              </div>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
+                {locale === "vi"
+                  ? "Phòng kinh doanh xuất khẩu thuê ngoài cho nhà máy Việt Nam - từ dữ liệu buyer, tuân thủ FDA/MoCRA đến đàm phán và thu USD."
+                  : "Outsourced export sales desk for Vietnamese factories - from buyer data and FDA/MoCRA compliance to negotiation and USD collection."}
+              </p>
+              <div className="mt-6 space-y-2 text-sm">
+                <a href={`mailto:${siteConfig.contact.email}`} className="block font-medium text-white hover:text-accent">
+                  {siteConfig.contact.email}
+                </a>
+                <a href={`tel:${siteConfig.contact.phone}`} className="block font-semibold text-white hover:text-accent">
+                  {siteConfig.contact.hotline} · {siteConfig.contact.phone}
+                </a>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "VĂN PHÒNG VIỆT NAM" : "VIETNAM OFFICE"}</p>
+              <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
+                <p className="font-semibold text-white">{siteConfig.contact.vietnamOffice.label}</p>
+                <p>{siteConfig.contact.vietnamOffice.street}</p>
+                <p>{siteConfig.contact.vietnamOffice.ward}</p>
+                <p className="pt-2 text-xs">
+                  <span className="text-slate-500">MST / Tax ID:</span> <span className="font-mono font-semibold text-white">{siteConfig.contact.vietnamOffice.taxId}</span>
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "ĐẠI DIỆN TẠI MỸ" : "U.S. AGENT"}</p>
+              <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
+                <p className="font-semibold text-white">{siteConfig.contact.usAgent.label}</p>
+                <p>{siteConfig.contact.usAgent.street}</p>
+                <p>{siteConfig.contact.usAgent.city}</p>
+                <p className="pt-2 text-xs">
+                  <span className="text-slate-500">EIN:</span> <span className="font-mono font-semibold text-white">{siteConfig.contact.usAgent.ein}</span>
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "LIÊN KẾT" : "LINKS"}</p>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm">
+                <Link href={localizePath("/products", locale)} className="text-slate-300 hover:text-white">
+                  {locale === "vi" ? "Danh mục sản phẩm" : "Product catalog"}
+                </Link>
+                <Link href={localizePath("/", locale)} className="text-slate-400 hover:text-white">
+                  {locale === "vi" ? "Dành cho buyer" : "For buyers"}
+                </Link>
+                <Link href={localizePath("/how-we-verify", locale)} className="text-slate-400 hover:text-white">
+                  {locale === "vi" ? "Cách chúng tôi sàng lọc" : "How we verify"}
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              © {new Date().getFullYear()} {siteConfig.legalName} · MST {siteConfig.contact.vietnamOffice.taxId} · EIN {siteConfig.contact.usAgent.ein}
+            </p>
+            <p>{t.footerNote}</p>
+          </div>
+        </div>
+      </footer>
     </main>
   )
 }

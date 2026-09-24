@@ -51,20 +51,32 @@ export const siteConfig = {
   contact: {
     email: "hello@veximtrade.com",
     support: "support@veximtrade.com",
-    // Vietnamese hotline as displayed (also surfaced as tel: link).
     hotline: "0373 685 634",
-    // E.164 form for `tel:` href and JSON-LD telephone field.
     phone: "+84373685634",
-    // Single-line address kept for inline use (footer first column, JSON-LD).
-    address:
-      "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch, Kim Chung, Hoài Đức, Hà Nội",
-    // Structured fields for schema.org PostalAddress (JSON-LD).
+    // Primary address for JSON-LD / SEO - Vietnam office
+    address: "Số 25/6 Ngõ 51 Phố Ngọa Long, Phường Tây Tựu, TP Hà Nội, Việt Nam",
     addressParts: {
-      streetAddress:
-        "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch",
-      addressLocality: "Kim Chung, Hoài Đức",
-      addressRegion: "Hà Nội",
+      streetAddress: "Số 25/6 Ngõ 51 Phố Ngọa Long",
+      addressLocality: "Phường Tây Tựu",
+      addressRegion: "TP Hà Nội",
       addressCountry: "VN",
+    },
+    // Full structured addresses for footer
+    vietnamOffice: {
+      label: "Văn phòng Việt Nam",
+      labelEn: "Vietnam Office",
+      street: "Số 25/6 Ngõ 51 Phố Ngọa Long",
+      ward: "Phường Tây Tựu, TP Hà Nội, Việt Nam",
+      taxId: "0111040294",
+      full: "Số 25/6 Ngõ 51 Phố Ngọa Long, Phường Tây Tựu, TP Hà Nội, Việt Nam",
+    },
+    usAgent: {
+      label: "U.S. Agent (Mỹ)",
+      labelEn: "U.S. Agent",
+      street: "1207 Delaware Ave",
+      city: "Wilmington, DE 19806, United States",
+      ein: "35-2957758",
+      full: "1207 Delaware Ave, Wilmington, DE 19806, United States",
     },
   },
   social: {

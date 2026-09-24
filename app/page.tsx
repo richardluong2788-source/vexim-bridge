@@ -839,28 +839,95 @@ export default async function RootPage() {
         </div>
       </section>
 
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
-          <div className="flex items-center gap-2 font-semibold text-primary">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <TrendingUp className="h-4 w-4" />
-            </span>
-            Vexim Trade
+      <footer className="border-t border-border bg-[#0f172a] text-slate-200">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#0f172a]">
+                  <TrendingUp className="h-5 w-5" />
+                </span>
+                <span className="text-base font-bold tracking-tight text-white">Vexim Trade</span>
+              </div>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
+                {locale === "vi"
+                  ? "Giúp buyer Mỹ tìm nguồn từ nhà máy Việt Nam đã sàng lọc với hỗ trợ kiểm tra NCC, rà soát tuân thủ FDA/MoCRA và điều phối QC. Không thu phí sourcing upfront cho buyer."
+                  : "Helping U.S. buyers source from screened Vietnamese factories with supplier verification, FDA/MoCRA review and QC coordination. No upfront sourcing fee for buyers."}
+              </p>
+              <div className="mt-6 space-y-2 text-sm">
+                <a href={`mailto:${siteConfig.contact.email}`} className="block font-medium text-white hover:text-accent">
+                  {siteConfig.contact.email}
+                </a>
+                <a href={`tel:${siteConfig.contact.phone}`} className="block font-semibold text-white hover:text-accent">
+                  {siteConfig.contact.hotline} · {siteConfig.contact.phone}
+                </a>
+              </div>
+              <div className="mt-6 flex items-center gap-2 text-xs text-slate-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {t.footerNote}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">
+                {locale === "vi" ? "VĂN PHÒNG VIỆT NAM" : "VIETNAM OFFICE"}
+              </p>
+              <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
+                <p className="font-semibold text-white">{siteConfig.contact.vietnamOffice.label}</p>
+                <p>{siteConfig.contact.vietnamOffice.street}</p>
+                <p>{siteConfig.contact.vietnamOffice.ward}</p>
+                <p className="pt-2 text-xs">
+                  <span className="text-slate-500">MST / Tax ID:</span> <span className="font-mono font-semibold text-white">{siteConfig.contact.vietnamOffice.taxId}</span>
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">
+                {locale === "vi" ? "ĐẠI DIỆN TẠI MỸ" : "U.S. AGENT"}
+              </p>
+              <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
+                <p className="font-semibold text-white">{siteConfig.contact.usAgent.label}</p>
+                <p>{siteConfig.contact.usAgent.street}</p>
+                <p>{siteConfig.contact.usAgent.city}</p>
+                <p className="pt-2 text-xs">
+                  <span className="text-slate-500">EIN:</span> <span className="font-mono font-semibold text-white">{siteConfig.contact.usAgent.ein}</span>
+                </p>
+                <p className="pt-1 text-[11px] leading-4 text-slate-500">
+                  {locale === "vi"
+                    ? "Đại diện tuân thủ tại Mỹ. Không phải văn phòng giao dịch trực tiếp cho buyer walk-in."
+                    : "U.S. compliance agent. Not a walk-in office for buyers."}
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "LIÊN KẾT" : "LINKS"}</p>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm">
+                <Link href={localizePath("/products", locale)} className="text-slate-300 hover:text-white">
+                  {locale === "vi" ? "NCC đã sàng lọc" : "Screened suppliers"}
+                </Link>
+                <Link href={localizePath("/how-we-verify", locale)} className="text-slate-300 hover:text-white">
+                  {locale === "vi" ? "Cách chúng tôi sàng lọc" : "How we verify"}
+                </Link>
+                <Link href={localizePath("/for-suppliers", locale)} className="text-slate-400 hover:text-white">
+                  {locale === "vi" ? "Dành cho NCC" : "For suppliers"}
+                </Link>
+                <Link href={localizePath("/legal", locale)} className="text-slate-400 hover:text-white">
+                  {locale === "vi" ? "Pháp lý" : "Legal"}
+                </Link>
+                <Link href={localizePath("/legal/privacy", locale)} className="mt-2 text-xs text-slate-500 hover:text-white">
+                  Privacy · Terms · Cookies
+                </Link>
+              </div>
+            </div>
           </div>
-          <p>{t.footerNote}</p>
-          <div className="flex items-center gap-4">
-            <Link href={localizePath("/products", locale)} className="font-medium text-primary hover:text-cta">
-              Screened suppliers
-            </Link>
-            <Link href={localizePath("/for-suppliers", locale)} className="font-medium text-primary hover:text-cta">
-              For suppliers
-            </Link>
-            <Link href={localizePath("/how-we-verify", locale)} className="font-medium text-primary hover:text-cta">
-              How we verify
-            </Link>
-            <a href={`tel:${siteConfig.contact.phone}`} className="font-semibold text-primary hover:text-cta">
-              {siteConfig.contact.hotline}
-            </a>
+          <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              © {new Date().getFullYear()} {siteConfig.legalName} · MST {siteConfig.contact.vietnamOffice.taxId} · EIN {siteConfig.contact.usAgent.ein}
+            </p>
+            <p className="max-w-2xl leading-5">
+              {locale === "vi"
+                ? "Vexim cung cấp dịch vụ rà soát và điều phối, không phải tư vấn pháp lý. Đăng ký/listing FDA không phải là phê duyệt của FDA."
+                : "Vexim provides review and coordination services, not legal advice. FDA facility registration/listing is not FDA approval."}
+            </p>
           </div>
         </div>
       </footer>

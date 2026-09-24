@@ -730,7 +730,7 @@ export default async function RootPage() {
           </div>
           <div className="relative overflow-hidden rounded-[1.4rem] border border-border bg-muted/30 p-3 shadow-xl">
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl">
-              <Image src="/landing/audience-manufacturer.jpg" alt="Vietnamese factory" fill className="object-cover" sizes="(max-width: 1024px) 90vw, 50vw" />
+              <Image src="/landing/evidence-factory.jpg" alt="Screened Vietnamese factory - production line with QC inspection" fill className="object-cover" sizes="(max-width: 1024px) 90vw, 50vw" />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/70 to-transparent" />
               <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
                 <p className="text-sm font-semibold text-white">Screened factories, not just listings</p>
@@ -741,6 +741,9 @@ export default async function RootPage() {
               <div className="rounded-lg bg-card p-3 border"><p className="font-semibold text-primary">Food</p><p className="text-muted-foreground">FDA reviewed</p></div>
               <div className="rounded-lg bg-card p-3 border"><p className="font-semibold text-primary">Supplements</p><p className="text-muted-foreground">cGMP docs</p></div>
               <div className="rounded-lg bg-card p-3 border"><p className="font-semibold text-primary">Cosmetics</p><p className="text-muted-foreground">MoCRA review</p></div>
+            </div>
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-4 text-emerald-800">
+              <span className="font-semibold">On-site verification example:</span> Production capability, QC process and documentation reviewed. Last reviewed: Sep 2026.
             </div>
           </div>
         </div>

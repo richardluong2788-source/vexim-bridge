@@ -858,7 +858,7 @@ export function AdminProductDialog({
               <h3 className="font-semibold">Ảnh sản phẩm</h3>
               <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
                 <p>• Dán link ảnh từ web hoặc tải file từ máy (tối đa 10 ảnh).</p>
-                <p>• Mỗi ảnh dưới 5MB. <span className="font-medium">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
+                <p>• Mỗi ảnh dưới 5MB.</p>
               </div>
 
               <ImageLinkInput
@@ -945,7 +945,6 @@ export function AdminProductDialog({
                     <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                     <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
                     <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB/ảnh</p>
-                    <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – không bắt buộc ngay lúc tạo sản phẩm</p>
                   </Label>
                   {compressing && (
                     <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
@@ -957,8 +956,8 @@ export function AdminProductDialog({
 
               {hasAnyImage && (
                 <div className="flex gap-2">
-                  <div className="text-xs text-muted-foreground italic">
-                    Bạn có thể bổ sung sau – thêm ảnh bằng link hoặc upload thêm file.
+                  <div className="text-xs text-muted-foreground">
+                    Thêm ảnh bằng link hoặc upload thêm file.
                   </div>
                   <label className="ml-auto text-xs text-primary cursor-pointer underline">
                     + Thêm ảnh

@@ -154,7 +154,6 @@ export function MediaGalleryField({
               <>
                 <Plus className="h-5 w-5" />
                 <span className="text-[11px] font-medium">Thêm ảnh</span>
-                <span className="text-[9px] italic">Bổ sung sau OK</span>
               </>
             )}
           </button>
@@ -165,7 +164,7 @@ export function MediaGalleryField({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5" />
           <span>
-            {value.length}/{maxFiles} ảnh · Dưới 5MB/ảnh · <span className="italic">Bạn có thể bổ sung sau</span>
+            {value.length}/{maxFiles} ảnh · Dưới 5MB/ảnh
           </span>
         </div>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

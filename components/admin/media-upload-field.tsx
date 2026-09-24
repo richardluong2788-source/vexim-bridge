@@ -174,7 +174,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
 
       {kind === "image" && (
         <p className="text-[11px] text-muted-foreground">
-          Dưới 5MB/ảnh. <span className="italic">Bạn có thể bổ sung sau</span> – không bắt buộc ngay.
+          Dưới 5MB/ảnh.
         </p>
       )}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

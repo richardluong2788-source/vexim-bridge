@@ -508,7 +508,6 @@ export function ClientProductDialog({
             <h3 className="font-medium">Product Images</h3>
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
               <p>• Upload or paste image links. Max 5MB each, max 10 images.</p>
-              <p>• <span className="font-medium">Bạn có thể bổ sung sau</span> – save product first, add images later.</p>
             </div>
 
             <ImageLinkInput
@@ -557,7 +556,6 @@ export function ClientProductDialog({
                   <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                   <p className="font-medium">Drag & drop or click to select</p>
                   <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Under 5MB</p>
-                  <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – not required now</p>
                 </Label>
                 {compressing && (
                   <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
@@ -569,7 +567,6 @@ export function ClientProductDialog({
 
             {hasAnyImage && (
               <div className="flex gap-2 text-xs">
-                <span className="text-muted-foreground italic">Bạn có thể bổ sung sau</span>
                 <label className="ml-auto text-primary cursor-pointer underline">
                   + Thêm ảnh
                   <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} disabled={uploading || compressing} className="hidden" />

@@ -301,7 +301,7 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
           <h3 className="font-semibold">Ảnh sản phẩm</h3>
           <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
             <p>• Dán link ảnh hoặc tải file từ máy (tối đa 10 ảnh).</p>
-            <p>• Mỗi ảnh dưới 5MB. <span className="font-medium text-foreground">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
+            <p>• Mỗi ảnh dưới 5MB.</p>
           </div>
 
           <ImageLinkInput
@@ -350,7 +350,6 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
                 <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                 <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
                 <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB/ảnh</p>
-                <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – không bắt buộc ngay lúc tạo</p>
               </Label>
               {compressing && (
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
@@ -362,7 +361,6 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
 
           {hasAnyImage && (
             <div className="flex gap-2 text-xs">
-              <span className="text-muted-foreground italic">Bạn có thể bổ sung sau</span>
               <label className="ml-auto text-primary cursor-pointer underline">
                 + Thêm ảnh
                 <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} disabled={uploading || compressing} className="hidden" />

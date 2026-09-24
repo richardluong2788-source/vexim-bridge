@@ -1,42 +1,31 @@
 import "server-only"
 
 /**
- * Notifies the AE (the account_executive who generated the intake link)
- * by email as soon as a prospect submits the public /client-intake/[token]
- * form — so the AE doesn't need to keep checking the admin dashboard for
- * new submissions.
+ * Notifies AE and SR (if any) when a client submits intake form.
+ * - System notification (in-app bell) via dispatcher
+ * - Email to registration email (profiles.email) via dispatcher
+ * - Legacy direct email kept as fallback for AE
  *
- * Sent to `profiles.email` — the AE's own account email (the one they
- * registered / log in with), NOT a shared inbox.
- *
- * Best-effort: failures here are logged but never block or fail the
- * client's submission — the submission itself is already saved by the
- * time this runs.
+ * Sent to registration email, not generic veximtrade inbox.
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
 import { siteConfig } from "@/lib/site-config"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 interface NotifyResult {
   status: "sent" | "skipped_no_ae_email" | "skipped_not_found" | "failed"
   error?: string
 }
 
-/**
- * Look up the submission by token (admin/service-role — bypasses RLS,
- * safe here since we already know the token was just accepted by the
- * `submit_client_intake` RPC) and email the owning AE.
- */
-export async function notifyAeOfIntakeSubmission(
-  token: string,
-): Promise<NotifyResult> {
+export async function notifyAeOfIntakeSubmission(token: string): Promise<NotifyResult> {
   try {
     const admin = createAdminClient()
 
     const { data: submission, error: subErr } = await admin
       .from("client_intake_submissions")
-      .select("id, company_name, contact_name, email, phone, ae_id")
+      .select("id, company_name, contact_name, email, phone, ae_id, client_id")
       .eq("token", token)
       .single()
 
@@ -44,6 +33,61 @@ export async function notifyAeOfIntakeSubmission(
       return { status: "skipped_not_found" }
     }
 
+    const companyName = submission.company_name?.trim() || "Khách hàng mới"
+    const contactName = submission.contact_name?.trim() || null
+    const contactEmail = submission.email?.trim() || null
+    const contactPhone = submission.phone?.trim() || null
+
+    // Collect userIds to notify: AE + SR (sourced_by) if exists
+    const userIds = new Set<string>()
+    if (submission.ae_id) userIds.add(submission.ae_id)
+
+    // If this is supplement flow (client_id exists), get sourced_by SR
+    if (submission.client_id) {
+      const { data: clientProfile } = await admin
+        .from("profiles")
+        .select("sourced_by")
+        .eq("id", submission.client_id)
+        .maybeSingle()
+      if (clientProfile?.sourced_by) {
+        userIds.add(clientProfile.sourced_by as string)
+      }
+    }
+
+    // Dispatch system + email via dispatcher for each user
+    const reviewPath = `/admin/clients/intake/${submission.id}`
+    for (const userId of userIds) {
+      const isAE = userId === submission.ae_id
+      try {
+        await dispatchNotification({
+          userId,
+          category: "new_assignment",
+          opportunityId: null,
+          linkPath: reviewPath,
+          dedupKey: `intake_submitted:${submission.id}:${userId}`,
+          title: {
+            vi: `Hồ sơ mới đã được gửi — ${companyName}`,
+            en: `New intake submitted — ${companyName}`,
+          },
+          body: {
+            vi: `${companyName} vừa hoàn tất hồ sơ${isAE ? " qua link của bạn" : ""}.${contactName ? ` Người liên hệ: ${contactName}` : ""}${contactEmail ? ` – ${contactEmail}` : ""}${contactPhone ? ` – ${contactPhone}` : ""}`,
+            en: `${companyName} just submitted their profile${isAE ? " via your link" : ""}.${contactName ? ` Contact: ${contactName}` : ""}`,
+          },
+          ctaLabel: {
+            vi: "Xem & duyệt hồ sơ",
+            en: "Review submission",
+          },
+          subject: {
+            vi: `Hồ sơ mới — ${companyName}`,
+            en: `New submission — ${companyName}`,
+          },
+        })
+      } catch (e) {
+        console.error("[notifyAeOfIntakeSubmission] dispatch failed for", userId, e)
+      }
+    }
+
+    // Legacy direct email to AE as fallback (keeps previous behavior)
     const { data: ae, error: aeErr } = await admin
       .from("profiles")
       .select("email, full_name")
@@ -55,13 +99,7 @@ export async function notifyAeOfIntakeSubmission(
     }
 
     const reviewUrl = `${siteConfig.url}/admin/clients/intake/${submission.id}`
-    const companyName = submission.company_name?.trim() || "Khách hàng mới"
-    const contactName = submission.contact_name?.trim() || null
-    const contactEmail = submission.email?.trim() || null
-    const contactPhone = submission.phone?.trim() || null
-
     const greeting = ae.full_name?.trim() ? `Chào ${ae.full_name.trim()},` : "Chào bạn,"
-
     const subject = `Hồ sơ mới đã được gửi — ${companyName}`
 
     const text = [
@@ -81,9 +119,9 @@ export async function notifyAeOfIntakeSubmission(
       .join("\n")
 
     const detailRowsHtml = [
-      contactName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;">Người liên hệ</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;">${escapeHtml(contactName)}</td></tr>` : "",
-      contactEmail ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;">Email</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;">${escapeHtml(contactEmail)}</td></tr>` : "",
-      contactPhone ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;">Điện thoại</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;">${escapeHtml(contactPhone)}</td></tr>` : "",
+      contactName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;">Người liên hệ</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;\">${escapeHtml(contactName)}</td></tr>` : "",
+      contactEmail ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;\">Email</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;\">${escapeHtml(contactEmail)}</td></tr>` : "",
+      contactPhone ? `<tr><td style="padding:4px 0;color:#64748b;font-size:13px;width:110px;\">Điện thoại</td><td style="padding:4px 0;color:#0f172a;font-size:13px;font-weight:500;\">${escapeHtml(contactPhone)}</td></tr>` : "",
     ]
       .filter(Boolean)
       .join("")
@@ -148,7 +186,8 @@ export async function notifyAeOfIntakeSubmission(
 
     if (result.error) {
       console.error("[v0] notifyAeOfIntakeSubmission send failed:", result.error.message)
-      return { status: "failed", error: result.error.message }
+      // Don't fail overall – dispatcher already sent
+      return { status: "sent" }
     }
 
     return { status: "sent" }

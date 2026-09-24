@@ -6,6 +6,7 @@ import { can, CAPS, normaliseRole } from '@/lib/auth/permissions';
 import { ownershipScopeFor, assertClientOwned } from '@/lib/auth/scope';
 import { redirect } from 'next/navigation';
 import { revalidateCatalog } from "@/lib/catalog/cache"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 type AdminSB = ReturnType<typeof createAdminClient>;
 
@@ -228,6 +229,39 @@ export async function addClientProductAction(
       performed_by: userId,
     },
   ]);
+
+  // Notify AE/SR if client self-added product (userId == clientId)
+  if (userId === clientId) {
+    try {
+      const { data: clientProfile } = await admin
+        .from("profiles")
+        .select("company_name, account_manager_id, sourced_by")
+        .eq("id", clientId)
+        .maybeSingle()
+      const companyName = clientProfile?.company_name || "Nhà cung cấp"
+      const notifyIds = new Set<string>()
+      if (clientProfile?.account_manager_id) notifyIds.add(clientProfile.account_manager_id as string)
+      if (clientProfile?.sourced_by) notifyIds.add(clientProfile.sourced_by as string)
+      for (const notifyId of notifyIds) {
+        dispatchNotification({
+          userId: notifyId,
+          category: "new_assignment",
+          opportunityId: null,
+          linkPath: `/admin/clients/${clientId}?tab=products`,
+          dedupKey: `client_product_added:${product.id}:${notifyId}`,
+          title: {
+            vi: `Sản phẩm mới — ${data.product_name}`,
+            en: `New product — ${data.product_name}`,
+          },
+          body: {
+            vi: `${companyName} vừa thêm sản phẩm "${data.product_name}" trong portal.`,
+            en: `${companyName} just added product "${data.product_name}" in portal.`,
+          },
+          ctaLabel: { vi: "Xem sản phẩm", en: "View product" },
+        }).catch(() => {})
+      }
+    } catch {}
+  }
 
   // A new listing must show up in the public catalog immediately, not after
   // the 5-minute revalidation window.

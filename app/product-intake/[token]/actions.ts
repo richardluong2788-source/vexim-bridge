@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { notifyAeAndSrOfProductIntake } from "@/lib/notifications/product-intake-submitted"
 
 interface ProductPayload {
   product_name: string
@@ -118,6 +119,11 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
       performed_by: link.client_id,
     })
   } catch {}
+
+  // Best-effort notify AE/SR via system + email to registration email
+  notifyAeAndSrOfProductIntake(token, data.product_name).catch((err) => {
+    console.error("[product intake] notify failed", err)
+  })
 
   return { success: true }
 }

@@ -71,12 +71,13 @@ export const siteConfig = {
       full: "Số 25/6 Ngõ 51 Phố Ngọa Long, Phường Tây Tựu, TP Hà Nội, Việt Nam",
     },
     usAgent: {
-      label: "U.S. Agent (Mỹ)",
-      labelEn: "U.S. Agent",
-      street: "1207 Delaware Ave",
-      city: "Wilmington, DE 19806, United States",
+      label: "U.S. Legal Entity",
+      labelEn: "U.S. Legal Entity",
+      company: "Vexim Global LLC",
+      street: "30 N Gould St, Ste R",
+      city: "Sheridan, WY 82801, United States",
       ein: "35-2957758",
-      full: "1207 Delaware Ave, Wilmington, DE 19806, United States",
+      full: "Vexim Global LLC, 30 N Gould St, Ste R, Sheridan, WY 82801, United States",
     },
   },
   social: {

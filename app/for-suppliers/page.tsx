@@ -359,10 +359,11 @@ export default async function RootPage() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "ĐẠI DIỆN TẠI MỸ" : "U.S. AGENT"}</p>
+              <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "PHÁP NHÂN MỸ" : "U.S. LEGAL ENTITY"}</p>
               <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
-                <p className="font-semibold text-white">{siteConfig.contact.usAgent.label}</p>
-                <p>{siteConfig.contact.usAgent.street}</p>
+                <p className="font-semibold text-white">{(siteConfig.contact.usAgent as any).company ?? "Vexim Global LLC"}</p>
+                <p className="text-xs text-slate-400">{siteConfig.contact.usAgent.label}</p>
+                <p className="pt-1">{siteConfig.contact.usAgent.street}</p>
                 <p>{siteConfig.contact.usAgent.city}</p>
                 <p className="pt-2 text-xs">
                   <span className="text-slate-500">EIN:</span> <span className="font-mono font-semibold text-white">{siteConfig.contact.usAgent.ein}</span>

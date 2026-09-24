@@ -189,9 +189,9 @@ export async function approveIntakeSubmission(
 
   const { data: submission, error: fetchErr } = await admin
     .from("client_intake_submissions")
-    .select("id, status, ae_id")
+    .select("id, status, ae_id, client_id, email")
     .eq("id", id)
-    .single()
+    .single() as { data: { id: string; status: string; ae_id: string; client_id: string | null; email: string | null } | null; error: any }
 
   if (fetchErr || !submission) return { ok: false, error: "not_found" }
   if (submission.status === "approved") {
@@ -210,22 +210,62 @@ export async function approveIntakeSubmission(
   const editResult = await updateIntakeSubmission(id, fields)
   if (!editResult.ok) return editResult
 
-  const createInput: CreateClientInput = {
-    email: fields.email,
-    full_name: fields.contact_name,
-    company_name: fields.company_name,
-    industries: fields.industries,
-    phone: fields.phone,
-    country: fields.country ?? null,
-    sourced_by: isSR ? caller.id : null,
-  }
+  let clientId: string
 
-  const createResult = await createClientAccount(createInput)
-  if (!createResult.ok || !createResult.userId) {
-    return { ok: false, error: createResult.error ?? "create_failed" }
-  }
+  // Supplement flow: if intake was generated for an existing client, reuse that client_id directly
+  if ((submission as any).client_id) {
+    clientId = (submission as any).client_id as string
+    try {
+      await admin
+        .from("profiles")
+        .update({
+          company_name: fields.company_name || undefined,
+          full_name: fields.contact_name || undefined,
+          phone: fields.phone || undefined,
+          industries: fields.industries?.length ? fields.industries : undefined,
+        })
+        .eq("id", clientId)
+    } catch {}
+  } else {
+    const createInput: CreateClientInput = {
+      email: fields.email,
+      full_name: fields.contact_name,
+      company_name: fields.company_name,
+      industries: fields.industries,
+      phone: fields.phone,
+      country: fields.country ?? null,
+      sourced_by: isSR ? caller.id : null,
+    }
 
-  const clientId = createResult.userId
+    const createResult = await createClientAccount(createInput)
+    if (createResult.ok && createResult.userId) {
+      clientId = createResult.userId
+    } else if (createResult.error === "email_exists") {
+      // Fallback supplement flow via email match
+      const { data: existingProfile } = await admin
+        .from("profiles")
+        .select("id, email")
+        .eq("email", fields.email.trim().toLowerCase())
+        .maybeSingle()
+      if (!existingProfile?.id) {
+        return { ok: false, error: "email_exists_but_profile_not_found" }
+      }
+      clientId = existingProfile.id
+      try {
+        await admin
+          .from("profiles")
+          .update({
+            company_name: fields.company_name || undefined,
+            full_name: fields.contact_name || undefined,
+            phone: fields.phone || undefined,
+            industries: fields.industries?.length ? fields.industries : undefined,
+          })
+          .eq("id", clientId)
+      } catch {}
+    } else {
+      return { ok: false, error: (createResult as any).error ?? "create_failed" }
+    }
+  }
 
   const toNumber = (value: number | null | undefined) => value ?? null
   const assessmentInput: AssessmentInput = {

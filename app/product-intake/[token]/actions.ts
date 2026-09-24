@@ -6,6 +6,7 @@ interface ProductPayload {
   product_name: string
   product_code?: string
   category: string
+  subcategory?: string
   description?: string
   country_of_origin?: string
   unit_of_measure?: string
@@ -17,8 +18,16 @@ interface ProductPayload {
   moq_unit?: string
   lead_time?: string
   incoterm?: string
+  incoterm_place?: string
+  payment_terms?: string
   hs_code?: string
   key_specifications?: string
+  usp?: string
+  monthly_capacity_units?: number
+  packing?: string
+  package_size?: string
+  shelf_life?: string
+  storage_conditions?: string
   price_confirmed: boolean
   image_urls?: string[]
 }
@@ -45,6 +54,7 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     product_name: data.product_name,
     product_code: data.product_code || null,
     category: data.category,
+    subcategory: data.subcategory || null,
     description: data.description || null,
     country_of_origin: data.country_of_origin || "Vietnam",
     unit_of_measure: data.unit_of_measure || "kg",
@@ -56,8 +66,16 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     moq_unit: data.moq_unit || null,
     lead_time: data.lead_time || null,
     incoterm: data.incoterm || null,
+    incoterm_place: data.incoterm_place || null,
+    payment_terms: data.payment_terms || null,
     hs_code: data.hs_code || null,
     key_specifications: data.key_specifications || null,
+    usp: data.usp || null,
+    monthly_capacity_units: data.monthly_capacity_units || null,
+    packing: data.packing || null,
+    package_size: data.package_size || null,
+    shelf_life: data.shelf_life || null,
+    storage_conditions: data.storage_conditions || null,
     status: "inactive",
     source_submission_id: null,
     image_urls: data.image_urls || [],
@@ -71,14 +89,15 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
   const { error: insertErr } = await admin.from("client_products").insert([basePayload])
 
   if (insertErr) {
-    // Fallback if new columns not migrated yet
-    if (insertErr.message.includes("price_confirmed") || insertErr.message.includes("price_attested") || insertErr.message.includes("image_urls")) {
+    // Fallback for missing columns (if migration 088 not yet applied)
+    const missingCol = insertErr.message.includes("column") || insertErr.message.includes("does not exist") || insertErr.message.includes("price_confirmed") || insertErr.message.includes("image_urls")
+    if (missingCol) {
       const fallback: any = { ...basePayload }
-      // try without new columns
-      delete fallback.price_confirmed
-      delete fallback.price_attested_at
-      delete fallback.price_attestation_text
-      // image_urls exists since 029, but keep fallback
+      // strip new columns one by one if needed
+      const tryCols = ["price_confirmed","price_attested_at","price_attestation_text","packing","package_size","shelf_life","storage_conditions","usp","payment_terms","incoterm_place","monthly_capacity_units","price_unit","subcategory"]
+      for (const col of tryCols) {
+        if (insertErr.message.includes(col)) delete fallback[col]
+      }
       const { error: retryErr } = await admin.from("client_products").insert([fallback])
       if (retryErr) {
         console.error("[v0] product intake retry failed:", retryErr.message)

@@ -220,9 +220,6 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Điền thông tin sản phẩm</h1>
-        <p className="text-sm text-muted-foreground">
-          Công ty: <span className="font-medium text-foreground">{companyName}</span> · Link này do AE tạo để supplier tự điền catalog. Mỗi sản phẩm sẽ được AE duyệt trước khi hiển thị công khai.
-        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 rounded-lg border bg-card p-6">

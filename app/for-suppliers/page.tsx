@@ -264,8 +264,8 @@ export default async function RootPage() {
       <JsonLd data={organizationJsonLd} id="organization-json-ld" />
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">
-          <Link href="/" className="group flex items-center gap-3" aria-label="Vexim Trade home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-transform group-hover:-rotate-3"><TrendingUp className="h-5 w-5" /></span>
+          <Link href="/" className="group flex items-center gap-2.5" aria-label="Vexim Trade home">
+            <Image src="/vexim-logo.png" alt="VEXIM" width={36} height={36} className="h-9 w-9 object-contain" />
             <span className="text-base font-bold tracking-tight text-primary">Vexim Trade</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground lg:flex" aria-label="Primary navigation">
@@ -328,9 +328,7 @@ export default async function RootPage() {
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#0f172a]">
-                  <TrendingUp className="h-5 w-5" />
-                </span>
+                <Image src="/vexim-logo.png" alt="VEXIM" width={36} height={36} className="h-9 w-9 object-contain rounded-lg bg-white p-1" />
                 <span className="text-base font-bold tracking-tight text-white">Vexim Trade</span>
               </div>
               <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">

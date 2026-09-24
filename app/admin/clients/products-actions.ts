@@ -108,6 +108,10 @@ export interface ClientProduct {
   storage_conditions: string | null;
   private_label_available: boolean;
   private_label_notes: string | null;
+  price_confirmed?: boolean;
+  price_attested_at?: string | null;
+  price_attested_by?: string | null;
+  price_attestation_text?: string | null;
 }
 
 // Add a new client product
@@ -146,6 +150,9 @@ export async function addClientProductAction(
     storage_conditions?: string;
     private_label_available?: boolean;
     private_label_notes?: string;
+    price_confirmed?: boolean;
+    price_attested_at?: string | null;
+    price_attestation_text?: string;
   }
 ) {
   const actor = await resolveActor();
@@ -198,6 +205,10 @@ export async function addClientProductAction(
         storage_conditions: data.storage_conditions || null,
         private_label_available: data.private_label_available ?? false,
         private_label_notes: data.private_label_notes || null,
+        price_confirmed: data.price_confirmed ?? false,
+        price_attested_at: data.price_attested_at || (data.price_confirmed ? new Date().toISOString() : null),
+        price_attested_by: data.price_confirmed ? userId : null,
+        price_attestation_text: data.price_attestation_text || (data.price_confirmed ? 'Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.' : null),
         created_by: userId,
       },
     ])
@@ -261,6 +272,10 @@ export async function updateClientProductAction(
     storage_conditions: string;
     private_label_available: boolean;
     private_label_notes: string;
+    price_confirmed: boolean;
+    price_attested_at: string | null;
+    price_attested_by: string | null;
+    price_attestation_text: string;
   }>
   ) {
   const actor = await resolveActor();

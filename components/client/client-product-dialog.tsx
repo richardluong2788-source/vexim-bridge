@@ -103,6 +103,7 @@ export function ClientProductDialog({
   const [complianceBadges, setComplianceBadges] = useState<string[]>(
     product?.compliance_badges || []
   );
+  const [priceConfirmed, setPriceConfirmed] = useState((product as any)?.price_confirmed ?? false);
 
   const handleComplianceToggle = (value: string, checked: boolean) => {
     setComplianceBadges((prev) =>
@@ -112,6 +113,10 @@ export function ClientProductDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!priceConfirmed) {
+      toast.error('Vui lòng xác nhận cam kết giá trước khi lưu sản phẩm.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -124,6 +129,10 @@ export function ClientProductDialog({
           : undefined,
         moq_value: formData.moq_value ? parseFloat(formData.moq_value) : undefined,
         compliance_badges: complianceBadges,
+        price_confirmed: priceConfirmed,
+        price_attested_at: priceConfirmed ? new Date().toISOString() : undefined,
+        price_attestation_text:
+          'Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.',
       };
 
       let result;
@@ -429,6 +438,28 @@ export function ClientProductDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Price attestation */}
+          <div className="space-y-4">
+            <h3 className="font-medium">Cam kết giá / Price Attestation</h3>
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="price_confirmed_client"
+                  checked={priceConfirmed}
+                  onCheckedChange={(checked) => setPriceConfirmed(checked === true)}
+                  className="mt-0.5"
+                />
+                <label htmlFor="price_confirmed_client" className="text-sm font-medium leading-snug cursor-pointer">
+                  Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.
+                  <span className="text-destructive"> *</span>
+                  <p className="text-xs font-normal text-muted-foreground mt-1">
+                    Vexim kiểm tra chéo với giá công khai (website/Alibaba). Giá lưu kèm thời gian xác nhận để phục vụ audit.
+                  </p>
+                </label>
               </div>
             </div>
           </div>

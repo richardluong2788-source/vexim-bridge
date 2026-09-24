@@ -100,6 +100,9 @@ export function AdminProductDialog({
   const [privateLabelAvailable, setPrivateLabelAvailable] = useState(
     product?.private_label_available ?? false,
   );
+  const [priceConfirmed, setPriceConfirmed] = useState(
+    (product as any)?.price_confirmed ?? false,
+  );
 
   const isEditing = !!product;
 
@@ -140,6 +143,7 @@ export function AdminProductDialog({
     });
     setSampleAvailable(product?.sample_available ?? false);
     setPrivateLabelAvailable(product?.private_label_available ?? false);
+    setPriceConfirmed((product as any)?.price_confirmed ?? false);
     setFiles([]);
     setImageUrls(product?.image_urls || []);
     setComplianceBadges(product?.compliance_badges || []);
@@ -253,6 +257,14 @@ export function AdminProductDialog({
       // Merge existing URLs with newly uploaded URLs
       const finalImageUrls = [...imageUrls, ...newImageUrls];
 
+      if (!priceConfirmed) {
+        toast.error(
+          'Vui lòng xác nhận giá kê khai không được nâng riêng cho Vexim và phản ánh giá thương mại thực tế.',
+        );
+        setLoading(false);
+        return;
+      }
+
       const payload = {
         ...formData,
         monthly_capacity_units: formData.monthly_capacity_units
@@ -265,6 +277,8 @@ export function AdminProductDialog({
         compliance_badges: complianceBadges,
         sample_available: sampleAvailable,
         private_label_available: privateLabelAvailable,
+        price_confirmed: priceConfirmed,
+        price_attested_at: priceConfirmed ? new Date().toISOString() : null,
       };
 
       let result;
@@ -307,6 +321,7 @@ export function AdminProductDialog({
         });
         setSampleAvailable(false);
         setPrivateLabelAvailable(false);
+        setPriceConfirmed(false);
         setFiles([]);
         setImageUrls([]);
         setComplianceBadges([]);
@@ -596,6 +611,30 @@ export function AdminProductDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Price attestation — required checkbox per business rule */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="price_confirmed"
+                  checked={priceConfirmed}
+                  onCheckedChange={(checked) => setPriceConfirmed(checked === true)}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="price_confirmed"
+                  className="text-sm font-medium leading-snug cursor-pointer"
+                >
+                  Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức
+                  giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.
+                  <span className="text-destructive"> *</span>
+                  <p className="text-xs font-normal text-muted-foreground mt-1">
+                    Giá lưu tại thời điểm kê khai. AE cần đối chiếu với giá public (website/Alibaba) nếu có
+                    — không được cao hơn giá công khai cho cùng SKU/MOQ.
+                  </p>
+                </label>
               </div>
             </div>
           </div>

@@ -91,6 +91,7 @@ export interface IntakeSubmissionDetail {
   video_url: string | null
   certifications: string[] | null
   certifications_other: string | null
+  certification_image_urls?: string[] | null
   submitted_at: string | null
   created_client_id: string | null
   review_notes: string | null
@@ -106,6 +107,7 @@ export interface IntakeSubmissionDetail {
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
+  fda_certificate_url?: string | null
   audit_readiness?: string[] | null
   audit_owner?: string | null
   incoterms?: string[] | null
@@ -178,6 +180,7 @@ export function IntakeReviewDetail({
     videoUrl: submission.video_url ?? "",
     certifications: submission.certifications ?? [],
     certificationsOther: submission.certifications_other ?? "",
+    certificationImageUrls: (submission.certification_image_urls ?? []).join(", "),
   })
 
   const [assessment, setAssessment] = useState<FactoryCapabilityAnswers>(() => ({
@@ -193,6 +196,7 @@ export function IntakeReviewDetail({
     fda_status: submission.fda_status ?? "",
     fda_number: submission.fda_number ?? "",
     fda_expires_at: submission.fda_expires_at ?? "",
+    fda_certificate_url: submission.fda_certificate_url ?? "",
     audit_readiness: submission.audit_readiness ?? [],
     audit_owner: submission.audit_owner ?? "",
     incoterms: submission.incoterms ?? [],
@@ -282,6 +286,10 @@ export function IntakeReviewDetail({
       video_url: form.videoUrl || null,
       certifications: form.certifications,
       certifications_other: form.certificationsOther || null,
+      certification_image_urls: form.certificationImageUrls
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
       quality_systems: assessment.quality_systems,
       quality_systems_other: assessment.quality_systems_other || null,
       oem_odm: assessment.oem_odm,
@@ -293,6 +301,7 @@ export function IntakeReviewDetail({
       fda_status: assessment.fda_status || null,
       fda_number: assessment.fda_number || null,
       fda_expires_at: assessment.fda_expires_at || null,
+      fda_certificate_url: assessment.fda_certificate_url || null,
       audit_readiness: assessment.audit_readiness,
       audit_owner: assessment.audit_owner || null,
       incoterms: assessment.incoterms,
@@ -734,6 +743,17 @@ export function IntakeReviewDetail({
                   onChange={(e) => update("factoryImageUrls", e.target.value)}
                   placeholder={tr("Nhiều URL, ngăn cách bởi dấu phẩy", "Comma-separated URLs")}
                 />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>{tr("Ảnh chứng nhận (HACCP, ISO, FDA...)", "Certification images (HACCP, ISO, FDA...)")}</Label>
+                <Input
+                  value={form.certificationImageUrls}
+                  onChange={(e) => update("certificationImageUrls", e.target.value)}
+                  placeholder={tr("Nhiều URL, ngăn cách bởi dấu phẩy", "Comma-separated URLs")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {tr("Ảnh sẽ hiển thị trên trang hồ sơ công khai ở mục Chứng nhận & Tuân thủ.", "Images will show on the public profile in Certifications & Compliance.")}
+                </p>
               </div>
               <div className="flex flex-col gap-2">
                 <Label>{tr("URL video nhà máy", "Factory video URL")}</Label>

@@ -20,6 +20,7 @@ export interface ScoreResult {
 export interface FdaInfo {
   fda_registration_number: string | null
   fda_expires_at: string | null
+  fda_status?: string | null
 }
 
 const has = (arr: string[] | null | undefined, v: string) =>
@@ -56,13 +57,26 @@ export function computeScore(
   ex = Math.min(ex, 15)
   breakdown.push({ key: "export", label: "Kinh nghiệm xuất khẩu", score: ex, max: 15 })
 
-  // 3. FDA (10d)
+  // 3. FDA (10d) - them trang thai Dang trien khai
   let fdaScore = 0
-  if (fda.fda_registration_number) {
+  const fdaNum = fda.fda_registration_number?.trim() ?? ""
+  const fdaStat = (fda.fda_status ?? "").toLowerCase()
+  const isPendingStatus =
+    fdaStat === "pending_supplement" ||
+    fdaStat === "in_progress" ||
+    fdaStat === "dang_bo_sung" ||
+    fdaStat === "dang trien khai" ||
+    fdaNum.toLowerCase() === "pending" ||
+    fdaNum.toLowerCase().includes("dang")
+
+  if (fdaNum && fdaNum.toLowerCase() !== "pending" && !isPendingStatus) {
     const expired = fda.fda_expires_at
       ? new Date(fda.fda_expires_at).getTime() < Date.now()
       : false
     fdaScore = expired ? 4 : 10
+  } else if (isPendingStatus) {
+    // Dang trien khai: van du dieu kien co dieu kien, cho 3 diem de khuyen khich bo sung
+    fdaScore = 3
   }
   breakdown.push({ key: "fda", label: "Đăng ký FDA", score: fdaScore, max: 10 })
 

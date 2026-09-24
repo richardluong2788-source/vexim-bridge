@@ -30,6 +30,7 @@ interface IntakeSubmissionRow {
   video_url: string | null
   certifications: string[] | null
   certifications_other: string | null
+  certification_image_urls: string[] | null
   quality_systems: string[] | null
   quality_systems_other: string | null
   oem_odm: string[] | null
@@ -41,6 +42,7 @@ interface IntakeSubmissionRow {
   fda_status: string | null
   fda_number: string | null
   fda_expires_at: string | null
+  fda_certificate_url: string | null
   audit_readiness: string[] | null
   audit_owner: string | null
   incoterms: string[] | null

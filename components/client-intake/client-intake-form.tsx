@@ -94,6 +94,8 @@ interface IntakeInitialData {
   fda_status: string | null
   fda_number: string | null
   fda_expires_at: string | null
+  fda_certificate_url: string | null
+  certification_image_urls: string[] | null
   audit_readiness: string[] | null
   audit_owner: string | null
   incoterms: string[] | null
@@ -135,6 +137,7 @@ interface FormState {
   videoUrl: string
   certifications: string[]
   certificationsOther: string
+  certificationImageUrls: string
   assessment: FactoryCapabilityAnswers
 }
 
@@ -178,6 +181,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
     videoUrl: initial.video_url ?? "",
     certifications: initial.certifications ?? [],
     certificationsOther: initial.certifications_other ?? "",
+    certificationImageUrls: (initial.certification_image_urls ?? []).join(", "),
     assessment: {
       quality_systems: initial.quality_systems ?? [],
       quality_systems_other: initial.quality_systems_other ?? "",
@@ -190,6 +194,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
       fda_status: initial.fda_status ?? "",
       fda_number: initial.fda_number ?? "",
       fda_expires_at: initial.fda_expires_at ?? "",
+      fda_certificate_url: initial.fda_certificate_url ?? "",
       audit_readiness: initial.audit_readiness ?? [],
       audit_owner: initial.audit_owner ?? "",
       incoterms: initial.incoterms ?? [],
@@ -337,6 +342,10 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         video_url: form.videoUrl || undefined,
         certifications: form.certifications,
         certifications_other: form.certificationsOther || undefined,
+        certification_image_urls: form.certificationImageUrls
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
         quality_systems: form.assessment.quality_systems,
         quality_systems_other: form.assessment.quality_systems_other || undefined,
         oem_odm: form.assessment.oem_odm,
@@ -348,6 +357,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         fda_status: form.assessment.fda_status || undefined,
         fda_number: form.assessment.fda_number || undefined,
         fda_expires_at: form.assessment.fda_expires_at || undefined,
+        fda_certificate_url: form.assessment.fda_certificate_url || undefined,
         audit_readiness: form.assessment.audit_readiness,
         audit_owner: form.assessment.audit_owner || undefined,
         incoterms: form.assessment.incoterms,
@@ -461,7 +471,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             {step === 2 &&
               "Điểm mạnh, chứng nhận và hình ảnh nhà máy — có thể bổ sung sau."}
             {step === 3 &&
-              "10 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy — có thể bổ sung sau."}
+              "9 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác của nhà máy — có thể bổ sung sau."}
             {step === 4 && "Kiểm tra lại thông tin trước khi gửi."}
           </CardDescription>
         </CardHeader>
@@ -793,6 +803,23 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                   onChange={(e) => update("certificationsOther", e.target.value)}
                   placeholder="Chứng nhận khác (nếu có)"
                 />
+                <div className="flex flex-col gap-2 pt-2">
+                  <Label>Ảnh chứng nhận (HACCP, ISO, Halal, v.v.) – tối đa 5 ảnh</Label>
+                  <ImageLinkField
+                    max={5}
+                    token={token}
+                    value={form.certificationImageUrls
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)}
+                    onChange={(urls) => update("certificationImageUrls", urls.join(", "))}
+                    recommendedSize="1200 x 1600px – ảnh rõ nét, có số chứng nhận và ngày hết hạn"
+                    uploadLabel="Tải ảnh chứng nhận – dưới 5MB/ảnh"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ảnh chứng nhận sẽ được hiển thị trên trang hồ sơ nhà cung cấp (mục Chứng nhận & Tuân thủ) và giúp buyer xác minh nhanh.
+                  </p>
+                </div>
               </fieldset>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -846,7 +873,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
           )}
 
           {step === 3 && (
-            <FactoryCapabilityStep values={form.assessment} onChange={updateAssessment} />
+            <FactoryCapabilityStep values={form.assessment} onChange={updateAssessment} token={token} />
           )}
 
           {step === 4 && (
@@ -887,6 +914,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                       .join("; ") || "—",
                   ],
                   ["Chứng nhận", form.certifications.join(", ") || "—"],
+                  ["Ảnh chứng nhận", form.certificationImageUrls ? `${form.certificationImageUrls.split(",").filter(Boolean).length} ảnh` : "—"],
                 ]}
               />
               <ReviewSection
@@ -916,6 +944,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                     "Trạng thái FDA",
                     form.assessment.fda_status ? ASSESSMENT_LABELS[form.assessment.fda_status] : "—",
                   ],
+                  ["Số FDA", form.assessment.fda_number || "—"],
+                  ["Ngày hết hạn FDA", form.assessment.fda_expires_at || "—"],
+                  ["Ảnh FDA", form.assessment.fda_certificate_url ? "Đã tải" : "—"],
                   [
                     "Sẵn sàng Buyer Audit",
                     form.assessment.audit_readiness

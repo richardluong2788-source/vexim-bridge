@@ -31,6 +31,7 @@ export interface IntakeEditableFields {
   video_url?: string | null
   certifications?: string[]
   certifications_other?: string | null
+  certification_image_urls?: string[]
   quality_systems?: string[]
   quality_systems_other?: string | null
   oem_odm?: string[]
@@ -42,6 +43,7 @@ export interface IntakeEditableFields {
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
+  fda_certificate_url?: string | null
   audit_readiness?: string[]
   audit_owner?: string | null
   incoterms?: string[]
@@ -132,6 +134,7 @@ export async function updateIntakeSubmission(
     video_url: fields.video_url?.trim() || null,
     certifications: fields.certifications ?? [],
     certifications_other: fields.certifications_other?.trim() || null,
+    certification_image_urls: fields.certification_image_urls ?? [],
     quality_systems: fields.quality_systems ?? [],
     quality_systems_other: fields.quality_systems_other?.trim() || null,
     oem_odm: fields.oem_odm ?? [],
@@ -143,6 +146,7 @@ export async function updateIntakeSubmission(
     fda_status: fields.fda_status?.trim() || null,
     fda_number: fields.fda_number?.trim() || null,
     fda_expires_at: fields.fda_expires_at || null,
+    fda_certificate_url: fields.fda_certificate_url?.trim() || null,
     audit_readiness: fields.audit_readiness ?? [],
     audit_owner: fields.audit_owner?.trim() || null,
     incoterms: fields.incoterms ?? [],
@@ -292,6 +296,103 @@ export async function approveIntakeSubmission(
 
   if (profileErr) {
     console.error("[v0] client_profiles upsert after intake approval failed:", profileErr.message)
+  }
+
+  // ---- Mirror FDA + certification images into compliance_docs ----------------
+  // These images come from the intake wizard (ImageLinkField uploads to Blob)
+  // and should become visible on the supplier's public profile page.
+  try {
+    const complianceDocsToInsert: Array<{
+      owner_id: string
+      kind: string
+      title: string | null
+      url: string
+      mime_type: string | null
+      notes: string | null
+      uploaded_by: string | null
+    }> = []
+
+    if (fields.fda_certificate_url) {
+      complianceDocsToInsert.push({
+        owner_id: clientId,
+        kind: "fda_certificate",
+        title: fields.fda_number ? `FDA ${fields.fda_number}` : "FDA Certificate",
+        url: fields.fda_certificate_url,
+        mime_type: "image/jpeg",
+        notes: fields.fda_number || null,
+        uploaded_by: caller.id,
+      })
+    }
+
+    if (fields.certification_image_urls && fields.certification_image_urls.length > 0) {
+      for (const url of fields.certification_image_urls) {
+        if (!url) continue
+        complianceDocsToInsert.push({
+          owner_id: clientId,
+          kind: "other",
+          title: "Certification",
+          url,
+          mime_type: "image/jpeg",
+          notes: null,
+          uploaded_by: caller.id,
+        })
+      }
+    }
+
+    if (complianceDocsToInsert.length > 0) {
+      const { data: insertedDocs, error: docsErr } = await admin
+        .from("compliance_docs")
+        .insert(complianceDocsToInsert)
+        .select("id")
+
+      if (docsErr) {
+        console.error("[v0] compliance_docs insert from intake failed:", docsErr.message)
+      } else if (insertedDocs && insertedDocs.length > 0) {
+        // Auto-feature these docs on the profile so they show on public page
+        const docIds = insertedDocs.map((d: any) => d.id)
+        // Fetch current featured to merge
+        const { data: existingProfile } = await admin
+          .from("client_profiles")
+          .select("featured_certifications")
+          .eq("client_id", clientId)
+          .maybeSingle()
+
+        const currentFeatured = (existingProfile as any)?.featured_certifications ?? []
+        const mergedFeatured = Array.from(new Set([...currentFeatured, ...docIds]))
+
+        await admin
+          .from("client_profiles")
+          .update({ featured_certifications: mergedFeatured, updated_by: caller.id })
+          .eq("client_id", clientId)
+
+        // Also update FDA registration in profiles if provided
+        if (fields.fda_number || fields.fda_status) {
+          const fdaStatusMap: Record<string, string> = {
+            valid: "valid",
+            expired: "expired",
+            in_progress: "pending_supplement",
+            pending_supplement: "pending_supplement",
+            none: "missing",
+          }
+          const mappedStatus = fdaStatusMap[fields.fda_status ?? ""] ?? "missing"
+          const fdaNumberToSave =
+            fields.fda_status === "in_progress" || fields.fda_status === "pending_supplement"
+              ? "PENDING"
+              : fields.fda_number || null
+
+          await admin
+            .from("profiles")
+            .update({
+              fda_registration_number: fdaNumberToSave,
+              fda_expires_at: fields.fda_expires_at || null,
+              fda_status: mappedStatus,
+            })
+            .eq("id", clientId)
+        }
+      }
+    }
+  } catch (docErr) {
+    console.error("[v0] compliance_docs mirror from intake unexpected error:", docErr)
   }
 
   let seededProducts = 0

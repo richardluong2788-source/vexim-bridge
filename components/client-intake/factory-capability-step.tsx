@@ -18,10 +18,12 @@ import {
   toggleAssessmentValue,
   type FactoryCapabilityAnswers,
 } from "@/lib/assessment/constants"
+import { ImageLinkField } from "@/components/client-intake/image-link-field"
 
 interface FactoryCapabilityStepProps {
   values: FactoryCapabilityAnswers
   onChange: (patch: Partial<FactoryCapabilityAnswers>) => void
+  token?: string
 }
 
 function YesNo({
@@ -46,10 +48,14 @@ function YesNo({
 export function FactoryCapabilityStep({
   values: v,
   onChange,
+  token,
 }: FactoryCapabilityStepProps) {
+  const showFdaDetails = v.fda_status === "valid" || v.fda_status === "expired" || v.fda_status === "in_progress" || v.fda_status === "pending_supplement"
+  const requireFdaFields = v.fda_status === "valid"
+
   return (
     <div className="flex flex-col gap-8">
-      {/* 1 (muc 6): He thong quan ly chat luong & ATTP */}
+      {/* 1: He thong quan ly chat luong & ATTP */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           1. Hệ thống quản lý chất lượng &amp; ATTP đang áp dụng
@@ -78,7 +84,7 @@ export function FactoryCapabilityStep({
         )}
       </section>
 
-      {/* 2 (muc 7): OEM/ODM */}
+      {/* 2: OEM/ODM */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           2. Năng lực OEM / ODM
@@ -107,7 +113,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 3 (muc 8): Kinh nghiem xuat khau */}
+      {/* 3: Kinh nghiem xuat khau */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">3. Kinh nghiệm xuất khẩu</h3>
         <div className="flex flex-col gap-2">
@@ -146,7 +152,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 4 (muc 9): Truy xuat nguon goc */}
+      {/* 4: Truy xuat nguon goc */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">4. Hệ thống truy xuất nguồn gốc</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -164,7 +170,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 5 (muc 10): Dang ky FDA */}
+      {/* 5: Dang ky FDA - with in_progress + certificate upload */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">5. Đăng ký FDA</h3>
         <RadioGroup
@@ -178,31 +184,69 @@ export function FactoryCapabilityStep({
             </label>
           ))}
         </RadioGroup>
-        {v.fda_status === "valid" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaNumber">Số đăng ký FDA</Label>
-              <Input
-                id="fdaNumber"
-                placeholder="VD: 12345678901"
-                value={v.fda_number}
-                onChange={(e) => onChange({ fda_number: e.target.value })}
-              />
+
+        {v.fda_status === "in_progress" && (
+          <p className="text-xs text-muted-foreground rounded-md border border-dashed p-3 bg-muted/20">
+            Nhà máy đang trong quá trình đăng ký FDA. Vui lòng bổ sung số đăng ký và chứng chỉ ngay khi có. Trạng thái này vẫn đủ điều kiện để Vexim đánh giá và đưa vào shortlist (đủ điều kiện có điều kiện).
+          </p>
+        )}
+
+        {showFdaDetails && (
+          <div className="flex flex-col gap-4 rounded-md border border-border p-4 bg-card">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaNumber">
+                  Số đăng ký FDA {requireFdaFields && <span className="text-destructive">*</span>}
+                </Label>
+                <Input
+                  id="fdaNumber"
+                  placeholder={v.fda_status === "in_progress" ? "Đang triển khai – bổ sung sau" : "VD: 12345678901"}
+                  value={v.fda_number}
+                  onChange={(e) => onChange({ fda_number: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaExpiresAt">
+                  Ngày hết hạn {requireFdaFields && <span className="text-destructive">*</span>}
+                </Label>
+                <Input
+                  id="fdaExpiresAt"
+                  type="date"
+                  value={v.fda_expires_at}
+                  onChange={(e) => onChange({ fda_expires_at: e.target.value })}
+                />
+              </div>
             </div>
+
             <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaExpiresAt">Ngày hết hạn</Label>
-              <Input
-                id="fdaExpiresAt"
-                type="date"
-                value={v.fda_expires_at}
-                onChange={(e) => onChange({ fda_expires_at: e.target.value })}
-              />
+              <Label>
+                Chứng chỉ / Giấy đăng ký FDA (ảnh) {requireFdaFields && <span className="text-destructive">*</span>}
+              </Label>
+              {token ? (
+                <ImageLinkField
+                  max={1}
+                  token={token}
+                  value={v.fda_certificate_url ? [v.fda_certificate_url] : []}
+                  onChange={(urls) => onChange({ fda_certificate_url: urls[0] ?? "" })}
+                  recommendedSize="1200 x 1600px – ảnh rõ nét, có số FDA"
+                  uploadLabel="Tải ảnh chứng chỉ FDA – dưới 5MB"
+                />
+              ) : (
+                <Input
+                  placeholder="https://.../fda-certificate.jpg (hoặc tải ở bước hồ sơ)"
+                  value={v.fda_certificate_url}
+                  onChange={(e) => onChange({ fda_certificate_url: e.target.value })}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                Ảnh này sẽ được mapping với số FDA ở trên và hiển thị trên trang hồ sơ nhà cung cấp (mục Chứng nhận & Tuân thủ).
+              </p>
             </div>
           </div>
         )}
       </section>
 
-      {/* 6 (muc 12): Buyer Audit */}
+      {/* 6: Buyer Audit */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">6. Khả năng tiếp đón Buyer Audit</h3>
         <div className="flex flex-col gap-2">

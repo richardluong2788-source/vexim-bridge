@@ -95,17 +95,19 @@ export async function upsertAssessment(
   // Lay FDA tu profiles de cham diem
   const { data: clientProfileRaw } = await admin
     .from("profiles")
-    .select("fda_registration_number, fda_expires_at")
+    .select("fda_registration_number, fda_expires_at, fda_status")
     .eq("id", clientId)
     .single()
   const clientProfile = clientProfileRaw as {
     fda_registration_number: string | null
     fda_expires_at: string | null
+    fda_status: string | null
   } | null
 
   const score = computeScore(input, {
     fda_registration_number: clientProfile?.fda_registration_number ?? null,
     fda_expires_at: clientProfile?.fda_expires_at ?? null,
+    fda_status: clientProfile?.fda_status ?? null,
   })
 
   const payload = {

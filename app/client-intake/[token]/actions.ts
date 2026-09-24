@@ -27,6 +27,7 @@ export interface ClientIntakePayload {
   video_url?: string
   certifications?: string[]
   certifications_other?: string
+  certification_image_urls?: string[]
   quality_systems?: string[]
   quality_systems_other?: string
   oem_odm?: string[]
@@ -38,6 +39,7 @@ export interface ClientIntakePayload {
   fda_status?: string
   fda_number?: string
   fda_expires_at?: string
+  fda_certificate_url?: string
   audit_readiness?: string[]
   audit_owner?: string
   incoterms?: string[]
@@ -112,6 +114,7 @@ export async function submitClientIntake(
       video_url: data.video_url?.trim() || null,
       certifications: data.certifications ?? [],
       certifications_other: data.certifications_other?.trim() || null,
+      certification_image_urls: data.certification_image_urls ?? [],
       quality_systems: data.quality_systems ?? [],
       quality_systems_other: data.quality_systems_other?.trim() || null,
       oem_odm: data.oem_odm ?? [],
@@ -123,6 +126,7 @@ export async function submitClientIntake(
       fda_status: data.fda_status?.trim() || null,
       fda_number: data.fda_number?.trim() || null,
       fda_expires_at: data.fda_expires_at?.trim() || null,
+      fda_certificate_url: data.fda_certificate_url?.trim() || null,
       audit_readiness: data.audit_readiness ?? [],
       audit_owner: data.audit_owner?.trim() || null,
       incoterms: data.incoterms ?? [],

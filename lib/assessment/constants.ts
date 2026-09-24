@@ -1,6 +1,6 @@
 // ============================================================
 // Shared option lists + Vietnamese labels for the factory capability
-// assessment (mục 1–9 sau khi xóa mục 6 về nhân sự/giờ làm/môi trường).
+// assessment (muc 1-9 sau khi xoa muc 6 ve nhan su/gio lam/moi truong).
 // Used by both the AE-only internal assessment editor and the
 // client-facing intake wizard so the two stay in sync.
 // ============================================================
@@ -12,42 +12,44 @@ export const TRACEABILITY = ["lot", "input", "finished", "recall", "batch-lot", 
 export const AUDIT_READINESS = ["onsite", "online", "not-ready"] as const
 export const INCOTERMS = ["EXW", "FOB", "CIF"] as const
 export const COMMITMENTS = ["priority", "cooperation", "accuracy"] as const
-export const FDA_STATUS = ["valid", "expired", "none"] as const
+export const FDA_STATUS = ["valid", "expired", "in_progress", "none"] as const
 
 export const ASSESSMENT_LABELS: Record<string, string> = {
   HACCP: "HACCP",
   GMP: "GMP",
   ISO22000: "ISO 22000",
-  SOP: "SOP nội bộ",
-  QC: "Quy trình kiểm soát chất lượng",
-  other: "Khác",
+  SOP: "SOP noi bo",
+  QC: "Quy trinh kiem soat chat luong",
+  other: "Khac",
   OEM: "OEM",
   ODM: "ODM",
   "Private Label": "Private Label",
-  none: "Không triển khai / Chưa áp dụng",
-  US: "Hoa Kỳ",
+  none: "Khong trien khai / Chua ap dung",
+  US: "Hoa Ky",
   EU: "EU",
-  JP: "Nhật Bản",
-  KR: "Hàn Quốc",
-  CN: "Trung Quốc",
+  JP: "Nhat Ban",
+  KR: "Han Quoc",
+  CN: "Trung Quoc",
   ASEAN: "ASEAN",
-  ME: "Trung Đông",
-  lot: "Hồ sơ truy xuất theo từng lô hàng",
-  input: "Hồ sơ nguyên liệu đầu vào",
-  finished: "Hồ sơ thành phẩm",
-  recall: "Quy trình thu hồi sản phẩm",
-  "batch-lot": "Mã Batch/Lot",
-  onsite: "Sẵn sàng tiếp đón Buyer đến khảo sát nhà máy",
-  online: "Sẵn sàng thực hiện Audit Online",
-  "not-ready": "Chưa sẵn sàng",
-  EXW: "Báo giá EXW",
-  FOB: "Báo giá FOB",
-  CIF: "Báo giá CIF",
-  priority: "Cam kết ưu tiên nguồn lực để triển khai dự án cùng Vexim",
-  cooperation: "Cam kết phối hợp đầy đủ trong suốt quá trình phát triển thị trường",
-  accuracy: "Đồng ý cung cấp đầy đủ thông tin trung thực và chịu trách nhiệm về tính chính xác",
-  valid: "Còn hạn",
-  expired: "Hết hạn",
+  ME: "Trung Dong",
+  lot: "Ho so truy xuat theo tung lo hang",
+  input: "Ho so nguyen lieu dau vao",
+  finished: "Ho so thanh pham",
+  recall: "Quy trinh thu hoi san pham",
+  "batch-lot": "Ma Batch/Lot",
+  onsite: "San sang tiep don Buyer den khao sat nha may",
+  online: "San sang thuc hien Audit Online",
+  "not-ready": "Chua san sang",
+  EXW: "Bao gia EXW",
+  FOB: "Bao gia FOB",
+  CIF: "Bao gia CIF",
+  priority: "Cam ket uu tien nguon luc de trien khai du an cung Vexim",
+  cooperation: "Cam ket phoi hop day du trong suot qua trinh phat trien thi truong",
+  accuracy: "Dong y cung cap day du thong tin trung thuc va chiu trach nhiem ve tinh chinh xac",
+  valid: "Co - Con han",
+  expired: "Co - Het han",
+  in_progress: "Dang trien khai",
+  pending_supplement: "Dang trien khai",
 }
 
 /**
@@ -64,7 +66,7 @@ export function toggleAssessmentValue(arr: string[], v: string, single?: string[
 }
 
 /**
- * Shape of the factory-capability answers (mục 6–15), shared between the
+ * Shape of the factory-capability answers, shared between the
  * internal assessment form, the client intake wizard, and the AE review
  * screen. All fields optional/nullable since forms fill them incrementally.
  */
@@ -80,6 +82,7 @@ export interface FactoryCapabilityAnswers {
   fda_status: string
   fda_number: string
   fda_expires_at: string
+  fda_certificate_url: string
   audit_readiness: string[]
   audit_owner: string
   incoterms: string[]
@@ -105,6 +108,7 @@ export const EMPTY_FACTORY_CAPABILITY_ANSWERS: FactoryCapabilityAnswers = {
   fda_status: "",
   fda_number: "",
   fda_expires_at: "",
+  fda_certificate_url: "",
   audit_readiness: [],
   audit_owner: "",
   incoterms: [],

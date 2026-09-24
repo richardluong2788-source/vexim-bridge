@@ -49,22 +49,35 @@ export const siteConfig = {
   ],
   ogImage: "/landing/hero-dashboard.jpg",
   contact: {
-    email: "hello@veximtrade.com",
-    support: "support@veximtrade.com",
-    // Vietnamese hotline as displayed (also surfaced as tel: link).
+    email: "contact@veximglobal.com",
+    support: "contact@veximglobal.com",
     hotline: "0373 685 634",
-    // E.164 form for `tel:` href and JSON-LD telephone field.
     phone: "+84373685634",
-    // Single-line address kept for inline use (footer first column, JSON-LD).
-    address:
-      "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch, Kim Chung, Hoài Đức, Hà Nội",
-    // Structured fields for schema.org PostalAddress (JSON-LD).
+    // Primary address for JSON-LD / SEO - Vietnam office
+    address: "Số 25/6 Ngõ 51 Phố Ngọa Long, Phường Tây Tựu, TP Hà Nội, Việt Nam",
     addressParts: {
-      streetAddress:
-        "Tòa The Wisteria Hinode, Khu đô thị Hinode Royal Park Kim Chung Di Trạch",
-      addressLocality: "Kim Chung, Hoài Đức",
-      addressRegion: "Hà Nội",
+      streetAddress: "Số 25/6 Ngõ 51 Phố Ngọa Long",
+      addressLocality: "Phường Tây Tựu",
+      addressRegion: "TP Hà Nội",
       addressCountry: "VN",
+    },
+    // Full structured addresses for footer
+    vietnamOffice: {
+      label: "Văn phòng Việt Nam",
+      labelEn: "Vietnam Office",
+      street: "Số 25/6 Ngõ 51 Phố Ngọa Long",
+      ward: "Phường Tây Tựu, TP Hà Nội, Việt Nam",
+      taxId: "0111040294",
+      full: "Số 25/6 Ngõ 51 Phố Ngọa Long, Phường Tây Tựu, TP Hà Nội, Việt Nam",
+    },
+    usAgent: {
+      label: "U.S. Legal Entity",
+      labelEn: "U.S. Legal Entity",
+      company: "Vexim Global LLC",
+      street: "30 N Gould St, Ste R",
+      city: "Sheridan, WY 82801, United States",
+      ein: "35-2957758",
+      full: "Vexim Global LLC, 30 N Gould St, Ste R, Sheridan, WY 82801, United States",
     },
   },
   social: {

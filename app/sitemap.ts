@@ -32,9 +32,13 @@ function page(url: string, lastModified: Date, priority: number, changeFrequency
 /** Static floor: pages that exist regardless of database state. */
 function staticEntries(now: Date): Entry[] {
   return [
-    // The landing page is bilingual, so both locales get their own row.
+    // Buyer-first homepage is the root.
     page(publicUrl("/"), now, 1, "weekly"),
     page(publicUrl(localizePath("/", "vi")), now, 0.95, "weekly"),
+    page(publicUrl("/for-suppliers"), now, 0.9, "weekly"),
+    page(publicUrl(localizePath("/for-suppliers", "vi")), now, 0.85, "weekly"),
+    page(publicUrl("/how-we-verify"), now, 0.8, "monthly"),
+    page(publicUrl(localizePath("/how-we-verify", "vi")), now, 0.75, "monthly"),
     page(publicUrl("/products"), now, 0.9, "daily"),
     page(publicUrl(localizePath("/products", "vi")), now, 0.85, "daily"),
     {
@@ -43,8 +47,6 @@ function staticEntries(now: Date): Entry[] {
       changeFrequency: "monthly",
       priority: 0.5,
     },
-    // Legal hub + each policy. Lower priority than the home page but still
-    // indexable — these pages signal trust to Google and contribute to E-E-A-T.
     page(publicUrl("/legal"), LEGAL_LAST_UPDATED, 0.4, "yearly"),
     page(publicUrl("/legal/terms"), LEGAL_LAST_UPDATED, 0.5, "yearly"),
     page(publicUrl("/legal/privacy"), LEGAL_LAST_UPDATED, 0.5, "yearly"),

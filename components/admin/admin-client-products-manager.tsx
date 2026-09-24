@@ -28,6 +28,7 @@ import {
   deleteClientProductAction,
 } from '@/app/admin/clients/products-actions';
 import { AdminProductDialog } from './admin-product-dialog';
+import { ProductIntakeLinkGenerator } from './product-intake-link-generator';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import { toast } from 'sonner';
 import { markdownToPlainText } from '@/lib/markdown-preview';
@@ -123,6 +124,8 @@ export function AdminClientProductsManager({
 
   return (
     <div className="space-y-6">
+      <ProductIntakeLinkGenerator clientId={clientId} clientName={clientName} />
+
       {/* Controls */}
       <div className="flex justify-end">
         <Button onClick={() => handleOpenDialog()} size="lg">
@@ -263,6 +266,18 @@ export function AdminClientProductsManager({
                       {new Date(product.updated_at).toLocaleDateString('vi-VN')}
                     </p>
                   </div>
+
+                  {(product as any).price_confirmed ? (
+                    <div>
+                      <span className="font-medium block text-xs uppercase text-emerald-600 mb-1">Cam kết giá</span>
+                      <p className="font-semibold text-emerald-700 text-xs">✓ Đã xác nhận</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-medium block text-xs uppercase text-amber-600 mb-1">Cam kết giá</span>
+                      <p className="font-semibold text-amber-700 text-xs">Chưa xác nhận</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}

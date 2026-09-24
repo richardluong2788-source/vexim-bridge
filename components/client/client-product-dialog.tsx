@@ -20,6 +20,10 @@ import { addClientProductAction, updateClientProductAction } from '@/app/admin/c
 import { toast } from 'sonner';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import { INCOTERMS, PAYMENT_TERMS_OPTIONS, COMPLIANCE_BADGES } from '@/lib/constants/product-options';
+import { ImageLinkInput } from '@/components/ui/image-link-input';
+import { upload } from '@vercel/blob/client';
+import { Loader2, X, ImageIcon, Sparkles } from 'lucide-react';
+import { validateAndCompressImage, MAX_INPUT_SIZE } from '@/lib/images/compress';
 
 interface ClientProductDialogProps {
   clientId: string;
@@ -75,6 +79,10 @@ export function ClientProductDialog({
   onSaved,
 }: ClientProductDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>(product?.image_urls || []);
   const [formData, setFormData] = useState({
     product_name: product?.product_name || '',
     product_code: product?.product_code || '',
@@ -88,10 +96,6 @@ export function ClientProductDialog({
     currency: product?.currency || 'USD',
     monthly_capacity_units: product?.monthly_capacity_units?.toString() || '',
     status: product?.status || 'active',
-    // Fields the AE<->Buyer matching engine (lib/matching/client-scorer.ts)
-    // actually scores on — previously missing from this client-facing form,
-    // so self-service products always fell back to neutral/zero scores for
-    // spec, MOQ, compliance, and logistics factors.
     country_of_origin: product?.country_of_origin || '',
     key_specifications: product?.key_specifications || '',
     moq_value: product?.moq_value?.toString() || '',
@@ -103,6 +107,7 @@ export function ClientProductDialog({
   const [complianceBadges, setComplianceBadges] = useState<string[]>(
     product?.compliance_badges || []
   );
+  const [priceConfirmed, setPriceConfirmed] = useState((product as any)?.price_confirmed ?? false);
 
   const handleComplianceToggle = (value: string, checked: boolean) => {
     setComplianceBadges((prev) =>
@@ -110,11 +115,73 @@ export function ClientProductDialog({
     );
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
+    for (const f of selected) {
+      if (f.size > MAX_INPUT_SIZE) {
+        toast.error(`Ảnh "${f.name}" vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn 5MB.`);
+        return;
+      }
+    }
+    setCompressing(true);
+    try {
+      const compressed: File[] = [];
+      for (const f of selected) {
+        try {
+          const result = await validateAndCompressImage(f);
+          compressed.push(result.file);
+          if (result.wasCompressed) {
+            toast.success(`Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`);
+          }
+        } catch (err: any) {
+          toast.error(err.message || `Không thể xử lý ảnh ${f.name}`);
+          return;
+        }
+      }
+      setFiles((prev) => [...prev, ...compressed].slice(0, 10));
+    } finally {
+      setCompressing(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => setFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeImageUrl = (index: number) => setImageUrls((prev) => prev.filter((_, i) => i !== index));
+  const addImageLinks = (urls: string[]) => setImageUrls((prev) => [...prev, ...urls]);
+  const hasAnyImage = imageUrls.length > 0 || files.length > 0;
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (files.length === 0) return [];
+    const urls: string[] = [];
+    for (const file of files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const blob = await upload(`product-images/${Date.now()}_${safeName}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/products/upload-images',
+      });
+      urls.push(blob.url);
+    }
+    return urls;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!priceConfirmed) {
+      toast.error('Vui lòng xác nhận cam kết giá trước khi lưu sản phẩm.');
+      return;
+    }
     setLoading(true);
 
     try {
+      let newImageUrls: string[] = [];
+      if (files.length > 0) {
+        setUploading(true);
+        newImageUrls = await uploadImages();
+        setUploading(false);
+      }
+      const finalImageUrls = [...imageUrls, ...newImageUrls];
+
       const data = {
         ...formData,
         min_unit_price: formData.min_unit_price ? parseFloat(formData.min_unit_price) : undefined,
@@ -124,6 +191,11 @@ export function ClientProductDialog({
           : undefined,
         moq_value: formData.moq_value ? parseFloat(formData.moq_value) : undefined,
         compliance_badges: complianceBadges,
+        image_urls: finalImageUrls,
+        price_confirmed: priceConfirmed,
+        price_attested_at: priceConfirmed ? new Date().toISOString() : undefined,
+        price_attestation_text:
+          'Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.',
       };
 
       let result;
@@ -146,6 +218,7 @@ export function ClientProductDialog({
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -433,6 +506,108 @@ export function ClientProductDialog({
             </div>
           </div>
 
+          {/* Image Upload - Spec B */}
+          <div className="space-y-4">
+            <h3 className="font-medium flex items-center gap-2">
+              Product Images
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+                <Sparkles className="h-3 w-3" /> 300-800KB
+              </span>
+            </h3>
+            <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <p>• Upload or paste image links. Max 5MB each – auto-compressed to 300-800KB WebP.</p>
+              <p>• Max 10 images. <span className="font-medium">Bạn có thể bổ sung sau</span> – save product first, add images later.</p>
+            </div>
+
+            <ImageLinkInput
+              existing={imageUrls}
+              max={10 - files.length}
+              onAdd={addImageLinks}
+              disabled={uploading || compressing}
+              placeholder="Paste image link (https://...)"
+            />
+
+            {imageUrls.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {imageUrls.map((url, idx) => (
+                  <div key={`existing-${idx}`} className="relative aspect-square bg-muted rounded-lg overflow-hidden group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Product ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                    <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeImageUrl(idx)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {files.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {files.map((file, idx) => (
+                  <div key={`new-${idx}`} className="relative aspect-square bg-muted rounded-lg overflow-hidden group border-2 border-dashed border-primary">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={URL.createObjectURL(file)} alt={`New ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-foreground text-[10px] py-0.5 text-center">
+                      {(file.size / 1024).toFixed(0)}KB
+                    </div>
+                    <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeFile(idx)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!hasAnyImage && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
+                <input type="file" id="client-product-images" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} disabled={uploading || compressing} className="hidden" />
+                <Label htmlFor="client-product-images" className="cursor-pointer">
+                  <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="font-medium">Drag & drop or click to select</p>
+                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Under 5MB, auto 300-800KB</p>
+                  <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – not required now</p>
+                </Label>
+                {compressing && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tối ưu ảnh...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {hasAnyImage && (
+              <div className="flex gap-2 text-xs">
+                <span className="text-muted-foreground italic">Bạn có thể bổ sung sau</span>
+                <label className="ml-auto text-primary cursor-pointer underline">
+                  + Thêm ảnh
+                  <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} disabled={uploading || compressing} className="hidden" />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Price attestation */}
+          <div className="space-y-4">
+            <h3 className="font-medium">Cam kết giá / Price Attestation</h3>
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="price_confirmed_client"
+                  checked={priceConfirmed}
+                  onCheckedChange={(checked) => setPriceConfirmed(checked === true)}
+                  className="mt-0.5"
+                />
+                <label htmlFor="price_confirmed_client" className="text-sm font-medium leading-snug cursor-pointer">
+                  Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.
+                  <span className="text-destructive"> *</span>
+                  <p className="text-xs font-normal text-muted-foreground mt-1">
+                    Vexim kiểm tra chéo với giá công khai (website/Alibaba). Giá lưu kèm thời gian xác nhận để phục vụ audit.
+                  </p>
+                </label>
+              </div>
+            </div>
+          </div>
+
           {/* Compliance */}
           <div className="space-y-4">
             <h3 className="font-medium">Certifications & Compliance</h3>
@@ -482,9 +657,9 @@ export function ClientProductDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || uploading || compressing}>
               {loading && <Spinner className="w-4 h-4 mr-2" />}
-              {product?.id ? 'Update Product' : 'Add Product'}
+              {compressing ? 'Đang tối ưu...' : uploading ? 'Đang tải ảnh...' : product?.id ? 'Update Product' : 'Add Product'}
             </Button>
           </div>
         </form>

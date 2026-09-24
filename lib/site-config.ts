@@ -49,8 +49,8 @@ export const siteConfig = {
   ],
   ogImage: "/landing/hero-dashboard.jpg",
   contact: {
-    email: "hello@veximtrade.com",
-    support: "support@veximtrade.com",
+    email: "contact@veximglobal.com",
+    support: "contact@veximglobal.com",
     hotline: "0373 685 634",
     phone: "+84373685634",
     // Primary address for JSON-LD / SEO - Vietnam office

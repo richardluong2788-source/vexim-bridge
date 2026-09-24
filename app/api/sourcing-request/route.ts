@@ -159,7 +159,7 @@ export async function POST(req: Request) {
   if (internalResult.error && !lead.stored) {
     return NextResponse.json(
       {
-        error: "We could not submit your request. Please try again or email hello@veximtrade.com",
+        error: "We could not submit your request. Please try again or email contact@veximglobal.com",
       },
       { status: 502 },
     )

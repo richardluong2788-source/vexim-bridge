@@ -292,8 +292,8 @@ export async function POST(req: Request) {
       {
         error: localized(
           {
-            vi: "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp hello@veximtrade.com.",
-            en: "We could not submit your request. Please try again, or email hello@veximtrade.com directly.",
+            vi: "Không gửi được yêu cầu. Vui lòng thử lại hoặc liên hệ trực tiếp contact@veximglobal.com.",
+            en: "We could not submit your request. Please try again, or email contact@veximglobal.com directly.",
           },
           data.locale ?? requestLocale(req),
         ),

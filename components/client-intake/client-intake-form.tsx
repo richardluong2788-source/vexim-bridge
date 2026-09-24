@@ -469,7 +469,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             {step === 1 &&
               "Điểm mạnh, chứng nhận và hình ảnh nhà máy – tải ảnh chứng nhận để hiển thị trên trang hồ sơ công khai."}
             {step === 2 &&
-              "9 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác – có thể bổ sung sau."}
+              "9 mục đánh giá giúp Vexim hiểu rõ năng lực sản xuất, xuất khẩu và mức độ sẵn sàng hợp tác."}
             {step === 3 && "Kiểm tra lại thông tin trước khi gửi cho Vexim."}
           </CardDescription>
         </CardHeader>

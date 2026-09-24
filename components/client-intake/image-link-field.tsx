@@ -27,9 +27,8 @@ interface ImageLinkFieldProps {
 /**
  * Trường ảnh trong form đăng ký doanh nghiệp:
  * - Trước: CHỈ nhận link ảnh công khai
- * - Nay: thêm khung upload file trực tiếp, giới hạn 5MB, tự nén 300-800KB WebP
+ * - Nay: thêm khung upload file trực tiếp, giới hạn 5MB
  * - Vẫn giữ link input để linh hoạt, số lượng ảnh giữ nguyên (max)
- * - Có dòng "Bạn có thể bổ sung sau" như các form sản phẩm
  */
 export function ImageLinkField({
   value,
@@ -148,7 +147,6 @@ export function ImageLinkField({
             <ImageIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-sm font-medium">{uploadLabel || "Kéo thả ảnh vào đây hoặc bấm để chọn"}</p>
             <p className="text-xs text-muted-foreground">JPG, PNG, WEBP, GIF – Dưới 5MB/ảnh</p>
-            <p className="text-[11px] text-muted-foreground mt-1 italic">Bạn có thể bổ sung sau – không bắt buộc ngay</p>
           </Label>
           {(compressing || uploading) && (
             <div className="mt-2 flex items-center justify-center gap-2 text-xs text-primary">
@@ -191,7 +189,7 @@ export function ImageLinkField({
 
       <div className="flex flex-col gap-0.5">
         <p className="text-xs text-muted-foreground">
-          {value.length}/{max} ảnh · {canAddMore ? "có thể dán link hoặc tải file" : "đã đủ số lượng"} · JPG, PNG, WEBP · Dưới 5MB · <span className="italic">Bạn có thể bổ sung sau</span>
+          {value.length}/{max} ảnh · {canAddMore ? "có thể dán link hoặc tải file" : "đã đủ số lượng"} · JPG, PNG, WEBP · Dưới 5MB
         </p>
         {recommendedSize && (
           <p className="text-xs text-muted-foreground">

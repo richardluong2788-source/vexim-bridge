@@ -200,7 +200,7 @@ export function FactoryCapabilityStep({
                 </Label>
                 <Input
                   id="fdaNumber"
-                  placeholder={v.fda_status === "in_progress" ? "Đang triển khai – bổ sung sau" : "VD: 12345678901"}
+                  placeholder={v.fda_status === "in_progress" ? "Đang triển khai" : "VD: 12345678901"}
                   value={v.fda_number}
                   onChange={(e) => onChange({ fda_number: e.target.value })}
                 />

@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { upload } from '@vercel/blob/client';
-import { Loader2, Plus, Upload, X, ImageIcon, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Upload, X, ImageIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -202,11 +202,6 @@ export function AdminProductDialog({
         try {
           const result = await validateAndCompressImage(f);
           compressed.push(result.file);
-          if (result.wasCompressed) {
-            toast.success(
-              `Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`,
-            );
-          }
         } catch (err: any) {
           toast.error(err.message || `Không thể xử lý ảnh ${f.name}`);
           return;
@@ -858,18 +853,12 @@ export function AdminProductDialog({
               </div>
             </div>
 
-            {/* Image Upload - Spec B: 5MB limit, auto compress to 300-800KB */}
+            {/* Image Upload - Spec B: 5MB limit, internal optimize */}
             <div className="space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                Ảnh sản phẩm
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-                  <Sparkles className="h-3 w-3" /> Tự tối ưu 300-800KB
-                </span>
-              </h3>
+              <h3 className="font-semibold">Ảnh sản phẩm</h3>
               <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-                <p>• Dán link ảnh từ web (không tốn dung lượng server) hoặc tải file từ máy.</p>
-                <p>• Giới hạn mỗi ảnh <span className="font-medium text-foreground">dưới 5MB</span> – hệ thống sẽ tự động nén về <span className="font-medium text-foreground">300KB-800KB</span> (WebP) để tải nhanh.</p>
-                <p>• Tối đa 10 ảnh. <span className="font-medium">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
+                <p>• Dán link ảnh từ web hoặc tải file từ máy (tối đa 10 ảnh).</p>
+                <p>• Mỗi ảnh dưới 5MB. <span className="font-medium">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
               </div>
 
               <ImageLinkInput
@@ -925,7 +914,7 @@ export function AdminProductDialog({
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-foreground text-[10px] py-0.5 text-center">
-                        { (file.size/1024).toFixed(0)}KB • {compressing ? 'Đang nén...' : 'Đã tối ưu'}
+                        {(file.size / 1024).toFixed(0)}KB
                       </div>
                       <Button
                         type="button"
@@ -955,12 +944,12 @@ export function AdminProductDialog({
                   <Label htmlFor="product-images" className="cursor-pointer">
                     <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                     <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
-                    <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB/ảnh, tự nén còn 300-800KB</p>
+                    <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB/ảnh</p>
                     <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – không bắt buộc ngay lúc tạo sản phẩm</p>
                   </Label>
                   {compressing && (
                     <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Đang tối ưu ảnh...
+                      <Loader2 className="h-4 w-4 animate-spin" /> Đang xử lý ảnh...
                     </div>
                   )}
                 </div>
@@ -986,7 +975,7 @@ export function AdminProductDialog({
               </Button>
               <Button type="submit" disabled={loading || uploading || compressing}>
                 {(loading || uploading || compressing) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {compressing ? 'Đang tối ưu ảnh...' : uploading ? 'Đang tải ảnh...' : isEditing ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm'}
+                {compressing ? 'Đang xử lý ảnh...' : uploading ? 'Đang tải ảnh...' : isEditing ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm'}
               </Button>
             </div>
           </form>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { upload } from "@vercel/blob/client"
-import { Loader2, X, ImageIcon, Video, Link2Off, Sparkles } from "lucide-react"
+import { Loader2, X, ImageIcon, Video, Link2Off } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -57,9 +57,6 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
       try {
         const result = await validateAndCompressImage(file)
         fileToUpload = result.file
-        if (result.wasCompressed) {
-          toast.success(`Đã tối ưu: ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`)
-        }
       } catch (err: any) {
         toast.error(err.message || "Không thể xử lý ảnh")
         setCompressing(false)
@@ -91,14 +88,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2">
-        {label}
-        {kind === "image" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-            <Sparkles className="h-3 w-3" /> 5MB → 300-800KB
-          </span>
-        )}
-      </Label>
+      <Label htmlFor={id}>{label}</Label>
 
       {value ? (
         <div className="relative rounded-lg border border-border overflow-hidden bg-muted/30">
@@ -184,7 +174,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
 
       {kind === "image" && (
         <p className="text-[11px] text-muted-foreground">
-          Dưới 5MB/ảnh, tự nén còn 300-800KB WebP. <span className="italic">Bạn có thể bổ sung sau</span> – không bắt buộc ngay.
+          Dưới 5MB/ảnh. <span className="italic">Bạn có thể bổ sung sau</span> – không bắt buộc ngay.
         </p>
       )}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

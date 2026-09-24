@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { upload } from "@vercel/blob/client"
-import { Loader2, Plus, X, ImageIcon, Sparkles } from "lucide-react"
+import { Loader2, Plus, X, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { ImageLinkInput } from "@/components/ui/image-link-input"
@@ -60,9 +60,6 @@ export function MediaGalleryField({
         try {
           const result = await validateAndCompressImage(f)
           toUpload.push(result.file)
-          if (result.wasCompressed) {
-            toast.success(`Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`)
-          }
         } catch (err: any) {
           toast.error(err.message || `Không thể xử lý ảnh ${f.name}`)
           setCompressing(false)
@@ -106,12 +103,7 @@ export function MediaGalleryField({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2">
-        {label}
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-          <Sparkles className="h-3 w-3" /> 5MB → 300-800KB
-        </span>
-      </Label>
+      <Label htmlFor={id}>{label}</Label>
 
       <ImageLinkInput
         existing={value}
@@ -173,7 +165,7 @@ export function MediaGalleryField({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5" />
           <span>
-            {value.length}/{maxFiles} ảnh · Dưới 5MB tự nén 300-800KB · <span className="italic">Bạn có thể bổ sung sau</span>
+            {value.length}/{maxFiles} ảnh · Dưới 5MB/ảnh · <span className="italic">Bạn có thể bổ sung sau</span>
           </span>
         </div>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

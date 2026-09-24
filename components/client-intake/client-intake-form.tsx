@@ -866,7 +866,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                 value={form.logoUrl ? [form.logoUrl] : []}
                 onChange={(urls) => update("logoUrl", urls[0] ?? "")}
                 recommendedSize="400 x 400px (vuông, nền trong suốt hoặc trắng)"
-                uploadLabel="Tải logo – dưới 5MB, tự nén 300-800KB"
+                uploadLabel="Tải logo – dưới 5MB"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -877,7 +877,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                 value={form.coverImageUrl ? [form.coverImageUrl] : []}
                 onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
                 recommendedSize="1600 x 900px (tỉ lệ 16:9)"
-                uploadLabel="Tải ảnh bìa – dưới 5MB, tự nén 300-800KB"
+                uploadLabel="Tải ảnh bìa – dưới 5MB"
               />
             </div>
           </div>
@@ -892,7 +892,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
                 .filter(Boolean)}
               onChange={(urls) => update("factoryImageUrls", urls.join(", "))}
               recommendedSize="1200 x 1200px trở lên, ảnh ngang hoặc vuông rõ nét"
-              uploadLabel="Tải ảnh nhà máy / sản phẩm – dưới 5MB, tự nén"
+              uploadLabel="Tải ảnh nhà máy / sản phẩm – dưới 5MB"
             />
           </div>
               <div className="flex flex-col gap-2">

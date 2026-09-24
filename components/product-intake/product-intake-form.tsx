@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, Plus, X, ImageIcon, Sparkles } from 'lucide-react'
+import { Loader2, Plus, X, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -72,9 +72,6 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
         try {
           const result = await validateAndCompressImage(f)
           compressed.push(result.file)
-          if (result.wasCompressed) {
-            toast.success(`Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`)
-          }
         } catch (err: any) {
           toast.error(err.message || `Không thể xử lý ảnh ${f.name}`)
           return
@@ -301,15 +298,10 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
 
         {/* Image Upload - Spec B */}
         <div className="space-y-4">
-          <h3 className="font-semibold flex items-center gap-2">
-            Ảnh sản phẩm
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-              <Sparkles className="h-3 w-3" /> Tự tối ưu 300-800KB
-            </span>
-          </h3>
+          <h3 className="font-semibold">Ảnh sản phẩm</h3>
           <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-            <p>• Dán link ảnh hoặc tải file từ máy. Mỗi ảnh dưới 5MB – tự nén còn 300-800KB WebP.</p>
-            <p>• Tối đa 10 ảnh. <span className="font-medium text-foreground">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
+            <p>• Dán link ảnh hoặc tải file từ máy (tối đa 10 ảnh).</p>
+            <p>• Mỗi ảnh dưới 5MB. <span className="font-medium text-foreground">Bạn có thể bổ sung sau</span> – lưu sản phẩm trước, thêm ảnh sau vẫn được.</p>
           </div>
 
           <ImageLinkInput
@@ -357,12 +349,12 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
               <Label htmlFor="product-intake-images" className="cursor-pointer">
                 <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                 <p className="font-medium">Kéo thả ảnh vào đây hoặc bấm để chọn</p>
-                <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB, tự nén 300-800KB</p>
+                <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Dưới 5MB/ảnh</p>
                 <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – không bắt buộc ngay lúc tạo</p>
               </Label>
               {compressing && (
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tối ưu ảnh...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Đang xử lý ảnh...
                 </div>
               )}
             </div>
@@ -395,7 +387,7 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
         <div className="flex justify-end gap-3">
           <Button type="submit" disabled={loading || uploading || compressing || !priceConfirmed}>
             {(loading || uploading || compressing) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {compressing ? 'Đang tối ưu...' : uploading ? 'Đang tải ảnh...' : 'Gửi sản phẩm'}
+            {compressing ? 'Đang xử lý...' : uploading ? 'Đang tải ảnh...' : 'Gửi sản phẩm'}
           </Button>
         </div>
       </form>

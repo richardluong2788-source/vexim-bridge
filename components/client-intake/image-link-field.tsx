@@ -2,10 +2,9 @@
 
 import { useState } from "react"
 import { SmartImage } from "@/components/ui/smart-image"
-import { X, ImageIcon, Loader2, Sparkles } from "lucide-react"
+import { X, ImageIcon, Loader2 } from "lucide-react"
 import { ImageLinkInput } from "@/components/ui/image-link-input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { upload } from "@vercel/blob/client"
 import { toast } from "sonner"
 import { validateAndCompressImage, MAX_INPUT_SIZE } from "@/lib/images/compress"
@@ -74,9 +73,6 @@ export function ImageLinkField({
         try {
           const result = await validateAndCompressImage(f)
           compressedFiles.push(result.file)
-          if (result.wasCompressed) {
-            toast.success(`Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`)
-          }
         } catch (err: any) {
           toast.error(err.message || `Không thể xử lý ảnh ${f.name}`)
           setCompressing(false)
@@ -151,15 +147,13 @@ export function ImageLinkField({
           <Label htmlFor={`file-${token}-${max}-${recommendedSize}`} className="cursor-pointer flex flex-col items-center gap-1">
             <ImageIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-sm font-medium">{uploadLabel || "Kéo thả ảnh vào đây hoặc bấm để chọn"}</p>
-            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP, GIF – Dưới 5MB/ảnh, tự nén còn 300-800KB</p>
-            <p className="text-[11px] text-muted-foreground mt-1 italic flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Bạn có thể bổ sung sau – không bắt buộc ngay
-            </p>
+            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP, GIF – Dưới 5MB/ảnh</p>
+            <p className="text-[11px] text-muted-foreground mt-1 italic">Bạn có thể bổ sung sau – không bắt buộc ngay</p>
           </Label>
           {(compressing || uploading) && (
             <div className="mt-2 flex items-center justify-center gap-2 text-xs text-primary">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {compressing ? "Đang tối ưu ảnh..." : "Đang tải ảnh lên..."}
+              {compressing ? "Đang xử lý ảnh..." : "Đang tải ảnh lên..."}
             </div>
           )}
         </div>
@@ -197,7 +191,7 @@ export function ImageLinkField({
 
       <div className="flex flex-col gap-0.5">
         <p className="text-xs text-muted-foreground">
-          {value.length}/{max} ảnh · {canAddMore ? "có thể dán link hoặc tải file" : "đã đủ số lượng"} · JPG, PNG, WEBP · Dưới 5MB tự nén 300-800KB · <span className="italic">Bạn có thể bổ sung sau</span>
+          {value.length}/{max} ảnh · {canAddMore ? "có thể dán link hoặc tải file" : "đã đủ số lượng"} · JPG, PNG, WEBP · Dưới 5MB · <span className="italic">Bạn có thể bổ sung sau</span>
         </p>
         {recommendedSize && (
           <p className="text-xs text-muted-foreground">

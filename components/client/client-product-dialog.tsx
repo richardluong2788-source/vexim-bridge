@@ -22,7 +22,7 @@ import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import { INCOTERMS, PAYMENT_TERMS_OPTIONS, COMPLIANCE_BADGES } from '@/lib/constants/product-options';
 import { ImageLinkInput } from '@/components/ui/image-link-input';
 import { upload } from '@vercel/blob/client';
-import { Loader2, X, ImageIcon, Sparkles } from 'lucide-react';
+import { Loader2, X, ImageIcon } from 'lucide-react';
 import { validateAndCompressImage, MAX_INPUT_SIZE } from '@/lib/images/compress';
 
 interface ClientProductDialogProps {
@@ -131,9 +131,6 @@ export function ClientProductDialog({
         try {
           const result = await validateAndCompressImage(f);
           compressed.push(result.file);
-          if (result.wasCompressed) {
-            toast.success(`Đã tối ưu "${f.name}": ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`);
-          }
         } catch (err: any) {
           toast.error(err.message || `Không thể xử lý ảnh ${f.name}`);
           return;
@@ -508,15 +505,10 @@ export function ClientProductDialog({
 
           {/* Image Upload - Spec B */}
           <div className="space-y-4">
-            <h3 className="font-medium flex items-center gap-2">
-              Product Images
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
-                <Sparkles className="h-3 w-3" /> 300-800KB
-              </span>
-            </h3>
+            <h3 className="font-medium">Product Images</h3>
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-              <p>• Upload or paste image links. Max 5MB each – auto-compressed to 300-800KB WebP.</p>
-              <p>• Max 10 images. <span className="font-medium">Bạn có thể bổ sung sau</span> – save product first, add images later.</p>
+              <p>• Upload or paste image links. Max 5MB each, max 10 images.</p>
+              <p>• <span className="font-medium">Bạn có thể bổ sung sau</span> – save product first, add images later.</p>
             </div>
 
             <ImageLinkInput
@@ -564,12 +556,12 @@ export function ClientProductDialog({
                 <Label htmlFor="client-product-images" className="cursor-pointer">
                   <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                   <p className="font-medium">Drag & drop or click to select</p>
-                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Under 5MB, auto 300-800KB</p>
+                  <p className="text-sm text-muted-foreground">JPG, PNG, WebP, GIF – Under 5MB</p>
                   <p className="text-xs text-muted-foreground mt-2 italic">Bạn có thể bổ sung sau – not required now</p>
                 </Label>
                 {compressing && (
                   <div className="mt-3 flex items-center justify-center gap-2 text-xs text-primary">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tối ưu ảnh...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang xử lý ảnh...
                   </div>
                 )}
               </div>
@@ -659,7 +651,7 @@ export function ClientProductDialog({
             </Button>
             <Button type="submit" disabled={loading || uploading || compressing}>
               {loading && <Spinner className="w-4 h-4 mr-2" />}
-              {compressing ? 'Đang tối ưu...' : uploading ? 'Đang tải ảnh...' : product?.id ? 'Update Product' : 'Add Product'}
+              {compressing ? 'Đang xử lý...' : uploading ? 'Đang tải ảnh...' : product?.id ? 'Update Product' : 'Add Product'}
             </Button>
           </div>
         </form>

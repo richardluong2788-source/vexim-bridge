@@ -19,8 +19,10 @@ const payloadSchema = z.object({
   email: z.string().trim().email("Invalid email").max(160),
   company: z.string().trim().min(1, "Company required").max(160),
   targetPrice: optionalText(120),
-  timeline: optionalText(200),
+  timeline: optionalText(100),
   specs: optionalText(2000),
+  compliance: optionalText(1000),
+  // Legacy fields for backwards compat
   needFda: optionalText(10),
   needMocra: optionalText(10),
   needCgmps: optionalText(10),
@@ -75,23 +77,28 @@ export async function POST(req: Request) {
     return rateLimited(emailVerdict.retryAfterSeconds, data.locale ?? requestLocale(req))
   }
 
-  const needs = [
-    data.needFda ? "FDA check" : null,
-    data.needMocra ? "MoCRA review" : null,
-    data.needCgmps ? "cGMP/ISO" : null,
-    data.needQc ? "QC" : null,
-  ]
-    .filter(Boolean)
-    .join(", ")
+  // New compliance field takes precedence, fallback to legacy checkboxes
+  const complianceNeeds = data.compliance?.trim()
+    ? data.compliance
+    : [
+        data.needFda ? "FDA check" : null,
+        data.needMocra ? "MoCRA review" : null,
+        data.needCgmps ? "cGMP/ISO" : null,
+        data.needQc ? "QC" : null,
+      ]
+        .filter(Boolean)
+        .join(", ")
+
+  const timelineLabel = data.timeline || "(not specified)"
 
   const lead = await recordMarketingLead({
     audience: "buyer",
     source: "buyer_sourcing_request",
-    fullName: data.product, // product as name for quick triage, email is key
+    fullName: data.product,
     email: data.email,
     company: data.company,
-    industry: needs || "general",
-    message: `Product: ${data.product}\nQuantity: ${data.quantity}\nTarget: ${data.targetPrice || "(not specified)"}\nTimeline: ${data.timeline || ""}\nSpecs: ${data.specs || ""}\nNeeds: ${needs || "none"}`,
+    industry: complianceNeeds || "general",
+    message: `Product: ${data.product}\nQuantity: ${data.quantity}\nTarget: ${data.targetPrice || "(not specified)"}\nTimeline: ${timelineLabel}\nSpecs: ${data.specs || ""}\nCompliance & Quality: ${complianceNeeds || "none"}`,
     locale: data.locale,
     attribution: {
       pagePath: data.pagePath,
@@ -123,27 +130,29 @@ export async function POST(req: Request) {
 
   const internalHtml = `
     <h2>New Buyer Sourcing Request ${lead.reference ? `#${lead.reference}` : ""}</h2>
-    <table border="1" cellpadding="8" cellspacing="0">
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
       <tr><td><strong>Reference</strong></td><td>${lead.reference ?? "(no DB)"}</td></tr>
       <tr><td><strong>Product</strong></td><td>${escapeHtml(data.product)}</td></tr>
-      <tr><td><strong>Quantity</strong></td><td>${escapeHtml(data.quantity)}</td></tr>
-      <tr><td><strong>Target Price</strong></td><td>${escapeHtml(data.targetPrice || "(not specified)")}</td></tr>
+      <tr><td><strong>Quantity / Scale</strong></td><td>${escapeHtml(data.quantity)}</td></tr>
+      <tr><td><strong>Timeline</strong></td><td>${escapeHtml(timelineLabel)}</td></tr>
+      <tr><td><strong>Target Price</strong></td><td>${escapeHtml(data.targetPrice || "(not specified - optional)")}</td></tr>
       <tr><td><strong>Company</strong></td><td>${escapeHtml(data.company)}</td></tr>
       <tr><td><strong>Email</strong></td><td>${escapeHtml(data.email)}</td></tr>
-      <tr><td><strong>Timeline</strong></td><td>${escapeHtml(data.timeline || "")}</td></tr>
-      <tr><td><strong>Needs</strong></td><td>${escapeHtml(needs || "none")}</td></tr>
-      <tr><td><strong>Specs</strong></td><td><pre style="white-space:pre-wrap">${escapeHtml(data.specs || "")}</pre></td></tr>
+      <tr><td><strong>Compliance & Quality Requirements</strong></td><td>${escapeHtml(complianceNeeds || "none - buyer to be advised")}</td></tr>
+      <tr><td><strong>Specs / Link</strong></td><td><pre style="white-space:pre-wrap;margin:0">${escapeHtml(data.specs || "")}</pre></td></tr>
       <tr><td><strong>Page</strong></td><td>${escapeHtml(data.pagePath || "")}</td></tr>
       <tr><td><strong>UTM</strong></td><td>${escapeHtml([data.utmSource, data.utmMedium, data.utmCampaign].filter(Boolean).join(" / ") || "")}</td></tr>
     </table>
+    <p style="margin-top:16px"><strong>Routing hint:</strong> Buyer intent = ${escapeHtml(data.product)} | ${escapeHtml(complianceNeeds || "general")} | ${escapeHtml(data.quantity)} | ${escapeHtml(timelineLabel)}</p>
     <p>Submitted: ${escapeHtml(submittedAtLabel)} ET</p>
+    <p style="font-size:12px;color:#64748b">We use this information to identify suitable suppliers and assess relevant compliance requirements. We do not sell or share your request with third parties.</p>
   `
 
   const internalResult = await sendMail({
     to: internalRecipient,
-    subject: `[Buyer RFQ${lead.reference ? ` #${lead.reference}` : ""}] ${data.product} - ${data.company}`,
+    subject: `[Buyer RFQ${lead.reference ? ` #${lead.reference}` : ""}] ${data.product} - ${data.company} - ${timelineLabel}`,
     html: internalHtml,
-    text: `Buyer RFQ ${lead.reference ?? ""}\nProduct: ${data.product}\nQuantity: ${data.quantity}\nCompany: ${data.company}\nEmail: ${data.email}\nTarget: ${data.targetPrice}\nTimeline: ${data.timeline}\nNeeds: ${needs}\nSpecs: ${data.specs}`,
+    text: `Buyer RFQ ${lead.reference ?? ""}\nProduct: ${data.product}\nQuantity: ${data.quantity}\nTimeline: ${timelineLabel}\nCompany: ${data.company}\nEmail: ${data.email}\nTarget: ${data.targetPrice}\nCompliance & Quality: ${complianceNeeds}\nSpecs: ${data.specs}`,
     headers: { "Reply-To": data.email },
   })
 
@@ -156,7 +165,6 @@ export async function POST(req: Request) {
     )
   }
 
-  // Auto-reply to buyer
   const buyerHtml = `
     <p>Hi,</p>
     <p>Thank you for your sourcing request. We have received your inquiry for <strong>${escapeHtml(data.product)}</strong> (${escapeHtml(data.quantity)}).</p>
@@ -166,7 +174,9 @@ export async function POST(req: Request) {
     - Export history and certifications where available<br/>
     - U.S. regulatory readiness (FDA facility registration, MoCRA where applicable - review, not approval)<br/>
     - Product specs and commercial fit</p>
-    <p><strong>How we are compensated:</strong> No upfront sourcing fee for buyers. We are compensated by suppliers when a transaction is successfully completed. We do not add a separate Vexim line-item markup to your order.</p>
+    <p><strong>Compliance & Quality needs you selected:</strong> ${escapeHtml(complianceNeeds || "To be advised")}</p>
+    <p><strong>How we are compensated:</strong> No upfront sourcing fee for buyers. We are compensated by suppliers when a transaction is successfully completed. We do not add a separate Vexim line-item markup to your order. Supplier pricing may reflect its own commercial terms.</p>
+    <p>We use this information to identify suitable suppliers and assess relevant compliance requirements. We do not sell or share your request with third parties.</p>
     <p>If you have additional specs, you can reply directly to this email.</p>
     <p>— Vexim Trade<br/>${siteConfig.url}</p>
   `

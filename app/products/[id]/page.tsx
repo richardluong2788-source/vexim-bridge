@@ -112,14 +112,16 @@ const loadPublicProductUncached = async (id: string) => {
 
   const clientId = (data as { client_id?: string }).client_id
   let profileSlug: string | null = null
+  let profileUpdatedAt: string | null = null
   if (clientId) {
     const { data: clientProfile } = await supabase
       .from("client_profiles")
-      .select("slug")
+      .select("slug, updated_at")
       .eq("client_id", clientId)
       .eq("is_published", true)
       .single()
     profileSlug = clientProfile?.slug ?? null
+    profileUpdatedAt = clientProfile?.updated_at ?? null
   }
 
   const product = data as unknown as ClientProduct & {
@@ -130,7 +132,11 @@ const loadPublicProductUncached = async (id: string) => {
   // the RSC payload of a public page.
   const { created_by: _createdBy, ...publicProduct } = product
 
-  return { product: publicProduct as ClientProduct & { client: typeof product.client }, profileSlug }
+  return {
+    product: publicProduct as ClientProduct & { client: typeof product.client },
+    profileSlug,
+    profileUpdatedAt,
+  }
 }
 
 const loadPublicProductCached = unstable_cache(loadPublicProductUncached, ["catalog-product"], {
@@ -315,34 +321,73 @@ export default async function ProductPage({ params }: PageProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           
-          {/* Left: Images Gallery */}
-          <ProductImageGallery 
-            images={typedProduct.image_urls || []} 
-            productName={typedProduct.product_name} 
-          />
+          {/* Left: Images Gallery with Verification Badge */}
+          <div className="relative">
+            {/* Verification badge - top right overlay */}
+            <div className="absolute top-3 right-3 z-20">
+              <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-white/95 px-3 py-1.5 shadow-lg backdrop-blur-sm">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </span>
+                <span className="text-xs font-semibold tracking-wide text-emerald-800">Screened Supplier</span>
+              </div>
+            </div>
+            <ProductImageGallery 
+              images={typedProduct.image_urls || []} 
+              productName={typedProduct.product_name} 
+            />
+            {/* Verification details under gallery */}
+            <div className="mt-4 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Verification</p>
+                <Link href="/how-we-verify" className="text-[11px] font-medium text-primary hover:text-cta">How we verify →</Link>
+              </div>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Company information reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Production capability reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Export history reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Certifications reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> U.S. regulatory requirements reviewed</div>
+              </div>
+              {loaded.profileUpdatedAt && (
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  Last reviewed: {new Date(loaded.profileUpdatedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+                Commercial participation does not replace screening. FDA registration is not FDA approval.
+              </p>
+            </div>
+          </div>
 
           {/* Right: Product Info */}
           <div className="space-y-6">
-            {/* Category & Status */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {typedProduct.category && (
-                <Badge variant="secondary" className="text-xs">
-                  {typedProduct.category}
+            {/* Verification badge - top right for product info */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {typedProduct.category && (
+                  <Badge variant="secondary" className="text-xs">
+                    {typedProduct.category}
+                  </Badge>
+                )}
+                {typedProduct.subcategory && (
+                  <Badge variant="outline" className="text-xs">
+                    {typedProduct.subcategory}
+                  </Badge>
+                )}
+                <Badge
+                  variant={typedProduct.status === "active" ? "default" : "secondary"}
+                  className={typedProduct.status === "active" ? "bg-green-600" : ""}
+                >
+                  {typedProduct.status === "active" ? "Available" : "Unavailable"}
                 </Badge>
-              )}
-              {typedProduct.subcategory && (
-                <Badge variant="outline" className="text-xs">
-                  {typedProduct.subcategory}
-                </Badge>
-              )}
-              <Badge
-                variant={typedProduct.status === "active" ? "default" : "secondary"}
-                className={typedProduct.status === "active" ? "bg-green-600" : ""}
-              >
-                {typedProduct.status === "active" ? "Available" : "Unavailable"}
-              </Badge>
+              </div>
+              {/* Top-right verification pill */}
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                <span className="text-[11px] font-semibold text-emerald-800">Screened</span>
+              </div>
             </div>
-
             {/* Product Name */}
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
               {typedProduct.product_name}

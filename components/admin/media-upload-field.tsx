@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import { upload } from "@vercel/blob/client"
-import { Loader2, X, ImageIcon, Video, Link2Off } from "lucide-react"
+import { Loader2, X, ImageIcon, Video, Link2Off, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { isValidImageUrl } from "@/lib/utils/image-link"
+import { validateAndCompressImage } from "@/lib/images/compress"
 
 interface MediaUploadFieldProps {
   id: string
@@ -25,16 +26,16 @@ const ACCEPT = {
 }
 
 const MAX_SIZE = {
-  image: 10 * 1024 * 1024,
+  image: 5 * 1024 * 1024, // Spec B: 5MB limit, auto compress 300-800KB
   video: 200 * 1024 * 1024,
 }
 
 export function MediaUploadField({ id, label, value, onChange, kind, hint, folder }: MediaUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const [previewBroken, setPreviewBroken] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Reset trạng thái báo lỗi mỗi khi link thay đổi.
   useEffect(() => {
     setPreviewBroken(false)
   }, [value])
@@ -50,10 +51,27 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
       return
     }
 
+    let fileToUpload = file
+    if (kind === "image") {
+      setCompressing(true)
+      try {
+        const result = await validateAndCompressImage(file)
+        fileToUpload = result.file
+        if (result.wasCompressed) {
+          toast.success(`Đã tối ưu: ${(result.originalSize / 1024).toFixed(0)}KB → ${(result.compressedSize / 1024).toFixed(0)}KB`)
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Không thể xử lý ảnh")
+        setCompressing(false)
+        return
+      }
+      setCompressing(false)
+    }
+
     setUploading(true)
     try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
-      const blob = await upload(`${folder}/${Date.now()}_${safeName}`, file, {
+      const safeName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const blob = await upload(`${folder}/${Date.now()}_${safeName}`, fileToUpload, {
         access: "public",
         handleUploadUrl: "/api/profile/upload-media",
       })
@@ -73,7 +91,14 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="flex items-center gap-2">
+        {label}
+        {kind === "image" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+            <Sparkles className="h-3 w-3" /> 5MB → 300-800KB
+          </span>
+        )}
+      </Label>
 
       {value ? (
         <div className="relative rounded-lg border border-border overflow-hidden bg-muted/30">
@@ -130,25 +155,22 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           placeholder="https://..."
           className="flex-1"
         />
-        {/* Đã có ảnh (link hợp lệ) thì ẩn nút chọn file để tránh tải nhầm;
-            nút X phía trên sẽ xóa ảnh và đưa nút chọn file trở lại.
-            Riêng video vẫn giữ nút chọn file vì video có thể nặng, cần upload. */}
         {(kind === "video" || !showImagePreview) && (
         <Button
           type="button"
           variant="outline"
-          disabled={uploading}
+          disabled={uploading || compressing}
           onClick={() => inputRef.current?.click()}
           className="shrink-0 gap-2"
         >
-          {uploading ? (
+          {uploading || compressing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : kind === "image" ? (
             <ImageIcon className="h-4 w-4" />
           ) : (
             <Video className="h-4 w-4" />
           )}
-          {uploading ? "Đang tải..." : "Chọn file"}
+          {compressing ? "Đang nén..." : uploading ? "Đang tải..." : "Chọn file"}
         </Button>
         )}
         <input
@@ -160,6 +182,11 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
         />
       </div>
 
+      {kind === "image" && (
+        <p className="text-[11px] text-muted-foreground">
+          Dưới 5MB/ảnh, tự nén còn 300-800KB WebP. <span className="italic">Bạn có thể bổ sung sau</span> – không bắt buộc ngay.
+        </p>
+      )}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )

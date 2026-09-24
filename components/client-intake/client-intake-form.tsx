@@ -862,18 +862,22 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
               <Label>Logo doanh nghiệp</Label>
               <ImageLinkField
                 max={1}
+                token={token}
                 value={form.logoUrl ? [form.logoUrl] : []}
                 onChange={(urls) => update("logoUrl", urls[0] ?? "")}
                 recommendedSize="400 x 400px (vuông, nền trong suốt hoặc trắng)"
+                uploadLabel="Tải logo – dưới 5MB, tự nén 300-800KB"
               />
             </div>
             <div className="flex flex-col gap-2">
               <Label>Ảnh bìa</Label>
               <ImageLinkField
                 max={1}
+                token={token}
                 value={form.coverImageUrl ? [form.coverImageUrl] : []}
                 onChange={(urls) => update("coverImageUrl", urls[0] ?? "")}
                 recommendedSize="1600 x 900px (tỉ lệ 16:9)"
+                uploadLabel="Tải ảnh bìa – dưới 5MB, tự nén 300-800KB"
               />
             </div>
           </div>
@@ -881,12 +885,14 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             <Label>Ảnh nhà máy / sản phẩm</Label>
             <ImageLinkField
               max={5}
+              token={token}
               value={form.factoryImageUrls
                 .split(",")
                 .map((s) => s.trim())
                 .filter(Boolean)}
               onChange={(urls) => update("factoryImageUrls", urls.join(", "))}
               recommendedSize="1200 x 1200px trở lên, ảnh ngang hoặc vuông rõ nét"
+              uploadLabel="Tải ảnh nhà máy / sản phẩm – dưới 5MB, tự nén"
             />
           </div>
               <div className="flex flex-col gap-2">

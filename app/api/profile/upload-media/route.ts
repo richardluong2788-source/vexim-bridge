@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server"
  * video) never pass through this function's request body.
  */
 
-export const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
+export const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB – Spec B, client auto compress 300-800KB
 export const MAX_VIDEO_SIZE = 200 * 1024 * 1024 // 200MB
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 export const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]

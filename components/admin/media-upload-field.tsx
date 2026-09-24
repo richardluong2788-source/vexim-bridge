@@ -160,7 +160,7 @@ export function MediaUploadField({ id, label, value, onChange, kind, hint, folde
           ) : (
             <Video className="h-4 w-4" />
           )}
-          {compressing ? "Đang nén..." : uploading ? "Đang tải..." : "Chọn file"}
+          {compressing ? "Đang xử lý..." : uploading ? "Đang tải..." : "Chọn file"}
         </Button>
         )}
         <input

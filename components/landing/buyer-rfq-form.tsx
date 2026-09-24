@@ -159,7 +159,7 @@ export function BuyerRfqForm({ locale }: Props) {
         </div>
       </div>
 
-      {/* COMPLIANCE & QUALITY REQUIREMENTS */}
+      {/* COMPLIANCE & QUALITY REQUIREMENTS - 2 per row, 4 items */}
       <div className="space-y-3 rounded-xl border border-border/80 bg-muted/30 p-4">
         <p className="text-xs font-bold tracking-[0.14em] text-primary">
           {vi ? "YÊU CẦU TUÂN THỦ & CHẤT LƯỢNG" : "COMPLIANCE & QUALITY REQUIREMENTS"}
@@ -167,32 +167,11 @@ export function BuyerRfqForm({ locale }: Props) {
         <p className="text-sm font-medium text-primary">
           {vi ? "Bạn muốn chúng tôi rà soát hoặc điều phối những gì? Chọn tất cả áp dụng." : "What would you like us to review or coordinate? Select all that apply."}
         </p>
-        <div className="grid gap-2.5 pt-1">
-          <Checkbox
-            value="FDA food facility registration / import requirements"
-            label={vi ? "Đăng ký cơ sở FDA / yêu cầu nhập khẩu thực phẩm" : "FDA food facility registration / import requirements"}
-          />
-          <Checkbox
-            value="MoCRA requirements for cosmetics"
-            label={vi ? "Yêu cầu MoCRA cho mỹ phẩm" : "MoCRA requirements for cosmetics"}
-          />
-          <Checkbox
-            value="cGMP / ISO documentation review"
-            label={vi ? "Rà soát tài liệu cGMP / ISO" : "cGMP / ISO documentation review"}
-          />
-          <Checkbox
-            value="Product labeling / regulatory review"
-            label={vi ? "Rà soát nhãn / quy định sản phẩm" : "Product labeling / regulatory review"}
-          />
-          <Checkbox
-            value="Quality control / pre-shipment inspection"
-            label={vi ? "Kiểm soát chất lượng / kiểm tra trước giao hàng" : "Quality control / pre-shipment inspection"}
-          />
-          <Checkbox
-            value="I'm not sure — please advise"
-            label={vi ? "Tôi chưa chắc — vui lòng tư vấn" : "I'm not sure — please advise"}
-            highlight
-          />
+        <div className="grid gap-2.5 pt-1 sm:grid-cols-2">
+          <Checkbox value="FDA check" label={vi ? "Kiểm tra FDA" : "FDA check"} />
+          <Checkbox value="Pre-shipment inspection" label={vi ? "Kiểm tra trước khi giao hàng" : "Pre-shipment inspection"} />
+          <Checkbox value="cGMP documentation review" label={vi ? "Rà soát tài liệu cGMP" : "cGMP documentation review"} />
+          <Checkbox value="Product labeling review" label={vi ? "Rà soát nhãn sản phẩm" : "Product labeling review"} />
         </div>
       </div>
 

@@ -1,9 +1,8 @@
 // ============================================================
 // Shared option lists + Vietnamese labels for the factory capability
-// assessment (mục 6–15 of the internal Vexim form). Used by both the
-// AE-only internal assessment editor (admin-factory-assessment.tsx) and
-// the client-facing intake wizard (client-intake-form.tsx) so the two
-// stay in sync — same option codes, same wording.
+// assessment (mục 1–9 sau khi xóa mục 6 về nhân sự/giờ làm/môi trường).
+// Used by both the AE-only internal assessment editor and the
+// client-facing intake wizard so the two stay in sync.
 // ============================================================
 
 export const QUALITY_SYSTEMS = ["HACCP", "GMP", "ISO22000", "SOP", "QC", "other"] as const
@@ -13,7 +12,6 @@ export const TRACEABILITY = ["lot", "input", "finished", "recall", "batch-lot", 
 export const AUDIT_READINESS = ["onsite", "online", "not-ready"] as const
 export const INCOTERMS = ["EXW", "FOB", "CIF"] as const
 export const COMMITMENTS = ["priority", "cooperation", "accuracy"] as const
-export const WATER_SOURCES = ["municipal", "well", "filtered", "other"] as const
 export const FDA_STATUS = ["valid", "expired", "none"] as const
 
 export const ASSESSMENT_LABELS: Record<string, string> = {
@@ -48,9 +46,6 @@ export const ASSESSMENT_LABELS: Record<string, string> = {
   priority: "Cam kết ưu tiên nguồn lực để triển khai dự án cùng Vexim",
   cooperation: "Cam kết phối hợp đầy đủ trong suốt quá trình phát triển thị trường",
   accuracy: "Đồng ý cung cấp đầy đủ thông tin trung thực và chịu trách nhiệm về tính chính xác",
-  municipal: "Nước máy / thủy cục",
-  well: "Nước giếng khoan (đã xử lý)",
-  filtered: "Hệ thống lọc RO / xử lý nội bộ",
   valid: "Còn hạn",
   expired: "Hết hạn",
 }
@@ -85,18 +80,6 @@ export interface FactoryCapabilityAnswers {
   fda_status: string
   fda_number: string
   fda_expires_at: string
-  staff_engineers_count: string
-  staff_workers_count: string
-  work_hours_start: string
-  work_hours_end: string
-  work_days_per_week: string
-  food_safety_training_regular: string
-  equipment_calibration_regular: string
-  water_source: string[]
-  water_source_other: string
-  water_testing: string
-  near_pollution_source: string
-  pollution_source_note: string
   audit_readiness: string[]
   audit_owner: string
   incoterms: string[]
@@ -122,18 +105,6 @@ export const EMPTY_FACTORY_CAPABILITY_ANSWERS: FactoryCapabilityAnswers = {
   fda_status: "",
   fda_number: "",
   fda_expires_at: "",
-  staff_engineers_count: "",
-  staff_workers_count: "",
-  work_hours_start: "",
-  work_hours_end: "",
-  work_days_per_week: "",
-  food_safety_training_regular: "",
-  equipment_calibration_regular: "",
-  water_source: [],
-  water_source_other: "",
-  water_testing: "",
-  near_pollution_source: "",
-  pollution_source_note: "",
   audit_readiness: [],
   audit_owner: "",
   incoterms: [],

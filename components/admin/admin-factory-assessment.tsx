@@ -33,7 +33,6 @@ const TRACEABILITY = ["lot", "input", "finished", "recall", "batch-lot", "none"]
 const AUDIT_READINESS = ["onsite", "online", "not-ready"]
 const INCOTERMS = ["EXW", "FOB", "CIF"]
 const COMMITMENTS = ["priority", "cooperation", "accuracy"]
-const WATER_SOURCES = ["municipal", "well", "filtered", "other"]
 
 const LBL: Record<string, string> = {
   HACCP: "HACCP", GMP: "GMP", ISO22000: "ISO 22000", SOP: "SOP nội bộ",
@@ -51,14 +50,10 @@ const LBL: Record<string, string> = {
   priority: "Cam kết ưu tiên nguồn lực để triển khai dự án cùng Vexim",
   cooperation: "Cam kết phối hợp đầy đủ trong suốt quá trình phát triển thị trường",
   accuracy: "Đồng ý cung cấp đầy đủ thông tin trung thực và chịu trách nhiệm về tính chính xác",
-  municipal: "Nước máy / thủy cục",
-  well: "Nước giếng khoan (đã xử lý)",
-  filtered: "Hệ thống lọc RO / xử lý nội bộ",
 }
 
 function toggle(arr: string[], v: string, single?: string[]) {
   if (single && single.includes(v)) {
-    // mutually exclusive group: chon 1 thi bo cac gia tri single khac
     const without = arr.filter((x) => !single.includes(x))
     return arr.includes(v) ? without : [...without, v]
   }
@@ -104,41 +99,6 @@ export function AdminFactoryAssessment({
   const [leadTime, setLeadTime] = useState(initLeadTime ?? "")
   const [capacity, setCapacity] = useState(initCapacity ?? "")
 
-  const [staffEngineers, setStaffEngineers] = useState(
-    existing?.staff_engineers_count?.toString() ?? ""
-  )
-  const [staffWorkers, setStaffWorkers] = useState(
-    existing?.staff_workers_count?.toString() ?? ""
-  )
-  const [workHoursStart, setWorkHoursStart] = useState(existing?.work_hours_start ?? "")
-  const [workHoursEnd, setWorkHoursEnd] = useState(existing?.work_hours_end ?? "")
-  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(
-    existing?.work_days_per_week?.toString() ?? ""
-  )
-  const [foodSafetyTraining, setFoodSafetyTraining] = useState<string>(
-    existing?.food_safety_training_regular == null
-      ? ""
-      : existing.food_safety_training_regular
-        ? "yes"
-        : "no"
-  )
-  const [equipmentCalibration, setEquipmentCalibration] = useState<string>(
-    existing?.equipment_calibration_regular == null
-      ? ""
-      : existing.equipment_calibration_regular
-        ? "yes"
-        : "no"
-  )
-  const [waterSource, setWaterSource] = useState<string[]>(existing?.water_source ?? [])
-  const [waterSourceOther, setWaterSourceOther] = useState(existing?.water_source_other ?? "")
-  const [waterTesting, setWaterTesting] = useState<string>(
-    existing?.water_testing == null ? "" : existing.water_testing ? "yes" : "no"
-  )
-  const [nearPollution, setNearPollution] = useState<string>(
-    existing?.near_pollution_source == null ? "" : existing.near_pollution_source ? "yes" : "no"
-  )
-  const [pollutionNote, setPollutionNote] = useState(existing?.pollution_source_note ?? "")
-
   const score = existing?.score_total ?? null
   const grade = existing?.score_grade ?? null
   const breakdown = (existing?.score_breakdown as unknown as ScoreCategory[]) ?? []
@@ -168,19 +128,6 @@ export function AdminFactoryAssessment({
         moq: moq || null,
         lead_time_days: leadTime || null,
         production_capacity: capacity || null,
-        staff_engineers_count: staffEngineers ? parseInt(staffEngineers, 10) : null,
-        staff_workers_count: staffWorkers ? parseInt(staffWorkers, 10) : null,
-        work_hours_start: workHoursStart || null,
-        work_hours_end: workHoursEnd || null,
-        work_days_per_week: workDaysPerWeek ? parseInt(workDaysPerWeek, 10) : null,
-        food_safety_training_regular: foodSafetyTraining === "" ? null : foodSafetyTraining === "yes",
-        equipment_calibration_regular:
-          equipmentCalibration === "" ? null : equipmentCalibration === "yes",
-        water_source: waterSource,
-        water_source_other: waterSourceOther || null,
-        water_testing: waterTesting === "" ? null : waterTesting === "yes",
-        near_pollution_source: nearPollution === "" ? null : nearPollution === "yes",
-        pollution_source_note: pollutionNote || null,
       }
       const res = await upsertAssessment(clientId, input)
       if (res.success) {
@@ -204,7 +151,7 @@ export function AdminFactoryAssessment({
               Đánh giá năng lực nhà máy
             </CardTitle>
             <CardDescription>
-              Form đánh giá nội bộ Vexim (mục 6–15). Một phần hiển thị công khai cho buyer.
+              Form đánh giá nội bộ Vexim (9 mục sau khi xóa mục Nhân sự/giờ làm/môi trường).
             </CardDescription>
           </div>
           {grade && (
@@ -218,7 +165,6 @@ export function AdminFactoryAssessment({
         </div>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Diem chi tiet */}
         {breakdown.length > 0 && (
           <div className="rounded-lg border bg-muted/40 p-4">
             <p className="text-sm font-medium mb-3">Điểm theo hạng mục</p>
@@ -236,9 +182,9 @@ export function AdminFactoryAssessment({
           </div>
         )}
 
-        {/* Muc 6: QLCL */}
+        {/* Muc 1: QLCL */}
         <section className="space-y-3">
-          <h3 className="font-semibold">6. Hệ thống quản lý chất lượng & ATTP đang áp dụng</h3>
+          <h3 className="font-semibold">1. Hệ thống quản lý chất lượng & ATTP đang áp dụng</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {QUALITY_SYSTEMS.map((q) => (
               <label key={q} className="flex items-center gap-2 text-sm">
@@ -259,9 +205,9 @@ export function AdminFactoryAssessment({
           )}
         </section>
 
-        {/* Muc 7: OEM/ODM */}
+        {/* Muc 2: OEM/ODM */}
         <section className="space-y-3">
-          <h3 className="font-semibold">7. Năng lực OEM / ODM</h3>
+          <h3 className="font-semibold">2. Năng lực OEM / ODM</h3>
           <div className="flex flex-wrap gap-4">
             {OEM_ODM.map((o) => (
               <label key={o} className="flex items-center gap-2 text-sm">
@@ -283,9 +229,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 8: Kinh nghiem XK */}
+        {/* Muc 3: Kinh nghiem XK */}
         <section className="space-y-3">
-          <h3 className="font-semibold">8. Kinh nghiệm xuất khẩu</h3>
+          <h3 className="font-semibold">3. Kinh nghiệm xuất khẩu</h3>
           <div className="space-y-2">
             <Label>Đã xuất khẩu từ năm</Label>
             <Input
@@ -319,9 +265,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 9: Truy xuat nguon goc */}
+        {/* Muc 4: Truy xuat nguon goc */}
         <section className="space-y-3">
-          <h3 className="font-semibold">9. Hệ thống truy xuất nguồn gốc</h3>
+          <h3 className="font-semibold">4. Hệ thống truy xuất nguồn gốc</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {TRACEABILITY.map((t) => (
               <label key={t} className="flex items-center gap-2 text-sm">
@@ -335,9 +281,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 10: FDA (dong bo, chi doc) */}
+        {/* Muc 5: FDA */}
         <section className="space-y-3">
-          <h3 className="font-semibold">10. Đăng ký FDA</h3>
+          <h3 className="font-semibold">5. Đăng ký FDA</h3>
           <div className="rounded-lg border bg-muted/40 p-4 text-sm">
             {fdaNumber ? (
               <div className="flex items-center gap-2">
@@ -357,161 +303,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 11: Nhan su, gio lam viec, ATTP/thiet bi, nguon nuoc, vi tri nha may */}
+        {/* Muc 6: Buyer Audit */}
         <section className="space-y-3">
-          <h3 className="font-semibold">11. Nhân sự, giờ làm việc & rủi ro lao động / môi trường</h3>
-          <p className="text-xs text-muted-foreground">
-            Dùng để đánh giá rủi ro lao động cưỡng bức, an toàn thực phẩm và môi trường sản xuất.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Số lượng kỹ sư / nhân viên kỹ thuật</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="VD: 8"
-                value={staffEngineers}
-                onChange={(e) => setStaffEngineers(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Số lượng công nhân sản xuất</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="VD: 120"
-                value={staffWorkers}
-                onChange={(e) => setStaffWorkers(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Giờ bắt đầu ca làm việc</Label>
-              <Input
-                type="time"
-                value={workHoursStart}
-                onChange={(e) => setWorkHoursStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Giờ kết thúc ca làm việc</Label>
-              <Input
-                type="time"
-                value={workHoursEnd}
-                onChange={(e) => setWorkHoursEnd(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Số ngày làm việc / tuần</Label>
-              <Input
-                type="number"
-                min={1}
-                max={7}
-                placeholder="VD: 6"
-                value={workDaysPerWeek}
-                onChange={(e) => setWorkDaysPerWeek(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Đào tạo / tập huấn ATTP định kỳ</Label>
-              <RadioGroup
-                value={foodSafetyTraining}
-                onValueChange={setFoodSafetyTraining}
-                className="flex gap-4"
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="yes" /> Có
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="no" /> Không
-                </label>
-              </RadioGroup>
-            </div>
-            <div className="space-y-2">
-              <Label>Kiểm tra / kiểm định máy móc định kỳ</Label>
-              <RadioGroup
-                value={equipmentCalibration}
-                onValueChange={setEquipmentCalibration}
-                className="flex gap-4"
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="yes" /> Có
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="no" /> Không
-                </label>
-              </RadioGroup>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Nguồn nước sử dụng trong sản xuất</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {WATER_SOURCES.map((w) => (
-                <label key={w} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={waterSource.includes(w)}
-                    onCheckedChange={() => setWaterSource(toggle(waterSource, w))}
-                  />
-                  {LBL[w]}
-                </label>
-              ))}
-            </div>
-            {waterSource.includes("other") && (
-              <Input
-                placeholder="Nguồn nước khác..."
-                value={waterSourceOther}
-                onChange={(e) => setWaterSourceOther(e.target.value)}
-              />
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Nguồn nước có được kiểm định định kỳ</Label>
-              <RadioGroup value={waterTesting} onValueChange={setWaterTesting} className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="yes" /> Có
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="no" /> Không
-                </label>
-              </RadioGroup>
-            </div>
-            <div className="space-y-2">
-              <Label>Nhà máy có gần nguồn ô nhiễm (KCN nặng, bãi rác, sông ô nhiễm...)</Label>
-              <RadioGroup value={nearPollution} onValueChange={setNearPollution} className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="yes" /> Có
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="no" /> Không
-                </label>
-              </RadioGroup>
-            </div>
-          </div>
-          {nearPollution === "yes" && (
-            <div className="space-y-2">
-              <Label>Ghi chú vị trí / nguồn ô nhiễm gần nhà máy</Label>
-              <Textarea
-                value={pollutionNote}
-                onChange={(e) => setPollutionNote(e.target.value)}
-                rows={2}
-                placeholder="VD: cách khu công nghiệp X 500m..."
-              />
-            </div>
-          )}
-        </section>
-
-        {/* Muc 12: Buyer Audit */}
-        <section className="space-y-3">
-          <h3 className="font-semibold">12. Khả năng tiếp đón Buyer Audit</h3>
+          <h3 className="font-semibold">6. Khả năng tiếp đón Buyer Audit</h3>
           <div className="space-y-2">
             {AUDIT_READINESS.map((a) => (
               <label key={a} className="flex items-center gap-2 text-sm">
@@ -533,9 +327,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 13: Nang luc thuong mai */}
+        {/* Muc 7: Nang luc thuong mai */}
         <section className="space-y-3">
-          <h3 className="font-semibold">13. Năng lực thương mại</h3>
+          <h3 className="font-semibold">7. Năng lực thương mại</h3>
           <div className="flex flex-wrap gap-4">
             {INCOTERMS.map((i) => (
               <label key={i} className="flex items-center gap-2 text-sm">
@@ -577,9 +371,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 14: Nhan su */}
+        {/* Muc 8: Nhan su */}
         <section className="space-y-3">
-          <h3 className="font-semibold">14. Nhân sự phụ trách dự án</h3>
+          <h3 className="font-semibold">8. Nhân sự phụ trách dự án</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Có bộ phận xuất khẩu</Label>
@@ -614,9 +408,9 @@ export function AdminFactoryAssessment({
           </div>
         </section>
 
-        {/* Muc 15: Cam ket */}
+        {/* Muc 9: Cam ket */}
         <section className="space-y-3">
-          <h3 className="font-semibold">15. Cam kết triển khai dự án</h3>
+          <h3 className="font-semibold">9. Cam kết triển khai dự án</h3>
           <div className="space-y-2">
             {COMMITMENTS.map((c) => (
               <label key={c} className="flex items-start gap-2 text-sm">

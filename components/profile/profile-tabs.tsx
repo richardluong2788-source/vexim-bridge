@@ -184,15 +184,6 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
               <ChipsRow label="Quality Systems" items={quality} />
               <ChipsRow label="Traceability" items={traceability} />
               <ChipsRow label="Audit Readiness" items={audit} />
-              <BooleanRow
-                label="Regular Food Safety Training"
-                value={capability?.food_safety_training_regular}
-              />
-              <BooleanRow
-                label="Regular Equipment Calibration"
-                value={capability?.equipment_calibration_regular}
-              />
-              <BooleanRow label="Regular Water Testing" value={capability?.water_testing} />
               <div className="py-3">
                 <p className="text-sm text-muted-foreground mb-2">Certifications</p>
                 {certifications.length > 0 ? (

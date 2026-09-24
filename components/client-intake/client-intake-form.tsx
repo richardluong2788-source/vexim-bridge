@@ -94,18 +94,6 @@ interface IntakeInitialData {
   fda_status: string | null
   fda_number: string | null
   fda_expires_at: string | null
-  staff_engineers_count: number | null
-  staff_workers_count: number | null
-  work_hours_start: string | null
-  work_hours_end: string | null
-  work_days_per_week: number | null
-  food_safety_training_regular: boolean | null
-  equipment_calibration_regular: boolean | null
-  water_source: string[] | null
-  water_source_other: string | null
-  water_testing: boolean | null
-  near_pollution_source: boolean | null
-  pollution_source_note: string | null
   audit_readiness: string[] | null
   audit_owner: string | null
   incoterms: string[] | null
@@ -202,34 +190,6 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
       fda_status: initial.fda_status ?? "",
       fda_number: initial.fda_number ?? "",
       fda_expires_at: initial.fda_expires_at ?? "",
-      staff_engineers_count: initial.staff_engineers_count?.toString() ?? "",
-      staff_workers_count: initial.staff_workers_count?.toString() ?? "",
-      work_hours_start: initial.work_hours_start ?? "",
-      work_hours_end: initial.work_hours_end ?? "",
-      work_days_per_week: initial.work_days_per_week?.toString() ?? "",
-      food_safety_training_regular:
-        initial.food_safety_training_regular == null
-          ? ""
-          : initial.food_safety_training_regular
-            ? "yes"
-            : "no",
-      equipment_calibration_regular:
-        initial.equipment_calibration_regular == null
-          ? ""
-          : initial.equipment_calibration_regular
-            ? "yes"
-            : "no",
-      water_source: initial.water_source ?? [],
-      water_source_other: initial.water_source_other ?? "",
-      water_testing:
-        initial.water_testing == null ? "" : initial.water_testing ? "yes" : "no",
-      near_pollution_source:
-        initial.near_pollution_source == null
-          ? ""
-          : initial.near_pollution_source
-            ? "yes"
-            : "no",
-      pollution_source_note: initial.pollution_source_note ?? "",
       audit_readiness: initial.audit_readiness ?? [],
       audit_owner: initial.audit_owner ?? "",
       incoterms: initial.incoterms ?? [],
@@ -388,28 +348,6 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         fda_status: form.assessment.fda_status || undefined,
         fda_number: form.assessment.fda_number || undefined,
         fda_expires_at: form.assessment.fda_expires_at || undefined,
-        staff_engineers_count: form.assessment.staff_engineers_count || undefined,
-        staff_workers_count: form.assessment.staff_workers_count || undefined,
-        work_hours_start: form.assessment.work_hours_start || undefined,
-        work_hours_end: form.assessment.work_hours_end || undefined,
-        work_days_per_week: form.assessment.work_days_per_week || undefined,
-        food_safety_training_regular:
-          form.assessment.food_safety_training_regular === ""
-            ? undefined
-            : form.assessment.food_safety_training_regular === "yes",
-        equipment_calibration_regular:
-          form.assessment.equipment_calibration_regular === ""
-            ? undefined
-            : form.assessment.equipment_calibration_regular === "yes",
-        water_source: form.assessment.water_source,
-        water_source_other: form.assessment.water_source_other || undefined,
-        water_testing:
-          form.assessment.water_testing === "" ? undefined : form.assessment.water_testing === "yes",
-        near_pollution_source:
-          form.assessment.near_pollution_source === ""
-            ? undefined
-            : form.assessment.near_pollution_source === "yes",
-        pollution_source_note: form.assessment.pollution_source_note || undefined,
         audit_readiness: form.assessment.audit_readiness,
         audit_owner: form.assessment.audit_owner || undefined,
         incoterms: form.assessment.incoterms,

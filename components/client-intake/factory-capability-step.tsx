@@ -15,7 +15,6 @@ import {
   OEM_ODM,
   QUALITY_SYSTEMS,
   TRACEABILITY,
-  WATER_SOURCES,
   toggleAssessmentValue,
   type FactoryCapabilityAnswers,
 } from "@/lib/assessment/constants"
@@ -203,144 +202,9 @@ export function FactoryCapabilityStep({
         )}
       </section>
 
-      {/* 6 (muc 11): Nhan su, gio lam viec & rui ro lao dong / moi truong */}
+      {/* 6 (muc 12): Buyer Audit */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">
-          6. Nhân sự, giờ làm việc &amp; rủi ro lao động / môi trường
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          Dùng để đánh giá rủi ro lao động cưỡng bức, an toàn thực phẩm và môi trường sản xuất.
-        </p>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staffEngineers">Số lượng kỹ sư / nhân viên kỹ thuật</Label>
-            <Input
-              id="staffEngineers"
-              type="number"
-              min={0}
-              placeholder="VD: 8"
-              value={v.staff_engineers_count}
-              onChange={(e) => onChange({ staff_engineers_count: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staffWorkers">Số lượng công nhân sản xuất</Label>
-            <Input
-              id="staffWorkers"
-              type="number"
-              min={0}
-              placeholder="VD: 120"
-              value={v.staff_workers_count}
-              onChange={(e) => onChange({ staff_workers_count: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workHoursStart">Giờ bắt đầu ca làm việc</Label>
-            <Input
-              id="workHoursStart"
-              type="time"
-              value={v.work_hours_start}
-              onChange={(e) => onChange({ work_hours_start: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workHoursEnd">Giờ kết thúc ca làm việc</Label>
-            <Input
-              id="workHoursEnd"
-              type="time"
-              value={v.work_hours_end}
-              onChange={(e) => onChange({ work_hours_end: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workDaysPerWeek">Số ngày làm việc / tuần</Label>
-            <Input
-              id="workDaysPerWeek"
-              type="number"
-              min={1}
-              max={7}
-              placeholder="VD: 6"
-              value={v.work_days_per_week}
-              onChange={(e) => onChange({ work_days_per_week: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label>Đào tạo / tập huấn ATTP định kỳ</Label>
-            <YesNo
-              value={v.food_safety_training_regular}
-              onChange={(val) => onChange({ food_safety_training_regular: val })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Kiểm tra / kiểm định máy móc định kỳ</Label>
-            <YesNo
-              value={v.equipment_calibration_regular}
-              onChange={(val) => onChange({ equipment_calibration_regular: val })}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label>Nguồn nước sử dụng trong sản xuất</Label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {WATER_SOURCES.map((w) => (
-              <label key={w} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={v.water_source.includes(w)}
-                  onCheckedChange={() =>
-                    onChange({ water_source: toggleAssessmentValue(v.water_source, w) })
-                  }
-                />
-                {ASSESSMENT_LABELS[w]}
-              </label>
-            ))}
-          </div>
-          {v.water_source.includes("other") && (
-            <Input
-              placeholder="Nguồn nước khác..."
-              value={v.water_source_other}
-              onChange={(e) => onChange({ water_source_other: e.target.value })}
-            />
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label>Nguồn nước có được kiểm định định kỳ</Label>
-            <YesNo value={v.water_testing} onChange={(val) => onChange({ water_testing: val })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Nhà máy có gần nguồn ô nhiễm (KCN nặng, bãi rác, sông ô nhiễm...)</Label>
-            <YesNo
-              value={v.near_pollution_source}
-              onChange={(val) => onChange({ near_pollution_source: val })}
-            />
-          </div>
-        </div>
-        {v.near_pollution_source === "yes" && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="pollutionNote">Ghi chú vị trí / nguồn ô nhiễm gần nhà máy</Label>
-            <Textarea
-              id="pollutionNote"
-              rows={2}
-              placeholder="VD: cách khu công nghiệp X 500m..."
-              value={v.pollution_source_note}
-              onChange={(e) => onChange({ pollution_source_note: e.target.value })}
-            />
-          </div>
-        )}
-      </section>
-
-      {/* 7 (muc 12): Buyer Audit */}
-      <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">7. Khả năng tiếp đón Buyer Audit</h3>
+        <h3 className="text-sm font-semibold text-foreground">6. Khả năng tiếp đón Buyer Audit</h3>
         <div className="flex flex-col gap-2">
           {AUDIT_READINESS.map((a) => (
             <label key={a} className="flex items-center gap-2 text-sm">
@@ -367,9 +231,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 8 (muc 13): Nang luc thuong mai */}
+      {/* 7: Nang luc thuong mai */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">8. Năng lực thương mại</h3>
+        <h3 className="text-sm font-semibold text-foreground">7. Năng lực thương mại</h3>
         <div className="flex flex-wrap gap-4">
           {INCOTERMS.map((i) => (
             <label key={i} className="flex items-center gap-2 text-sm">
@@ -414,9 +278,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 9 (muc 14): Nhan su phu trach du an */}
+      {/* 8: Nhan su phu trach du an */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">9. Nhân sự phụ trách dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">8. Nhân sự phụ trách dự án</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label>Có bộ phận xuất khẩu</Label>
@@ -441,9 +305,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 10 (muc 15): Cam ket trien khai du an */}
+      {/* 9: Cam ket trien khai du an */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">10. Cam kết triển khai dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">9. Cam kết triển khai dự án</h3>
         <div className="flex flex-col gap-2">
           {COMMITMENTS.map((c) => (
             <label key={c} className="flex items-start gap-2 text-sm">

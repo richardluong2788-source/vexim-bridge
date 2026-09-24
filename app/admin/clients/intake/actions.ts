@@ -36,24 +36,12 @@ export interface IntakeEditableFields {
   oem_odm?: string[]
   company_scale?: string | null
   export_since_year?: number | null
-  export_markets?: string[]
+  export_markets?: string[] | null
   export_markets_other?: string | null
   traceability?: string[]
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
-  staff_engineers_count?: number | null
-  staff_workers_count?: number | null
-  work_hours_start?: string | null
-  work_hours_end?: string | null
-  work_days_per_week?: number | null
-  food_safety_training_regular?: boolean | null
-  equipment_calibration_regular?: boolean | null
-  water_source?: string[]
-  water_source_other?: string | null
-  water_testing?: boolean | null
-  near_pollution_source?: boolean | null
-  pollution_source_note?: string | null
   audit_readiness?: string[]
   audit_owner?: string | null
   incoterms?: string[]
@@ -155,18 +143,6 @@ export async function updateIntakeSubmission(
     fda_status: fields.fda_status?.trim() || null,
     fda_number: fields.fda_number?.trim() || null,
     fda_expires_at: fields.fda_expires_at || null,
-    staff_engineers_count: fields.staff_engineers_count ?? null,
-    staff_workers_count: fields.staff_workers_count ?? null,
-    work_hours_start: fields.work_hours_start || null,
-    work_hours_end: fields.work_hours_end || null,
-    work_days_per_week: fields.work_days_per_week ?? null,
-    food_safety_training_regular: fields.food_safety_training_regular ?? null,
-    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
-    water_source: fields.water_source ?? [],
-    water_source_other: fields.water_source_other?.trim() || null,
-    water_testing: fields.water_testing ?? null,
-    near_pollution_source: fields.near_pollution_source ?? null,
-    pollution_source_note: fields.pollution_source_note?.trim() || null,
     audit_readiness: fields.audit_readiness ?? [],
     audit_owner: fields.audit_owner?.trim() || null,
     incoterms: fields.incoterms ?? [],
@@ -190,27 +166,8 @@ export async function updateIntakeSubmission(
 }
 
 export interface ApproveIntakeOptions {
-  /**
-   * Split the free-text "Sản phẩm chính" into `client_products` rows while
-   * provisioning the account. Default true.
-   *
-   * Rows land as `status = 'inactive'`, which every buyer-facing surface filters
-   * out (`app/products`, the product page, `/profile/<slug>`,
-   * `/api/products/search`), so approving an intake never puts unproofed text in
-   * front of a US buyer. An AE promotes what is good and deletes what is not in
-   * "Quản lý hồ sơ" → tab Sản phẩm. Seeding is best-effort: a failure here is
-   * logged, never a reason for an approval to fail.
-   */
   seedProductsFromIntake?: boolean
 }
-
-/**
- * AE-only: approve a submitted intake. Provisions the client account
- * (reusing the same `createClientAccount` flow as manual admin creation),
- * then mirrors the capability-profile fields into `client_profiles` so
- * "Quản lý hồ sơ" opens already populated. Marks the submission approved
- * and links it to the new profile id.
- */
 
 export async function approveIntakeSubmission(
   id: string,
@@ -226,9 +183,6 @@ export async function approveIntakeSubmission(
 
   const admin = createAdminClient()
 
-  // Re-fetch the row directly (bypassing RLS is fine — caller role already
-  // checked) to confirm it's still awaiting review and not already acted on
-  // by someone else / re-approved twice.
   const { data: submission, error: fetchErr } = await admin
     .from("client_intake_submissions")
     .select("id, status, ae_id")
@@ -249,11 +203,9 @@ export async function approveIntakeSubmission(
   }
   const isSR = callerProfile.role === "supplier_researcher"
 
-  // Persist any last-minute AE edits first.
   const editResult = await updateIntakeSubmission(id, fields)
   if (!editResult.ok) return editResult
 
-  // ---- Provision the client account (registration fields) -----------------
   const createInput: CreateClientInput = {
     email: fields.email,
     full_name: fields.contact_name,
@@ -261,8 +213,6 @@ export async function approveIntakeSubmission(
     industries: fields.industries,
     phone: fields.phone,
     country: fields.country ?? null,
-    // SR owns the supplier pipeline: when an SR approves an intake, they are
-    // the sourcer of record (drives their billing-proposal scope).
     sourced_by: isSR ? caller.id : null,
   }
 
@@ -273,9 +223,6 @@ export async function approveIntakeSubmission(
 
   const clientId = createResult.userId
 
-  // ---- Mirror the complete factory assessment into client_factory_assessments
-  // The assessment action recomputes the internal score and upserts atomically
-  // by client_id, so re-running approval cannot create duplicate assessments.
   const toNumber = (value: number | null | undefined) => value ?? null
   const assessmentInput: AssessmentInput = {
     quality_systems: fields.quality_systems ?? [],
@@ -300,18 +247,6 @@ export async function approveIntakeSubmission(
     moq: fields.moq ?? null,
     lead_time_days: fields.lead_time_days ?? null,
     production_capacity: fields.production_capacity ?? null,
-    staff_engineers_count: toNumber(fields.staff_engineers_count),
-    staff_workers_count: toNumber(fields.staff_workers_count),
-    work_hours_start: fields.work_hours_start ?? null,
-    work_hours_end: fields.work_hours_end ?? null,
-    work_days_per_week: toNumber(fields.work_days_per_week),
-    food_safety_training_regular: fields.food_safety_training_regular ?? null,
-    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
-    water_source: fields.water_source ?? [],
-    water_source_other: fields.water_source_other ?? null,
-    water_testing: fields.water_testing ?? null,
-    near_pollution_source: fields.near_pollution_source ?? null,
-    pollution_source_note: fields.pollution_source_note ?? null,
   }
   const assessmentResult = await upsertAssessment(clientId, assessmentInput)
   if (!assessmentResult.success) {
@@ -319,7 +254,6 @@ export async function approveIntakeSubmission(
     return { ok: false, error: "assessment_create_failed" }
   }
 
-  // ---- Mirror capability-profile fields into client_profiles ---------------
   const slugBase = fields.company_name
     .toLowerCase()
     .normalize("NFD")
@@ -358,14 +292,8 @@ export async function approveIntakeSubmission(
 
   if (profileErr) {
     console.error("[v0] client_profiles upsert after intake approval failed:", profileErr.message)
-    // Don't fail the whole approval — the account exists; AE can fill the
-    // profile manually in "Quản lý hồ sơ" if this mirror step had an issue.
   }
 
-  // ---- Seed the product catalog from the free-text product list ------------
-  // `onlyWhenClientEmpty`: a client whose catalog an AE already curated is never
-  // appended to automatically — the AE decides that, per client, with
-  // `scripts/backfill-main-products.mjs --mode=fill-gaps`.
   let seededProducts = 0
   if (options.seedProductsFromIntake !== false) {
     const seeded = await seedProductsFromMainProducts(admin, {
@@ -384,7 +312,6 @@ export async function approveIntakeSubmission(
     }
   }
 
-  // ---- Mark submission approved --------------------------------------------
   await admin
     .from("client_intake_submissions")
     .update({
@@ -417,10 +344,6 @@ export async function approveIntakeSubmission(
   return { ok: true, clientId, seededProducts }
 }
 
-/**
- * AE-only: reject a submission (e.g. industry not a fit, or client never
- * followed up on missing info). Does not touch `profiles` at all.
- */
 export async function rejectIntakeSubmission(
   id: string,
   reason: string,

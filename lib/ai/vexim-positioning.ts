@@ -49,8 +49,6 @@ export interface SupplierVetting {
   companyScale?: string | null
   hasExportDept?: boolean | null
   hasEnglishStaff?: boolean | null
-  staffEngineersCount?: number | null
-  staffWorkersCount?: number | null
   uspPoints?: { title: string; icon?: string }[] | null
   products?: Array<{
     productName: string

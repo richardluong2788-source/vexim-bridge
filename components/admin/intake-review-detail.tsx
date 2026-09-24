@@ -106,18 +106,6 @@ export interface IntakeSubmissionDetail {
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
-  staff_engineers_count?: number | null
-  staff_workers_count?: number | null
-  work_hours_start?: string | null
-  work_hours_end?: string | null
-  work_days_per_week?: number | null
-  food_safety_training_regular?: boolean | null
-  equipment_calibration_regular?: boolean | null
-  water_source?: string[] | null
-  water_source_other?: string | null
-  water_testing?: boolean | null
-  near_pollution_source?: boolean | null
-  pollution_source_note?: string | null
   audit_readiness?: string[] | null
   audit_owner?: string | null
   incoterms?: string[] | null
@@ -205,18 +193,6 @@ export function IntakeReviewDetail({
     fda_status: submission.fda_status ?? "",
     fda_number: submission.fda_number ?? "",
     fda_expires_at: submission.fda_expires_at ?? "",
-    staff_engineers_count: submission.staff_engineers_count?.toString() ?? "",
-    staff_workers_count: submission.staff_workers_count?.toString() ?? "",
-    work_hours_start: submission.work_hours_start ?? "",
-    work_hours_end: submission.work_hours_end ?? "",
-    work_days_per_week: submission.work_days_per_week?.toString() ?? "",
-    food_safety_training_regular: submission.food_safety_training_regular === true ? "yes" : submission.food_safety_training_regular === false ? "no" : "",
-    equipment_calibration_regular: submission.equipment_calibration_regular === true ? "yes" : submission.equipment_calibration_regular === false ? "no" : "",
-    water_source: submission.water_source ?? [],
-    water_source_other: submission.water_source_other ?? "",
-    water_testing: submission.water_testing ? "yes" : "",
-    near_pollution_source: submission.near_pollution_source ? "yes" : "",
-    pollution_source_note: submission.pollution_source_note ?? "",
     audit_readiness: submission.audit_readiness ?? [],
     audit_owner: submission.audit_owner ?? "",
     incoterms: submission.incoterms ?? [],
@@ -317,18 +293,6 @@ export function IntakeReviewDetail({
       fda_status: assessment.fda_status || null,
       fda_number: assessment.fda_number || null,
       fda_expires_at: assessment.fda_expires_at || null,
-      staff_engineers_count: Number(assessment.staff_engineers_count) || null,
-      staff_workers_count: Number(assessment.staff_workers_count) || null,
-      work_hours_start: assessment.work_hours_start || null,
-      work_hours_end: assessment.work_hours_end || null,
-      work_days_per_week: Number(assessment.work_days_per_week) || null,
-      food_safety_training_regular: assessment.food_safety_training_regular === "yes" ? true : assessment.food_safety_training_regular === "no" ? false : null,
-      equipment_calibration_regular: assessment.equipment_calibration_regular === "yes" ? true : assessment.equipment_calibration_regular === "no" ? false : null,
-      water_source: assessment.water_source,
-      water_source_other: assessment.water_source_other || null,
-      water_testing: assessment.water_testing === "yes" ? true : assessment.water_testing === "no" ? false : null,
-      near_pollution_source: assessment.near_pollution_source === "yes" ? true : assessment.near_pollution_source === "no" ? false : null,
-      pollution_source_note: assessment.pollution_source_note || null,
       audit_readiness: assessment.audit_readiness,
       audit_owner: assessment.audit_owner || null,
       incoterms: assessment.incoterms,
@@ -782,7 +746,7 @@ export function IntakeReviewDetail({
             <CardHeader>
               <CardTitle>{tr("Đánh giá năng lực nhà máy", "Factory capability assessment")}</CardTitle>
               <CardDescription>
-                {tr("10 mục thông tin được đánh số lại từ 1 đến 10.", "Ten assessment sections, numbered 1 through 10.")}
+                {tr("9 mục thông tin được đánh số từ 1 đến 9.", "Nine assessment sections, numbered 1 through 9.")}
               </CardDescription>
             </CardHeader>
             <CardContent>

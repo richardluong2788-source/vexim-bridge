@@ -23,7 +23,6 @@ import {
 } from "@/lib/constants/industries"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { createClientAccount, createSupplementLinkForClient } from "@/app/admin/clients/new/actions"
-import { Link2, Copy, Check } from "lucide-react" 
 
 type Locale = "vi" | "en"
 

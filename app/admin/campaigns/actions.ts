@@ -202,6 +202,18 @@ export async function previewPilotCandidatesAction(): Promise<PilotPreviewResult
       if (candidates.length >= 200) break
     }
 
+    // Loại lead đang có engagement MỞ (AE đã claim) — tránh enroll người đang
+    // ở lane con người; chống double-email từ đầu thay vì vá sau.
+    if (candidates.length > 0) {
+      const { data: busyEng } = await (guard.admin.from("buyer_engagements") as any)
+        .select("lead_id")
+        .in("lead_id", candidates.map((c) => c.leadId))
+        .not("stage", "in", '("converted","dropped")')
+      const busyLeadIds = new Set(((busyEng ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id))
+      const filtered = candidates.filter((c) => !busyLeadIds.has(c.leadId))
+      return { ok: true, candidates: filtered }
+    }
+
     return { ok: true, candidates }
   } catch (err) {
     console.error("[campaign] previewPilotCandidatesAction:", err)

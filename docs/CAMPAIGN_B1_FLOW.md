@@ -167,11 +167,12 @@ stage transition cũ vẫn chạy song song — campaign chỉ dừng sequence c
 
 ---
 
-## 6. Tám lớp an toàn (theo thứ tự chặn)
+## 6. Chín lớp an toàn (theo thứ tự chặn)
 
 1. **Campaign phải `active`** + có steps — cron bỏ qua campaign draft.
 2. **STOP-check** (unsub/bounce/complaint/missing email) — trước mọi hành động.
-3. **Human-review HOLD** — enrollment bị khoá khỏi cron khi có cờ.
+3. **YIELD-to-engagement** — lead đã có `buyer_engagements` mở (AE claim) → campaign tự HOLD + notify; pilot preview cũng loại sẵn những lead này. Mỗi buyer tại một thời điểm chỉ nằm trong ĐÚNG MỘT lane gửi email.
+4. **Human-review HOLD** — enrollment bị khoá khỏi cron khi có cờ.
 4. **Sending window** Mon–Fri 08:00–11:30 / 13:00–16:30 local — ngoài khung chỉ reschedule.
 5. **Daily limits** (20/campaign + 60 toàn hệ thống) — sau window, trước claim.
 6. **Idempotency** — `campaign_step_firings` UNIQUE(firing_key): retry/restart không gửi trùng.
@@ -187,3 +188,17 @@ stage transition cũ vẫn chạy song song — campaign chỉ dừng sequence c
 không thì skip → hết sequence → **NURTURE**. Trong lúc đó buyer **reply** → **classify ngay**
 → quan tâm thì **handoff sang inbox hiện có** cho AE, từ chối/opt-out thì **dừng vĩnh viễn**,
 không chắc thì **đứng ra hỏi AE**.
+
+
+---
+
+## 8. FAQ — 2 lane gửi email
+
+**Mỗi buyer có thể nhận email từ cả 2 lane không?**
+Không — theo thiết kế, mỗi buyer tại một thời điểm chỉ nằm trong ĐÚNG MỘT lane:
+- Buyer pilot nằm trong campaign → lane campaign (AE chỉ duyệt).
+- Buyer được AE claim trong inbox → lane con người; nếu buyer đó đang có enrollment campaign, tick scheduler kế tiếp sẽ tự **HOLD** campaign + notify owner (resume/stop do AE quyết), và pilot preview không hiển thị những lead đã có engagement mở.
+- Reply INTERESTED → handoff → enrollment thành terminal → campaign không bao giờ gửi nữa.
+
+**AE sở hữu buyer campaign rồi muốn tự chạy lane cũ?**
+Pause/Stop enrollment trước (1 nút trong bảng enrollment), rồi claim như bình thường. Nếu quên, lớp YIELD-to-engagement sẽ HOLD thay.

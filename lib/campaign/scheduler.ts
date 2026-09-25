@@ -57,6 +57,7 @@ export interface TickResult {
   gateSkipped: number
   gateHold: number
   rescheduledWindow: number
+  yieldedToEngagement: number
   nurtured: number
   approvalReminders: number
   integrityFixes: number
@@ -344,6 +345,7 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
     gateSkipped: 0,
     gateHold: 0,
     rescheduledWindow: 0,
+    yieldedToEngagement: 0,
     nurtured: 0,
     approvalReminders: 0,
     integrityFixes: 0,
@@ -424,6 +426,44 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
             ? onSuppression(e.state, stop.reason)
             : onInvalidContact(e.state, stop.reason)
           if (await applyTransition(e, transition)) result.suppressed += 1
+          continue
+        }
+
+        // ── YIELD TO ENGAGEMENT (chống double-email 2 lane) ──
+        // Lead đã có buyer_engagements ĐANG MỞ (AE đã claim → lane con người
+        // phụ trách outreach) → campaign KHÔNG gửi nữa. HOLD + notify owner
+        // quyết (resume nếu muốn campaign tiếp / stop để nhường hẳn).
+        const { data: activeEng } = await (admin.from("buyer_engagements") as any)
+          .select("id, stage, account_manager_id")
+          .eq("lead_id", e.lead_id)
+          .not("stage", "in", '("converted","dropped")')
+          .limit(1)
+        const engRow = ((activeEng ?? []) as Array<{ id: string; stage: string; account_manager_id: string }>)[0]
+        if (engRow) {
+          await applyTransition(e, {
+            to: null,
+            needsHumanReview: true,
+            humanReviewReason: `active_engagement:${engRow.id}`,
+            nextActionAt: null,
+            nextActionType: "human_review",
+            note: "yield_to_engagement",
+          })
+          result.yieldedToEngagement += 1
+          if (e.owner_id) {
+            await dispatchNotification({
+              userId: e.owner_id,
+              category: "action_required",
+              opportunityId: null,
+              linkPath: `/admin/campaigns/${campaign.id}`,
+              dedupKey: `campaign_yield:${e.id}:${engRow.id}`,
+              title: { vi: "Campaign: tạm HOLD — buyer đã có AE claim", en: "Campaign: on hold — buyer already claimed by an AE" },
+              body: {
+                vi: `Buyer đang có engagement mở (${engRow.stage}). Để tránh gửi trùng 2 lane, campaign HOLD. Resume nếu muốn campaign tiếp tục, hoặc Stop để nhường lane thường.`,
+                en: `This buyer has an open engagement (${engRow.stage}). To avoid double-emailing, the campaign is on hold. Resume to continue, or stop to hand the lane over.`,
+              },
+              ctaLabel: { vi: "Xem enrollment", en: "Review enrollment" },
+            })
+          }
           continue
         }
 

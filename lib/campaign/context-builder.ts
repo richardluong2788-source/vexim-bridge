@@ -25,6 +25,9 @@ interface LeadFields {
   top_suppliers: unknown | null
   customs_shipment_count: number | null
   peak_months: string | null
+  buyer_analysis: Record<string, unknown> | null
+  buyer_strategy: Record<string, unknown> | null
+  buyer_analysis_at: string | null
 }
 
 function unknownIfEmpty(value: string | null | undefined): string | "UNKNOWN" {
@@ -61,7 +64,8 @@ export async function buildBuyerContext(
     .select(
       `id, company_name, contact_person, contact_email, contact_title, country, industry,
        website, hs_code, hs_codes, purchase_history, top_suppliers,
-       customs_shipment_count, peak_months`,
+       customs_shipment_count, peak_months, buyer_analysis, buyer_strategy,
+       buyer_analysis_at`,
     )
     .eq("id", enrollment.lead_id)
     .single()
@@ -83,6 +87,11 @@ export async function buildBuyerContext(
       ? [l.hs_code.trim()]
       : "UNKNOWN" as const
 
+  const analysisAgeDays =
+    l.buyer_analysis_at
+      ? Math.floor((Date.now() - new Date(l.buyer_analysis_at).getTime()) / 86400000)
+      : "UNKNOWN"
+
   return {
     buyer: {
       company_name: l.company_name,
@@ -100,6 +109,15 @@ export async function buildBuyerContext(
       vietnam_supplier_exists: detectVietnamSupplier(l.top_suppliers),
       shipment_count: typeof l.customs_shipment_count === "number" ? l.customs_shipment_count : "UNKNOWN",
       peak_months: unknownIfEmpty(l.peak_months),
+    },
+    research: {
+      buyer_analysis: (l.buyer_analysis && typeof l.buyer_analysis === "object" ? l.buyer_analysis : "UNKNOWN") as
+        | Record<string, unknown>
+        | "UNKNOWN",
+      buyer_strategy: (l.buyer_strategy && typeof l.buyer_strategy === "object" ? l.buyer_strategy : "UNKNOWN") as
+        | Record<string, unknown>
+        | "UNKNOWN",
+      analysis_age_days: analysisAgeDays,
     },
     crm: {
       stage: enrollment.state,

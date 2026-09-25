@@ -211,7 +211,7 @@ export async function previewPilotCandidatesAction(): Promise<PilotPreviewResult
 
 export type EnrollLeadsResult =
   | { ok: true; enrolled: number; skipped: Array<{ leadId: string; reason: string }> }
-  | { ok: false; error: ActionError | "validation" | "campaign_not_found" | "campaign_not_draft_or_active" | "serverError"; message?: string }
+  | { ok: false; error: ActionError | "validation" | "campaign_not_found" | "campaign_not_draft_or_active" | "pilot_cap_reached" | "serverError"; message?: string }
 
 export async function enrollLeadsAction(input: {
   campaignId: string

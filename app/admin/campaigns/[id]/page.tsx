@@ -81,6 +81,44 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
   const draftRows = (drafts ?? []) as ApprovalDraft[]
 
+  // ── Pilot metrics (yêu cầu 25/09/2026) ──
+  const { count: draftsCreated } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+    : { count: 0 }
+  const { count: draftsRejected } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "rejected")
+    : { count: 0 }
+  const { count: draftsSent } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "sent")
+    : { count: 0 }
+  // Human edit rate: từ interaction EMAIL đã gửi (human_approved) — metadata.edited.
+  const { data: sentInteractions } = enrollmentIds.length
+    ? await (admin.from("buyer_interactions") as any)
+        .select("metadata")
+        .in("enrollment_id", enrollmentIds)
+        .eq("interaction_type", "EMAIL")
+        .eq("human_approved", true)
+    : { data: [] }
+  const sentMeta = ((sentInteractions ?? []) as Array<{ metadata: { edited?: boolean } | null }>)
+  const editedCount = sentMeta.filter((m) => m.metadata?.edited === true).length
+  const sentEmailCount = sentMeta.length
+
+  // Gate stats (follow-up bị chặn vì "không có lý do hợp lý" / HOLD).
+  const { count: gateSkipCount } = enrollmentIds.length
+    ? await (admin.from("campaign_step_firings") as any)
+        .select("id", { count: "exact", head: true })
+        .in("enrollment_id", enrollmentIds)
+        .eq("status", "skipped")
+    : { count: 0 }
+
   // Stats funnel cơ bản (B1-lite §23).
   const stats = {
     total: enrollmentRows.length,
@@ -93,6 +131,23 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     qaBlocked: draftRows.filter((d) => d.status === "draft").length,
   }
   const replyRate = stats.contacted > 0 ? Math.round((stats.replied / stats.contacted) * 100) : 0
+
+  const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : null)
+  const followupRows = enrollmentRows.filter((r) => r.followup_count > 0)
+  const pilotMetrics = {
+    aiRejectionRate: pct(draftsRejected ?? 0, draftsCreated ?? 0),
+    humanEditRate: pct(editedCount, sentEmailCount),
+    replyRate: pct(stats.replied, stats.contacted),
+    interestedRate: pct(stats.handoff, stats.replied),
+    wrongContact: enrollmentRows.filter((r) => r.state === "invalid_contact").length,
+    optOut: enrollmentRows.filter((r) => r.state === "suppressed" && r.stopped_reason === "buyer_opted_out").length,
+    followupConversionNum: followupRows.filter((r) => !!r.last_reply_at).length,
+    followupConversionDen: followupRows.length,
+    followupConversion: pct(
+      followupRows.filter((r) => !!r.last_reply_at).length,
+      followupRows.length,
+    ),
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -117,7 +172,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           { label: "Buyer", value: stats.total },
           { label: "Đã liên hệ", value: stats.contacted },
           { label: "Đã reply", value: stats.replied },
-          { label: "Reply rate", value: `${replyRate}%` },
+          { label: "Reply rate", value: replyRate + "%" },
           { label: "Handoff AE", value: stats.handoff },
           { label: "Chờ duyệt", value: stats.pendingApproval },
           { label: "QA chặn", value: stats.qaBlocked },
@@ -131,6 +186,32 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </Card>
         ))}
       </div>
+
+      {/* Pilot metrics — đánh giá trước khi quyết định auto-send */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Chỉ số pilot (đánh giá 2–4 tuần trước khi bật auto-send)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+            {[
+              { label: "AI rejection rate", value: pilotMetrics.aiRejectionRate === null ? "—" : pilotMetrics.aiRejectionRate + "%", hint: `${draftsRejected ?? 0}/${draftsCreated ?? 0} draft bị từ chối` },
+              { label: "Human edit rate", value: pilotMetrics.humanEditRate === null ? "—" : pilotMetrics.humanEditRate + "%", hint: `${editedCount}/${sentEmailCount} email bị AE sửa` },
+              { label: "Reply rate", value: pilotMetrics.replyRate === null ? "—" : pilotMetrics.replyRate + "%", hint: "reply / đã liên hệ" },
+              { label: "Interested rate", value: pilotMetrics.interestedRate === null ? "—" : pilotMetrics.interestedRate + "%", hint: `${stats.handoff}/${stats.replied} reply INTERESTED` },
+              { label: "Wrong contact", value: String(pilotMetrics.wrongContact), hint: "enrollment invalid_contact" },
+              { label: "Opt-out", value: String(pilotMetrics.optOut), hint: "suppressed (buyer_opted_out)" },
+              { label: "Follow-up conversion", value: pilotMetrics.followupConversion === null ? "—" : pilotMetrics.followupConversion + "%", hint: `${pilotMetrics.followupConversionNum}/${pilotMetrics.followupConversionDen} reply sau follow-up · gate skip: ${gateSkipCount ?? 0}` },
+            ].map((m) => (
+              <div key={m.label} className="rounded-md border p-3">
+                <div className="text-xl font-semibold">{m.value}</div>
+                <div className="text-xs font-medium">{m.label}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">{m.hint}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Sequence */}
       <Card>

@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import {
   type EnrollmentState,
   TERMINAL_STATES,
+  pilotEnrollmentCap,
 } from "./constants"
 import type { StateTransition } from "./state-machine"
 import type { CampaignEnrollmentRow, CampaignRow, CampaignStepRow } from "./types"
@@ -93,7 +94,7 @@ export async function applyTransition(
 
 export type EnrollResult =
   | { ok: true; enrolled: number; skipped: Array<{ leadId: string; reason: string }> }
-  | { ok: false; error: "campaign_not_found" | "campaign_not_draft_or_active" | "serverError"; message?: string }
+  | { ok: false; error: "campaign_not_found" | "campaign_not_draft_or_active" | "pilot_cap_reached" | "serverError"; message?: string }
 
 /**
  * Enroll danh sách lead vào campaign. Bỏ qua idempotent những lead đã enroll.
@@ -121,10 +122,33 @@ export async function enrollLeads(
     return { ok: false, error: "campaign_not_draft_or_active" }
   }
 
+  // Pilot theo cấp bậc (10 → 30 → 50–100): cap TỔNG enrollment/campaign,
+  // override bằng env CAMPAIGN_PILOT_MAX_ENROLLMENTS.
+  const cap = pilotEnrollmentCap()
+  const { count: existingCount, error: cntErr } = await (admin.from("campaign_enrollments") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+  if (cntErr) {
+    return { ok: false, error: "serverError", message: cntErr.message }
+  }
+  const existing = existingCount ?? 0
+  if (existing >= cap) {
+    return {
+      ok: false,
+      error: "pilot_cap_reached",
+      message: `Campaign đã đủ ${existing}/${cap} enrollment (pilot cap — tăng CAMPAIGN_PILOT_MAX_ENROLLMENTS khi muốn mở rộng).`,
+    }
+  }
+
   const skipped: Array<{ leadId: string; reason: string }> = []
   let enrolled = 0
+  let slots = cap - existing
 
   for (const leadId of leadIds) {
+    if (slots <= 0) {
+      skipped.push({ leadId, reason: "pilot_cap_reached" })
+      continue
+    }
     // STOP check (spec §13): contact hợp lệ + chưa suppress.
     const stop = await checkLeadStop(leadId)
     if (!stop.ok) {
@@ -156,6 +180,7 @@ export async function enrollLeads(
     }
 
     enrolled += 1
+    slots -= 1
     await logSystemEvent({
       buyerId: leadId,
       campaignId,

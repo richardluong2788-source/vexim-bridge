@@ -36,6 +36,7 @@ import {
 } from "./state-machine"
 import { applyTransition, countAllCampaignEmailsSentToday, countCampaignEmailsSentToday, getCampaign, getCampaignSteps } from "./enrollments"
 import { buildBuyerContext } from "./context-builder"
+import { assessFollowupJustification, applyFollowupGateDecision } from "./followup-gate"
 import { generateCampaignEmail } from "./email-generator"
 import { runEmailQA } from "./email-qa"
 import { checkLeadStop, stopStateToEnrollmentState } from "./suppression"
@@ -52,6 +53,8 @@ export interface TickResult {
   draftFailures: number
   graceAdvanced: number
   followupsQueued: number
+  gateSkipped: number
+  gateHold: number
   nurtured: number
   approvalReminders: number
   integrityFixes: number
@@ -138,6 +141,7 @@ async function queueDraftForEnrollment(
   step: { step_number: number; step_type: string; objective: string | null; ai_prompt_guidance: string | null },
   campaignName: string,
   ownerId: string | null,
+  prebuiltCtx?: import("./types").BuyerContext,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient()
 
@@ -159,7 +163,7 @@ async function queueDraftForEnrollment(
     .single()
 
   try {
-    const ctx = await buildBuyerContext(enrollment as never, step as never)
+    const ctx = prebuiltCtx ?? (await buildBuyerContext(enrollment as never, step as never))
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance)
 
     const qa = runEmailQA({
@@ -335,6 +339,8 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
     draftFailures: 0,
     graceAdvanced: 0,
     followupsQueued: 0,
+    gateSkipped: 0,
+    gateHold: 0,
     nurtured: 0,
     approvalReminders: 0,
     integrityFixes: 0,
@@ -567,6 +573,88 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
 
               const claimed = await claimStep(e.id, nextStep.step_number)
               if (!claimed) break
+
+              // ── FOLLOW-UP GATE (yêu cầu 25/09/2026) ──
+              // Trước MỌI follow-up: AI đọc lại buyer context + research +
+              // import data + toàn bộ lịch sử email và tự đánh giá có lý do
+              // hợp lý để liên hệ tiếp không. Không có lý do → KHÔNG gửi.
+              if (nextStep.step_number >= 2) {
+                const gateCtx = await buildBuyerContext(e as never, nextStep as never)
+                const daysSinceLastContact = e.last_contact_at
+                  ? Math.floor((now.getTime() - new Date(e.last_contact_at).getTime()) / 86400000)
+                  : null
+                const gate = await assessFollowupJustification({
+                  ctx: gateCtx,
+                  stepNumber: nextStep.step_number,
+                  stepType: nextStep.step_type,
+                  daysSinceLastContact,
+                })
+                const decision = applyFollowupGateDecision(gate)
+
+                if (decision !== "generate") {
+                  await resolveFiring(e.id, nextStep.step_number, "skipped", {
+                    error: `gate_${decision}:${gate.reasonCategory}`,
+                  })
+                  await logSystemEvent({
+                    buyerId: e.lead_id,
+                    campaignId: e.campaign_id,
+                    enrollmentId: e.id,
+                    step: nextStep.step_number,
+                    event: decision === "skip" ? "followup_gate_skip" : "followup_gate_hold",
+                    detail: {
+                      reason_category: gate.reasonCategory,
+                      reason_summary: gate.reasonSummary,
+                      confidence: gate.confidence,
+                      source: gate.source,
+                    },
+                    description: `[Campaign] Follow-up gate step ${nextStep.step_number} → ${
+                      decision === "skip" ? "SKIP (không có lý do hợp lý)" : "HOLD cho AE review"
+                    }: ${gate.reasonCategory} — ${gate.reasonSummary} (conf ${gate.confidence.toFixed(2)}, lead ${e.lead_id})`,
+                  })
+
+                  if (decision === "human_review") {
+                    // AI không chắc chắn → HOLD, AE quyết định (resume sẽ đưa
+                    // enrollment về mốc followup_due).
+                    await applyTransition(e, {
+                      to: null,
+                      needsHumanReview: true,
+                      humanReviewReason: `followup_gate_conf_${gate.confidence.toFixed(2)}`,
+                      nextActionAt: null,
+                      nextActionType: "human_review",
+                      note: "followup_gate_hold",
+                    })
+                    result.gateHold += 1
+                  } else {
+                    // Skip step này: đẩy con trỏ sequence tới step kế (không
+                    // đếm followup_count vì chưa gửi gì). Hết bảng → NURTURE.
+                    const after = steps.find((s) => s.step_number === nextStep.step_number + 1)
+                    if (after) {
+                      const nextAt = new Date(now.getTime() + Math.max(after.delay_days, 1) * 86400000)
+                      await (admin.from("campaign_enrollments") as any)
+                        .update({
+                          current_step_number: nextStep.step_number,
+                          next_action_at: nextAt.toISOString(),
+                          next_action_type: "followup_due",
+                        })
+                        .eq("id", e.id)
+                    } else {
+                      const t = onNurtureDue(e.state)
+                      if (t.to) await applyTransition(e, t)
+                    }
+                    result.gateSkipped += 1
+                  }
+                  break
+                }
+                // Gate pass → sinh draft, tái dùng context đã build.
+                const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id, gateCtx)
+                if (r.ok) {
+                  result.followupsQueued += 1
+                } else {
+                  result.draftFailures += 1
+                }
+                break
+              }
+
               const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id)
               if (r.ok) {
                 result.followupsQueued += 1

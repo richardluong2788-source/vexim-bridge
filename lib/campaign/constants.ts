@@ -84,6 +84,17 @@ export interface CampaignReplyClassification {
 /** Threshold phân loại tự động (quyết định đã chốt). Dưới ngưỡng → human review. */
 export const CONFIDENCE_THRESHOLD = 0.85
 
+/** Follow-up gate: AI tự đánh giá "có lý do liên hệ tiếp không". Dưới ngưỡng
+ *  (AI không chắc) → HOLD human review thay vì gửi. */
+export const GATE_CONFIDENCE_THRESHOLD = 0.7
+
+/** Cap tổng enrollment/campaign cho pilot theo cấp bậc (10 → 30 → 50–100).
+ *  Override bằng env; mặc định 100. */
+export function pilotEnrollmentCap(): number {
+  const n = Number(process.env.CAMPAIGN_PILOT_MAX_ENROLLMENTS ?? "100")
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 100
+}
+
 // ---------------------------------------------------------------------------
 // Config scheduler / policy
 // ---------------------------------------------------------------------------

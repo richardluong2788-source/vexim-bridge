@@ -83,6 +83,10 @@ export async function approveAndSendCampaignDraft(
   const sentAt = new Date()
   const finalSubject = edit?.subject?.trim() || d.generated_subject || ""
   const finalContent = edit?.content?.trim() || d.generated_content_en || ""
+  // Human-edit-rate metric (yêu cầu 25/09/2026): so bản gửi với bản AI gốc.
+  const wasEdited =
+    (edit?.subject?.trim() ?? "") !== (d.generated_subject ?? "").trim() ||
+    (edit?.content?.trim() ?? "") !== (d.generated_content_en ?? "").trim()
 
   // Firing → sent.
   await (supabase.from("campaign_step_firings") as any)
@@ -123,7 +127,10 @@ export async function approveAndSendCampaignDraft(
       metadata: {
         draft_id: draftId,
         final_content: finalContent,
+        edited: wasEdited,
         edited_by: auth.userId,
+        ai_subject: d.generated_subject,
+        ai_content: d.generated_content_en,
         step_type: sentStep?.step_type ?? "unknown",
       },
       draft_id: draftId,

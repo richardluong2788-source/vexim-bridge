@@ -112,6 +112,13 @@ export interface BuyerContext {
     shipment_count: number | "UNKNOWN"
     peak_months: string | "UNKNOWN"
   }
+  // Research data (migration 079) — INTERNAL REASONING ONLY. Email generator
+  // cấm nêu raw data trong email; follow-up gate ĐƯỢC dùng để tìm góc mới.
+  research: {
+    buyer_analysis: Record<string, unknown> | "UNKNOWN"
+    buyer_strategy: Record<string, unknown> | "UNKNOWN"
+    analysis_age_days: number | "UNKNOWN"
+  }
   crm: {
     stage: EnrollmentState
     campaign_step: number

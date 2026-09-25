@@ -176,9 +176,37 @@ vercel --prod
 - **Env mới:** không bắt buộc. Tuỳ chọn: `CAMPAIGN_GLOBAL_DAILY_LIMIT` (mặc định 60), `CAMPAIGN_AUTO_SEND` (KHÔNG bật trong shadow mode).
 - **Shadow mode:** mọi draft → `email_drafts` `pending_approval`; auto-send chưa được nối vào scheduler (`isAutoSendEnabled()` trả false). Sau 2–4 tuần, xem AI rejection rate trong `/admin/campaigns/[id]` + `buyer_interactions` (AI draft vs final-sent đã được lưu ngay từ bây giờ để learning loop).
 
-### 8.4. Các bước vận hành pilot đầu tiên
+### 8.4. Các bước vận hành pilot đầu tiên (theo cấp bậc 10 → 30 → 50–100)
 
-1. `/admin/campaigns` → mở campaign pilot → **Enroll buyer pilot** → preview bộ lọc (food importer + VN signal + contact hợp lệ, sort shipment count) → chọn ≤100 → chọn AE owner → Enroll.
+> Chốt 25/09/2026: KHÔNG enroll 50–100 buyer ngay. Chạy theo 3 nấc: **10 buyer đầu** để kiểm tra toàn bộ flow thực tế → ổn thì **30 buyer** → sau đó mới lên **50–100**. Cap cứng đặt bằng env `CAMPAIGN_PILOT_MAX_ENROLLMENTS` (mặc định 100); enroll vượt cap bị chặn ở `enrollLeads` và UI báo rõ.
+
+1. `/admin/campaigns` → mở campaign pilot → **Enroll buyer pilot** → preview bộ lọc (food importer + VN signal + contact hợp lệ, sort shipment count) → chọn **10 buyer đầu** → chọn AE owner → Enroll.
 2. **Kích hoạt** campaign (admin) → scheduler tick kế tiếp sinh email 1 cho từng enrollment → AE duyệt tại approval queue (thấy bản dịch VI, sửa được subject/content, từ chối kèm lý do).
 3. Buyer reply → webhook phân loại (rules + AI) → INTERESTED tự tin ≥ 0.85 → tự tạo `buyer_engagements` (stage `claimed`) + notify AE, sequence DỪNG; OPT_OUT → stamp `email_unsubscribed` vĩnh viễn; OUT_OF_OFFICE → PAUSE 7 ngày (không tính reply); UNKNOWN/<0.85 → HOLD + hàng đợi review.
 4. Không reply → follow-up 1 (+4 ngày) → follow-up 2 (+7) → close-loop (+30) → NURTURE — toàn bộ qua approval queue.
+
+### 8.5. Follow-up Gate — "có lý do hợp lý để liên hệ tiếp không?" (yêu cầu 25/09/2026)
+
+Trước MỌI follow-up (step ≥ 2), sau khi claim firing (exactly-once), scheduler chạy `lib/campaign/followup-gate.ts`:
+
+1. **Defensive rules** (không AI): buyer đã reply → không bao giờ follow-up; chưa từng gửi email → không có gì để follow-up.
+2. **AI assessment**: đọc BuyerContext đầy đủ (buyer + import data + `buyer_analysis`/`buyer_strategy` từ migration 079 + TOÀN BỘ previous_emails/replies) → trả `{ proceed, reason_category, reason_summary, confidence }`. Các lý do hợp lệ: `new_angle_from_research`, `friction_reduction`, `close_loop_courtesy`, `seasonal_relevance`, `value_insight`. Grounded trong context — UNKNOWN không được dùng làm lý do.
+3. **Quyết định** (`applyFollowupGateDecision`):
+   - `proceed=true` + confidence ≥ 0.7 → sinh draft (shadow mode: vào approval queue như thường).
+   - `proceed=true` nhưng confidence < 0.7 → **HOLD human review** (firing skipped, enrollment cờ review, AE resume/stop).
+   - `proceed=false` (hoặc AI lỗi — fail-safe) → **SKIP step**: không gửi, firing `skipped` + SYSTEM_EVENT + audit log; sequence đẩy con trỏ sang step kế theo delay (hết bảng → NURTURE); followup_count KHÔNG tăng vì chưa gửi gì.
+4. Mọi quyết định gate đều nhìn được ở interaction `SYSTEM_EVENT` (`followup_gate_skip` / `followup_gate_hold`) + audit `campaign_followup_gate_*`.
+
+### 8.6. Chỉ số pilot (thẻ "Chỉ số pilot" trong trang campaign)
+
+| Chỉ số | Nguồn | Ý nghĩa |
+|---|---|---|
+| AI rejection rate | `email_drafts` rejected/created | AI/QA tự loại bao nhiêu |
+| Human edit rate | `buyer_interactions` EMAIL `metadata.edited` | AE sửa bản AI bao nhiêu (so AI draft vs final cho learning loop) |
+| Reply rate | enrollments `last_reply_at` / contacted | Hiệu quả toàn sequence |
+| Interested rate | replied_handoff / replied | Chất lượng handoff |
+| Wrong contact | state `invalid_contact` | Chất lượng data contact |
+| Opt-out | `suppressed` reason `buyer_opted_out` | Sức khoẻ deliverability/cam kết |
+| Follow-up conversion | có reply sau follow-up / enrollment có follow-up | Hiệu quả riêng của follow-up (kèm gate skip count) |
+
+Review định kỳ 2–4 tuần: nếu AI rejection rate thấp + human edit rate giảm dần + reply rate ổn → xem xét bật `CAMPAIGN_AUTO_SEND=true` cho follow-up low-risk (vẫn giữ QA + cap + gate).

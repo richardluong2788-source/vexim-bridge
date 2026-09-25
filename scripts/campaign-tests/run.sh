@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../.."
 
 OUT=$(mktemp -d)
 pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campaign/types.ts \
-  lib/campaign/email-qa.ts lib/campaign/reply-intent.ts \
+  lib/campaign/email-qa.ts lib/campaign/reply-intent.ts lib/campaign/followup-gate.ts \
   --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
 # Stub 'ai' module: rule-confident paths không gọi AI; AI path trả UNKNOWN.
@@ -36,4 +36,5 @@ assert(sm.onReplyClassified('waiting_reply', {intent:'OPT_OUT', confidence:0.98,
 node scripts/campaign-tests/state-machine.test.js "$OUT" || fail=1
 node scripts/campaign-tests/qa-suppression.test.js "$OUT" || fail=1
 node scripts/campaign-tests/reply-rules.test.js "$OUT" || fail=1
+node scripts/campaign-tests/followup-gate.test.js "$OUT" || fail=1
 exit $fail

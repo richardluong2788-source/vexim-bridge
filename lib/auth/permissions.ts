@@ -91,6 +91,16 @@ export const CAPS = {
   ACTIVITY_LOG_VIEW:           "system:activity_log:view",
   NOTIFICATIONS_MANAGE:        "system:notifications:manage",
 
+  // --- Campaign engine (B1, migration 089) ---
+  // CAMPAIGN_VIEW — /admin/campaigns: list campaigns, campaign detail,
+  // approval queue, own enrollments. AE sees campaigns they own buyers in;
+  // admin/super_admin see everything.
+  // CAMPAIGN_MANAGE — approve/reject AI drafts, pause/resume/stop enrollment,
+  // resolve human-review holds, enroll leads. Creating/activating a campaign
+  // is additionally restricted to admin/super_admin in the server action.
+  CAMPAIGN_VIEW:               "campaign:view",
+  CAMPAIGN_MANAGE:             "campaign:manage",
+
   // --- Marketing inbound (added in 082) ---
   // marketing_leads = submissions from public forms (landing consultation
   // form today, US-buyer RFQ forms later). VIEW lists the queue; TRIAGE
@@ -181,6 +191,11 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // AI matching inbox — the AE's main daily queue.
     CAPS.MATCH_INBOX_VIEW,
+
+    // Campaign engine (B1): review/approve AI outreach drafts for buyers the
+    // AE owns; resolve reply-review holds.
+    CAPS.CAMPAIGN_VIEW,
+    CAPS.CAMPAIGN_MANAGE,
 
     // Clients & Supplier Sourcing (AE kiêm nhiệm SR).
     // CLIENT_VIEW/WRITE lets an AE onboard a client they will own.

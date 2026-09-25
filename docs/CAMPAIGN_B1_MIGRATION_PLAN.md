@@ -1,0 +1,184 @@
+# B1 MIGRATION PLAN — Vexim AI Outreach Engine (Campaign B1)
+
+> **Ngày:** 25/09/2026 · **Trạng thái:** ĐÃ DUYỆT (theo quyết định của chủ hệ thống cùng ngày)
+> **Nguyên tắc:** chỉ ADD — không sửa/KHÔNG xoá bất kỳ bảng/cột/ràng buộc hiện có nào; không đụng FDA/finance dashboard, client portal, matching inbox.
+
+---
+
+## 0. Các quyết định đã chốt (đầu vào của plan)
+
+1. **Shadow Mode**: AI generate + QA → approval queue. AE review/edit/approve. Lưu AI draft + bản AE sửa + bản gửi thật. Auto-send đánh giá sau 2–4 tuần.
+2. **Classifier**: 7 intent (INTERESTED, NOT_INTERESTED, NOT_NOW, OPT_OUT, OUT_OF_OFFICE, WRONG_CONTACT, UNKNOWN). Threshold 0.85 **+ rule/guardrail** (rule thắng AI khi xung đột với intent dừng). OUT_OF_OFFICE = PAUSE (không phải reply). `<0.85`/ambiguous → HUMAN_REVIEW.
+3. **Pilot**: 50–100 buyer: food importer + đã sourcing từ VN + category khớp supplier coverage + contact hợp lệ. Shipment count = biến ưu tiên, không bắt buộc.
+4. **Kiến trúc**: `campaign_enrollments` là lớp orchestration riêng. Giữ nguyên `buyer_engagements` + pipeline. KHÔNG có `crm_stage`. INTERESTED → `REPLIED_HANDOFF` → tạo `buyer_engagements` (stage `claimed`) + notify AE → campaign dừng.
+5. **Idempotency**: bắt buộc — retry/restart không được gửi trùng.
+
+## 1. State machine B1 (theo đề xuất đã duyệt)
+
+```
+ENROLLED ──(scheduler tạo email 1, vào approval queue)──▶ CONTACT_PENDING
+CONTACT_PENDING ──(AE approve & send)──▶ CONTACTED
+CONTACTED ──(qua grace 24h không thêm gì)──▶ WAITING_REPLY
+
+WAITING_REPLY / FOLLOWUP_* ── nhận reply (webhook + classifier v2):
+  INTERESTED        → REPLIED_HANDOFF   [TERMINAL] → tạo engagement + notify AE
+  NOT_NOW           → PAUSED  (next_action_at = +30 ngày → NURTURE)
+  OUT_OF_OFFICE     → PAUSED  (next_action_at = +7 ngày, KHÔNG tính là reply)
+  NOT_INTERESTED    → STOPPED           [TERMINAL]
+  OPT_OUT           → SUPPRESSED        [TERMINAL] + stamp leads.email_unsubscribed
+  WRONG_CONTACT     → INVALID_CONTACT   [TERMINAL]
+  UNKNOWN / conf<0.85 → giữ state + needs_human_review=true (follow-up bị HOLD đến khi AE xử lý)
+
+WAITING_REPLY ──(đến hạn, không reply)──▶ FOLLOWUP_1 ──▶ FOLLOWUP_2 ──▶ NURTURE [TERMINAL]
+(bước followup nào được sinh ra đều qua approval queue — shadow mode)
+
+STOP checks chạy TRƯỚC mọi hành động của scheduler:
+bounce cứng / complained / unsubscribed / mất contact_email → SUPPRESSED hoặc INVALID_CONTACT
+```
+
+Loại state: `ACTIVE = {ENROLLED, CONTACT_PENDING, CONTACTED, WAITING_REPLY, FOLLOWUP_1, FOLLOWUP_2, PAUSED}` · `TERMINAL = {REPLIED_HANDOFF, STOPPED, SUPPRESSED, INVALID_CONTACT, NURTURE}`.
+
+## 2. Bảng mới (migration 089)
+
+### `campaigns`
+| cột | kiểu | ghi chú |
+|---|---|---|
+| id, created_at, updated_at | uuid/timestamptz | |
+| name, description | text | NOT NULL name |
+| target_segment | text | VD `us_food_importer_vietnam_sourced` |
+| product_category | text | |
+| status | text CHECK | `draft/active/paused/completed/archived` |
+| start_date, end_date | date | |
+| daily_send_limit | int DEFAULT 20 | cap §22 |
+| created_by | uuid FK profiles | |
+
+### `campaign_steps` (template sequence)
+`id, campaign_id FK, step_number int, step_type CHECK('initial_outreach','follow_up','close_loop','nurture'), delay_days int (offset từ bước trước), objective text, ai_prompt_guidance text, max_attempts int DEFAULT 1, stop_conditions jsonb, created_at`. UNIQUE(campaign_id, step_number).
+
+### `campaign_enrollments` (lớp orchestration — 1 dòng/buyer/campaign)
+- `id, campaign_id FK, lead_id FK leads` — **UNIQUE(campaign_id, lead_id)**; partial unique **1 enrollment ACTIVE/lead** (`WHERE state NOT IN terminal`) — chặn enrollment chéo campaign cùng lúc.
+- `state` TEXT CHECK 11 giá trị (mục 1) — **không đổi state ngoài state-machine module**.
+- `owner_id` FK profiles (AE sở hữu; handoff dùng làm account_manager).
+- `current_step_number int`, `followup_count int DEFAULT 0`.
+- `last_contact_at, last_reply_at, next_action_at, next_action_type` — next_action_at NOT NULL cho state active trừ PAUSED/HUMAN_REVIEW HOLD (cron integrity check).
+- `needs_human_review boolean`, `human_review_reason text`, `paused_until timestamptz`, `handoff_engagement_id uuid` (FK buyer_engagements, SET NULL), `stopped_reason text`.
+- `enrolled_by, created_at, updated_at`.
+
+### `campaign_step_firings` — **idempotency lõi**
+- `id, enrollment_id FK, step_number int, firing_key text` — **UNIQUE(firing_key)** với `firing_key = enrollment_id:step_number:attempt` (đơn giản: `enrollment_id:step_number`).
+- `status CHECK('claimed','draft_created','sent','failed','skipped')`, `claimed_at, resolved_at, draft_id FK email_drafts, error text`.
+- **Cơ chế exactly-once-claim:** scheduler INSERT ... ON CONFLICT (firing_key) DO NOTHING → lỗi 23505 = đã có người lấy (skip). Claim treo (`claimed` > 30′ mà không có draft) → cron dọn: đánh dấu `failed` + xoá lock bằng cách retry với key mới? KHÔNG — giữ 1 hàng: reclaim chỉ khi status='claimed' AND claimed_at < now()-30′ → cho phép chính hàng đó được xử lý lại (status vẫn claimed, claimed_at reset). Draft creation xong → `draft_created`. AE send xong → `sent`.
+
+### `buyer_interactions` — **append-only** (spec §5)
+`id, buyer_id FK leads, campaign_id, enrollment_id, interaction_type CHECK('EMAIL','REPLY','CALL','NOTE','MEETING','SYSTEM_EVENT'), direction CHECK('OUTBOUND','INBOUND','INTERNAL'), subject, content, sender, recipient, timestamp, sequence_step, ai_generated bool, human_approved bool, reply_classification jsonb (intent/confidence/requires_human/rules), sentiment text, intent text, metadata jsonb, draft_id, created_at`.
+- RLS: chỉ SELECT + INSERT cho staff-side roles. **KHÔNG có policy UPDATE/DELETE** → append-only ở tầng DB.
+- Không overwrite: mọi event mới = hàng mới (kể cả "AE sửa draft": lưu phiên bản cạnh nhau, không sửa hàng cũ).
+
+### Cột ADD vào bảng có sẵn (additive, không đụng semantic cũ)
+- `email_drafts`: `campaign_enrollment_id uuid FK SET NULL`, `campaign_step_number int` — tái dùng toàn bộ pipeline gửi/duyệt/tracking hiện có (opportunity_id đã nullable).
+- `buyer_replies`: `campaign_intent text`, `campaign_confidence numeric(4,3)`, `campaign_intent_source text ('ai'|'rules'|'ai+rules')`, `campaign_needs_human boolean DEFAULT false`, `campaign_enrollment_id uuid FK SET NULL` — tách hẳn khỏi `ai_intent` (5 giá trị cũ, không migrate CHECK cũ).
+
+## 3. Seed pilot (migration 090)
+
+- Campaign: **"US Food Buyer – Vietnam Sourcing – Pilot"** (status `draft`, daily_send_limit 20).
+- 4 bước: S1 `initial_outreach` +0d · S2 `follow_up` +4d · S3 `follow_up` +7d (2 followup = max §19) · S4 `close_loop` +30d (cho buyer quyền từ chối) → hết bảng → NURTURE. Mọi step `auto_send=0` (cột `max_attempts`, guidance theo §12).
+- KHÔNG seed enrollment — việc chọn 50–100 buyer làm qua UI với bộ lọc pilot (industry food + `purchase_history`/`top_suppliers` có VN + contact hợp lệ), export-preview trước khi enroll.
+
+## 4. Code mới (mỗi file một trách nhiệm)
+
+```
+lib/campaign/
+  constants.ts        States, events, config (threshold 0.85, grace 24h, reclaim 30′)
+  state-machine.ts    TRANSITIONS thuần + canTransition()/nextState() — KHÔNG import AI, KHÔNG import supabase
+  types.ts            Row shapes (boundary `as any` cho bảng mới, giống buyer_engagements hiện nay)
+  interactions.ts     appendInteraction() — ghi buyer_interactions + activities (audit kép)
+  suppression.ts      getStopReason(lead) → null | {state: SUPPRESSED|INVALID_CONTACT, reason}
+  enrollments.ts      enrollLeads (validate pilot filter + suppression), pause/resume/stop, advance()
+  context-builder.ts  buildBuyerContext(enrollment) → BuyerContext JSON (FACT/UNKNOWN labels)
+  email-generator.ts  Cold email per step objective (§12), anti-invention prompt, fallback template
+  email-qa.ts         QA 12 điểm: deterministic rules (tên/công ty/độ dài/spam words/trùng email trước/opt-out line) → {passed, risk_level, issues[]}
+  reply-intent.ts     classifyCampaignReply(): RULES trước (opt-out/OOO/not-interested/wrong-contact keywords) → AI (7-intent zod) → merge (rule thắng khi xung đột stop-intent) → {intent, confidence, requires_human, source}
+  handoff.ts          handoffToEngagement(): tạo buyer_engagements('claimed') + dispatchNotification + interactions SYSTEM_EVENT
+  scheduler.ts        runCampaignSchedulerTick(): reclaim → stop-check → resume PAUSED → due followups (claim → context → generate → QA → draft pending_approval → state FOLLOWUP_n) → daily limits → integrity check
+  approve.ts          approveCampaignDraft() (gọi sendEmailDraft + bookkeeping: state CONTACTED/WAITING_REPLY, last_contact_at, next_action_at, firings.sent, interactions EMAIL approved) / rejectCampaignDraft()
+app/api/cron/campaign-scheduler/route.ts   GET, Bearer CRON_SECRET (vercel.json: hourly)
+app/admin/campaigns/page.tsx               Danh sách campaign + tạo mới
+app/admin/campaigns/[id]/page.tsx          Chi tiết: stats, approval queue (QA + edit + approve/reject), enrollments table, pilot enroll dialog
+app/admin/campaigns/actions.ts             Server actions (RBAC: admin/super_admin; AE xem campaign mình)
+```
+
+**Sửa file có sẵn (tối thiểu, additive):**
+- `app/api/webhooks/resend/route.ts`: sau khi match opportunity/engagement thất bại (hoặc song song) → thử match **campaign enrollment** (In-Reply-To → email_drafts.campaign_enrollment_id, hoặc sender email → lead có enrollment active). Chạy `classifyCampaignReply` → lưu buyer_replies (+cột campaign_*) + buyer_interactions REPLY → state machine → handoff/stop/hold + notify. Khi engagement cũ cũng match → engagement giữ nguyên luồng cũ; enrollment chỉ dừng sequence.
+- `vercel.json`: thêm cron `campaign-scheduler` (lấy giờ `7 * * * *` tránh chồng 14 cron hiện có).
+
+## 5. Idempotency & an toàn — tổng hợp
+
+| Rủi ro | Chống bằng |
+|---|---|
+| Cron retry gửi trùng 1 step | UNIQUE(firing_key) + INSERT ON CONFLICT DO NOTHING (claim atomically) |
+| Claim treo giữa chừng (crash) | reclaim khi `claimed` > 30′ không ra draft |
+| AE bấm approve 2 lần | `email_drafts.status` guard sẵn trong sendEmailDraft (chỉ `pending_approval` gửi được) |
+| 2 scheduler chạy chồng | claim insert race → 23505 skip |
+| Gửi cho buyer bị suppress | getStopReason trước khi sinh draft + email-sender chặn lớp 2 |
+| Giao dịch SQL nhiều bước không atomic | Mọi thứ đi qua state claim/resolve riêng lẻ có thể retry an toàn (không có bước "chỉ được chạy 1 lần" ngoài claim) |
+| AI sửa state | state machine là pure function; AI chỉ được gọi SAU khi state đã chốt, output chỉ vào content |
+
+## 6. Thứ tự triển khai
+
+1. 089 + 090 migration → 2. `constants` + `state-machine` (pure, có test nhanh) → 3. `interactions` + `suppression` + `enrollments` → 4. `context-builder` + `email-generator` + `email-qa` → 5. `scheduler` + cron route + vercel.json → 6. `reply-intent` + webhook branch + `handoff` → 7. UI campaigns + actions → 8. typecheck + lint + docs cập nhật.
+
+## 7. Rõ ràng KHÔNG làm trong B1
+
+Supplier matching / RFQ / quotation / negotiation automation · progressive discovery agent · buyer_requirements có cấu trúc · auto-send thật (chỉ shadow) · dashboard funnel đầy đủ (chỉ metrics cơ bản trong trang campaign) · fine-tune · đụng CHECK constraint cũ của `ai_intent` hay `buyer_engagements.stage`.
+
+---
+
+## 8. TRIỂN KHAI — ĐÃ HOÀN THÀNH (25/09/2026)
+
+### 8.1. Đã code (git branch `arena/01a0d8ef-vexim-bridge`)
+
+| Nhóm | File |
+|---|---|
+| **Migration** | `scripts/089_campaign_engine_schema.sql` (5 bảng mới + cột additive), `scripts/090_campaign_pilot_seed.sql` (campaign pilot + 4 steps) |
+| **State machine (pure)** | `lib/campaign/constants.ts`, `lib/campaign/state-machine.ts` — 25 transition, KHÔNG AI/DB |
+| **DB layer** | `lib/campaign/enrollments.ts` (applyTransition + enroll + queries + daily-limit counts), `lib/campaign/interactions.ts` (append-only + audit kép `activities`), `lib/campaign/suppression.ts` (STOP checks) |
+| **AI (HOW)** | `lib/campaign/context-builder.ts` (BuyerContext, UNKNOWN labels), `lib/campaign/email-generator.ts` (cold email theo §12, anti-invention §20), `lib/campaign/email-qa.ts` (12 điểm, deterministic), `lib/campaign/reply-intent.ts` (7 intent: rules-trước + AI, threshold 0.85) |
+| **Engine (WHEN)** | `lib/campaign/scheduler.ts` (tick: reclaim → stop-check → resume → sinh draft → grace → follow-up → NURTURE → integrity), idempotency `campaign_step_firings` UNIQUE(firing_key) + claim/reclaim atomic |
+| **Handoff** | `lib/campaign/handoff.ts` (INTERESTED → buyer_engagements 'claimed' + notify AE), `lib/campaign/approve.ts` (duyệt/từ chối draft, gửi qua `sendEmailDraft` hiện có) |
+| **Webhook** | `app/api/webhooks/resend/route.ts` — 2 nhánh `maybeHandleCampaignReply` (lead chưa match → trước unmatched; đã match → trước classification); handled → return sớm, không double-insert; luồng cũ KHÔNG enroll thì chạy y nguyên |
+| **Cron** | `app/api/cron/campaign-scheduler/route.ts` + `vercel.json` (`7 * * * *`) |
+| **UI** | `/admin/campaigns` (danh sách + tạo), `/admin/campaigns/[id]` (stats, approval queue, enrollments, enroll pilot dialog, controls), `components/admin/campaign/*`, sidebar "Chiến dịch" + badge `campaignApprovals` |
+| **RBAC** | `CAPS.CAMPAIGN_VIEW` / `CAMPAIGN_MANAGE` (admin, super_admin; AE có cả hai — action hạn chế AE theo enrollment sở hữu; tạo/activate campaign chỉ admin/super_admin) |
+| **Tests (pure)** | `scripts/campaign-tests/run.sh` — **51/51 pass** (state machine 25, QA+suppression 14, reply rules 12) |
+
+### 8.2. Idempotency — đáp ứng yêu cầu bổ sung
+
+1. **1 bước = 1 email**: `campaign_step_firings.firing_key UNIQUE` (`enrollment:step`). Claim = UPDATE-where-status (re-claim failed) hoặc INSERT ON CONFLICT DO NOTHING → 2 cron chồng/retry chỉ 1 thắng.
+2. **Claim treo** (crash giữa claim và draft): cron reclaim sau 30′ → `failed` → enrollment `step_retry`.
+3. **Duyệt 2 lần**: `sendEmailDraft` chỉ chấp nhận `pending_approval` (guard sẵn của hệ cũ) — lần 2 fail không gửi.
+4. **AI/QA fail**: firing `failed` + `step_retry` sau 1 giờ, không mất enrollment.
+5. **Gửi chỉ qua đường ống cũ** (`lib/ai/email-sender`): suppression check lớp 2, delivery tracking, ref-code, work-email — không có đường tắt.
+
+### 8.3. Runbook triển khai production
+
+```bash
+# 1. Chạy migration (idempotent, theo thứ tự)
+psql "$SUPABASE_DB_URL" -f scripts/089_campaign_engine_schema.sql
+psql "$SUPABASE_DB_URL" -f scripts/090_campaign_pilot_seed.sql
+
+# 2. Chạy test pure
+bash scripts/campaign-tests/run.sh     # → 51 passed
+
+# 3. Deploy (cron campaign-scheduler tự đăng ký qua vercel.json)
+vercel --prod
+```
+
+- **Env mới:** không bắt buộc. Tuỳ chọn: `CAMPAIGN_GLOBAL_DAILY_LIMIT` (mặc định 60), `CAMPAIGN_AUTO_SEND` (KHÔNG bật trong shadow mode).
+- **Shadow mode:** mọi draft → `email_drafts` `pending_approval`; auto-send chưa được nối vào scheduler (`isAutoSendEnabled()` trả false). Sau 2–4 tuần, xem AI rejection rate trong `/admin/campaigns/[id]` + `buyer_interactions` (AI draft vs final-sent đã được lưu ngay từ bây giờ để learning loop).
+
+### 8.4. Các bước vận hành pilot đầu tiên
+
+1. `/admin/campaigns` → mở campaign pilot → **Enroll buyer pilot** → preview bộ lọc (food importer + VN signal + contact hợp lệ, sort shipment count) → chọn ≤100 → chọn AE owner → Enroll.
+2. **Kích hoạt** campaign (admin) → scheduler tick kế tiếp sinh email 1 cho từng enrollment → AE duyệt tại approval queue (thấy bản dịch VI, sửa được subject/content, từ chối kèm lý do).
+3. Buyer reply → webhook phân loại (rules + AI) → INTERESTED tự tin ≥ 0.85 → tự tạo `buyer_engagements` (stage `claimed`) + notify AE, sequence DỪNG; OPT_OUT → stamp `email_unsubscribed` vĩnh viễn; OUT_OF_OFFICE → PAUSE 7 ngày (không tính reply); UNKNOWN/<0.85 → HOLD + hàng đợi review.
+4. Không reply → follow-up 1 (+4 ngày) → follow-up 2 (+7) → close-loop (+30) → NURTURE — toàn bộ qua approval queue.

@@ -112,6 +112,13 @@ export interface BuyerContext {
     shipment_count: number | "UNKNOWN"
     peak_months: string | "UNKNOWN"
   }
+  // Tiêu chí cấp campaign — mỗi campaign một hướng triển khai riêng.
+  campaign: {
+    name: string
+    description: string | null
+    target_segment: string | null
+    product_category: string | null
+  }
   // Research data (migration 079) — INTERNAL REASONING ONLY. Email generator
   // cấm nêu raw data trong email; follow-up gate ĐƯỢC dùng để tìm góc mới.
   research: {

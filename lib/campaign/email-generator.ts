@@ -66,6 +66,7 @@ export async function generateCampaignEmail(
     "- If a context field is \"UNKNOWN\" it stays unknown: write around it or omit it entirely. NEVER fill in a plausible-sounding value.",
     "- NEVER expose raw import data: no HS codes, no shipment counts, no supplier names from customs records, no exact peak months. Use soft category-level language only.",
     "- The research section (buyer_analysis/buyer_strategy) is INTERNAL REASONING ONLY — use it to pick an angle, never to state facts in the email.",
+    "- Tailor the angle to THIS campaign: respect its target_segment, product_category and positioning (campaign block in context). Do not drift into a generic pitch.",
     "",
     "DELIVERABILITY RULES (spec §22):",
     "- Plain text only. No links, no images, no attachments, no HTML, no emoji.",
@@ -86,6 +87,9 @@ export async function generateCampaignEmail(
     .join("\n")
 
   const prompt = [
+    "CAMPAIGN POSITIONING (this outreach belongs to a specific campaign — follow it):",
+    JSON.stringify(ctx.campaign, null, 2),
+    "",
     "BUYER CONTEXT (backend-curated; treat unknowns as unknowns):",
     formatContextBlock(ctx),
     "",

@@ -91,6 +91,67 @@ export async function setCampaignStatusAction(campaignId: string, status: "activ
 }
 
 // ---------------------------------------------------------------------------
+// Sequence steps: clone từ campaign có sẵn (campaign mới tạo ra không có steps
+// — scheduler bỏ qua + không activate được cho tới khi có steps)
+// ---------------------------------------------------------------------------
+
+export type CloneStepsResult =
+  | { ok: true; copied: number }
+  | { ok: false; error: ActionError | "source_empty" | "target_not_empty" | "serverError"; message?: string }
+
+export async function cloneStepsAction(sourceCampaignId: string, targetCampaignId: string): Promise<CloneStepsResult> {
+  const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  if (guard.role !== "admin" && guard.role !== "super_admin") {
+    return { ok: false, error: "forbidden", message: "Chỉ admin/super_admin được sao chép sequence." }
+  }
+  if (sourceCampaignId === targetCampaignId) {
+    return { ok: false, error: "target_not_empty", message: "Không thể tự clone chính nó." }
+  }
+  try {
+    const { count: targetCount } = await (guard.admin.from("campaign_steps") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", targetCampaignId)
+    if ((targetCount ?? 0) > 0) {
+      return { ok: false, error: "target_not_empty", message: "Campaign đích đã có steps." }
+    }
+
+    const { data: sourceSteps, error: srcErr } = await (guard.admin.from("campaign_steps") as any)
+      .select("step_number, step_type, delay_days, objective, ai_prompt_guidance, max_attempts, stop_conditions")
+      .eq("campaign_id", sourceCampaignId)
+      .order("step_number", { ascending: true })
+    if (srcErr) return { ok: false, error: "serverError", message: srcErr.message }
+    if (!sourceSteps || (sourceSteps as never[]).length === 0) {
+      return { ok: false, error: "source_empty", message: "Campaign nguồn chưa có steps." }
+    }
+
+    const rows = (sourceSteps as Array<Record<string, unknown>>).map((s) => ({
+      campaign_id: targetCampaignId,
+      step_number: s.step_number,
+      step_type: s.step_type,
+      delay_days: s.delay_days,
+      objective: s.objective,
+      ai_prompt_guidance: s.ai_prompt_guidance,
+      max_attempts: s.max_attempts,
+      stop_conditions: s.stop_conditions,
+    }))
+    const { error: insErr } = await (guard.admin.from("campaign_steps") as any).insert(rows)
+    if (insErr) return { ok: false, error: "serverError", message: insErr.message }
+
+    await (guard.admin.from("activities") as any).insert({
+      opportunity_id: null,
+      action_type: "campaign_steps_cloned",
+      description: `[Campaign] Clone ${rows.length} steps từ ${sourceCampaignId} sang ${targetCampaignId} (bởi ${guard.userId})`,
+      performed_by: guard.userId,
+    })
+    return { ok: true, copied: rows.length }
+  } catch (err) {
+    console.error("[campaign] cloneStepsAction:", err)
+    return { ok: false, error: "serverError" }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Pilot enrollment (spec §3: 50–100 buyer có tín hiệu rõ)
 // ---------------------------------------------------------------------------
 

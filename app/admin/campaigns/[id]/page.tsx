@@ -18,6 +18,7 @@ import { CampaignEnrollmentsTable, type EnrollmentRowView } from "@/components/a
 import { CampaignControls } from "@/components/admin/campaign/campaign-controls"
 import { EnrollDialog } from "@/components/admin/campaign/enroll-dialog"
 import { StepsTimeline } from "@/components/admin/campaign/steps-timeline"
+import { CloneStepsButton } from "@/components/admin/campaign/clone-steps-button"
 
 export const dynamic = "force-dynamic"
 
@@ -51,6 +52,18 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     .select("*")
     .eq("campaign_id", id)
     .order("step_number", { ascending: true })
+
+  // Danh sách campaign khác (để clone sequence khi campaign này chưa có steps).
+  let stepSources: Array<{ id: string; name: string; stepCount: number }> = []
+  if (isAdmin) {
+    const { data: allCampaigns } = await (admin.from("campaigns") as any)
+      .select("id, name, campaign_steps(count)")
+      .order("created_at", { ascending: false })
+      .limit(20)
+    stepSources = ((allCampaigns ?? []) as Array<{ id: string; name: string; campaign_steps: Array<{ count: number }> }>).map(
+      (c) => ({ id: c.id, name: c.name, stepCount: c.campaign_steps?.[0]?.count ?? 0 }),
+    )
+  }
 
   // Enrollments + lead info. AE chỉ thấy enrollment mình sở hữu.
   let enrollQuery = (admin.from("campaign_enrollments") as any)
@@ -160,7 +173,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{c.description ?? "—"}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {!steps?.length && isAdmin && (
+            <CloneStepsButton campaignId={c.id} sources={stepSources} />
+          )}
           <EnrollDialog campaignId={c.id} campaignStatus={c.status} canManage={isAdmin || isAE} />
           {isAdmin && <CampaignControls campaignId={c.id} status={c.status} />}
         </div>

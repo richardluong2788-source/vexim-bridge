@@ -76,10 +76,18 @@ export async function buildBuyerContext(
   // Cast qua unknown: generated types chưa có hs_codes dù cột tồn tại từ migration 032.
   const l = lead as unknown as LeadFields
 
-  const [previousEmails, replies] = await Promise.all([
+  const [previousEmails, replies, campaignRes] = await Promise.all([
     loadOutboundEmails(enrollment.id),
     loadInboundReplies(enrollment.id),
+    (admin.from("campaigns") as any)
+      .select("name, description, target_segment, product_category")
+      .eq("id", enrollment.campaign_id)
+      .single(),
   ])
+  const campaign = (campaignRes.data ?? {}) as {
+    name?: string; description?: string | null
+    target_segment?: string | null; product_category?: string | null
+  }
 
   const hsCodes = Array.isArray(l.hs_codes) && l.hs_codes.length > 0
     ? l.hs_codes
@@ -109,6 +117,12 @@ export async function buildBuyerContext(
       vietnam_supplier_exists: detectVietnamSupplier(l.top_suppliers),
       shipment_count: typeof l.customs_shipment_count === "number" ? l.customs_shipment_count : "UNKNOWN",
       peak_months: unknownIfEmpty(l.peak_months),
+    },
+    campaign: {
+      name: campaign.name ?? "unknown",
+      description: campaign.description ?? null,
+      target_segment: campaign.target_segment ?? null,
+      product_category: campaign.product_category ?? null,
     },
     research: {
       buyer_analysis: (l.buyer_analysis && typeof l.buyer_analysis === "object" ? l.buyer_analysis : "UNKNOWN") as

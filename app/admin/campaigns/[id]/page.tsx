@@ -1,5 +1,3 @@
-"use client"
-
 /**
  * /admin/campaigns/[id] — chi tiết campaign (B1):
  *   - Stats + sequence steps

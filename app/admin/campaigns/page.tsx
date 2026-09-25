@@ -1,9 +1,8 @@
-"use client"
-
 /**
  * /admin/campaigns — trang danh sách campaign + tạo mới (B1, shadow mode).
  *
- * Server component đọc dữ liệu; mọi mutation đi qua server actions trong
+ * SERVER component (không "use client" — dùng next/headers qua guard); mọi
+ * mutation đi qua server actions trong
  * app/admin/campaigns/actions.ts. RBAC: CAMPAIGN_VIEW để xem; tạo/activate
  * được server action tự kiểm tra thêm admin/super_admin.
  */

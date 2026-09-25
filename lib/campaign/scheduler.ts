@@ -39,7 +39,8 @@ import { buildBuyerContext } from "./context-builder"
 import { assessFollowupJustification, applyFollowupGateDecision } from "./followup-gate"
 import { generateCampaignEmail } from "./email-generator"
 import { runEmailQA } from "./email-qa"
-import { checkLeadStop, stopStateToEnrollmentState } from "./suppression"
+import { checkLeadStop } from "./suppression"
+import { resolveEnrollmentTimezone, checkSendingWindow } from "./sending-window"
 import { appendInteraction, logSystemEvent } from "./interactions"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
@@ -55,6 +56,7 @@ export interface TickResult {
   followupsQueued: number
   gateSkipped: number
   gateHold: number
+  rescheduledWindow: number
   nurtured: number
   approvalReminders: number
   integrityFixes: number
@@ -341,6 +343,7 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
     followupsQueued: 0,
     gateSkipped: 0,
     gateHold: 0,
+    rescheduledWindow: 0,
     nurtured: 0,
     approvalReminders: 0,
     integrityFixes: 0,
@@ -449,6 +452,17 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
 
           case "enrolled": {
             if (e.next_action_type === "step_retry" || e.next_action_type === "step1_due") {
+              // SENDING WINDOW (25/09/2026): ngoài khung local của buyer →
+              // reschedule sang window kế tiếp, KHÔNG bỏ step (chưa claim).
+              const win = await checkSendingWindow(now, await resolveEnrollmentTimezone(e.lead_id))
+              if (!win.ok && win.reason === "outside_window") {
+                await (admin.from("campaign_enrollments") as any)
+                  .update({ next_action_at: win.nextAt!.toISOString() })
+                  .eq("id", e.id)
+                result.rescheduledWindow += 1
+                break
+              }
+
               const sent = await getSentToday()
               const globalSent = await countAllCampaignEmailsSentToday()
               if (sent >= campaign.daily_send_limit || globalSent >= GLOBAL_DAILY_SEND_LIMIT) {
@@ -560,6 +574,16 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                   await applyTransition(e, t)
                   result.nurtured += 1
                 }
+                break
+              }
+
+              // SENDING WINDOW: reschedule sang window kế tiếp, không bỏ step.
+              const win = await checkSendingWindow(now, await resolveEnrollmentTimezone(e.lead_id))
+              if (!win.ok && win.reason === "outside_window") {
+                await (admin.from("campaign_enrollments") as any)
+                  .update({ next_action_at: win.nextAt!.toISOString() })
+                  .eq("id", e.id)
+                result.rescheduledWindow += 1
                 break
               }
 

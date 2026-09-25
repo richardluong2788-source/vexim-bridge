@@ -210,3 +210,20 @@ Trước MỌI follow-up (step ≥ 2), sau khi claim firing (exactly-once), sche
 | Follow-up conversion | có reply sau follow-up / enrollment có follow-up | Hiệu quả riêng của follow-up (kèm gate skip count) |
 
 Review định kỳ 2–4 tuần: nếu AI rejection rate thấp + human edit rate giảm dần + reply rate ổn → xem xét bật `CAMPAIGN_AUTO_SEND=true` cho follow-up low-risk (vẫn giữ QA + cap + gate).
+
+
+### 8.7. Sending window theo giờ địa phương buyer (bổ sung 25/09/2026)
+
+**Chính sách B1:** Mon–Fri, khung **08:00–11:30** và **13:00–16:30** giờ LOCAL của buyer. Ngoài khung → scheduler **reschedule sang window kế tiếp** (không bỏ step, chưa claim firing nên không tốn lock). AI không bao giờ quyết định giờ gửi — window là policy thuần backend (`lib/campaign/sending-window.ts`).
+
+**Timezone resolution (độ ưu tiên):**
+1. `leads.buyer_timezone` (migration 091 — admin đặt IANA override, VD `America/Chicago`) → confident.
+2. US: parse state từ `import_address` (VD "Houston, TX 77002" → `America/Chicago`) → confident.
+3. Country map (UK, DE, JP, VN, SG, … — quốc gia 1 mú giờ trội) → confident.
+4. US/CA không parse được state → approximate ET/Toronto → **không confident**.
+5. Không xác định được → null.
+
+**Enforcement:**
+- **Scheduler (mọi mode):** trước khi claim step 1 / follow-up → `checkSendingWindow` → ngoài khung thì `next_action_at` = mốc window kế (+audit `SYSTEM_EVENT`, counter `rescheduledWindow` trong tick). Lệch DST tối đa 1h tự chữa vì tick kế re-check.
+- **CAMPAIGN_AUTO_SEND=true (approve path):** chặn CỨNG qua `checkAutoSendWindow` — lỗi `outside_sending_window` khi (a) ngoài window, (b) timezone không confident, (c) không có timezone. Đúng yêu cầu "timezone chưa đủ tin cậy → không auto-send".
+- **Shadow mode (hiện tại):** AE vẫn gửi được bất cứ lúc nào (human decision) nhưng metadata email ghi `buyer_tz`, `buyer_tz_source`, `window_ok` để đo và để review.

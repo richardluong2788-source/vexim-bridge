@@ -18,10 +18,12 @@ import { sendEmailDraft } from "@/lib/ai/email-sender"
 import { getCampaignSteps, getEnrollment, applyTransition } from "./enrollments"
 import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent } from "./state-machine"
 import { appendInteraction } from "./interactions"
+import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
+import { isAutoSendEnabled } from "./constants"
 
 export type ApproveResult =
   | { ok: true; state: "sent" }
-  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "qa_blocked" | "send_failed" | "serverError"; message?: string }
+  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "qa_blocked" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
 
 async function assertStaff(): Promise<{ ok: true; userId: string; role: string } | { ok: false; error: "unauthorized" | "forbidden" }> {
   const current = await getCurrentRole()
@@ -64,6 +66,21 @@ export async function approveAndSendCampaignDraft(
   const sentStepNumber = d.campaign_step_number ?? enrollment.current_step_number
   const sentStep = steps.find((s) => s.step_number === sentStepNumber)
   const nextStep = steps.find((s) => s.step_number === sentStepNumber + 1)
+
+  // ── SENDING WINDOW (backend policy — AI không quyết định giờ gửi) ──
+  // CAMPAIGN_AUTO_SEND=true → chặn CỨNG nếu ngoài window hoặc timezone không
+  // đủ tin cậy. Shadow mode → không chặn (AE là người quyết) nhưng ghi flag
+  // vào metadata để đo và để AE thấy buyer đang ở mú giờ nào.
+  const tzInfo = await resolveEnrollmentTimezone(enrollment.lead_id)
+  if (isAutoSendEnabled()) {
+    const w = checkAutoSendWindow(new Date(), tzInfo)
+    if (!w.ok) {
+      const detail = w.reason === "no_timezone"
+        ? `Timezone buyer chưa đủ tin cậy (${tzInfo.source}) — auto-send yêu cầu timezone xác định (admin có thể đặt leads.buyer_timezone).`
+        : `Ngoài khung gửi Mon–Fri 08:00–11:30 / 13:00–16:30 (${tzInfo.tz} local). Window kế: ${w.nextAt?.toISOString() ?? "?"}`
+      return { ok: false, error: "outside_sending_window", message: detail }
+    }
+  }
 
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).
   let sendResult
@@ -132,6 +149,10 @@ export async function approveAndSendCampaignDraft(
         ai_subject: d.generated_subject,
         ai_content: d.generated_content_en,
         step_type: sentStep?.step_type ?? "unknown",
+        // Sending-window audit (25/09/2026)
+        buyer_tz: tzInfo.tz,
+        buyer_tz_source: tzInfo.source,
+        window_ok: tzInfo.tz ? checkSendingWindow(new Date(), tzInfo).ok : null,
       },
       draft_id: draftId,
       created_by: auth.userId,

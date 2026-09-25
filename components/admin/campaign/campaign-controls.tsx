@@ -35,7 +35,7 @@ export function CampaignControls({ campaignId, status }: { campaignId: string; s
     if (res.ok) {
       const r = res.result
       toast.success(
-        `Tick xong: ${r.draftsQueued} draft mới, ${r.followupsQueued} follow-up, ${r.suppressed} suppressed, ${r.nurtured} nurture, ${r.draftFailures} lỗi`,
+        `Tick xong: ${r.draftsQueued} draft mới, ${r.followupsQueued} follow-up, ${r.rescheduledWindow} đẩy sang window kế, ${r.suppressed} suppressed, ${r.nurtured} nurture, ${r.draftFailures} lỗi`,
         { duration: 8000 },
       )
       router.refresh()

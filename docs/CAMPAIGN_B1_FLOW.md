@@ -144,6 +144,18 @@ countdown theo `delay_days` của step kế.
 Ghi chú: nếu buyer cũ cũng match `buyer_engagements` (đang ở pipeline hiện có),
 stage transition cũ vẫn chạy song song — campaign chỉ dừng sequence của mình.
 
+**Thông báo tới AE — MỌI reply đều chạm owner** (chuông in-app luôn tạo; email
+tới `profiles.email` — tài khoản AE — theo `notification_preferences`, mặc định
+bật cả hai):
+
+| Reply | Thông báo | CTA |
+|---|---|---|
+| INTERESTED (conf ≥ 0.85) | 🔔 `new_assignment` — "buyer đã phản hồi quan tâm" | Mở engagement |
+| UNKNOWN / conf < 0.85 / NOT_NOW | 🔔 `action_required` — cần xử lý | Campaign page (resolve review) |
+| NOT_INTERESTED / OPT_OUT / WRONG_CONTACT / OUT_OF_OFFICE | 🔔 `status_update` — chỉ để biết, kèm trích reply | Buyer page (nơi reply hiển thị) |
+
+Dedup theo reply id — Resend gửi lại webhook không sinh thông báo trùng.
+
 ## 4. Luồng IN — delivery events (bounce / spam complaint)
 
 ```

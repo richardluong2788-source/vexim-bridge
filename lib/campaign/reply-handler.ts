@@ -231,24 +231,72 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
       }
     }
 
-    // 8. Notify owner khi cần con người xử lý.
+    // 8. Notify AE — MỌI reply của campaign đều chạm owner, chia 2 mức:
+    //    • action_required  → cần tay người (review HOLD, NOT_NOW): chuông + email
+    //    • status_update    → chỉ để biết (INTERESTED qua handoff, STOPPED,
+    //      SUPPRESSED, INVALID, OOO pause): chuông + email theo preferences
+    // Chuông luôn tạo; email đi tới profiles.email (tài khoản AE) trừ khi AE
+    // tắt category đó trong notification_preferences (mặc định bật).
+    const replyId = (replyRow as { id: string }).id
+    const replySnippet = input.body.replace(/\s+/g, " ").trim().slice(0, 140)
+    const buyerLink = `/admin/buyers/${enrollment.lead_id}` // reply hiển thị ở buyer page
+
     if ((classification.requiresHuman || classification.intent === "NOT_NOW") && enrollment.owner_id) {
       await dispatchNotification({
         userId: enrollment.owner_id,
         category: "action_required",
         opportunityId: null,
         linkPath: `/admin/campaigns/${enrollment.campaign_id}`,
-        dedupKey: `campaign_reply_review:${(replyRow as { id: string }).id}`,
+        dedupKey: `campaign_reply_review:${replyId}`,
         title: {
           vi: "Campaign: reply cần AE xem",
           en: "Campaign: reply needs review",
         },
         body: {
-          vi: `${input.fromEmail} → ${classification.intent} (conf ${classification.confidence.toFixed(2)}). ${classification.requiresHuman ? "Confidence thấp/ambiguous — sequence đang HOLD." : ""}`,
-          en: `${input.fromEmail} → ${classification.intent} (conf ${classification.confidence.toFixed(2)}). ${classification.requiresHuman ? "Low confidence/ambiguous — sequence on hold." : ""}`,
+          vi: `${input.fromEmail} → ${classification.intent} (conf ${classification.confidence.toFixed(2)}). ${classification.requiresHuman ? "Confidence thấp/ambiguous — sequence đang HOLD." : "Chưa phải lúc — tạm dừng 30 ngày."} "${replySnippet}"`,
+          en: `${input.fromEmail} → ${classification.intent} (conf ${classification.confidence.toFixed(2)}). ${classification.requiresHuman ? "Low confidence/ambiguous — sequence on hold." : "Not now — paused 30 days."} "${replySnippet}"`,
         },
-        ctaLabel: { vi: "Xem reply", en: "Review reply" },
+        ctaLabel: { vi: "Xử lý", en: "Review" },
       })
+    } else if (enrollment.owner_id) {
+      interface IntentNotice {
+        title: { vi: string; en: string }
+        body: { vi: string; en: string }
+      }
+      const NOTIFY_BY_INTENT: Record<string, IntentNotice> = {
+        NOT_INTERESTED: {
+          title: { vi: "Campaign: buyer từ chối — sequence đã dừng", en: "Campaign: buyer declined — sequence stopped" },
+          body: { vi: `${input.fromEmail} trả lời NOT_INTERESTED. Enrollment chuyển STOPPED, không email tiếp.`, en: `${input.fromEmail} replied NOT_INTERESTED. Enrollment stopped — no further emails.` },
+        },
+        OPT_OUT: {
+          title: { vi: "Campaign: buyer opt-out — chặn vĩnh viễn", en: "Campaign: opt-out — permanently suppressed" },
+          body: { vi: `${input.fromEmail} yêu cầu ngừng email. Đã stamp suppression trên lead (chỉ admin gỡ được).`, en: `${input.fromEmail} asked to stop. Suppression stamped on the lead (admin-only lift).` },
+        },
+        WRONG_CONTACT: {
+          title: { vi: "Campaign: sai người tiếp nhận", en: "Campaign: wrong contact" },
+          body: { vi: `${input.fromEmail} không phải người phụ trách. Enrollment chuyển INVALID_CONTACT — cân nhắc tìm đúng contact.`, en: `${input.fromEmail} is not the right person. Marked INVALID_CONTACT — consider finding the right contact.` },
+        },
+        OUT_OF_OFFICE: {
+          title: { vi: "Campaign: buyer out-of-office — tạm dừng 7 ngày", en: "Campaign: out-of-office — paused 7 days" },
+          body: { vi: `${input.fromEmail} đang vắng mặt (auto-reply). KHÔNG tính là reply — sequence tự quay lại sau 7 ngày.`, en: `${input.fromEmail} is away (auto-reply). NOT counted as a reply — sequence resumes in 7 days.` },
+        },
+      }
+      const n = NOTIFY_BY_INTENT[classification.intent]
+      if (n) {
+        await dispatchNotification({
+          userId: enrollment.owner_id,
+          category: "status_update",
+          opportunityId: null,
+          linkPath: buyerLink,
+          dedupKey: `campaign_reply:${replyId}`,
+          title: n.title,
+          body: {
+            vi: `${n.body.vi} "${replySnippet}"`,
+            en: `${n.body.en} "${replySnippet}"`,
+          },
+          ctaLabel: { vi: "Xem reply", en: "View reply" },
+        })
+      }
     }
 
     return {

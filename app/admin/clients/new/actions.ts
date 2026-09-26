@@ -464,3 +464,52 @@ export async function createIntakeLink(prefill?: {
 export async function createSupplementLinkForClient(clientId: string): Promise<CreateIntakeLinkResult> {
   return createIntakeLink({ client_id: clientId })
 }
+
+export interface SupplementIntakeLinkRow {
+  id: string
+  url: string
+  expiresAt: string | null
+  usedAt: string | null
+  createdAt: string
+}
+
+/** Danh sách link bổ sung hồ sơ đã sinh cho 1 client (mới nhất trước).
+ *  Cùng phân quyền với createSupplementLinkForClient — fix 27/09/2026: trước
+ *  đây link doanh nghiệp chỉ sinh được MỘT LẦN ở panel success của trang tạo
+ *  client, lỡ đóng trang là mất (trang client chỉ có nút link sản phẩm). */
+export async function listSupplementIntakeLinks(clientId: string): Promise<{ ok: boolean; data?: SupplementIntakeLinkRow[]; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser()
+  if (!caller) return { ok: false, error: "unauthenticated" }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", caller.id)
+    .single()
+
+  const allowedRoles = ["admin", "staff", "super_admin", "account_executive", "supplier_researcher"]
+  if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.from("client_intake_submissions") as any)
+    .select("id, token, expires_at, used_at, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (error) return { ok: false, error: error.message }
+
+  const rows = ((data ?? []) as Array<{ id: string; token: string; expires_at: string | null; used_at: string | null; created_at: string }>).map((r) => ({
+    id: r.id,
+    url: `${siteConfig.url}/client-intake/${r.token}`,
+    expiresAt: r.expires_at,
+    usedAt: r.used_at,
+    createdAt: r.created_at,
+  }))
+  return { ok: true, data: rows }
+}

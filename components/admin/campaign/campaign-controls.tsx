@@ -5,7 +5,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, PauseCircle, PlayCircle, RefreshCw, Archive } from "lucide-react"
+import { Loader2, PauseCircle, PlayCircle, RefreshCw, RotateCcw, Archive } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ export function CampaignControls({ campaignId, status }: { campaignId: string; s
   const [busy, setBusy] = useState(false)
   const [ticking, setTicking] = useState(false)
 
-  async function setStatus(next: "active" | "paused" | "completed" | "archived") {
+  async function setStatus(next: "draft" | "active" | "paused" | "completed" | "archived") {
     setBusy(true)
     const res = await setCampaignStatusAction(campaignId, next)
     setBusy(false)
@@ -69,6 +69,11 @@ export function CampaignControls({ campaignId, status }: { campaignId: string; s
       {(status === "completed" || status === "paused") && (
         <Button size="sm" variant="ghost" onClick={() => setStatus("archived")} disabled={busy}>
           <Archive className="mr-2 h-4 w-4" /> Lưu trữ
+        </Button>
+      )}
+      {status === "archived" && (
+        <Button size="sm" variant="outline" onClick={() => setStatus("draft")} disabled={busy}>
+          <RotateCcw className="mr-2 h-4 w-4" /> Khôi phục (về bản nháp)
         </Button>
       )}
     </div>

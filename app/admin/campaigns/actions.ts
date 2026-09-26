@@ -65,7 +65,7 @@ export type SetCampaignStatusResult =
   | { ok: true }
   | { ok: false; error: ActionError | "invalid_status" | "serverError"; message?: string }
 
-export async function setCampaignStatusAction(campaignId: string, status: "active" | "paused" | "completed" | "archived"): Promise<SetCampaignStatusResult> {
+export async function setCampaignStatusAction(campaignId: string, status: "draft" | "active" | "paused" | "completed" | "archived"): Promise<SetCampaignStatusResult> {
   const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
   if (!guard.ok) return { ok: false, error: guard.error }
   if (guard.role !== "admin" && guard.role !== "super_admin") {

@@ -39,8 +39,8 @@ VALUES
    1,
    '{"stop": ["any_reply", "opt_out", "hard_bounce", "invalid_contact"]}'),
   ('00000000-0000-0000-0000-0000000000c1', 2, 'follow_up', 4,
-   'Reinforce relevance — góc "mở rộng supplier base".',
-   'Nhắc nhẹ: nhiều buyer category này đang có sourcing từ Vietnam; Vexim có thể giúp mở rộng supplier base đạt chuẩn US. KHÔNG lặp lại nội dung email trước, KHÔNG tạo áp lực, NGẮN hơn email 1.',
+   'Reinforce relevance — khung điều kiện "nếu thêm nguồn VN nằm trong kế hoạch" (KHÔNG khẳng định trend).',
+   'Nhắc nhẹ theo khung ĐIỀU KIỆN: "if adding a US-compliant Vietnamese origin alongside your current sources is on your roadmap..." — tuyệt đối KHÔNG khẳng định xu hướng thị trường (growing/expanding/many buyers are...). Có thể đề xuất spec-match shortcut. KHÔNG lặp lại nội dung email trước, KHÔNG tạo áp lực, NGẮN hơn email 1.',
    1,
    '{"stop": ["any_reply", "opt_out", "hard_bounce", "invalid_contact"]}'),
   ('00000000-0000-0000-0000-0000000000c1', 3, 'follow_up', 7,
@@ -50,7 +50,7 @@ VALUES
    '{"stop": ["any_reply", "opt_out", "hard_bounce", "invalid_contact"]}'),
   ('00000000-0000-0000-0000-0000000000c1', 4, 'close_loop', 30,
    'Close loop — cho buyer quyền từ chối.',
-   'Email cuối: giả định có thể sai thời điểm, cho buyer quyền nói "không" một cách dễ dàng ("if this isn''t relevant, a simple no thanks is completely fine"). Sau email này dừng hoàn toàn.',
+   'Email cuối: giả định có thể sai thời điểm, cho buyer quyền nói "không" một cách dễ dàng ("if this isn''t relevant, a simple no thanks is completely fine"). NÓI RÕ đây là email cuối trong thời gian tới và không cần trả lời. KHÔNG kết bằng câu hỏi, KHÔNG ép chọn phương án ("which would you prefer?"). Sau email này dừng hoàn toàn.',
    1,
    '{"stop": ["any_reply", "opt_out", "hard_bounce", "invalid_contact"]}')
 ON CONFLICT (campaign_id, step_number) DO UPDATE

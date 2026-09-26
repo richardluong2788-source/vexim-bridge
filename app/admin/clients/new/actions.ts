@@ -496,7 +496,10 @@ export async function listSupplementIntakeLinks(clientId: string): Promise<{ ok:
   }
 
   const admin = createAdminClient()
-  const COLS = "id, token, expires_at, used_at, created_at"
+  // LƯU Ý: client_intake_submissions (064) KHÔNG có cột used_at (used_at là
+  // cột của bảng product_intake_links 085). Link đã dùng = status != 'pending'
+  // (thường 'submitted'), mốc thời gian = submitted_at. Fix 27/09/2026.
+  const COLS = "id, token, expires_at, status, submitted_at, created_at"
   const ORDER = { ascending: false as const }
 
   // Primary: theo cột client_id (migration 087).
@@ -528,11 +531,12 @@ export async function listSupplementIntakeLinks(clientId: string): Promise<{ ok:
 
   if (res.error) return { ok: false, error: res.error.message ?? "query_failed" }
 
-  const rows = ((res.data ?? []) as Array<{ id: string; token: string; expires_at: string | null; used_at: string | null; created_at: string }>).map((r) => ({
+  const rows = ((res.data ?? []) as Array<{ id: string; token: string; expires_at: string | null; status: string; submitted_at: string | null; created_at: string }>).map((r) => ({
     id: r.id,
     url: `${siteConfig.url}/client-intake/${r.token}`,
     expiresAt: r.expires_at,
-    usedAt: r.used_at,
+    // "đã dùng" = client đã submit (status rời 'pending'); mốc = submitted_at
+    usedAt: r.status && r.status !== "pending" ? (r.submitted_at ?? r.created_at) : null,
     createdAt: r.created_at,
   }))
   return { ok: true, data: rows }

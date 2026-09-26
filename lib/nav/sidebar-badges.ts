@@ -54,12 +54,6 @@ export interface SidebarBadgeCounts {
    * assigned to themselves is not their badge.
    */
   marketingLeads: number
-  /**
-   * Campaign engine (B1, migration 089): pending AI drafts in the approval
-   * queue (email_drafts 'pending_approval' có campaign_enrollment_id). AE
-   * counts only drafts on enrollments they own; admin/super_admin org-wide.
-   */
-  campaignApprovals: number
 }
 
 /** All-zero counts — the fallback wherever the query must not block rendering. */
@@ -72,7 +66,6 @@ export const EMPTY_BADGE_COUNTS: SidebarBadgeCounts = {
   unmatchedEmails: 0,
   pendingIntake: 0,
   marketingLeads: 0,
-  campaignApprovals: 0,
 }
 
 export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
@@ -82,7 +75,7 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
   const scope = ownershipScopeFor(role, userId)
   const isAE = role === "account_executive"
 
-  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake, marketingLeads, campaignApprovals] =
+  const [myBuyers, inProgress, pipeline, buyers, unmatchedEmails, pendingIntake, marketingLeads] =
     await Promise.all([
       countMyBuyers(admin, isAE, userId),
       countInProgressWithUnread(admin, isAE, userId),
@@ -91,7 +84,6 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
       countUnmatchedEmails(admin, role),
       countPendingIntake(admin, role, userId),
       countMarketingLeads(admin, role, userId),
-      countCampaignApprovals(admin, isAE, userId),
     ])
 
   return {
@@ -104,35 +96,7 @@ export async function getSidebarBadgeCounts(): Promise<SidebarBadgeCounts> {
     unmatchedEmails,
     pendingIntake,
     marketingLeads,
-    campaignApprovals,
   }
-}
-
-// ---------------------------------------------------------------------------
-// 8. "Chiến dịch" — campaign approval queue (migration 089). AI drafts ở
-//    status 'pending_approval' có campaign_enrollment_id. Shadow mode: đây là
-//    hàng đợi chính của AE trong campaign engine.
-// ---------------------------------------------------------------------------
-async function countCampaignApprovals(
-  admin: AdminSB,
-  isAE: boolean,
-  userId: string,
-): Promise<number> {
-  let q = (admin.from("email_drafts") as any)
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending_approval")
-    .not("campaign_enrollment_id", "is", null)
-  if (isAE) {
-    // Drafts của enrollment mình sở hữu.
-    const { data: ownedIds } = await (admin.from("campaign_enrollments") as any)
-      .select("id")
-      .eq("owner_id", userId)
-    const ids = ((ownedIds ?? []) as Array<{ id: string }>).map((r) => r.id)
-    if (ids.length === 0) return 0
-    q = q.in("campaign_enrollment_id", ids)
-  }
-  const { count } = await q
-  return count ?? 0
 }
 
 // ---------------------------------------------------------------------------

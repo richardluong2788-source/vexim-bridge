@@ -278,3 +278,29 @@ Trả lời "buyer chưa có nhu cầu lúc đó, không phản hồi thì xử 
 3. **Cap lifetime:** tối đa ~2 sequence/buyer/năm (chưa implement — pilot 10 buyer chưa cần; cân nhắc khi mở 50–100).
 
 **Kịch bản ví dụ:** buyer hết sequence 09/09 → nurture. 15/09 admin tái enroll → skip `reenroll_cooldown_until:2026-11-09`. 15/11 import data thấy buyer mở category mới → hệ thống gợi ý, AE enroll campaign mới với angle mới → hợp lệ cả cooldown lẫn gate.
+
+### 8.12. Theo dõi tín hiệu buyer (thiết kế B2 — hỏi 26/09/2026)
+
+**Tiền đề (user chỉ ra, đúng):** ImportYeti/customs là dữ liệu LỊCH SỬ — BOL lên hệ thống sau shipment 30–90 ngày, khi quyết định mua đã xong từ tháng trước. **Xác nhận hiện trạng: pipeline research 079 (buyer_analysis/buyer_strategy) đang ăn thẳng `ImportYetiAPIData` → hôm nay hệ thống CHƯA có nguồn tín hiệu sớm nào.** Vì vậy nguyên tắc thiết kế: customs data chỉ được dùng VERIFY + MEASURE, KHÔNG BAO GIỜ làm trigger.
+
+**Khung thời gian:** chu trình mua food importing 6–18 tháng: line review/lập kế hoạch → duyệt nội bộ → viết spec → tìm nguồn → sample → PO. Customs chỉ thấy BƯỚC CUỐI. Tín hiệu sớm phải nghe ở các bước trước.
+
+**4 tầng tín hiệu (sớm → muộn):**
+
+| Tầng | Nguồn | Thời điểm so với PO | Chi phí | Trạng thái |
+|---|---|---|---|---|
+| 0 | **Reply muộn từ nurture** (8.10) — buyer TỰ mở cửa | Real-time | 0 | **Đã sống** |
+| 0 | **AE nhập tay** — tag `signal` vào buyer_interactions (CALL/MEETING/NOTE): gặp hội chợ (Foodexpo, PLMA, Fancy Food, Expo West, Gulfood), referral, buyer hỏi mẫu | Sớm nhất | 0 (người là cảm biến) | Quy ước — pilot dùng ngay |
+| 0 | Lưu ý: campaign email plain-text → KHÔNG open/click tracking (pixel = spam signal, đi ngược north star) | — | — | Bất khả kháng, chấp nhận |
+| 1 | **Web change detection**: snapshot 3–5 trang/buyer (products/about/careers/news) mỗi 30 ngày cho watchlist; diff: SKU/dòng mới, "now hiring" (tuyển procurement/QA sourcing = đang chuẩn bị tìm nguồn, SỚM 6–12 tháng trước PO), facility mới; kèm Google News RSS/company (miễn phí) | Sớm 6–12 tháng | Rẻ (10–100 trang) | B2 đầu tiên |
+| 2 | **Research re-run 45 ngày cho watchlist + DIFF có cấu trúc** — nâng pipeline 079: customs chỉ VERIFY ("còn import active?" tránh đuổi buyer vừa đổi model) + học seasonality làm ANCHOR LỊCH (gợi ý thời điểm cho AE, không nêu vào email) | Trung bình | AI + giữ data cũ | B2 |
+| 3 | Con người & sân: lịch hội chợ = chu kỳ tín hiệu tự nhiên (trước hội chợ 4–6 tuần là lý do liên hệ CÓ SẴN: "sẽ ở đó, ghép lịch gặp"); LinkedIn AE tự quan sát (không scrape) | Theo lịch ngành | 0 | Tự nhiên có sẵn |
+
+**Đường ống signal → hành động (đúng triết lý shadow mode):**
+- Bảng `buyer_signals` (B2 migration): type, evidence_url/quote, detected_at, strength (1–3), suggested_angle, status (new/accepted/dismissed/converted).
+- **Digest HÀNG TUẦN** cho AE — không bắn per-signal. AE đọc bằng chứng → quyết định enroll campaign mới (cooldown 60 ngày 8.11 vẫn áp) → angle mới đi kèm evidence.
+- **Gate ăn evidence**: follow-up chỉ được phép theo category `seasonal_relevance`/`value_insight` khi CÓ signal row làm bằng chứng → nối thẳng vào followup-gate ("không lý do → không gửi" giờ có nguồn lý do máy móc được).
+
+**Quy tắc chân thành:** signal INTERNAL (job posting, customs diff) → chỉ chọn thời điểm, TUYỆT ĐỐI không nhắc trong email (creepy, trông như stalk); signal PUBLIC tự nhiên (ra mắt dòng mới, gặp ở hội chợ) → được dùng trong email, và là bộ phận nào của context thì phải trung thực về nguồn.
+
+**Pilot reality check:** 10 buyer → KHÔNG build crawler. Watchlist = AE + reply path (đã sống) + research re-run 45 ngày chạy tay. Build tầng 1–2 khi mở nấc 30+.

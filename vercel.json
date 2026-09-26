@@ -55,10 +55,6 @@
     {
       "path": "/api/cron/archive-lost-opportunities",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/campaign-scheduler",
-      "schedule": "7 * * * *"
     }
   ]
 }

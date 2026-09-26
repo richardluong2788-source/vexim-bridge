@@ -10,7 +10,7 @@
 
 ### 1.1 Mục đích kinh doanh
 
-**Vexim Trade** (`veximtrade.com`) là **phòng kinh doanh xuất khẩu thuê ngoài** (outsourced export sales team) cho các nhà sản xuất Việt Nam bán hàng vào thị trường Mỹ. Hệ thống chuyên sâu vào **4 ngành được FDA quản lý**:
+**Vexim Trade** (`veximbridge.com`) là **phòng kinh doanh xuất khẩu thuê ngoài** (outsourced export sales team) cho các nhà sản xuất Việt Nam bán hàng vào thị trường Mỹ. Hệ thống chuyên sâu vào **4 ngành được FDA quản lý**:
 
 1. **Thực phẩm** (Food Facility Registration)
 2. **Thực phẩm chức năng** (Dietary Supplement DSHEA)

@@ -1,4 +1,5 @@
 const sm = require((process.argv[2] || '.') + '/state-machine.js')
+const constants = require((process.argv[2] || '.') + '/constants.js')
 const assert = require('assert')
 
 let passed = 0, failed = 0
@@ -126,6 +127,25 @@ t('suppression từ stop-check', () => {
 })
 t('invalid contact', () => {
   assert.strictEqual(sm.onInvalidContact('enrolled', 'missing_contact_email').to, 'invalid_contact')
+})
+
+// --- Re-enroll cooldown (26/09/2026) ---
+t('cooldown: terminal quá gần → blocked, ngày mở đúng', () => {
+  const now = new Date('2026-09-26T00:00:00Z')
+  const opens = constants.reenrollBlockedUntil('2026-09-10T00:00:00Z', 60, now)
+  assert.ok(opens instanceof Date)
+  assert.strictEqual(opens.toISOString().slice(0, 10), '2026-11-09')
+})
+t('cooldown: đã quá hạn → null (được phép)', () => {
+  const now = new Date('2026-12-15T00:00:00Z')
+  assert.strictEqual(constants.reenrollBlockedUntil('2026-09-10T00:00:00Z', 60, now), null)
+})
+t('cooldown: 0 ngày → tắt guard', () => {
+  assert.strictEqual(constants.reenrollBlockedUntil('2026-09-25T00:00:00Z', 0, new Date('2026-09-26T00:00:00Z')), null)
+})
+t('cooldown: updated_at hỏng/thiếu → null (fail-open)', () => {
+  assert.strictEqual(constants.reenrollBlockedUntil(null, 60), null)
+  assert.strictEqual(constants.reenrollBlockedUntil('not-a-date', 60), null)
 })
 
 console.log(`\n${passed} passed, ${failed} failed`)

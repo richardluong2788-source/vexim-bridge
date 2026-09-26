@@ -88,6 +88,32 @@ export const CONFIDENCE_THRESHOLD = 0.85
  *  (AI không chắc) → HOLD human review thay vì gửi. */
 export const GATE_CONFIDENCE_THRESHOLD = 0.7
 
+/**
+ * Cooldown tái enroll sau khi enrollment trước vào terminal state (26/09/2026).
+ *
+ * KHÔNG có auto-chase: nurture là terminal, scheduler không bao giờ tự quay
+ * lại. Campaign mới cho buyer cũ = quyết định của người — nhưng phải nghỉ đủ
+ * thời gian giữa 2 sequence (mặc định 60 ngày) để tránh biến thành chuỗi
+ * "bám đuổi" vô ý kiểu marketing B2C. 0 = tắt guard.
+ */
+export function reenrollCooldownDays(): number {
+  const n = Number(process.env.CAMPAIGN_REENROLL_COOLDOWN_DAYS ?? "60")
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 60
+}
+
+/** Pure: ngày mở cửa re-enroll, hoặc null nếu được phép ngay. */
+export function reenrollBlockedUntil(
+  lastTerminalUpdatedAt: string | null | undefined,
+  cooldownDays: number,
+  now: Date = new Date(),
+): Date | null {
+  if (!cooldownDays || cooldownDays <= 0 || !lastTerminalUpdatedAt) return null
+  const t = Date.parse(lastTerminalUpdatedAt)
+  if (!Number.isFinite(t)) return null
+  const opensAt = new Date(t + cooldownDays * 86400000)
+  return opensAt.getTime() > now.getTime() ? opensAt : null
+}
+
 /** Cap tổng enrollment/campaign cho pilot theo cấp bậc (10 → 30 → 50–100).
  *  Override bằng env; mặc định 100. */
 export function pilotEnrollmentCap(): number {

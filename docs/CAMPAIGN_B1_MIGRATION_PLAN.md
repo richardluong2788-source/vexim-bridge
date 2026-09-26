@@ -264,3 +264,17 @@ Trả lời "buyer chưa có nhu cầu lúc đó, không phản hồi thì xử 
 2. **Hết sequence vẫn im lặng:** cron `onNurtureDue` (mặc định +14 ngày sau email cuối) → state **`nurture`** (terminal), `stopped_reason='sequence_exhausted_no_reply'`, SYSTEM_EVENT `nurtured`, `next_action_at=NULL` — scheduler không bao giờ đụng lại. Buyer **không bị suppress**: vẫn thuộc lead pool, AE vẫn có thể liên hệ thủ công.
 3. **Ở nurture — lane mới được phép:** partial unique index chỉ cấm 1 enrollment ACTIVE/lead → buyer nurture có thể enroll campaign MỚI (lane mới, đúng "một lane tại một thời điểm").
 4. **Reply muộn từ nurture (vá 26/09):** trước đây `findActiveEnrollmentForLead` chỉ tìm state active → reply "giờ tôi có nhu cầu" rơi im lặng vào `unmatched_inbound_emails`, AE không được báo. Đã vá: fallback `findNurtureEnrollmentForLead` → reply được classify 7-intent, ghi `buyer_replies` + interaction, **notify AE đầy đủ**; INTERESTED tự tin → handoff tạo engagement mới cho AE tiếp quản; state enrollment GIỮ NGUYÊN nurture (state machine cấm hồi sinh — đã có test); OPT_OUT vẫn stamp suppression vĩnh viễn như thường.
+
+### 8.11. "Bám đuổi" buyer không quan tâm — chiến lược (hỏi 26/09/2026)
+
+**Câu hỏi:** buyer không quan tâm lúc đó, sau đó có chiến dịch chạy bám đuổi không? Có nên làm kiểu các funnel bán khoá học không?
+
+**Trả lời ngắn: có nên quay lại với buyer — nhưng KHÔNG bao giờ theo kiểu chase loop tự động. Bán khoá học là B2C permission marketing (lead tự opt-in, ticket nhỏ, email marketing là điều người nhận kỳ vọng, chi phí = 0) — cold outreach B2B của mình là ngược lại: một-một, tên thật + domain thật của AE, mỗi lần "bám" tốn deliverability và uy tín người gửi. Chase theo lịch chính là phiên bản đối lập của north star đã chốt (email hiệu quả vì có lý do chính đáng, không phải vì lì lợm).**
+
+**Thiết kế 3 tầng:**
+
+1. **B1 (hiện tại, đã implement):** KHÔNG auto-chase — nurture là terminal, scheduler không tự quay lại. Quay lại buyer cũ = con người enroll vào campaign MỚI với positioning mới. Van an toàn mới (26/09): **cooldown `CAMPAIGN_REENROLL_COOLDOWN_DAYS` (default 60, 0 = tắt)** — enrollment trước vừa vào terminal state mà chưa nghỉ đủ → `enrollLeads` skip với reason `reenroll_cooldown_until:<ngày>`, chặn chase loop vô ý. Gate + anti-repeat QA tự động đòi góc mới vì previous_emails của sequence cũ vẫn nằm trong context.
+2. **B2 (backlog, sau pilot): re-engagement theo TÍN HIỆU.** Khi import data/research thấy thay đổi thật (pattern shipment mới, category mới, mùa vụ sắp tới) → hệ thống GỢI Ý AE: "buyer X có tín hiệu mới — đây là lý do chính đáng để quay lại" → AE duyệt enroll campaign re-engagement. Trigger bằng bằng chứng, không bằng lịch — đây mới là phiên bản B2B đúng của "chase".
+3. **Cap lifetime:** tối đa ~2 sequence/buyer/năm (chưa implement — pilot 10 buyer chưa cần; cân nhắc khi mở 50–100).
+
+**Kịch bản ví dụ:** buyer hết sequence 09/09 → nurture. 15/09 admin tái enroll → skip `reenroll_cooldown_until:2026-11-09`. 15/11 import data thấy buyer mở category mới → hệ thống gợi ý, AE enroll campaign mới với angle mới → hợp lệ cả cooldown lẫn gate.

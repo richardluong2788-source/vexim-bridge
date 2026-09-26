@@ -10,6 +10,8 @@ import {
   type EnrollmentState,
   TERMINAL_STATES,
   pilotEnrollmentCap,
+  reenrollCooldownDays,
+  reenrollBlockedUntil,
 } from "./constants"
 import type { StateTransition } from "./state-machine"
 import type { CampaignEnrollmentRow, CampaignRow, CampaignStepRow } from "./types"
@@ -144,11 +146,36 @@ export async function enrollLeads(
   let enrolled = 0
   let slots = cap - existing
 
+  // Cooldown re-enroll (26/09/2026): enrollment trước vừa vào terminal → nghỉ
+  // đủ CAMPAIGN_REENROLL_COOLDOWN_DAYS (default 60) mới cho campaign mới.
+  // Không có auto-chase — guard này chỉ chặn người tạo chase loop vô ý.
+  const cooldown = reenrollCooldownDays()
+  const lastTerminal = new Map<string, string>()
+  if (cooldown > 0 && leadIds.length > 0) {
+    const { data: termRows } = await (admin.from("campaign_enrollments") as any)
+      .select("lead_id, updated_at")
+      .in("lead_id", leadIds)
+      .in("state", TERMINAL_STATES as readonly string[])
+      .order("updated_at", { ascending: false })
+    for (const r of (termRows ?? []) as Array<{ lead_id: string; updated_at: string }>) {
+      if (!lastTerminal.has(r.lead_id)) lastTerminal.set(r.lead_id, r.updated_at)
+    }
+  }
+
   for (const leadId of leadIds) {
     if (slots <= 0) {
       skipped.push({ leadId, reason: "pilot_cap_reached" })
       continue
     }
+    // Cooldown giữa 2 sequence (nurture/stopped/... quá_recent → skip).
+    if (cooldown > 0) {
+      const opensAt = reenrollBlockedUntil(lastTerminal.get(leadId) ?? null, cooldown)
+      if (opensAt) {
+        skipped.push({ leadId, reason: `reenroll_cooldown_until:${opensAt.toISOString().slice(0, 10)}` })
+        continue
+      }
+    }
+
     // STOP check (spec §13): contact hợp lệ + chưa suppress.
     const stop = await checkLeadStop(leadId)
     if (!stop.ok) {

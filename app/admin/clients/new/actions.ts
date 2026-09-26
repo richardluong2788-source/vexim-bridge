@@ -496,15 +496,39 @@ export async function listSupplementIntakeLinks(clientId: string): Promise<{ ok:
   }
 
   const admin = createAdminClient()
-  const { data, error } = await (admin.from("client_intake_submissions") as any)
-    .select("id, token, expires_at, used_at, created_at")
+  const COLS = "id, token, expires_at, used_at, created_at"
+  const ORDER = { ascending: false as const }
+
+  // Primary: theo cột client_id (migration 087).
+  let res = await (admin.from("client_intake_submissions") as any)
+    .select(COLS)
     .eq("client_id", clientId)
-    .order("created_at", { ascending: false })
+    .order("created_at", ORDER)
     .limit(10)
 
-  if (error) return { ok: false, error: error.message }
+  // Fallback (DB chưa chạy 087 — cột client_id chưa tồn tại): link supplement
+  // được prefill email của client nên dò theo email. Trả message lỗi để UI
+  // toast thay vì im lặng (bug 27/09/2026: toast xanh "đã tạo" nhưng list
+  // trống rừng because query chết âm thầm).
+  if (res.error && /client_id/i.test(res.error.message ?? "")) {
+    const { data: clientRow } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", clientId)
+      .maybeSingle()
+    const clientEmail = (clientRow as { email?: string | null } | null)?.email ?? null
+    if (clientEmail) {
+      res = await (admin.from("client_intake_submissions") as any)
+        .select(COLS)
+        .eq("email", clientEmail)
+        .order("created_at", ORDER)
+        .limit(10)
+    }
+  }
 
-  const rows = ((data ?? []) as Array<{ id: string; token: string; expires_at: string | null; used_at: string | null; created_at: string }>).map((r) => ({
+  if (res.error) return { ok: false, error: res.error.message ?? "query_failed" }
+
+  const rows = ((res.data ?? []) as Array<{ id: string; token: string; expires_at: string | null; used_at: string | null; created_at: string }>).map((r) => ({
     id: r.id,
     url: `${siteConfig.url}/client-intake/${r.token}`,
     expiresAt: r.expires_at,

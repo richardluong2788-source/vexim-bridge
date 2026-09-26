@@ -35,7 +35,12 @@ export function SupplementIntakeLinkGenerator({ clientId }: { clientId: string }
   async function load() {
     setLoading(true)
     const res = await listSupplementIntakeLinks(clientId)
-    if (res.ok) setLinks(res.data ?? [])
+    if (res.ok) {
+      setLinks(res.data ?? [])
+    } else {
+      // Không nuốt lỗi im lặng nữa (bug 27/09/2026: list trống mà không ai biết tại sao).
+      toast.error(`Không tải được danh sách link: ${res.error ?? "lỗi không rõ"} — thường do DB chưa chạy migration 087 (scripts/087_intake_supplement_client_id.sql)`)
+    }
     setLoading(false)
   }
 
@@ -45,9 +50,21 @@ export function SupplementIntakeLinkGenerator({ clientId }: { clientId: string }
     setCreating(false)
     if (res.ok && res.url) {
       toast.success("Đã tạo link bổ sung hồ sơ — copy gửi cho client")
+      // Optimistic: hiện link NGAY, không phụ thuộc list query có chạy được
+      // hay không (DB chưa có cột client_id thì list fallback vẫn tìm thêm).
+      setLinks((prev) => [
+        {
+          id: `optimistic-${Date.now()}`,
+          url: res.url!,
+          expiresAt: res.expiresAt ?? null,
+          usedAt: null,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ])
       load()
     } else {
-      toast.error(res.error === "forbidden" ? "Bạn không có quyền tạo link hồ sơ" : "Tạo link thất bại")
+      toast.error(res.error === "forbidden" ? "Bạn không có quyền tạo link hồ sơ" : `Tạo link thất bại: ${res.error ?? ""}`)
     }
   }
 

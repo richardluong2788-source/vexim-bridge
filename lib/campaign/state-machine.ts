@@ -297,6 +297,7 @@ export function onReviewResolved(
   state: EnrollmentState,
   decision: "resume" | "stop",
   now: Date = new Date(),
+  opts?: { neverContacted?: boolean },
 ): StateTransition {
   if (decision === "stop") {
     return {
@@ -306,6 +307,22 @@ export function onReviewResolved(
       stoppedReason: "human_review_stopped",
       clearHumanReview: true,
       note: "review_stopped",
+    }
+  }
+  // Bugfix 27/09/2026: resume từ paused KHÔNG được giả định "đã gửi email 1".
+  // Pause có thể xảy ra từ state 'enrolled' (chưa liên hệ) — resume khi đó
+  // phải quay về 'enrolled'/step1_due, không phải waiting_reply/followup_due
+  // (lỗi cũ: buyer chưa từng được gửi email nhưng bị đẩy vào hàng follow-up
+  // → gate skip vì previous_emails rỗng → cascade qua sequence → nurture mà
+  // không ai từng liên hệ).
+  const neverContacted = opts?.neverContacted ?? false
+  if (state === "paused" && neverContacted) {
+    return {
+      to: "enrolled",
+      clearHumanReview: true,
+      nextActionAt: now,
+      nextActionType: "step1_due",
+      note: "review_resumed_never_contacted",
     }
   }
   return {

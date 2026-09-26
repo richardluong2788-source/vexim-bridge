@@ -148,5 +148,26 @@ t('cooldown: updated_at hỏng/thiếu → null (fail-open)', () => {
   assert.strictEqual(constants.reenrollBlockedUntil('not-a-date', 60), null)
 })
 
+// --- Resume-from-pause bugfix (27/09/2026) ---
+t('resume từ paused khi CHƯA từng liên hệ → enrolled/step1_due (không rơi waiting_reply)', () => {
+  const r = sm.onReviewResolved('paused', 'resume', new Date('2026-09-26T12:00:00Z'), { neverContacted: true })
+  assert.strictEqual(r.to, 'enrolled')
+  assert.strictEqual(r.nextActionType, 'step1_due')
+  assert.strictEqual(r.note, 'review_resumed_never_contacted')
+})
+t('resume từ paused khi ĐÃ gửi email 1 → waiting_reply/followup_due như cũ', () => {
+  const r = sm.onReviewResolved('paused', 'resume', new Date('2026-09-26T12:00:00Z'), { neverContacted: false })
+  assert.strictEqual(r.to, 'waiting_reply')
+  assert.strictEqual(r.nextActionType, 'followup_due')
+})
+t('resume từ paused mặc định (không truyền hint) → giữ hành vi cũ', () => {
+  const r = sm.onReviewResolved('paused', 'resume')
+  assert.strictEqual(r.to, 'waiting_reply')
+})
+t('resume state không phải paused → giữ nguyên state', () => {
+  const r = sm.onReviewResolved('contacted', 'resume')
+  assert.strictEqual(r.to, 'contacted')
+})
+
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

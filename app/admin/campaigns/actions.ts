@@ -384,8 +384,12 @@ export async function resumeEnrollmentAction(enrollmentId: string): Promise<Enro
   if (guard.role === "account_executive" && enrollment.owner_id !== guard.userId) {
     return { ok: false, error: "forbidden" }
   }
-  const decision = enrollment.needs_human_review ? "resume" : "resume"
-  const ok = await applyTransition(enrollment, onReviewResolved(enrollment.state, decision), { performedBy: guard.userId })
+  const decision = "resume" as const
+  // Bugfix 27/09/2026: resume phải biết enrollment đã từng được liên hệ chưa
+  // (pause từ 'enrolled' → resume phải về 'enrolled'/step1_due, không phải
+  // waiting_reply/followup_due — xem onReviewResolved).
+  const neverContacted = !enrollment.last_contact_at && enrollment.followup_count === 0 && enrollment.current_step_number <= 1
+  const ok = await applyTransition(enrollment, onReviewResolved(enrollment.state, decision, new Date(), { neverContacted }), { performedBy: guard.userId })
   return ok ? { ok: true } : { ok: false, error: "serverError", message: "Transition bị từ chối." }
 }
 
@@ -397,7 +401,8 @@ export async function resolveReviewAction(enrollmentId: string, decision: "resum
   if (guard.role === "account_executive" && enrollment.owner_id !== guard.userId) {
     return { ok: false, error: "forbidden" }
   }
-  const ok = await applyTransition(enrollment, onReviewResolved(enrollment.state, decision), { performedBy: guard.userId })
+  const neverContacted = !enrollment.last_contact_at && enrollment.followup_count === 0 && enrollment.current_step_number <= 1
+  const ok = await applyTransition(enrollment, onReviewResolved(enrollment.state, decision, new Date(), { neverContacted }), { performedBy: guard.userId })
   return ok ? { ok: true } : { ok: false, error: "serverError", message: "Transition bị từ chối." }
 }
 

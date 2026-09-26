@@ -192,8 +192,9 @@ export async function sendEmailDraft(
   // generic company names.
   // 
   // If full_name is not set in profile, we MUST still use a human-sounding name.
-  // Fallback to "Vexim Trade Team" if no name available (better than just email address).
-  const senderName = profile.full_name || "Vexim Trade Team"
+  // Fallback to neutral brand "Vexim" (unified identity 26/09/2026: prose là
+  // "Vexim", pháp nhân VEXIM GLOBAL CO., LTD chỉ nằm trong signature).
+  const senderName = profile.full_name || "Vexim"
   const workEmail = profile.work_email || null
   const fromAddress = buildPersonalizedSender(senderName, { workEmail })
 
@@ -244,14 +245,17 @@ export async function sendEmailDraft(
     // unrelated emails together. Omitted when replying into an existing
     // thread (see note above).
     ...(!opts?.replyToMessageId && { "X-Entity-Ref-ID": uniqueEmailId }),
-    // NOTE: Deliberately NOT setting "X-Priority: 1" or "X-Campaign: transactional".
+    // NOTE: Deliberately NOT setting "X-Priority: 1", "X-Campaign: transactional"
+    // or an "X-Mailer" header.
     // - X-Priority: 1 is a decades-old classic spam-filter trigger ("urgent" marketing
     //   emails abuse it); it does nothing for real deliverability and only adds risk.
     // - Mislabeling cold outreach as "X-Campaign: transactional" doesn't fool
     //   content-based spam filters (which read the actual sales-pitch content) and
     //   is an inconsistent signal.
-    // Custom mailer identification (neutral, doesn't affect spam scoring either way)
-    "X-Mailer": "Vexim-Trade/1.0",
+    // - X-Mailer (removed 26/09/2026): a custom X-Mailer is an automation
+    //   fingerprint with zero benefit — receiving servers don't need it, and it
+    //   only tells filters "this was assembled by a script". Resend already
+    //   identifies the sending infrastructure at the SMTP level.
     // Store ref code in custom header for internal tracking (not visible to buyer)
     ...(refCode && { "X-Ref-Code": refCode }),
     // Thread this as a reply to the buyer's message (see replyToMessageId

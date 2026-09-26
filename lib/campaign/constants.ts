@@ -131,3 +131,18 @@ export const SIGNATURE_WEBSITE = "veximbridge.com"
 
 /** Fallback owner khi enrollment không có owner_id: dùng người tạo campaign. */
 export const NOTIFICATION_DEDUP_PREFIX = "campaign"
+
+/**
+ * Whitelist claim về Vexim — AI CHỈ được phát biểu các fact này (diễn lại
+ * nhẹ, không phóng đại). Feedback 26/09/2026 trước pilot: chống bịa về bản
+ * thân Vexim (superlatives, số liệu nhà máy, chứng nhận, độ sâu audit).
+ * QA (email-qa.ts) bổ sung phần âm: superlative/số liệu/cert ngoài danh sách
+ * → HIGH block.
+ */
+export const APPROVED_VEXIM_CLAIMS = [
+  "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US",
+  "Vexim is not a marketplace and not a trading company — direct factory relationships",
+  "Factories are audited/verified before being introduced to a buyer",
+  "Vexim helps factories prepare FDA registration, HACCP and traceability documentation",
+  "Buyers can send a product spec and Vexim will check whether a factory matches it",
+]

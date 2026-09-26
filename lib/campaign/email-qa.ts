@@ -75,9 +75,11 @@ export function runEmailQA(params: {
   recipient: string | null | undefined
   ctx: BuyerContext
   optOutRequired: boolean
+  /** Loại bước hiện tại — close_loop/nurture không bắt buộc câu hỏi CTA. */
+  stepType?: string
 }): QAResult {
   const issues: QAIssue[] = []
-  const { email, recipient, ctx, optOutRequired } = params
+  const { email, recipient, ctx, optOutRequired, stepType } = params
   const body = email.contentEn
   const words = countWords(body)
 
@@ -132,11 +134,14 @@ export function runEmailQA(params: {
   // 8. (duplicate wording đã ở mục 5.)
 
   // 9. CTA appropriate — phải có câu hỏi/mời gọi; không được dùng CTA ép.
+  //    close_loop/nurture thì ngược lại: PHẢI đóng vòng, không ép câu hỏi
+  //    (feedback 26/09/2026) → bỏ yêu cầu "?".
   const strongCta = /\b(reply (now|today)|book a call (now|today)|buy now|order now)\b/i
   if (strongCta.test(body)) {
     issues.push({ check: "cta_pressure", severity: "MEDIUM", message: "Aggressive CTA detected." })
   }
-  if (!/\?/.test(body)) {
+  const ctaOptional = stepType === "close_loop" || stepType === "nurture"
+  if (!/\?/.test(body) && !ctaOptional) {
     issues.push({ check: "cta_missing", severity: "LOW", message: "No question/CTA found in email." })
   }
 
@@ -172,6 +177,43 @@ export function runEmailQA(params: {
       issues.push({ check: "spam_word", severity: "MEDIUM", message: `Spam trigger word detected (${w}).` })
       break
     }
+  }
+
+  // 13. Trend claims (feedback 26/09/2026): không khẳng định xu hướng khi
+  // không có dữ liệu. Check THEO CÂU để không chặn khung điều kiện được phép
+  // ("if expanding your supplier base is on the radar..." là hợp lệ).
+  const TREND_WORD = /\b(growing|increasing|expanding|rising|surging|booming|accelerating|skyrocketing|more and more|rapidly)\b/i
+  const CONDITIONAL = /\b(if|whether|when|should|in case|whenever)\b/i
+  const trendSentence = body
+    .split(/[.!?\n]+/)
+    .find((s) => TREND_WORD.test(s) && !CONDITIONAL.test(s))
+  if (trendSentence) {
+    issues.push({
+      check: "trend_claim",
+      severity: "HIGH",
+      message: `Trend/growth claim without verifiable data ("${trendSentence.trim().slice(0, 80)}…") — rephrase neutrally or conditionally.`,
+    })
+  }
+
+  // 14. Claims về Vexim/supplier (feedback 26/09/2026): chỉ whitelist
+  // APPROVED_VEXIM_CLAIMS được phép — chặn superlative, số liệu bịa, chứng
+  // nhận ngoài services (FDA registration / HACCP / traceability).
+  const superlative = body.match(/\b(leading|largest|premier|foremost|world-class|award-winning|number one|no\.\s?1|#1|top-rated)\b/i)
+  if (superlative) {
+    issues.push({ check: "vexim_claim", severity: "HIGH", message: `Superlative claim ("${superlative[0]}") is not on the approved Vexim facts list.` })
+  }
+  const inventedCount = body.match(/\b\d{1,4}\s+(factories|manufacturers|suppliers|buyers|partners|years)\b/i)
+  if (inventedCount) {
+    issues.push({ check: "vexim_claim", severity: "HIGH", message: `Specific count about Vexim ("${inventedCount[0].trim()}") is unverifiable — remove it.` })
+  }
+  if (/\bISO\s?\d{4,5}\b|\b(BRC|SQF|GFSI|SMETA)\b|\b(halal|kosher)\s+certified\b/i.test(body)) {
+    issues.push({ check: "vexim_claim", severity: "HIGH", message: "Certification claim beyond approved services (FDA registration, HACCP, traceability only)." })
+  }
+
+  // 15. Close-loop phải THẬT SỰ đóng vòng (feedback 26/09/2026): không ép
+  // buyer chọn phương án trả lời ("which would you prefer?"...).
+  if (/which\s+(would|do|can)\s+you\s+(prefer|like)|let me know which|either\s+(way|works)[,—-]*\s*(just\s+)?(reply|let me know)/i.test(body)) {
+    issues.push({ check: "close_loop_pressure", severity: "MEDIUM", message: "Forced-choice ending hands the buyer an admin task — close the loop without demanding a reply." })
   }
 
   // ALL CAPS / exclamation (bắt từ requirement-email anti-spam kinh nghiệm).

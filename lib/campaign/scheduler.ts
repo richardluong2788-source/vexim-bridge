@@ -183,6 +183,7 @@ async function queueDraftForEnrollment(
       recipient: contactEmail,
       ctx,
       optOutRequired: step.step_number >= 2,
+      stepType: step.step_type,
     })
 
     if (qa.risk_level === "HIGH") {

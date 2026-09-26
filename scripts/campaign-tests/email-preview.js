@@ -40,14 +40,14 @@ const SIG = [
     subject_en: "Vietnamese robusta for your espresso blends",
     content_en:
       "Hi Sarah,\n\n" +
-      "Green coffee clearly keeps the team at Atlantic Coffee Traders busy, and robusta for espresso blends looks like a growing part of that picture.\n\n" +
-      "I'm Linda Nguyen with VEXIM GLOBAL CO., LTD in Hanoi. We are not a marketplace or a trading company — we prepare Vietnamese coffee factories for US-market expectations such as FDA registration, HACCP and lot-level traceability, and every factory is audited before it can reach a buyer.\n\n" +
+      "Green coffee clearly keeps the team at Atlantic Coffee Traders busy.\n\n" +
+      "I'm Linda Nguyen with Vexim, a Hanoi-based compliance consulting partner for Vietnamese factories exporting to the US. We are not a marketplace or a trading company — we prepare coffee factories for US-market expectations such as FDA registration, HACCP and lot-level traceability, and every factory is audited before it can reach a buyer.\n\n" +
       "If adding a US-ready Vietnamese robusta origin alongside your current sources is on this year's roadmap, would a short conversation be worth your time?\n\n" +
       SIG,
     content_vi:
       "Chào chị Sarah,\n\n" +
-      "Em thấy đội ngũ Atlantic Coffee Traders đang rất tích cực trong mảng green coffee, và robusta cho espresso blends dường như đang là phần tăng trưởng.\n\n" +
-      "Em là Linda Nguyen, thuộc VEXIM GLOBAL CO., LTD tại Hà Nội. Chúng em không phải marketplace hay công ty môi giới — chúng em chuẩn bị các nhà máy cà phê Việt Nam cho yêu cầu thị trường Mỹ như đăng ký FDA, HACCP và truy xuất lô, mỗi nhà máy đều được audit trước khi tiếp xúc buyer.\n\n" +
+      "Em thấy đội ngũ Atlantic Coffee Traders đang rất tích cực trong mảng green coffee ạ.\n\n" +
+      "Em là Linda Nguyen, thuộc Vexim — đối tác tư vấn tuân thủ tại Hà Nội cho các nhà máy Việt Nam xuất hàng sang Mỹ. Chúng em không phải marketplace hay công ty môi giới — chúng em chuẩn bị nhà máy cà phê cho yêu cầu thị trường Mỹ như đăng ký FDA, HACCP và truy xuất lô, mỗi nhà máy đều được audit trước khi tiếp xúc buyer.\n\n" +
       "Nếu việc thêm một nguồn robusta Việt Nam đạt chuẩn Mỹ vào lộ trình năm nay của chị khả thi, chị có thể dành ít phút trao đổi không ạ?",
   },
   // [1] Gate bước 2 (friction_reduction, conf 0.82 ≥ 0.7 → generate)
@@ -88,14 +88,15 @@ const SIG = [
       "Hi Sarah,\n\n" +
       "I don't want to keep landing in your inbox uninvited, so this will be my last note for a while.\n\n" +
       "If US-ready Vietnamese robusta becomes relevant later — a new blend project, a supply gap, or simple curiosity about what our factories can document — just reply here and I'll pick the thread back up exactly where we left it.\n\n" +
-      "If Vietnam sourcing isn't a priority, a simple \"no thanks\" is completely fine and I'll close the file with no hard feelings. Which would you prefer?\n\n" +
+      "If Vietnam sourcing isn't a priority, a simple \"no thanks\" is completely fine and I'll close the file with no hard feelings.\n\n" +
       "Thanks for your time, Sarah.\n\n" +
       SIG,
     content_vi:
       "Chào chị Sarah,\n\n" +
       "Em không muốn tiếp tục xuất hiện trong hộp thư của chị khi chưa được mời, nên đây sẽ là email cuối của em trong một thời gian.\n\n" +
       "Nếu robusta Việt Nam đạt chuẩn Mỹ trở nên phù hợp sau này — dự án blend mới, thiếu nguồn, hoặc đơn giản là muốn tìm hiểu năng lực hồ sơ của nhà máy — chị chỉ cần reply, em sẽ tiếp tục đúng chỗ mình đang dừng.\n\n" +
-      "Nếu sourcing Việt Nam chưa phải ưu tiên, một lời \"no thanks\" là đủ và em sẽ đóng hồ sơ, không sao cả ạ. Chị muốn phương án nào?",
+      "Nếu sourcing Việt Nam chưa phải ưu tiên, một lời \"no thanks\" là đủ và em sẽ đóng hồ sơ, không sao cả ạ.\n\n" +
+      "Em cảm ơn chị đã dành thời gian ạ.",
   },
   // [5] Email B — seafood, initial_outreach (campaign khác → positioning khác)
   {
@@ -103,13 +104,13 @@ const SIG = [
     content_en:
       "Hi Mark,\n\n" +
       "Keeping frozen shrimp and pangasius programs supplied on the East Coast usually means juggling vendors, and documentation is where the friction shows up.\n\n" +
-      "I'm Linda Nguyen with VEXIM GLOBAL CO., LTD in Hanoi. We prepare Vietnamese seafood factories for US-market expectations — FDA registration, HACCP plans, traceability records — and every factory is audited before it can be introduced to a buyer. Direct factory relationships, not a marketplace.\n\n" +
+      "I'm Linda Nguyen with Vexim, a Hanoi-based compliance consulting partner. We prepare Vietnamese seafood factories for US-market expectations — FDA registration, HACCP plans, traceability records — and every factory is audited before it can be introduced to a buyer. Direct factory relationships, not a marketplace.\n\n" +
       "Would a short call be worth it to see whether any factory in our roster fits a program you're sourcing for?\n\n" +
       SIG,
     content_vi:
       "Chào anh Mark,\n\n" +
       "Duy trì các chương trình tôm và cá tra đông lạnh cho bờ Đông thường đồng nghĩa với xoay xở nhiều vendor, và hồ sơ giấy tờ là chỗ hay vướng.\n\n" +
-      "Em là Linda Nguyen, thuộc VEXIM GLOBAL CO., LTD tại Hà Nội. Chúng em chuẩn bị nhà máy hải sản Việt cho yêu cầu thị trường Mỹ — đăng ký FDA, kế hoạch HACCP, hồ sơ truy xuất — và mỗi nhà máy đều được audit trước khi giới thiệu cho buyer. Quan hệ trực tiếp với nhà máy, không phải marketplace.\n\n" +
+      "Em là Linda Nguyen, thuộc Vexim — đối tác tư vấn tuân thủ tại Hà Nội. Chúng em chuẩn bị nhà máy hải sản Việt cho yêu cầu thị trường Mỹ — đăng ký FDA, kế hoạch HACCP, hồ sơ truy xuất — và mỗi nhà máy đều được audit trước khi giới thiệu cho buyer. Quan hệ trực tiếp với nhà máy, không phải marketplace.\n\n" +
       "Anh có dành ít phút cuộc gọi ngắn để xem nhà máy nào trong roster phù hợp chương trình anh đang sourcing không ạ?",
   },
   // [6] Email X — cố tình VI PHẠM (spam word + link + giá + thiếu signature)
@@ -121,6 +122,17 @@ const SIG = [
       "We guarantee the best price on Vietnamese robusta — only $2.90/lb for orders this month!\n\n" +
       "Book a call now: https://calendly.com/vexim-demo/15min\n\n" +
       "Linda",
+    content_vi: "(email vi phạm — không dịch)",
+  },
+  // [7] Email X2 — vi phạm kiểu #2 (feedback 26/09): trend claim + bịa về
+  //     Vexim (superlative/số liệu/ISO) + ép chọn phương án → QA chặn.
+  {
+    subject_en: "The leading source of US-ready Vietnamese robusta",
+    content_en:
+      "Hi Sarah,\n\n" +
+      "Vietnam's robusta exports are growing fast, and Vexim is the largest compliance partner in the country — 40 factories and 12 years of experience, ISO 22000 certified.\n\n" +
+      "Which would you prefer: a call this week or a sample offer?\n\n" +
+      SIG,
     content_vi: "(email vi phạm — không dịch)",
   },
 ]
@@ -272,15 +284,20 @@ async function main() {
   const bad = await gen.generateCampaignEmail(coffeeCtx(), "initial_outreach", "deliberately bad", AE_NAME)
   push("bad", bad)
 
-  // QA thật cho từng email
-  const qaFor = (email, ctx, optOutRequired) =>
-    runQA({ email: { subjectEn: email.subjectEn, contentEn: email.contentEn }, recipient: ctx.buyer.contact_email, ctx, optOutRequired })
+  // Email X2 — vi phạm kiểu #2 (feedback 26/09): trend claim + bịa về Vexim.
+  const bad2 = await gen.generateCampaignEmail(coffeeCtx(), "initial_outreach", "deliberately bad #2", AE_NAME)
+  push("bad2", bad2)
 
-  push("qa.coffee1", qaFor(results.coffee1, coffeeCtx(), false))
-  push("qa.coffee2", qaFor(results.coffee2, ctx2, true))
-  push("qa.coffee3", qaFor(results.coffee3, ctx3, true))
-  push("qa.seafood1", qaFor(results.seafood1, seafoodCtx, false))
-  push("qa.bad", qaFor(results.bad, coffeeCtx(), false))
+  // QA thật cho từng email
+  const qaFor = (email, ctx, optOutRequired, stepType) =>
+    runQA({ email: { subjectEn: email.subjectEn, contentEn: email.contentEn }, recipient: ctx.buyer.contact_email, ctx, optOutRequired, stepType })
+
+  push("qa.coffee1", qaFor(results.coffee1, coffeeCtx(), false, "initial_outreach"))
+  push("qa.coffee2", qaFor(results.coffee2, ctx2, true, "follow_up"))
+  push("qa.coffee3", qaFor(results.coffee3, ctx3, true, "close_loop"))
+  push("qa.seafood1", qaFor(results.seafood1, seafoodCtx, false, "initial_outreach"))
+  push("qa.bad", qaFor(results.bad, coffeeCtx(), false, "initial_outreach"))
+  push("qa.bad2", qaFor(results.bad2, coffeeCtx(), false, "initial_outreach"))
 
   render(results)
 }
@@ -298,7 +315,6 @@ function headerBlock(to, subject, { thread = false } = {}) {
     `# ── headers vô hình với buyer ──`,
     `List-Unsubscribe: <https://veximbridge.com/unsubscribe/${UNSUB_TOKEN}>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam`,
     `X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)`,
-    `X-Mailer: Vexim-Trade/1.0`,
   ].join("\n")
 }
 
@@ -360,7 +376,8 @@ function render(r) {
   out.push(`| 2 | ↑ cùng sequence | ↑ không reply sau 6 ngày | Follow-up (gate CHẤP THUẬN) |`)
   out.push(`| 3 | ↑ cùng sequence | ↑ không reply sau 13 ngày | Close-loop cuối sequence |`)
   out.push(`| 4 | ${seafoodCampaign.name} | Mark Donovan — Harborline Seafood LLC (Boston, US) | Email đầu tiên — campaign khác, positioning khác |`)
-  out.push(`| 5 | (minh hoạ) | — | Email VI PHẠM rule → bị QA chặn |`)
+  out.push(`| 5 | (minh hoạ) | — | Email VI PHẠM rule → bị QA chặn |
+| 6 | (minh hoạ) | — | Email VI PHẠM kiểu #2: trend claim + bịa về Vexim (superlative/số liệu/ISO) → bị QA chặn |`)
   out.push("")
   out.push("---")
   out.push("")
@@ -390,6 +407,15 @@ function render(r) {
   out.push("```text", r.bad.contentEn, "```", "")
   out.push(qaBox(r["qa.bad"]), "")
   out.push(`→ \`risk_level = HIGH\` → **nút Approve bị chặn ở UI** (\`approveAndSendCampaignDraft\` trả \`qa_blocked\`). Draft vẫn nằm trong queue để AE xem model sai ở đâu.`, "")
+
+  // Bad email #2 — vi phạm kiểu #2 (feedback 26/09/2026)
+  out.push(`## 6 · Email vi phạm kiểu #2 — trend claim + bịa về Vexim → QA chặn`, "")
+  out.push('Minh hoạ các check mới (feedback 26/09): trend_claim ("growing fast" không dữ liệu), vexim_claim (superlative "largest", số liệu bịa "40 factories / 12 years", chứng nhận ISO ngoài whitelist) và close_loop_pressure (ép buyer chọn phương án):', "")
+  out.push("**Như buyer sẽ nhận được (nếu không có QA):**", "")
+  out.push("```text", headerBlock("sarah.mitchell@atlanticcoffeetraders.com", r.bad2.subjectEn), "```", "")
+  out.push("```text", r.bad2.contentEn, "```", "")
+  out.push(qaBox(r["qa.bad2"]), "")
+  out.push("→ `risk_level = HIGH` → **blocked**. Model hay lạc đúng kiểu này khi prompt lỏng — whitelist fact + QA theo câu giúp chặn trước khi tới AE.", "")
 
   fs.writeFileSync(process.argv[3] ?? "/tmp/preview.md", out.join("\n"))
   console.log("rendered ok")

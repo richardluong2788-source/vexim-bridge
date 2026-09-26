@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { AlertCircle, CheckCircle2, Loader2, Star, X, Link2, Copy, Check } from "lucide-react"
 
@@ -53,6 +53,16 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   const [supplementLink, setSupplementLink] = useState<{ url: string; expiresAt?: string } | null>(null)
   const [isLinkPending, startLinkTransition] = useTransition()
   const [copied, setCopied] = useState(false)
+
+  // Auto-redirect tới trang client sau khi tạo (feedback 27/09/2026: trước đây
+  // phải tự bấm menu sidebar tìm client vừa tạo). 8 giây cho AE/SR kịp đọc
+  // panel success; nút "Ở lại" huỷ nếu muốn ở lại tạo tiếp client khác.
+  const [cancelAuto, setCancelAuto] = useState(false)
+  useEffect(() => {
+    if (!success?.userId || cancelAuto) return
+    const t = setTimeout(() => router.push(`/admin/clients/${success.userId}`), 8000)
+    return () => clearTimeout(t)
+  }, [success?.userId, cancelAuto, router])
 
   const tr = (vi: string, en: string) => (locale === "vi" ? vi : en)
 
@@ -506,9 +516,26 @@ export function NewClientForm({ locale }: NewClientFormProps) {
                 </div>
               </div>
 
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => router.push(`/admin/clients/${success.userId}`)}
+                >
+                  {tr("Mở trang client", "Open client page")} →
+                </Button>
+                {!cancelAuto ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setCancelAuto(true)}>
+                    {tr("Ở lại trang này (bỏ tự chuyển sau 8s)", "Stay here (cancel 8s auto-redirect)")}
+                  </Button>
+                ) : (
+                  <span className="text-xs opacity-70">{tr("Đã tắt tự chuyển.", "Auto-redirect cancelled.")}</span>
+                )}
+              </div>
+
               <div className="rounded-md bg-background border p-3 flex flex-col gap-2">
                 <p className="text-xs font-medium text-foreground">
-                  {tr("Bước tiếp theo: gửi link bổ sung hồ sơ (từ bước Giới thiệu doanh nghiệp, bỏ Liên hệ & Đăng ký)", "Next: send supplement link (from Company intro, skip Contact & Registration)")}
+                  {tr("Bước tiếp theo: gửi link bổ sung hồ sơ (Giới thiệu doanh nghiệp · Năng lực & Chứng nhận · Đánh giá nhà máy — bỏ Liên hệ & Đăng ký). Link này sinh lại được bất cứ lúc nào ở tab Hồ sơ của trang client.", "Next: send the supplement link (Company intro · Capability & Certifications · Factory assessment — excludes Contact & Registration). You can regenerate it anytime from the client page, Profile tab.")}
                 </p>
                 {!supplementLink ? (
                   <Button

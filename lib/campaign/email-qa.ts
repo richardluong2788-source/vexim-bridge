@@ -153,7 +153,7 @@ export function runEmailQA(params: {
   // 11. No links / attachments / unnecessary URLs.
   const urlMatch = body.match(/https?:\/\/\S+/)
   if (urlMatch) {
-    issues.push({ check: "links", severity: "HIGH", message: `Link found in cold email (${urlMatch[0]}). Only veximbridge.com plain-text allowed.` })
+    issues.push({ check: "links", severity: "HIGH", message: `Link found in cold email (${urlMatch[0]}). Only veximtrade.com plain-text allowed.` })
   }
 
   // 12. Opt-out respected — follow-up trở đi cần đường lùi mềm.

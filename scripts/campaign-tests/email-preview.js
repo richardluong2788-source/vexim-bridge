@@ -31,7 +31,7 @@ const SIG = [
   "Linda Nguyen",
   "VEXIM GLOBAL CO., LTD",
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam",
-  "veximbridge.com",
+  "veximtrade.com",
 ].join("\n")
 
 ;(globalThis).__AI_SCRIPT = [
@@ -313,7 +313,7 @@ function headerBlock(to, subject, { thread = false } = {}) {
     `Subject: ${subject}`,
     ``,
     `# ── headers vô hình với buyer ──`,
-    `List-Unsubscribe: <https://veximbridge.com/unsubscribe/${UNSUB_TOKEN}>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam`,
+    `List-Unsubscribe: <https://veximtrade.com/unsubscribe/${UNSUB_TOKEN}>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam`,
     `X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)`,
   ].join("\n")
 }

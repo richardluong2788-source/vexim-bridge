@@ -30,7 +30,7 @@ To: sarah.mitchell@atlanticcoffeetraders.com
 Subject: Vietnamese robusta for your espresso blends
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -47,7 +47,7 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 110 từ · risk **LOW** · PASSED (được vào approval queue)
@@ -86,7 +86,7 @@ To: sarah.mitchell@atlanticcoffeetraders.com
 Subject: One easier way to compare robusta origins
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -103,7 +103,7 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 111 từ · risk **LOW** · PASSED (được vào approval queue)
@@ -142,7 +142,7 @@ To: sarah.mitchell@atlanticcoffeetraders.com
 Subject: Closing the loop for now
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -161,7 +161,7 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 109 từ · risk **LOW** · PASSED (được vào approval queue)
@@ -199,7 +199,7 @@ To: mark.donovan@harborlineseafood.com
 Subject: Vietnam shrimp and pangasius, audit-ready
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -216,7 +216,7 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 111 từ · risk **LOW** · PASSED (được vào approval queue)
@@ -249,7 +249,7 @@ To: sarah.mitchell@atlanticcoffeetraders.com
 Subject: AMAZING Vietnamese coffee deal — free samples inside!
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -265,13 +265,13 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 43 từ · risk **HIGH** · BLOCKED (không thể approve)
 &nbsp;&nbsp;── [MEDIUM] `cta_pressure` Aggressive CTA detected.
 &nbsp;&nbsp;── [LOW] `cta_missing` No question/CTA found in email.
-&nbsp;&nbsp;── [HIGH] `links` Link found in cold email (https://calendly.com/vexim-demo/15min). Only veximbridge.com plain-text allowed.
+&nbsp;&nbsp;── [HIGH] `links` Link found in cold email (https://calendly.com/vexim-demo/15min). Only veximtrade.com plain-text allowed.
 &nbsp;&nbsp;── [MEDIUM] `spam_word` Spam trigger word detected (/\bguarantee(d)?\b/i).
 &nbsp;&nbsp;── [LOW] `exclamation` Exclamation mark found — keep tone flat.
 
@@ -290,7 +290,7 @@ To: sarah.mitchell@atlanticcoffeetraders.com
 Subject: The leading source of US-ready Vietnamese robusta
 
 # ── headers vô hình với buyer ──
-List-Unsubscribe: <https://veximbridge.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
+List-Unsubscribe: <https://veximtrade.com/unsubscribe/9f2ce8a1d74b4c0f8e21ab77>   ← RFC 2369; Gmail hiện nút hủy đăng ký gốc thay vì Report spam
 X-Entity-Ref-ID: <c4f19e02-7b31-4a8e-9f2d-6b5c8e1a90d4@veximtrade.com>   ← chống Gmail thread nhầm (chỉ khi KHÔNG phải reply-thread)
 ```
 
@@ -305,7 +305,7 @@ Best regards,
 Linda Nguyen
 VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam
-veximbridge.com
+veximtrade.com
 ```
 
 **QA:** 61 từ · risk **HIGH** · BLOCKED (không thể approve)

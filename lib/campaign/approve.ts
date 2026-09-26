@@ -94,7 +94,9 @@ export async function approveAndSendCampaignDraft(
     .single()
   const leadUnsub = leadForUnsub as { unsubscribe_token?: string | null; email_unsubscribed?: boolean | null } | null
   if (leadUnsub?.unsubscribe_token && !leadUnsub.email_unsubscribed) {
-    extraHeaders["List-Unsubscribe"] = `<${siteConfig.url}/unsubscribe/${leadUnsub.unsubscribe_token}>`
+    // Một domain duy nhất veximtrade.com (26/09/2026): dùng siteConfig.domain
+    // thay vì siteConfig.url (theo env) để link unsub không bao giờ lệch domain.
+    extraHeaders["List-Unsubscribe"] = `<https://${siteConfig.domain}/unsubscribe/${leadUnsub.unsubscribe_token}>`
   }
 
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).

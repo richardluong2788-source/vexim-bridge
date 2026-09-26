@@ -123,11 +123,13 @@ export const NOT_NOW_PAUSE_DAYS = 30
 /** Độ dài email tối đa (từ) — QA fail MEDIUM nếu vượt. */
 export const MAX_EMAIL_WORDS = 200
 
-/** Signature chuẩn — địa chỉ thật theo CAN-SPAM, khớp lib/ai/requirement-email.ts. */
+/** Signature chuẩn — địa chỉ thật theo CAN-SPAM, khớp lib/ai/requirement-email.ts.
+ *  Domain: MỘT domain duy nhất veximtrade.com (quyết định 26/09/2026) — website
+ *  trong signature, From/Reply-To và List-Unsubscribe đều dùng domain này. */
 export const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
 export const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
-export const SIGNATURE_WEBSITE = "veximbridge.com"
+export const SIGNATURE_WEBSITE = "veximtrade.com"
 
 /** Fallback owner khi enrollment không có owner_id: dùng người tạo campaign. */
 export const NOTIFICATION_DEDUP_PREFIX = "campaign"

@@ -65,6 +65,11 @@ export async function sendEmailDraft(
      */
     replyToMessageId?: string | null
     /**
+     * Additional RFC headers merged into the outbound payload (campaign
+     * engine: List-Unsubscribe cho cold outreach). Omitted = unchanged.
+     */
+    extraHeaders?: Record<string, string>
+    /**
      * A `buyer_replies.id` this draft directly answers. When set, that
      * reply row is stamped with `responded_email_draft_id` / `responded_at`
      * on successful send, so the UI can show "already answered" instead of
@@ -255,6 +260,10 @@ export async function sendEmailDraft(
       "In-Reply-To": opts.replyToMessageId,
       References: opts.replyToMessageId,
     }),
+    // Campaign engine (B1): List-Unsubscribe (RFC 2369) — header VÔ HÌNH với
+    // buyer, giúp Gmail/Outlook hiển thị nút unsubscribe gốc và giảm rủi ro
+    // bị đánh dấu spam khi nhiều người bấm "spam" thay vì trả lời.
+    ...(opts?.extraHeaders ?? {}),
   }
 
   const ccEmails = (opts?.overrideCc ?? []).filter((e) => e.trim().length > 0)

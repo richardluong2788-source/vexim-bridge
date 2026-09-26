@@ -1,4 +1,4 @@
-const ri = require('/tmp/smtest2/reply-intent.js')
+const ri = require((process.argv[2] || '.') + '/reply-intent.js')
 const assert = require('assert')
 let passed = 0, failed = 0
 ;(async () => {

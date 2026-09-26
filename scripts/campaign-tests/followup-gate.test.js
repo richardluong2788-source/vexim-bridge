@@ -3,12 +3,16 @@
 // fail-safe (proceed=false) chứ không crash.
 const assert = require('assert')
 
+const path = require('path')
 const OUT = process.argv[2] || '.'
 const gate = require(OUT + '/followup-gate.js')
-const ai = require('ai')
+// QUAN TRỌNG: require ĐÚNG instance stub 'ai' mà gate dùng (resolve theo $OUT),
+// không phải AI SDK thật của repo — nếu khác instance thì override stub vô hiệu.
+const ai = require(path.join(OUT, 'node_modules', 'ai', 'index.js'))
 
 let passed = 0, failed = 0
-const t = (n, f) => { try { f(); passed++; console.log('  ✓', n) } catch (e) { failed++; console.log('  ✗', n, '—', e.message) } }
+const tests = []
+const t = (n, f) => { tests.push([n, f]) }
 
 const ctx = (over = {}) => ({
   buyer: { company_name: 'Acme', country: 'US', industry: 'Food', website: null, contact_name: 'John', contact_email: 'j@acme.com', contact_title: null },
@@ -18,22 +22,7 @@ const ctx = (over = {}) => ({
   business_rules: { max_words: 200, no_links: true, no_attachments: true, opt_out_line_required: true },
 })
 
-console.log('FOLLOWUP GATE TESTS')
-t('buyer đã reply → KHÔNG follow-up (rules, không gọi AI)', () => {
-  // Stub ai.generateText để fail test nếu bị gọi
-  const orig = ai.generateText
-  ai.generateText = async () => { throw new Error('AI must not be called when replies exist') }
-  return gate.assessFollowupJustification({ ctx: ctx({ replies: [{ received_at: '2026-09-21', content: 'yes', intent: 'INTERESTED' }] }), stepNumber: 2, stepType: 'follow_up', daysSinceLastContact: 4 }).then(r => {
-    ai.generateText = orig
-    assert.strictEqual(r.proceed, false)
-    assert.strictEqual(r.source, 'rules')
-  })
-})
-
 ;(async () => {
-  // (async variant của test trên vì assert trong promise)
-  // Đã che ở trên bằng sync wrapper — làm lại đúng cách:
-  passed = 0; failed = 0
   console.log('FOLLOWUP GATE TESTS')
 
   const origGenerate = ai.generateText
@@ -86,6 +75,16 @@ t('buyer đã reply → KHÔNG follow-up (rules, không gọi AI)', () => {
     assert.strictEqual(gate.applyFollowupGateDecision({ proceed: false, reasonCategory: 'no_valid_reason', reasonSummary: '', confidence: 0.9, source: 'ai' }), 'skip')
   })
 
+  for (const [name, fn] of tests) {
+    try {
+      await fn()
+      passed++
+      console.log('  ✓', name)
+    } catch (e) {
+      failed++
+      console.log('  ✗', name, '—', e.message)
+    }
+  }
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)
 })()

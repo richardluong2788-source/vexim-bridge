@@ -156,6 +156,16 @@ export function runEmailQA(params: {
     issues.push({ check: "opt_out_line", severity: "MEDIUM", message: "Follow-up emails must offer an easy way out (soft opt-out line)." })
   }
 
+  // Signature chuẩn (CAN-SPAM/Gmail): thương hiệu + địa chỉ thật trong body.
+  if (!/vexim/i.test(body)) {
+    issues.push({ check: "signature_brand", severity: "LOW", message: "Signature missing Vexim brand." })
+  }
+  // Địa chỉ thật — check theo street/ward của signature chuẩn (chung chung
+  // "Vietnam" sẽ false-positive vì tên quốc gia xuất hiện tự nhiên trong body).
+  if (!/(Ngoa Long|Tay Tuu)/i.test(body)) {
+    issues.push({ check: "signature_address", severity: "MEDIUM", message: "Physical postal address missing from signature (CAN-SPAM requires a valid physical address)." })
+  }
+
   // Spam words (deliverability).
   for (const w of SPAM_WORDS) {
     if (w.test(body)) {

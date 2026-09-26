@@ -12,6 +12,7 @@
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
+import { SIGNATURE_ADDRESS, SIGNATURE_COMPANY, SIGNATURE_WEBSITE } from "./constants"
 import type { BuyerContext } from "./types"
 const outputSchema = z.object({
   subject_en: z.string().describe("Email subject, plain sentence case, under 50 characters, no Re:/Fwd:, no ALL CAPS."),
@@ -44,8 +45,19 @@ function formatContextBlock(ctx: BuyerContext): string {
   return JSON.stringify(ctx, null, 2)
 }
 
-function buildSignature(): string {
-  return `\n\nBest regards,\nVexim Global Co., Ltd\nveximbridge.com`
+/**
+ * Signature chuẩn Gmail/CAN-SPAM: tên người thật (khớp From header — AE owner
+ * qua buildPersonalizedSender) + công ty + ĐỊA CHỈ THẬT (bắt buộc CAN-SPAM).
+ */
+function buildSignature(senderName?: string | null): string {
+  return [
+    "",
+    "Best regards,",
+    senderName?.trim() || "Vexim",
+    SIGNATURE_COMPANY,
+    SIGNATURE_ADDRESS,
+    SIGNATURE_WEBSITE,
+  ].join("\n")
 }
 
 /**
@@ -56,6 +68,7 @@ export async function generateCampaignEmail(
   ctx: BuyerContext,
   stepType: string,
   stepGuidance: string | null,
+  senderName?: string | null,
 ): Promise<GeneratedCampaignEmail> {
   const system = [
     "You are Vexim's B2B sales assistant writing cold outreach emails to US food import buyers on behalf of Vexim Global (Vietnam).",
@@ -71,7 +84,13 @@ export async function generateCampaignEmail(
     "DELIVERABILITY RULES (spec §22):",
     "- Plain text only. No links, no images, no attachments, no HTML, no emoji.",
     "- No spam trigger words (free, guarantee, discount, act now, risk-free, congratulations).",
-    "- Sign as the Vexim team (\"Best regards, Vexim / veximbridge.com\") — do not invent a personal human name.",
+    "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
+    "Best regards,\n" +
+    (senderName?.trim() || "Vexim") + "\n" +
+    SIGNATURE_COMPANY + "\n" +
+    SIGNATURE_ADDRESS + "\n" +
+    SIGNATURE_WEBSITE + "\n" +
+    "- Do NOT invent any other human name, title, phone number, or office address.",
     `- Under ${ctx.business_rules.max_words} words excluding signature.`,
     "",
     "ANTI-REPEAT: the previous_emails array is everything this buyer already received. Your email must be recognizably different in opening line, angle, and subject.",
@@ -95,7 +114,7 @@ export async function generateCampaignEmail(
     "",
     stepBlock,
     "",
-    "Write the email now. Return subject_en, content_en (append the signature block: Best regards, Vexim / veximbridge.com — no personal names), content_vi.",
+    "Write the email now. Return subject_en, content_en (end with the EXACT signature block from the system instructions), content_vi.",
   ].join("\n\n")
 
   const model = "openai/gpt-4o-mini"
@@ -110,9 +129,9 @@ export async function generateCampaignEmail(
   if (!output) throw new Error("generateCampaignEmail: empty AI output")
 
   // Đảm bảo signature tồn tại (model thi thoảng bỏ) — deterministic append.
-  const contentEn = output.content_en.includes("Best regards")
+  const contentEn = output.content_en.includes(SIGNATURE_COMPANY)
     ? output.content_en
-    : output.content_en + buildSignature()
+    : output.content_en + buildSignature(senderName)
 
   return {
     subjectEn: output.subject_en.trim().slice(0, 120),

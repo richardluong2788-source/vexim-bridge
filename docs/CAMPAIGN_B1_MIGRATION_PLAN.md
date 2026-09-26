@@ -227,3 +227,20 @@ Review định kỳ 2–4 tuần: nếu AI rejection rate thấp + human edit ra
 - **Scheduler (mọi mode):** trước khi claim step 1 / follow-up → `checkSendingWindow` → ngoài khung thì `next_action_at` = mốc window kế (+audit `SYSTEM_EVENT`, counter `rescheduledWindow` trong tick). Lệch DST tối đa 1h tự chữa vì tick kế re-check.
 - **CAMPAIGN_AUTO_SEND=true (approve path):** chặn CỨNG qua `checkAutoSendWindow` — lỗi `outside_sending_window` khi (a) ngoài window, (b) timezone không confident, (c) không có timezone. Đúng yêu cầu "timezone chưa đủ tin cậy → không auto-send".
 - **Shadow mode (hiện tại):** AE vẫn gửi được bất cứ lúc nào (human decision) nhưng metadata email ghi `buyer_tz`, `buyer_tz_source`, `window_ok` để đo và để review.
+
+
+### 8.8. Gmail / CAN-SPAM compliance — kiểm tra 25/09/2026 (đã vá)
+
+**Đã có sẵn (prompt + QA):** plain text · không link/images/attachment · không ALL CAPS/exclamation · không spam words · subject < 50 ký tự sentence-case, honest · ≤ 200 từ · From cá nhân AE (`work_email` riêng từng người, migration 053 — Gmail/Outlook tin người thật hơn brand) · daily caps 20/campaign + 60 global · soft opt-out line từ step 2 (QA bắt) · X-Entity-Ref-ID chống thread nhầm, không X-Priority/X-Campaign (spam trigger).
+
+**Vá hôm nay:**
+1. **Signature cá nhân khớp From** — trước đây AI ký "Vexim" trong khi From là "AE Name <ae@veximtrade.com>" (mismatch = tín hiệu phishing). Giờ generator nhận tên AE owner, ký đúng khối: `Best regards / <AE> / VEXIM GLOBAL CO., LTD / 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam / veximbridge.com`.
+2. **Địa chỉ bưu chính thật trong signature** (CAN-SPAM §7704 bắt buộc) — QA mới chặn MEDIUM nếu thiếu (regex theo street/ward, không đếm "Vietnam" chung chung).
+3. **`List-Unsubscribe` header** (RFC 2369, vô hình với buyer) — gửi kèm token `/unsubscribe/<token>` sẵn có; Gmail/Outlook hiển thị nút hủy đăng ký gốc thay vì nút "Report spam". Chỉ áp dụng cho campaign path (email-sender nhận `extraHeaders` tuỳ chọn — flow cũ không đổi).
+4. **Stamp `email_drafts.lead_id`** cho campaign drafts — lỗ hổng: suppression guard của sendEmailDraft đọc `draft.lead_id`, campaign drafts không set → guard bị bỏ qua. Đã vá ở cả 2 insert.
+
+**Việc admin cần kiểm tra DNS (ngoài code):**
+- **DMARC record** cho veximtrade.com (`_dmarc` TXT). Gmail/Yahoo yêu cầu bulk sender ≥5k ngày/ngày có DMARC; Resend lo SPF/DKIM cho domain đã verify, DMARC là bản ghi DNS phía mình — pilot volume chưa tới ngưỡng nhưng nên có sớm.
+- Warm-up tự nhiên: pilot 10→30→100 đúng thiết kế chính là warm-up; đừng nhảy vọt volume.
+
+**Quy ước duyệt:** campaign draft nên do **AE owner** bấm duyệt (From = AE duyệt) để khớp signature owner. Admin duyệt hộ thì nên sửa signature lại khớp tên mình.

@@ -20,6 +20,7 @@ import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent } from "./state-
 import { appendInteraction } from "./interactions"
 import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
 import { isAutoSendEnabled } from "./constants"
+import { siteConfig } from "@/lib/site-config"
 
 export type ApproveResult =
   | { ok: true; state: "sent" }
@@ -82,12 +83,27 @@ export async function approveAndSendCampaignDraft(
     }
   }
 
+  // List-Unsubscribe header (RFC 2369) — VÔ HÌNH với buyer: Gmail/Outlook
+  // hiển thị nút unsubscribe gốc thay vì nút "Report spam". Dùng token sẵn có
+  // của lead (page /unsubscribe/[token] đã tồn tại).
+  const extraHeaders: Record<string, string> = {}
+  const { data: leadForUnsub } = await supabase
+    .from("leads")
+    .select("unsubscribe_token, email_unsubscribed")
+    .eq("id", enrollment.lead_id)
+    .single()
+  const leadUnsub = leadForUnsub as { unsubscribe_token?: string | null; email_unsubscribed?: boolean | null } | null
+  if (leadUnsub?.unsubscribe_token && !leadUnsub.email_unsubscribed) {
+    extraHeaders["List-Unsubscribe"] = `<${siteConfig.url}/unsubscribe/${leadUnsub.unsubscribe_token}>`
+  }
+
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).
   let sendResult
   try {
     sendResult = await sendEmailDraft(draftId, {
       overrideSubject: edit?.subject,
       overrideContent: edit?.content,
+      extraHeaders,
       // recipient đã set lúc tạo draft; không override.
     })
   } catch (err) {

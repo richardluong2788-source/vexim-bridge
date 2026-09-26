@@ -117,7 +117,8 @@ export function EnrollDialog({
           <DialogTitle>Enroll buyer pilot</DialogTitle>
           <DialogDescription>
             Bộ lọc: food importer + có tín hiệu sourcing từ Vietnam + contact hợp lệ, chưa
-            suppress. Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần.
+            suppress. Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần. Bỏ chọn AE →
+            fallback là người tạo campaign khi handoff.
             {disabled && " — Campaign phải ở trạng thái draft/active."}
           </DialogDescription>
         </DialogHeader>
@@ -138,7 +139,7 @@ export function EnrollDialog({
                     <SelectValue placeholder="AE sở hữu" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unassigned">— Chưa gán AE (fallback: admin tạo campaign) —</SelectItem>
+                    <SelectItem value="unassigned">— Chưa gán AE —</SelectItem>
                     <AeOptions open={open} />
                   </SelectContent>
                 </Select>

@@ -15,7 +15,7 @@ const ctx = (over = {}) => ({
 console.log('EMAIL QA TESTS')
 t('email sạch → LOW, passed', () => {
   const r = qa.runEmailQA({
-    email: { subjectEn: 'Following up on Vietnam sourcing', contentEn: 'Hi John,\n\nWanted to check if expanding your Vietnam supplier base is on the radar this quarter. We work with audited Vietnamese food factories exporting to the US.\n\nWould it be worth a short chat?\n\nIf this is not relevant right now, a simple "no thanks" is completely fine.\n\nBest regards,\nVexim\nveximbridge.com' },
+    email: { subjectEn: 'Following up on Vietnam sourcing', contentEn: 'Hi John,\n\nWanted to check if expanding your Vietnam supplier base is on the radar this quarter. We work with audited Vietnamese food factories exporting to the US.\n\nWould it be worth a short chat?\n\nIf this is not relevant right now, a simple "no thanks" is completely fine.\n\nBest regards,\nVexim\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\nveximbridge.com' },
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
   assert.strictEqual(r.risk_level, 'LOW')
@@ -49,6 +49,10 @@ t('email > 200 từ → MEDIUM length', () => {
 t('recipient hỏng → HIGH', () => {
   const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Hello there friend.' }, recipient: 'not-an-email', ctx: ctx(), optOutRequired: false })
   assert.strictEqual(r.risk_level, 'HIGH')
+})
+t('signature thiếu địa chỉ → MEDIUM CAN-SPAM', () => {
+  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Hello John, quick note about Vietnam sourcing. Best regards, Vexim' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
+  assert.ok(r.issues.some(i => i.check === 'signature_address'))
 })
 t('spam word "free" → MEDIUM', () => {
   const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Get a free sample of our premium cashews now!' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })

@@ -26,6 +26,7 @@ sed 's|import "server-only"||; s|import { createAdminClient } from "@/lib/supaba
 # sending-window: cut phần DB wrapper (từ dòng import createAdminClient trở xuống)
 sed '/^import { createAdminClient } from "@\/lib\/supabase\/admin"$/,$d' \
   lib/campaign/sending-window.ts > "$OUT/sending-window-pure.ts"
+pnpm exec tsc "$OUT/sending-window-pure.ts" --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 pnpm exec tsc "$OUT/suppression-pure.ts" --outDir "$OUT/pure" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 cp "$OUT/pure/suppression-pure.js" "$OUT/suppression-pure.js"
 sed -i '/require("server-only")/d; /require("@\/lib\/supabase\/admin")/d' "$OUT/suppression-pure.js" || true
@@ -40,6 +41,5 @@ node scripts/campaign-tests/state-machine.test.js "$OUT" || fail=1
 node scripts/campaign-tests/qa-suppression.test.js "$OUT" || fail=1
 node scripts/campaign-tests/reply-rules.test.js "$OUT" || fail=1
 node scripts/campaign-tests/followup-gate.test.js "$OUT" || fail=1
-node scripts/campaign-tests/sending-window.test.js "$OUT/pure" || fail=1
 node scripts/campaign-tests/sending-window.test.js "$OUT" || fail=1
 exit $fail

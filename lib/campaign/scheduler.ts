@@ -158,16 +158,25 @@ async function queueDraftForEnrollment(
   }
   const contactEmail = stop.lead!.contact_email!
 
-  // Lead data cho QA + draft.
+  // Lead data cho QA + draft + signature cá nhân (tên AE owner khớp From).
   const { data: leadRow } = await admin
     .from("leads")
     .select("company_name, contact_person")
     .eq("id", enrollment.lead_id)
     .single()
+  let senderName: string | null = null
+  if (ownerId) {
+    const { data: ownerProfile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", ownerId)
+      .single()
+    senderName = (ownerProfile as { full_name?: string } | null)?.full_name ?? null
+  }
 
   try {
     const ctx = prebuiltCtx ?? (await buildBuyerContext(enrollment as never, step as never))
-    const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance)
+    const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
 
     const qa = runEmailQA({
       email: { subjectEn: generated.subjectEn, contentEn: generated.contentEn },
@@ -182,6 +191,7 @@ async function queueDraftForEnrollment(
       const { data: blockedDraft, error: dErr } = await (admin.from("email_drafts") as any)
         .insert({
           opportunity_id: null,
+          lead_id: enrollment.lead_id,
           campaign_enrollment_id: enrollment.id,
           campaign_step_number: step.step_number,
           email_type: DRAFT_TYPE_BY_STEP[step.step_type] ?? "custom",
@@ -249,6 +259,7 @@ async function queueDraftForEnrollment(
     const { data: draft, error: draftErr } = await (admin.from("email_drafts") as any)
       .insert({
         opportunity_id: null,
+        lead_id: enrollment.lead_id,
         campaign_enrollment_id: enrollment.id,
         campaign_step_number: step.step_number,
         email_type: DRAFT_TYPE_BY_STEP[step.step_type] ?? "custom",

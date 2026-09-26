@@ -26,6 +26,7 @@ import {
   Receipt,
   BookOpen,
   Megaphone,
+  Rocket,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -86,6 +87,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
     // components/admin/inbox-workspace.tsx). The badge is their sum, so it
     // still means "something here needs you".
     { href: "/admin/ae-inbox",          label: locale === "vi" ? "Inbox" : "Inbox", icon: Inbox,             cap: CAPS.MATCH_INBOX_VIEW, badgeKey: "inbox" },
+    { href: "/admin/campaigns",         label: locale === "vi" ? "Chiến dịch" : "Campaigns", icon: Rocket,   cap: CAPS.CAMPAIGN_VIEW },
     { href: "/admin/clients",           label: t.nav.clients,                             icon: Users,                  cap: CAPS.CLIENT_VIEW },
     { href: "/admin/clients/intake",    label: locale === "vi" ? "Hồ sơ chờ duyệt" : "Pending Profiles", icon: FileCheck2, cap: CAPS.CLIENT_VIEW, badgeKey: "pendingIntake" },
     { href: "/admin/sourcing",          label: locale === "vi" ? "Nhu cầu & Nguồn cung" : "Demand & Supply", icon: Boxes,   cap: CAPS.CLIENT_VIEW },

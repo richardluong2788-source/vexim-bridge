@@ -57,6 +57,24 @@ async function findActiveEnrollmentForLead(leadId: string) {
   return rows.length > 0 ? ((rows[0] as unknown) as Awaited<ReturnType<typeof getEnrollment>>) : null
 }
 
+/**
+ * Fallback: buyer đã HẾT sequence (nurture) reply lại email cũ — ví dụ 2–3
+ * tháng sau "now we have a need". Không hồi sinh enrollment (state machine
+ * giữ nguyên nurture) nhưng reply PHẢI được classify + chạm AE (chốt "mọi
+ * reply campaign phải chạm AE") thay vì rơi im lặng vào unmatched.
+ */
+async function findNurtureEnrollmentForLead(leadId: string) {
+  const admin = createAdminClient()
+  const { data } = await (admin.from("campaign_enrollments") as any)
+    .select("*")
+    .eq("lead_id", leadId)
+    .eq("state", "nurture")
+    .order("created_at", { ascending: false })
+    .limit(1)
+  const rows = (data ?? []) as never[]
+  return rows.length > 0 ? ((rows[0] as unknown) as Awaited<ReturnType<typeof getEnrollment>>) : null
+}
+
 /** Resolve lead từ email người gửi (contact_email trước, buyer_contacts sau). */
 async function findLeadIdByEmail(fromEmail: string): Promise<string | null> {
   const admin = createAdminClient()
@@ -114,6 +132,9 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
 
     if ((!enrollment || enrollment.state === undefined) && leadId) {
       enrollment = await findActiveEnrollmentForLead(leadId)
+      // Buyer hết sequence (nurture) quay lại → vẫn classify + notify AE
+      // (state machine tự giữ nurture, không hồi sinh).
+      if (!enrollment) enrollment = await findNurtureEnrollmentForLead(leadId)
       enrollmentId = enrollment?.id ?? null
     }
     if (!enrollment || !enrollmentId) return { handled: false }

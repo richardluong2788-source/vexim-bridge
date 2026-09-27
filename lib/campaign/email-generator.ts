@@ -15,7 +15,7 @@ import { z } from "zod"
 import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY, SIGNATURE_WEBSITE } from "./constants"
 import type { BuyerContext } from "./types"
 const outputSchema = z.object({
-  subject_en: z.string().describe("Email subject, plain sentence case, under 50 characters, no Re:/Fwd:, no ALL CAPS."),
+  subject_en: z.string().describe("Email subject, plain content only, like a person typing quickly: 3-7 words, sentence case, under 50 characters. Punctuation limited to at most a comma or period; never dashes, colons, semicolons, quotes or parentheses. No Re:/Fwd:, no ALL CAPS, no promo words (option, offer, deal, exclusive)."),
   content_en: z.string().describe("Full email body in English, plain text: greeting + 2-3 uneven natural paragraphs (related sentences grouped, paragraphs may run a few lines, lengths need not match) + opt-out line where required + signature block. Not one idea per paragraph."),
   content_vi: z.string().describe("Vietnamese translation of the email body for internal AE review."),
 })
@@ -103,6 +103,7 @@ export async function generateCampaignEmail(
     "- PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell.",
     "- AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Plain, human, direct.",
     "- NATURAL PARAGRAPHING: write like a real AE typing a one-to-one email. Do NOT put every sentence on its own line; group related sentences into 2-3 uneven paragraphs (a paragraph can be 2-4 sentences, a few lines long; lengths need not match). Perfect symmetric structure (intro, company, why you, offer, CTA) reads as AI copywriting. Sentences may flow long with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. A cold email only needs enough context to start the conversation.",
+    "- SUBJECT (deliverability-critical): plain content only, like a person typing quickly. 3-7 words naming the category or the buyer's world (e.g. 'Vietnam agriculture sourcing', 'Rice supply question'). Punctuation limited to at most a comma or period; NEVER em/en dashes, colons, semicolons, quotes, parentheses or question marks. No Title Case, no Re:/Fwd:, no promo words (option, offer, deal, exclusive, verified suppliers).",
     "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
     "Best regards,\n" +
     (senderName?.trim() || "Veximtrade") + "\n" +

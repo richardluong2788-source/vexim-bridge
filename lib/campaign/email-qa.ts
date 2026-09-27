@@ -216,6 +216,14 @@ export function runEmailQA(params: {
     issues.push({ check: "close_loop_pressure", severity: "MEDIUM", message: "Forced-choice ending hands the buyer an admin task — close the loop without demanding a reply." })
   }
 
+  // 15b. Subject punctuation (V5.2): subject chi duoc la noi dung tran,
+  // toi da dau phay/cham; dash/colon/quote/question mark la separator kieu
+  // marketing → roi Promotions.
+  const subjectPunct = email.subjectEn.match(/[\u2014\u2013:;'"()?!]/)
+  if (subjectPunct) {
+    issues.push({ check: "subject_punctuation", severity: "MEDIUM", message: `Subject has marketing separator ("${subjectPunct[0]}") — plain words only (at most a comma or period).` })
+  }
+
   // 16. Punctuation (V5.2): em/en dash trong body là AI-tell — cấm.
   if (/[\u2014\u2013]/.test(body)) {
     issues.push({ check: "punctuation", severity: "MEDIUM", message: "Em/en dash in body (AI-generated tell) — use periods or commas." })

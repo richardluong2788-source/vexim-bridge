@@ -148,5 +148,27 @@ t('body brand Veximtrade + pháp nhân chỉ ở signature → sạch', () => {
   assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))
 })
 
+t('subject có dấu "—" (marketing separator) → subject_punctuation MEDIUM', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Vietnam sourcing — supplier option', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
+})
+t('subject có dấu ":" → subject_punctuation MEDIUM', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Vietnam sourcing: a quick note', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
+})
+t('subject trần "Vietnam agriculture sourcing" → sạch', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Vietnam agriculture sourcing', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing for your category.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(!r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
+})
+
 console.log('reply rules -> tested separately with mocked AI')
 console.log(`\n${passed} passed, ${failed} failed`)

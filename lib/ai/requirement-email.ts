@@ -103,7 +103,7 @@ function buildFallbackEmail(
   if (emailType === "requirement_followup") {
     return ctx.shortlistUrl
       ? {
-          subject_en: `Following up — supplier shortlist for ${ctx.buyerCompany || "your company"}`,
+          subject_en: `Following up on the supplier shortlist`,
           content_en: [
             `Hi ${greetingName},`,
             "",
@@ -130,7 +130,7 @@ function buildFallbackEmail(
             .join("\n"),
         }
       : {
-          subject_en: `Following up — sourcing from Vietnam for ${topic}`,
+          subject_en: `Following up on Vietnam sourcing for ${topic}`,
           content_en: [
             `Hi ${greetingName},`,
             "",
@@ -159,7 +159,7 @@ function buildFallbackEmail(
     // (cùng dữ liệu đã đóng băng trong pitch; không giá, không tên supplier).
     if (ctx.pitchLine) {
       return {
-        subject_en: `${ctx.industryOrProduct?.trim() || "Sourcing"} — factory profile to review`,
+        subject_en: `${ctx.industryOrProduct?.trim() || "Sourcing"} factory profile`,
         content_en: [
           `Hi ${greetingName},`,
           "",
@@ -211,7 +211,7 @@ function buildFallbackEmail(
   const foodWords = /(food|seafood|fruit|nut|cashew|coffee|pepper|rice|spice|durian|mango|banana|shrimp|fish|poultry|meat|dairy|beverage|tea|agri)/i
   const audienceEn = foodWords.test(topic) ? `U.S. ${topic.split(/\s+/)[0]} buyers` : `U.S. buyers in ${topic}`
   return {
-    subject_en: `Vietnam ${topic} — supplier option`,
+    subject_en: `Vietnam ${topic} sourcing`,
     content_en: [
       `Hi ${greetingName},`,
       "",
@@ -584,7 +584,7 @@ export async function generateRequirementInquiryEmail(
           "7. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
           "8. Total body 90-150 words INCLUDING the opt-out line. Short is the point, do not pad with extra sentences or adjectives.",
           "9. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
-          "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category}: supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
+          "10. SUBJECT (important for deliverability): plain content only, like a person typing quickly. 3-7 words naming the category or the buyer's world, sentence case, under 50 characters, e.g. 'Vietnam agriculture sourcing' or 'Rice supply from Vietnam'. NO punctuation except at most a comma or period: never em/en dashes, colons, semicolons, quotes, parentheses, question marks. No Re:/Fwd:, no Title Case, no promo words (option, offer, deal, exclusive, verified suppliers).",
           "11. Tone: plain, direct, calm American business English. The sentences above define the CONTENT in order; do not embellish with marketing adjectives or extra paragraphs.",
           "12. NATURAL PARAGRAPHING (important): you are writing a real one-to-one email, not laying out copywriting blocks. Do NOT put every sentence on its own line and do NOT give each idea its own paragraph. Group related sentences into 2-3 uneven body paragraphs (a paragraph can be 2-4 sentences and run a few lines); perfect symmetry (intro para, company para, why-you para, offer para...) looks AI-written. Sentences may flow long, joined naturally with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. The first email only needs enough context to start the conversation, not every selling point.",
           "12. PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell; real B2B emails use plain sentence breaks.",

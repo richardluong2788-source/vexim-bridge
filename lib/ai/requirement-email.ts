@@ -107,7 +107,7 @@ function buildFallbackEmail(
           content_en: [
             `Hi ${greetingName},`,
             "",
-            `I wanted to follow up on the supplier shortlist we shared earlier — I haven't heard back yet and wanted to check if you had a chance to review it: ${ctx.shortlistUrl}`,
+            `I wanted to follow up on the supplier shortlist we shared earlier. I haven't heard back yet and wanted to check if you had a chance to review it: ${ctx.shortlistUrl}`,
             "",
             "Happy to answer any questions or provide more detail on any of the suppliers.",
             "",

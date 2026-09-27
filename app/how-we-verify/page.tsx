@@ -35,9 +35,6 @@ export default async function HowWeVerifyPage() {
             <span className="text-base font-bold tracking-tight text-primary">Vexim Trade</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" className="border-primary/20">
-              <Link href={localizePath("/products", locale)}>{vi ? "Xem NCC" : "Browse suppliers"}</Link>
-            </Button>
             <Button asChild className="bg-cta text-cta-foreground hover:bg-cta/90">
               <Link href={localizePath("/#sourcing-request", locale)}>{vi ? "Gửi yêu cầu" : "Submit request"}</Link>
             </Button>
@@ -159,9 +156,6 @@ export default async function HowWeVerifyPage() {
         <div className="mt-16 flex flex-col gap-3 sm:flex-row">
           <Button asChild size="lg" className="bg-cta text-cta-foreground hover:bg-cta/90">
             <Link href={localizePath("/#sourcing-request", locale)}>{vi ? "Gửi yêu cầu sourcing" : "Submit sourcing request"}</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href={localizePath("/products", locale)}>{vi ? "Xem NCC đã sàng lọc" : "Browse screened suppliers"}</Link>
           </Button>
         </div>
 

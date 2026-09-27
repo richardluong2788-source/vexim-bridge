@@ -46,6 +46,8 @@ const KNOWN_PREFIXES = LOCALES.map((locale) => `/${locale}`)
 const PUBLIC_SEGMENTS = [
   "products",
   "product", // legacy alias, redirects to /products
+  "how-we-verify", // trang marketing — thiếu khiến /vi/how-we-verify 404 trắng
+  "for-suppliers", // tương tự — /vi/for-suppliers cũng 404 trước đó
   "profile",
   "share",
   "shortlist",

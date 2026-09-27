@@ -35,6 +35,13 @@ export interface BuyerMatchInput {
   container_types: string | null
   purchase_history: string | null
   bol_description: string | null
+  /**
+   * Nhu cầu thực tế buyer CHỦ ĐỘNG khai báo (migration 068, qua kênh ngoài).
+   * Text này là nhu cầu hiển tại của buyer — thường sát ngành hàng hơn cả
+   * BOL lịch sử — nên được nạp vào spec/category matching. Null với buyer
+   * nghiên cứu (ImportYeti).
+   */
+  inquiry_products?: string | null
   priority_rating: number | null
 }
 

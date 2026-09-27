@@ -103,7 +103,9 @@ function scoreHsCodeMatch(
 
   // No HS data at all on one side — fall back to category/product keyword
   // overlap so we don't hard-zero clients with incomplete HS data.
-  const buyerTokens = tokenize(buyer.main_product)
+  // 095: gộp cả nhu cầu thực tế buyer chủ động (068) — buyer không có HS
+  // vẫn được match theo đúng sản phẩm họ đang hỏi.
+  const buyerTokens = tokenize([buyer.main_product, buyer.inquiry_products].filter(Boolean).join(" "))
   const productTokens = new Set([
     ...tokenize(product.category),
     ...tokenize(product.subcategory),
@@ -129,6 +131,9 @@ function scoreSpecMatch(
     ...tokenize(buyer.main_product),
     ...tokenize(buyer.bol_description),
     ...tokenize(buyer.purchase_history),
+    // 095: nhu cầu thực tế của buyer chủ động (068) — tín hiệu nhu cầu
+    // hiển tại, quan trọng không kém (thường hơn) lịch sử BOL.
+    ...tokenize(buyer.inquiry_products),
   ])
   const productTokens = new Set([
     ...tokenize(product.product_name),

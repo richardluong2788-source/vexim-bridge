@@ -13,6 +13,26 @@ pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campai
 # rootDir lệch (file này ở lib/buyers, còn lại ở lib/campaign).
 pnpm exec tsc lib/buyers/pitch-helpers.ts --outDir "$OUT/pitch" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
+# client match engine (095) — flat copy để né path alias "@/lib/fda/status".
+# types.ts gốc không pure (zod + supabase) → stub chỉ chứa FactorBreakdown,
+# thứ duy nhất client-scorer/client-types cần từ nó.
+mkdir -p "$OUT/match"
+cp lib/matching/client-scorer.ts lib/matching/client-types.ts "$OUT/match/"
+cp lib/fda/status.ts "$OUT/match/fda-status.ts"
+cat > "$OUT/match/types.ts" <<'TYPES'
+interface FactorBreakdown {
+  factor: string
+  rawScore: number
+  weight: number
+  weightedScore: number
+  details?: string
+}
+export { FactorBreakdown }
+TYPES
+sed -i 's|from "@/lib/fda/status"|from "./fda-status"|' "$OUT/match/client-scorer.ts"
+sed -i '/import "server-only"/d' "$OUT/match/fda-status.ts"
+pnpm exec tsc "$OUT"/match/client-scorer.ts --outDir "$OUT/match/out" --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop
+
 # Stub 'ai' module: rule-confident paths không gọi AI; AI path trả UNKNOWN.
 mkdir -p "$OUT/node_modules/ai"
 cat > "$OUT/node_modules/ai/package.json" <<PKG
@@ -47,4 +67,5 @@ node scripts/campaign-tests/reply-rules.test.js "$OUT" || fail=1
 node scripts/campaign-tests/followup-gate.test.js "$OUT" || fail=1
 node scripts/campaign-tests/sending-window.test.js "$OUT" || fail=1
 node scripts/campaign-tests/pitch.test.js "$OUT/pitch" || fail=1
+node scripts/campaign-tests/client-match.test.js "$OUT/match/out" || fail=1
 exit $fail

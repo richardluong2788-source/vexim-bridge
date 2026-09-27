@@ -375,9 +375,13 @@ export function AdminProductDialog({
                     name="product_name"
                     value={formData.product_name}
                     onChange={handleInputChange}
-                    placeholder="VD: Cà phê Arabica"
+                    placeholder="VD: Frozen Monthong Durian Whole Peeled"
                     required
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Viết bằng TỪ KHOẢN THƯƠNG MẠI TIẾNG ANH (đúng ngôn ngữ hồ sơ nhập khẩu của buyer:
+                    product type + process + grade). Hệ thống so khớp buyer bằng chính các từ này.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="product_code">Mã sản phẩm</Label>
@@ -471,8 +475,12 @@ export function AdminProductDialog({
                     name="key_specifications"
                     value={formData.key_specifications}
                     onChange={handleInputChange}
-                    placeholder="VD: Độ ẩm 12%, Screen 16+, Grade A"
+                    placeholder="VD: Grade A, IQF, moisture 12% max, BRIX 24 min, shelf life 18 months"
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Từ khoá tiếng Anh phân tách bằng dấu phẩy (grade, size, quy cách đóng gói, tiêu chuẩn).
+                    Ví dụ: &quot;Grade A, IQF, carton 10kg&quot; — tránh viết-only tiếng Việt.
+                  </p>
                 </div>
               </div>
 

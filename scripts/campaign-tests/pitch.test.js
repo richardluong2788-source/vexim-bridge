@@ -8,6 +8,8 @@ const {
   isInterestedAction,
   claimInitialStage,
   mapInquiryChannelToContactChannel,
+  buildMatchedProductSnapshot,
+  MATCHED_PRODUCT_MIN_SCORE,
 } = require((process.argv[2] || '.') + '/pitch-helpers.js')
 
 let passed = 0, failed = 0
@@ -76,6 +78,24 @@ t('isInterestedAction: declined=false, viewed_only=null, còn lại=true', () =>
   assert.strictEqual(isInterestedAction('requested_sample'), true)
 })
 
+
+// ---- matched product snapshot (v1: sản phẩm đề xuất, KHÔNG giá)
+t('matched product: đủ điều kiện → snapshot đủ MOQ/lead time/incoterm, không giá', () => {
+  const r = buildMatchedProductSnapshot(
+    { product_name: 'Frozen sawaya durian', key_specifications: 'Whole fruit, 2-3kg', moq_value: 1000, moq_unit: 'kg', lead_time: '2-4 weeks', incoterm: 'FOB', min_unit_price: 3.5 },
+    85, true,
+  )
+  assert.deepStrictEqual(r, { product_name: 'Frozen sawaya durian', key_specifications: 'Whole fruit, 2-3kg', moq: '1000 kg', lead_time: '2-4 weeks', incoterm: 'FOB' })
+})
+t('matched product: score thấp → null (tránh match nhiễu)', () => {
+  assert.strictEqual(buildMatchedProductSnapshot({ product_name: 'X' }, 69, true), null)
+  assert.strictEqual(buildMatchedProductSnapshot({ product_name: 'X' }, MATCHED_PRODUCT_MIN_SCORE, true)?.product_name, 'X')
+})
+t('matched product: không eligible / không product → null', () => {
+  assert.strictEqual(buildMatchedProductSnapshot({ product_name: 'X' }, 90, false), null)
+  assert.strictEqual(buildMatchedProductSnapshot(null, 90, true), null)
+  assert.strictEqual(buildMatchedProductSnapshot({ product_name: '' }, 90, true), null)
+})
 
 // ---- claim initial stage (094.1: buyer chủ động vào thẳng requirements_received)
 t('claim: buyer chủ động (has_active_inquiry) → requirements_received', () => {

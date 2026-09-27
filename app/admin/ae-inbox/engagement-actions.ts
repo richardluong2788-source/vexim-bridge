@@ -32,6 +32,7 @@ import {
   isInterestedAction,
   claimInitialStage,
   mapInquiryChannelToContactChannel,
+  buildMatchedProductSnapshot,
   type ContactChannelValue,
 } from "@/lib/buyers/pitch-helpers"
 import { CAPS } from "@/lib/auth/permissions"
@@ -425,6 +426,22 @@ export async function buildShortlist(
     for (const m of matchResult.data) matchByClient.set(m.clientId, m)
   }
 
+  // 1b) Snapshot cấp SẢN PHẨM (v1, không giá): match engine chọn 1 sản phẩm
+  // khớp nhất cho mỗi client — fetch đủ spec/MOQ/lead time/incoterm của đúng
+  // các sản phẩm đó để đóng băng vào snapshot (trang share hiện block
+  // "sản phẩm đề xuất" thay vì chỉ nói suống "chuyên ngành của bạn").
+  const productIds = Array.from(
+    new Set(clientIds.map((id) => matchByClient.get(id)?.productId).filter(Boolean)),
+  ) as string[]
+  const productById = new Map<string, any>()
+  if (productIds.length > 0) {
+    const { data: productRows } = await admin
+      .from("client_products")
+      .select("id, product_name, key_specifications, moq_value, moq_unit, lead_time, incoterm")
+      .in("id", productIds)
+    for (const row of (productRows ?? []) as Array<{ id: string }>) productById.set(row.id, row)
+  }
+
   // 2) Freeze each chosen supplier's public profile as it exists right now
   //    (name/tagline/USPs/MOQ/lead time + updated_at as the profile
   //    version marker) so a later edit can't retroactively change what
@@ -557,6 +574,13 @@ export async function buildShortlist(
         company_name: p?.company_name ?? null,
         full_name: p?.full_name ?? null,
         highlights: buildBuyerFacingHighlights(match),
+        // 095 (pitch-first v1): sản phẩm đề xuất cho nhu cầu buyer — chỉ khi
+        // match tự động eligible + score đủ tin. null = không hiện block.
+        matched_product: buildMatchedProductSnapshot(
+          productById.get(match?.productId),
+          match?.matchScore,
+          match?.eligible,
+        ),
       },
       supplier_profile_version: cp?.updated_at ?? null,
     }

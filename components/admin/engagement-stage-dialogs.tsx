@@ -1148,7 +1148,10 @@ function ShortlistBuilderDialog({
                           </Badge>
                         )}
                       </div>
-                      <span className="truncate text-xs text-muted-foreground block">{m.productName}</span>
+                      <span className="truncate text-xs text-muted-foreground block">
+                        {mode === "pitch" ? t("SP khớp: ", "Match: ") : ""}
+                        {m.productName}
+                      </span>
                     </div>
                     {mode === "pitch" && !isPrimary && !isDeclined && (
                       <Button

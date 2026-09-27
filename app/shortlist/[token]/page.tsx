@@ -57,6 +57,15 @@ type SupplierProfileSnapshot = {
   company_name: string | null
   full_name: string | null
   highlights: string[] | null
+  // Pitch-first v1: sản phẩm đề xuất cho nhu cầu buyer (không giá — giá là
+  // sân của AE ở bước quote). Null/legacy → không hiện block.
+  matched_product?: {
+    product_name: string
+    key_specifications: string | null
+    moq: string | null
+    lead_time: string | null
+    incoterm: string | null
+  } | null
 }
 
 type ShortlistItemRow = {
@@ -298,6 +307,36 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                         {optionLabel}
                       </Badge>
                     </div>
+
+                    {profile?.matched_product && (
+                      <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-primary">
+                          Recommended product for your needs
+                        </span>
+                        <p className="mt-0.5 text-sm font-medium text-foreground">
+                          {profile.matched_product.product_name}
+                        </p>
+                        {profile.matched_product.key_specifications && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {profile.matched_product.key_specifications}
+                          </p>
+                        )}
+                        {(profile.matched_product.moq ||
+                          profile.matched_product.lead_time ||
+                          profile.matched_product.incoterm) && (
+                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                            {profile.matched_product.moq && <span>MOQ: {profile.matched_product.moq}</span>}
+                            {profile.matched_product.lead_time && (
+                              <span>Lead time: {profile.matched_product.lead_time}</span>
+                            )}
+                            {profile.matched_product.incoterm && <span>Incoterm: {profile.matched_product.incoterm}</span>}
+                          </div>
+                        )}
+                        <span className="mt-1 block text-[10px] text-muted-foreground/70">
+                          Indicative — to be confirmed with the supplier before ordering
+                        </span>
+                      </div>
+                    )}
 
                     {(profile?.moq || profile?.lead_time_days) && (
                       <div className="flex flex-col gap-1">

@@ -85,6 +85,57 @@ export function buildPitchNote(input: {
 }
 
 /**
+ * Block "sản phẩm đề xuất" trong snapshot (v1, KHÔNG giá).
+ *
+ * Nguyên tắc: chỉ gắn khi match TỰ ĐỘNG đạt điều kiện — eligible (FDA ok,
+ * chưa gắn buyer) và matchScore >= 70 (tránh match nhiễu trên catalog dài).
+ * Match thủ công (không có match) hoặc score thấp → null → share page giữ
+ * card công ty như cũ. Giá cố tình không đưa vào: catalog do supplier tự
+ * nhập, giá dễ cũ — giá là sân của AE ở bước quote.
+ */
+export const MATCHED_PRODUCT_MIN_SCORE = 70
+
+export interface MatchedProductSnapshot {
+  product_name: string
+  key_specifications: string | null
+  /** MOQ ở cấp SẢN PHẨM (khác MOQ indicative cấp công ty). */
+  moq: string | null
+  lead_time: string | null
+  incoterm: string | null
+}
+
+export function buildMatchedProductSnapshot(
+  product:
+    | {
+        product_name: string
+        key_specifications?: string | null
+        moq_value?: number | null
+        moq_unit?: string | null
+        lead_time?: string | null
+        incoterm?: string | null
+      }
+    | null
+    | undefined,
+  matchScore: number | null | undefined,
+  eligible: boolean | null | undefined,
+): MatchedProductSnapshot | null {
+  if (!product?.product_name) return null
+  if (!eligible) return null
+  if ((matchScore ?? 0) < MATCHED_PRODUCT_MIN_SCORE) return null
+  const moq =
+    product.moq_value != null
+      ? `${product.moq_value}${product.moq_unit ? ` ${product.moq_unit}` : ""}`
+      : null
+  return {
+    product_name: product.product_name,
+    key_specifications: product.key_specifications ?? null,
+    moq,
+    lead_time: product.lead_time ?? null,
+    incoterm: product.incoterm ?? null,
+  }
+}
+
+/**
  * Stage khởi đầu khi AE claim buyer (luồng claim → engagement).
  *
  * Buyer CHỦ ĐỘNG (inbound, `has_active_inquiry` = true — migration 068): nhu

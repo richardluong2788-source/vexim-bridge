@@ -40,9 +40,9 @@ const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
 
 const OPT_OUT_EN =
-  `If sourcing from Vietnam isn't on your radar right now, just reply 'no' and I won't reach out again — no hard feelings at all.`
+  `If sourcing from Vietnam isn't on your radar right now, just reply 'no' and I won't reach out again.`
 const OPT_OUT_VI =
-  `Nếu nguồn cung từ Việt Nam hiện chưa nằm trong kế hoạch của bạn, chỉ cần trả lời "không", tôi sẽ không gửi email lại — hoàn toàn không có gì phiền cả.`
+  `Nếu nguồn cung từ Việt Nam hiện chưa nằm trong kế hoạch của bạn, chỉ cần trả lời "không", tôi sẽ không gửi email lại.`
 
 const AI_GENERATION_TIMEOUT_MS = 20_000
 
@@ -165,7 +165,7 @@ function buildFallbackEmail(
           "",
           ctx.pitchLine,
           "",
-          `I've put the factory's full profile together here: ${ctx.shortlistUrl || ""} — take a look and let me know if the direction looks right.`,
+          `I've put the factory's full profile together here: ${ctx.shortlistUrl || ""}. Take a look and let me know if the direction looks right.`,
           signature_en,
         ].join("\n"),
         content_vi: [
@@ -185,7 +185,7 @@ function buildFallbackEmail(
         "",
         "Thank you for sharing your sourcing requirements with us. We have reviewed them and prepared a shortlist of pre-vetted suppliers for your consideration.",
         "",
-        `You can view each supplier's profile here: ${ctx.shortlistUrl || ""} — just let us know which one(s) you would like to move forward with.`,
+        `You can view each supplier's profile here: ${ctx.shortlistUrl || ""}. Just let us know which one(s) you would like to move forward with.`,
         "",
         "We look forward to your feedback.",
         signature_en,
@@ -223,7 +223,7 @@ function buildFallbackEmail(
       "",
       `If Vietnam is a market you are currently considering for ${topic}, I'd be happy to send you a relevant supplier option for review.`,
       "",
-      "If purchasing isn't the right inbox on your side, I'd appreciate a quick forward — or just the right email to reach.",
+      "If purchasing isn't the right inbox on your side, I'd appreciate a quick forward, or just point me to the right contact.",
       "",
       OPT_OUT_EN,
       signature_en,
@@ -497,7 +497,10 @@ export async function generateRequirementInquiryEmail(
           "shortlist of pre-vetted suppliers has been prepared for them. Ask them to open the link",
           "(shortlist_url in context) to view each supplier's profile, and to mark which one(s) they",
           "are interested in. Do not list supplier names in the email body — only the link.",
-          "Keep it short (80-140 words), confident, and action-oriented. End with a complete",
+          "Keep it short (80-140 words), confident, and action-oriented.",
+          "PUNCTUATION: no em dashes (—) or en dashes (–) in the email body; use periods and commas.",
+          "AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to'. Plain, human, direct.",
+          "End with a complete",
           "signature using sender_name / signature_company / sender_email / signature_address from",
           "context, in that order — never use placeholders and never include a phone number. This",
           "buyer already replied with requirements, so do NOT add an opt-out line. Never invent",
@@ -541,13 +544,15 @@ export async function generateRequirementInquiryEmail(
           "   phone number.",
           "7. The buyer has NOT replied, so include the CAN-SPAM opt-out as the final line BEFORE",
           "   the signature, worded like a peer courtesy: 'If sourcing from Vietnam isn't on your",
-          "   radar right now, just reply 'no' and I won't reach out again — no hard feelings at",
-          "   all.' Never make it look like a legal footer.",
+          "   radar right now, just reply 'no' and I won't reach out again.' Never make it look",
+          "   like a legal footer.",
           "8. American business voice: greet by first name ('Hi {first name},'), use natural",
           "   contractions (I'm, you've), short sentences, and no stiff phrases ('I hope this",
           "   email finds you well', 'kindly', 'dear friend'). Sound like a real person following",
           "   up, not a marketing sequence.",
           "9. SOFT APPROACH: Do NOT expose internal buyer data (HS codes, supplier names, shipment counts, peak months) verbatim. Use soft language.",
+          "10. PUNCTUATION: no em dashes (—) or en dashes (–) in the email body. Use periods and commas. Write like a real B2B person: short plain sentences, normal connectors.",
+          "11. AVOID AI-STYLE PHRASING: never use polished marketing phrases such as 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Say things plainly or drop the line.",
         ].join("\n")
       : [
           "You write the FIRST, SHORT opening email for Veximtrade — the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD — to a new U.S. buyer lead. V5.1 — DIRECT TEMPLATE.",
@@ -559,7 +564,7 @@ export async function generateRequirementInquiryEmail(
           "P2: We're currently developing a small group of verified Vietnam suppliers for U.S. food buyers, with a focus on product fit and U.S. import compliance before making an introduction.",
           "P3: I came across {buyer_company} while researching U.S. buyers in {buyer_category}.",
           "P4: If Vietnam is a market you are currently considering for {buyer_product}, I'd be happy to send you a relevant supplier option for review.",
-          "P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward — or just the right email to reach.",
+          "P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward, or just point me to the right contact.",
           "",
           "FIELD RULES:",
           "1. {contact_first_name} = first name of contact_person from context. If no contact name exists, write 'Hi there,' — never a placeholder like '[Name]'.",
@@ -570,7 +575,7 @@ export async function generateRequirementInquiryEmail(
           "6. FOOD ADAPTIVITY: P2 keeps 'U.S. food buyers' ONLY when {buyer_category} is a food/beverage/agricultural category (food, seafood, fruit, nuts, coffee, spices, rice, etc.). For a non-food category, write 'U.S. buyers in {buyer_category}' instead of 'U.S. food buyers'.",
           "",
           "HARD RULES:",
-          "1. P5 comes AFTER P4 and BEFORE the opt-out. The opt-out is its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up — no hard feelings.'",
+          "1. P5 comes AFTER P4 and BEFORE the opt-out. The opt-out is its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up.'",
           "2. ONE ask-set: P4's offer (review a supplier option) + P5's routing request. Never ask about MOQ/price/payment/packaging/spec.",
           "3. Do NOT invent facts: no supplier names, no specific factory certifications, no prices/volumes, no claim of prior contact. P3 is the ONLY reference to how the buyer was found — never mention customs records, databases, shipment counts, TEU, peak months, ports, or HS codes.",
           "4. 'verified Vietnam suppliers' is allowed because it refers to Veximtrade's audit-before-introduction process — never upgrade it into stronger claims ('FDA approved', 'guaranteed', 'best', '#1' are forbidden).",
@@ -579,10 +584,12 @@ export async function generateRequirementInquiryEmail(
           "7. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
           "8. Total body 100-160 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
           "9. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
-          "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category} — supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
+          "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category}: supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
           "11. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
+          "12. PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell; real B2B emails use plain sentence breaks.",
+          "13. AVOID AI-STYLE PHRASING: never use polished marketing phrases such as 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well', 'seamless', 'elevate', 'empower'. Say things plainly or drop the line.",
           "",
-          "SELF-CHECK: greeting + exactly P1→P5 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; 100-160 words total. If any check fails, rewrite.",
+          "SELF-CHECK: greeting + exactly P1→P5 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; no em/en dash anywhere; no banned polished phrases; 100-160 words total. If any check fails, rewrite.",
         ].join("\n")
 
   const userPrompt = [
@@ -823,6 +830,8 @@ export async function generateFollowUpReplyEmail(
     "Close with exactly this signature: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address.",
     "Never add phone number or job title line, and never add opt-out line to an active conversation.",
     "Veximtrade positioning: compliance consulting for Vietnamese factories exporting to US, partners meet US compliance (FDA, HACCP, traceability). Mention briefly if relevant to buyer's question, but keep soft and factual.",
+    "PUNCTUATION: no em dashes (—) or en dashes (–) in the email body; use periods and commas. Write like a real person, not a polished AI draft.",
+    "AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to'. Plain, human, direct.",
   ].join("\n")
 
   const userPrompt = [

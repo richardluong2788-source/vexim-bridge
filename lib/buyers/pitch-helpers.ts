@@ -182,8 +182,9 @@ export function buildPitchDeliveryLine(input: {
     if (lastSpace > 30) inquiry = inquiry.slice(0, lastSpace)
     inquiry = `${inquiry}…`
   }
+  // Không dùng em dash — rule punctuation của email: tách câu bằng dấu chấm.
   const head = inquiry
-    ? `You mentioned you're sourcing ${inquiry} — ${mp.product_name} matches your requirement`
+    ? `You mentioned you're sourcing ${inquiry}. ${mp.product_name} matches your requirement`
     : `Based on your sourcing requirement, ${mp.product_name} matches what you're looking for`
   const tail = detailBits.length > 0 ? ` (${detailBits.join("; ")})` : ""
   return `${head}${tail}.`

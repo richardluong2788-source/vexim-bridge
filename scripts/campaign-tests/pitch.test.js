@@ -92,6 +92,7 @@ t('email line: inquiry + product → requirement, "matches your requirement", MO
   assert.ok(line.includes('MOQ 1000 kg') && line.includes('lead time 2-4 weeks'), line)
   assert.ok(!line.toLowerCase().includes('exactly'), line)
   assert.ok(!line.includes('BRIX 24 min'), 'chỉ 2 spec đầu: ' + line)
+  assert.ok(!line.includes('—') && !line.includes('–'), 'cấm em/en dash: ' + line)
 })
 t('email line: không inquiry → mở đầu theo requirement chung', () => {
   const line = buildPitchDeliveryLine({ inquiryProducts: null, matchedProduct: { product_name: 'X Kernel W240', moq: '5 MT' } })

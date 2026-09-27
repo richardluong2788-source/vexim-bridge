@@ -104,12 +104,12 @@ const content = {
     ctaPrimary: "Gửi yêu cầu sourcing",
     ctaSecondary: "Xem NCC đã sàng lọc",
     eyebrow: "VERIFIED VIETNAM SOURCING - KHÔNG PHÍ UPFRONT CHO BUYER",
-    heroTitle: "Tìm nguồn hàng từ Việt Nam mà không cần phải đoán mò.",
+    heroTitle: "Tìm nguồn hàng Việt Nam đã sàng lọc cho buyer Mỹ.",
     heroSub:
       "Tìm nguồn từ các nhà máy Việt Nam đã được sàng lọc với đội ngũ tại chỗ hỗ trợ kiểm tra nhà cung cấp, rà soát tuân thủ FDA & MoCRA và điều phối chất lượng. Không thu phí sourcing upfront cho buyer Mỹ.",
     heroTrust: "Kiểm tra nhà máy · Lịch sử xuất khẩu · Rà soát FDA/Quy định · Điều phối QC",
     heroNote: "Tham gia thương mại không quyết định việc NCC có vượt qua sàng lọc hay không. Sàng lọc thương mại không thay thế kiểm tra NCC.",
-    stat1: "Quy trình sàng lọc 7 bước",
+    stat1: "Khu vực chúng tôi rà soát cho mỗi NCC",
     stat2: "Rà soát FDA & MoCRA",
     stat3: "Kiểm tra lịch sử xuất khẩu",
     stat4: "Hỗ trợ thị trường Mỹ",
@@ -128,12 +128,12 @@ const content = {
       },
       {
         title: "Vexim Trade",
-        desc: "Sàng lọc NCC có cấu trúc, rà soát quy định thị trường Mỹ và điều phối tại chỗ.",
+        desc: "Nhà máy được sàng lọc trước khi đến với bạn, yêu cầu quy định Mỹ được rà sớm, và QC được điều phối từ Việt Nam.",
         highlight: true,
       },
     ],
     verifyEyebrow: "QUY TRÌNH SÀNG LỌC",
-    verifyTitle: "Mọi NCC đều trải qua quy trình kiểm tra của chúng tôi.",
+    verifyTitle: "Chúng tôi kiểm tra gì trước khi giới thiệu một nhà máy.",
     verifyText:
       "Tham gia thương mại không quyết định việc nhà máy có vượt qua sàng lọc hay không. Sàng lọc thương mại không thay thế việc kiểm tra NCC.",
     verifySteps: [
@@ -148,7 +148,7 @@ const content = {
     verifyNote: "Mức độ kiểm tra khác nhau tùy NCC. Chúng tôi hiển thị những gì đã kiểm tra và khi nào.",
     verifyLevels: ["Đã sàng lọc", "Đã rà soát dữ liệu", "Đã rà soát tuân thủ", "Đã xác minh tại chỗ"],
     categoriesEyebrow: "CHUYÊN MÔN NGÀNH",
-    categoriesTitle: "Xây dựng cho yêu cầu quy định của Mỹ",
+    categoriesTitle: "Các ngành chúng tôi đang làm",
     categoriesText: "Chúng tôi tập trung vào các danh mục mà việc đánh giá NCC và mức độ sẵn sàng tuân thủ là quan trọng.",
     categories: [
       {
@@ -166,12 +166,12 @@ const content = {
     ],
     categoriesOther: "Sản phẩm khác thuộc FDA? Hỏi đội ngũ tuân thủ của chúng tôi →",
     vietnamEyebrow: "TẠI SAO VIỆT NAM",
-    vietnamTitle: "Tại sao buyer Mỹ đang khám phá Việt Nam",
+    vietnamTitle: "Khi nào Việt Nam phù hợp với chương trình sourcing của bạn",
     vietnamText:
-      "Đa dạng hóa vượt ra ngoài Trung Quốc có thể tạo ra các lựa chọn mới về chi phí, công suất, thời gian giao hàng và khả năng phục hồi chuỗi cung ứng. Việt Nam đã trở thành một lựa chọn thay thế quan trọng cho nhiều danh mục sản phẩm.",
+      "Việt Nam có thể phù hợp khi bạn cần thêm công suất sản xuất, một nguồn thứ hai cho cùng ngành hàng, hoặc một nền nhà máy khác ngoài nguồn hiện tại. Việt Nam không phải câu trả lời cho mọi chương trình; nếu chúng tôi không thấy phù hợp, chúng tôi sẽ nói thẳng.",
     vietnamPoints: ["Chi phí & công suất", "Thời gian giao hàng", "Khả năng phục hồi chuỗi cung ứng", "Đa dạng hóa nguồn hàng"],
     howEyebrow: "QUY TRÌNH",
-    howTitle: "Lựa chọn NCC ban đầu trong ít nhất 48 giờ*",
+    howTitle: "Danh sách NCC ban đầu thường trong vòng 48 giờ làm việc*",
     howNote: "*Thời gian phụ thuộc danh mục sản phẩm, thông số kỹ thuật, tình trạng NCC và thông tin bạn cung cấp.",
     howSteps: [
       ["01", "Gửi yêu cầu sourcing", "Cho chúng tôi biết sản phẩm, quy cách, số lượng, khoảng giá mục tiêu (không bắt buộc)"],
@@ -246,12 +246,12 @@ const content = {
     ctaPrimary: "Submit Sourcing Request",
     ctaSecondary: "Browse Screened Suppliers",
     eyebrow: "SCREENED VIETNAM SOURCING — NO UPFRONT FEE FOR BUYERS",
-    heroTitle: "Source from Vietnam Without the Guesswork.",
+    heroTitle: "Screened Vietnam sourcing for U.S. buyers.",
     heroSub:
       "Source from screened Vietnamese factories with on-the-ground support for supplier verification, U.S. FDA compliance and quality coordination. No upfront sourcing fee for U.S. buyers.",
     heroTrust: "Factory Verification · Export History · FDA/Regulatory Review · QC Coordination",
     heroNote: "Commercial participation does not replace supplier screening. Supplier participation does not determine whether a factory passes our screening.",
-    stat1: "7-point screening process",
+    stat1: "areas we review per supplier",
     stat2: "FDA & MoCRA review",
     stat3: "Export history checked",
     stat4: "U.S. market support",
@@ -270,12 +270,12 @@ const content = {
       },
       {
         title: "Vexim Trade",
-        desc: "Structured supplier screening, U.S. regulatory review and on-the-ground coordination.",
+        desc: "Factories are screened before they reach you, U.S. regulatory requirements are reviewed early, and QC is coordinated from Vietnam.",
         highlight: true,
       },
     ],
     verifyEyebrow: "VERIFICATION PROCESS",
-    verifyTitle: "Every Supplier Goes Through Our Verification Process.",
+    verifyTitle: "What We Check Before Introducing a Supplier.",
     verifyText: "Commercial participation does not replace supplier screening.",
     verifySteps: [
       ["01", "Factory Identity", "Legal entity, business license, address, ownership and contact verification"],
@@ -289,7 +289,7 @@ const content = {
     verifyNote: "Verification levels vary by supplier. We show what was checked and when.",
     verifyLevels: ["Screened", "Data Reviewed", "Compliance Reviewed", "On-site Verified"],
     categoriesEyebrow: "CORE CATEGORIES",
-    categoriesTitle: "Built for U.S. Regulatory Requirements.",
+    categoriesTitle: "Categories We Work With.",
     categoriesText: "We focus on categories where supplier qualification and regulatory readiness matter.",
     categories: [
       {
@@ -307,12 +307,12 @@ const content = {
     ],
     categoriesOther: "Other FDA-regulated products? Ask our compliance team →",
     vietnamEyebrow: "WHY VIETNAM",
-    vietnamTitle: "Why U.S. Buyers Are Exploring Vietnam.",
+    vietnamTitle: "When Vietnam Makes Sense for Your Program.",
     vietnamText:
-      "Diversifying beyond China can create new options for cost, capacity, lead times, and supply chain resilience. Vietnam has become a key alternative for many product categories.",
+      "Vietnam can make sense when you need additional production capacity, a second source for the same category, or a supplier base beyond your current one. It is not the right fit for every category or program, and we will say so when we don't think it is.",
     vietnamPoints: ["Cost & capacity", "Lead times", "Supply chain resilience", "Sourcing diversification"],
     howEyebrow: "HOW IT WORKS",
-    howTitle: "Initial Supplier Matches in as Little as 48 Hours*",
+    howTitle: "Initial supplier matches typically within 48 business hours*",
     howNote: "*Timing depends on product category, specifications, supplier availability and information provided.",
     howSteps: [
       ["01", "Submit Sourcing Request", "Tell us product, specs, quantity, target price range (optional)"],
@@ -530,7 +530,7 @@ export default async function RootPage() {
           </div>
         </div>
         <div className="relative mx-auto grid max-w-7xl grid-cols-2 border-t border-white/10 px-5 sm:grid-cols-4 sm:px-8 lg:px-10">
-          <Stat value="7-point" label={t.stat1} />
+          <Stat value="7" label={t.stat1} />
           <Stat value="FDA / MoCRA" label={t.stat2} />
           <Stat value="Export data" label={t.stat3} />
           <Stat value="U.S. market" label={t.stat4} />
@@ -868,7 +868,9 @@ export default async function RootPage() {
                 {locale === "vi" ? "VĂN PHÒNG VIỆT NAM" : "VIETNAM OFFICE"}
               </p>
               <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
-                <p className="font-semibold text-white">{siteConfig.contact.vietnamOffice.label}</p>
+                <p className="font-semibold text-white">
+                  {locale === "vi" ? siteConfig.contact.vietnamOffice.legalName : siteConfig.contact.vietnamOffice.legalNameEn}
+                </p>
                 <p>{siteConfig.contact.vietnamOffice.street}</p>
                 <p>{siteConfig.contact.vietnamOffice.ward}</p>
                 <p className="pt-2 text-xs">

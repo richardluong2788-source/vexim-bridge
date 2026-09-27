@@ -24,7 +24,10 @@ function resolveBaseUrl(): string {
 export const siteConfig = {
   name: "Vexim Trade",
   shortName: "VXT",
-  legalName: "Vexim Trade JSC",
+  // Pháp nhân VN xác thực qua MST 0111040294 (masothue: VEXIM GLOBAL COMPANY
+// LIMITED, trùng địa chỉ 25/6 Ngõ 51 Phố Ngọa Long). "Vexim Trade" là brand,
+// không phải pháp nhân — footer/từ ngữ pháp lý phải dùng tên đăng ký.
+  legalName: "Vexim Global Co., Ltd.",
   domain: "veximtrade.com",
   url: resolveBaseUrl(),
   tagline: "Dữ liệu thật - Giá trị thật",
@@ -65,6 +68,8 @@ export const siteConfig = {
     vietnamOffice: {
       label: "Văn phòng Việt Nam",
       labelEn: "Vietnam Office",
+      legalName: "Công ty TNHH Một Thành Viên Vexim Global",
+      legalNameEn: "Vexim Global Co., Ltd.",
       street: "Số 25/6 Ngõ 51 Phố Ngọa Long",
       ward: "Phường Tây Tựu, TP Hà Nội, Việt Nam",
       taxId: "0111040294",

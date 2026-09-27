@@ -348,7 +348,9 @@ export default async function RootPage() {
             <div>
               <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "VĂN PHÒNG VIỆT NAM" : "VIETNAM OFFICE"}</p>
               <div className="mt-4 space-y-1 text-sm leading-6 text-slate-300">
-                <p className="font-semibold text-white">{siteConfig.contact.vietnamOffice.label}</p>
+                <p className="font-semibold text-white">
+                  {locale === "vi" ? siteConfig.contact.vietnamOffice.legalName : siteConfig.contact.vietnamOffice.legalNameEn}
+                </p>
                 <p>{siteConfig.contact.vietnamOffice.street}</p>
                 <p>{siteConfig.contact.vietnamOffice.ward}</p>
                 <p className="pt-2 text-xs">

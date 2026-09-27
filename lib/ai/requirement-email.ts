@@ -11,7 +11,8 @@
  *   lên email — buyer sẽ cảm thấy bị soi thông tin.
  * - Sử dụng ngôn từ mềm mại, tiếp cận theo category/insight chung, không nêu
  *   cụ thể "tôi thấy bạn nhập HS 0801.32 từ Visimex 16,800kg peak Oct-Dec".
- * - Vexim định vị là đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu
+ * - Brand trong thân bài: Veximtrade (khớp domain veximtrade.com); pháp nhân
+ *   VEXIM GLOBAL CO., LTD chỉ ở signature. Veximtrade định vị là nền tảng tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu
  *   vào Mỹ, đối tác được tuyển chọn là những đối tác chất lượng, đạt yêu cầu
  *   về tuân thủ Hoa Kỳ (FDA, HACCP, ISO, traceability...).
  *
@@ -214,7 +215,7 @@ function buildFallbackEmail(
     content_en: [
       `Hi ${greetingName},`,
       "",
-      `I'm ${ctx.senderName} from Vexim Global, a Vietnam-based regulatory and sourcing company working with manufacturers exporting to the U.S.`,
+      `I'm ${ctx.senderName} with Veximtrade, a Vietnam-based regulatory and sourcing platform working with manufacturers exporting to the U.S.`,
       "",
       `We're currently developing a small group of verified Vietnam suppliers for ${audienceEn}, with a focus on product fit and U.S. import compliance before making an introduction.`,
       "",
@@ -228,7 +229,7 @@ function buildFallbackEmail(
     content_vi: [
       `Xin chào ${greetingName},`,
       "",
-      `Tôi là ${ctx.senderName} từ Vexim Global — công ty regulatory & sourcing tại Việt Nam, làm việc với các nhà máy xuất khẩu vào Mỹ.`,
+      `Tôi là ${ctx.senderName} với Veximtrade — nền tảng regulatory & sourcing của Vexim Global tại Việt Nam, làm việc với các nhà máy xuất khẩu vào Mỹ.`,
       "",
       `Hiện chúng tôi đang xây dựng một nhóm nhỏ supplier Việt Nam đã được xác minh cho ${audienceEn === "U.S. food buyers" ? "các buyer thực phẩm Mỹ" : `các buyer Mỹ trong ngành ${topic}`}, tập trung vào độ phù hợp sản phẩm và tuân thủ nhập khẩu Mỹ trước khi giới thiệu.`,
       "",
@@ -450,18 +451,18 @@ export async function generateRequirementInquiryEmail(
     _internal_has_active_inquiry: (lead as any)["has_active_inquiry"] ?? null,
     _internal_inquiry_products: (lead as any)["inquiry_products"] ?? null,
     sender_name: profile.full_name,
-    exporter_company: "Vexim",
+    exporter_company: "Veximtrade",
     signature_company: SIGNATURE_COMPANY,
     signature_address: SIGNATURE_ADDRESS,
     sender_email: profile.work_email || "trade@veximtrade.com",
-    // Vexim compliance consulting positioning — 60% of email
+    // Veximtrade positioning context — AI dùng để tư duy/ngôn ngữ mềm, không raw data
     vexim_positioning: {
-      who_we_are: "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US market — not a marketplace, not a trading company.",
+      who_we_are: "Veximtrade is a compliance consulting platform for Vietnamese factories exporting to the US market — not a marketplace, not a trading company.",
       what_we_do: "We help Vietnamese manufacturers meet US compliance requirements: FDA registration, HACCP, ISO 22000, BRC, traceability from raw material to finished goods, lot tracking, food safety training, audit readiness.",
       how_we_select: "We only work with factories we've physically visited and audited. We reject 80% of factories that apply. Only those meeting US compliance standards join our network. Direct factory, transparent pricing, no trading companies.",
       trust_pillars_soft: [
         "Compliance program for US market: FDA, HACCP, ISO, BRC, traceability",
-        "Factory audit by Vexim team: direct factory, 50-300 workers typical, export since 2015+",
+        "Factory audit by the Veximtrade team: direct factory, 50-300 workers typical, export since 2015+",
         "Quality system: traceability, QC engineers, food safety training, English export team",
         "Support: 24h response, video factory tour, flexible payment T/T and L/C at sight, transparent MOQ/lead time",
       ],
@@ -508,7 +509,7 @@ export async function generateRequirementInquiryEmail(
         ].join("\n")
       : emailType === "requirement_followup"
       ? [
-          "You write short, polite follow-up B2B emails for a Vietnamese export sales team (Vexim).",
+          "You write short, polite follow-up B2B emails for the Veximtrade team (Vietnamese export / regulatory & sourcing platform). Body says Veximtrade — never 'Vexim' or 'Vexim Global'; the legal entity stays in the signature only.",
           "The AE previously reached out to this buyer (either a light opening email, or a shortlist",
           "of suppliers — see shortlist_url in context) and has NOT received a reply yet.",
           "",
@@ -545,11 +546,11 @@ export async function generateRequirementInquiryEmail(
           "9. SOFT APPROACH: Do NOT expose internal buyer data (HS codes, supplier names, shipment counts, peak months) verbatim. Use soft language.",
         ].join("\n")
       : [
-          "You write the FIRST, SHORT opening email for a Vietnam-based regulatory & sourcing company (Vexim Global) to a new U.S. buyer lead. V5 — DIRECT TEMPLATE.",
+          "You write the FIRST, SHORT opening email for Veximtrade — the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD — to a new U.S. buyer lead. V5 — DIRECT TEMPLATE.",
           "",
           "WRITE THE EMAIL IN EXACTLY THIS SHAPE — 4 short paragraphs, adapting the bracketed fields from context, nothing more:",
           "",
-          "P1: I'm {sender_name} from Vexim Global, a Vietnam-based regulatory and sourcing company working with manufacturers exporting to the U.S.",
+          "P1: I'm {sender_name} with Veximtrade, a Vietnam-based regulatory and sourcing platform working with manufacturers exporting to the U.S.",
           "P2: We're currently developing a small group of verified Vietnam suppliers for U.S. food buyers, with a focus on product fit and U.S. import compliance before making an introduction.",
           "P3: I came across {buyer_company} while researching U.S. buyers in {buyer_category}.",
           "P4: If Vietnam is a market you are currently considering for {buyer_product}, I'd be happy to send you a relevant supplier option for review.",
@@ -565,13 +566,14 @@ export async function generateRequirementInquiryEmail(
           "1. After P4 add the opt-out as its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up — no hard feelings.'",
           "2. ONE CTA only — P4's offer to send a relevant supplier option for review. Never ask about MOQ/price/payment/packaging/spec.",
           "3. Do NOT invent facts: no supplier names, no specific factory certifications, no prices/volumes, no claim of prior contact. P3 is the ONLY reference to how the buyer was found — never mention customs records, databases, shipment counts, TEU, peak months, ports, or HS codes.",
-          "4. 'verified Vietnam suppliers' is allowed because it refers to Vexim's audit-before-introduction process — never upgrade it into stronger claims ('FDA approved', 'guaranteed', 'best', '#1' are forbidden).",
-          "5. No URL, link, image, or attachment. Plain text only.",
-          "6. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
-          "7. Total body 90-140 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
-          "8. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
-          "9. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category} — supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
-          "10. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
+          "4. 'verified Vietnam suppliers' is allowed because it refers to Veximtrade's audit-before-introduction process — never upgrade it into stronger claims ('FDA approved', 'guaranteed', 'best', '#1' are forbidden).",
+          "5. BRAND NAMING: the body says 'Veximtrade' (matches the veximtrade.com sender domain). 'VEXIM GLOBAL CO., LTD' is the legal entity and appears ONLY in the signature line — never write 'Vexim' or 'Vexim Global' in the body.",
+          "6. No URL, link, image, or attachment. Plain text only.",
+          "7. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
+          "8. Total body 90-140 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
+          "9. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
+          "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category} — supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
+          "11. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
           "",
           "SELF-CHECK: exactly P1→P4 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; 90-140 words total. If any check fails, rewrite.",
         ].join("\n")
@@ -588,7 +590,7 @@ export async function generateRequirementInquiryEmail(
         ? input.shortlistUrl
           ? "Nhắc lại nhẹ nhàng về shortlist supplier đã gửi trước đó, hỏi buyer đã xem chưa và mời họ mở lại link."
           : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
-        : `Viết email mở đầu theo đúng mẫu 4 đoạn V5 (tham khảo buyer_category trong context): P1 giới thiệu bản thân + Vexim Global (regulatory & sourcing, Việt Nam, làm việc với nhà máy xuất khẩu vào Mỹ) → P2 đang phát triển nhóm nhỏ supplier Việt Nam đã xác minh cho buyer Mỹ (điều chỉnh 'food buyers' nếu ngành không phải thực phẩm) → P3 'I came across {công ty} while researching U.S. buyers in {ngành}' → P4 đề nghị gửi 1 phương án nhà cung cấp phù hợp để review. TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
+        : `Viết email mở đầu theo đúng mẫu 4 đoạn V5 (tham khảo buyer_category trong context): P1 giới thiệu bản thân + Veximtrade (nền tảng regulatory & sourcing của Vexim Global tại Việt Nam — thân bài chỉ viết Veximtrade, pháp nhân VEXIM GLOBAL CO., LTD chỉ ở signature) → P2 đang phát triển nhóm nhỏ supplier Việt Nam đã xác minh cho buyer Mỹ (điều chỉnh 'food buyers' nếu ngành không phải thực phẩm) → P3 'I came across {công ty} while researching U.S. buyers in {ngành}' → P4 đề nghị gửi 1 phương án nhà cung cấp phù hợp để review. TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
   ].join("\n")
 
   let generated: { subject_en: string; content_en: string; content_vi: string }
@@ -607,8 +609,8 @@ export async function generateRequirementInquiryEmail(
     console.error("[v0] generateRequirementInquiryEmail: AI generation failed, using fallback template:", err)
     usedFallback = true
     generated = buildFallbackEmail(emailType, {
-      senderName: profile.full_name || "Vexim Trade",
-      exporterCompany: "Vexim",
+      senderName: profile.full_name || "Veximtrade Team",
+      exporterCompany: "Veximtrade",
       senderEmail: profile.work_email || "trade@veximtrade.com",
       buyerCompany: lead["company_name"] as string | null,
       contactPerson: lead["contact_person"] as string | null,
@@ -788,7 +790,7 @@ export async function generateFollowUpReplyEmail(
       buyer_message_ai_summary: reply.ai_summary,
       ai_suggested_next_step: reply.ai_suggested_next_step,
       sender_name: profile.full_name,
-      exporter_company: "Vexim",
+      exporter_company: "Veximtrade",
       signature_company: SIGNATURE_COMPANY,
       signature_address: SIGNATURE_ADDRESS,
       sender_email: profile.work_email || "trade@veximtrade.com",
@@ -803,7 +805,7 @@ export async function generateFollowUpReplyEmail(
   )
 
   const system = [
-    "You write short, professional B2B sourcing emails for a Vietnamese compliance consulting team (Vexim).",
+    "You write short, professional B2B sourcing emails for the Veximtrade compliance consulting team (platform by VEXIM GLOBAL CO., LTD). Body says Veximtrade; the legal entity appears only in the signature.",
     "This is a REPLY within an existing email thread with a buyer — the buyer's most recent",
     "message is given as buyer_message_en in the JSON below. Answer exactly what the buyer asked or raised.",
     "Do not re-ask the original requirement questions unless AE instruction explicitly says information is still missing.",
@@ -813,7 +815,7 @@ export async function generateFollowUpReplyEmail(
     "Write in natural American business English: greet by first name, use contractions, keep paragraphs to 1-3 sentences.",
     "Close with exactly this signature: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address.",
     "Never add phone number or job title line, and never add opt-out line to an active conversation.",
-    "Vexim positioning: compliance consulting for Vietnamese factories exporting to US, partners meet US compliance (FDA, HACCP, traceability). Mention briefly if relevant to buyer's question, but keep soft and factual.",
+    "Veximtrade positioning: compliance consulting for Vietnamese factories exporting to US, partners meet US compliance (FDA, HACCP, traceability). Mention briefly if relevant to buyer's question, but keep soft and factual.",
   ].join("\n")
 
   const userPrompt = [
@@ -840,8 +842,8 @@ export async function generateFollowUpReplyEmail(
     console.error("[v0] generateFollowUpReplyEmail: AI generation failed, using fallback template:", err)
     usedFallback = true
     generated = buildFallbackFollowUpReply({
-      senderName: profile.full_name || "Vexim Trade",
-      exporterCompany: "Vexim",
+      senderName: profile.full_name || "Veximtrade Team",
+      exporterCompany: "Veximtrade",
       senderEmail: profile.work_email || "trade@veximtrade.com",
       defaultSubject,
     })

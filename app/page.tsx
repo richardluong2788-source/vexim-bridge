@@ -472,9 +472,11 @@ export default async function RootPage() {
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
+              {/* Tạm ẩn nút "Xem NCC đã sàng lọc" (yêu cầu 27/09) — mở lại khi danh mục sẵn sàng.
               <Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white">
                 <Link href={localizePath("/products", locale)}>{t.ctaSecondary}</Link>
               </Button>
+              */}
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
               {t.heroTrust.split("·").map((item) => (

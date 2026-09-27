@@ -84,6 +84,52 @@ export function buildPitchNote(input: {
   return parts.join(" ")
 }
 
+/**
+ * Stage khởi đầu khi AE claim buyer (luồng claim → engagement).
+ *
+ * Buyer CHỦ ĐỘNG (inbound, `has_active_inquiry` = true — migration 068): nhu
+ * cầu là do buyer tự đưa ra qua kênh ngoài (Zalo/email/hội chợ…), LR đã ghi
+ * nhận đầy đủ và claimBuyer prefill vào engagement → không qua stage
+ * "claimed — chưa hỏi nhu cầu", vào thẳng `requirements_received` để AE thấy
+ * ngay nút primary "Chọn supplier (AI gợi ý)" thay vì phải bấm Save form
+ * ghi nhận nhu cầu (đã điền sẵn) chỉ để nhảy stage.
+ *
+ * Buyer nghiên cứu (outbound, ImportYeti): giữ nguyên path cũ `claimed`.
+ */
+export function claimInitialStage(
+  hasActiveInquiry: boolean | null | undefined,
+): "claimed" | "requirements_received" {
+  return hasActiveInquiry ? "requirements_received" : "claimed"
+}
+
+/** Giá trị contact_channel trên buyer_engagements (đồng bộ với engagement-actions). */
+export type ContactChannelValue = "system_email" | "linkedin" | "whatsapp" | "phone" | "other"
+
+/**
+ * Map kênh inquiry của buyer (068, 8 giá trị) → contact_channel của engagement
+ * (5 giá trị). Enum contact_channel không có "zalo"/"trade_fair"/"referral" —
+ * các kênh đó về "other"; chi tiết kênh gốc vẫn được giữ trong
+ * other_requirements ("Kênh: Zalo"…) nên không mất thông tin.
+ * null (lạ — has inquiry mà không ghi kênh) → "other".
+ */
+export function mapInquiryChannelToContactChannel(
+  channel: string | null | undefined,
+): ContactChannelValue {
+  switch (channel) {
+    case "email":
+      return "system_email"
+    case "phone":
+      return "phone"
+    case "whatsapp":
+      return "whatsapp"
+    case "linkedin":
+      return "linkedin"
+    default:
+      // zalo, trade_fair, referral, other, null
+      return "other"
+  }
+}
+
 /** Map buyer_action → buyer quan tâm hay không (dùng khi ghi item + gate). */
 export function isInterestedAction(action: string | null | undefined): boolean | null {
   if (!action) return null

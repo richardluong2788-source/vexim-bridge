@@ -30,6 +30,9 @@ import {
   filterRepitchEligible,
   buildPitchNote,
   isInterestedAction,
+  claimInitialStage,
+  mapInquiryChannelToContactChannel,
+  type ContactChannelValue,
 } from "@/lib/buyers/pitch-helpers"
 import { CAPS } from "@/lib/auth/permissions"
 import { assignBuyerToClients } from "@/app/admin/buyers/actions"
@@ -116,6 +119,9 @@ export async function claimBuyer(
           requested_products: lead.inquiry_products ?? null,
           moq: lead.inquiry_quantity ?? null,
           target_price_range: lead.inquiry_target_price ?? null,
+          // Kênh buyer thực sự dùng để liên hệ (Zalo về "other" — chi tiết
+          // kênh vẫn nằm trong other_requirements bên dưới).
+          contact_channel: mapInquiryChannelToContactChannel(lead.inquiry_channel),
           other_requirements: [
             "Nhu cầu thực tế do LR nhập lúc tạo buyer",
             lead.inquiry_channel
@@ -135,7 +141,10 @@ export async function claimBuyer(
       lead_id: inbox.lead_id,
       account_manager_id: inbox.account_manager_id,
       inbox_item_id: inbox.id,
-      stage: "claimed",
+      // Buyer chủ động (đã có nhu cầu thực tế) vào thẳng requirements_received
+      // — AE thấy ngay "Chọn supplier (AI gợi ý)", không phải bấm Save form
+      // ghi nhận nhu cầu đã điền sẵn. Buyer nghiên cứu giữ path "claimed".
+      stage: claimInitialStage(lead?.has_active_inquiry),
       created_by: userId,
       ...inquiryPrefill,
     })
@@ -184,7 +193,9 @@ export async function claimBuyer(
 // Save the buyer's stated requirements (recorded by the AE)
 // ---------------------------------------------------------------------------
 
-export type ContactChannel = "system_email" | "linkedin" | "whatsapp" | "phone" | "other"
+// Đồng bộ giá trị với lib/buyers/pitch-helpers (ContactChannelValue) — một
+// nguồn sự thật duy nhất cho enum kênh liên hệ.
+export type ContactChannel = ContactChannelValue
 
 export interface SaveRequirementsInput {
   engagementId: string

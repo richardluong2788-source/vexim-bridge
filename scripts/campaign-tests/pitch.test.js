@@ -6,6 +6,8 @@ const {
   buildPitchNote,
   isBuyerFacingItem,
   isInterestedAction,
+  claimInitialStage,
+  mapInquiryChannelToContactChannel,
 } = require((process.argv[2] || '.') + '/pitch-helpers.js')
 
 let passed = 0, failed = 0
@@ -72,6 +74,26 @@ t('isInterestedAction: declined=false, viewed_only=null, còn lại=true', () =>
   assert.strictEqual(isInterestedAction('viewed_only'), null)
   assert.strictEqual(isInterestedAction(null), null)
   assert.strictEqual(isInterestedAction('requested_sample'), true)
+})
+
+
+// ---- claim initial stage (094.1: buyer chủ động vào thẳng requirements_received)
+t('claim: buyer chủ động (has_active_inquiry) → requirements_received', () => {
+  assert.strictEqual(claimInitialStage(true), 'requirements_received')
+})
+t('claim: buyer nghiên cứu → claimed như cũ', () => {
+  assert.strictEqual(claimInitialStage(false), 'claimed')
+  assert.strictEqual(claimInitialStage(null), 'claimed')
+  assert.strictEqual(claimInitialStage(undefined), 'claimed')
+})
+t('claim: map kênh inquiry → contact_channel', () => {
+  assert.strictEqual(mapInquiryChannelToContactChannel('email'), 'system_email')
+  assert.strictEqual(mapInquiryChannelToContactChannel('phone'), 'phone')
+  assert.strictEqual(mapInquiryChannelToContactChannel('whatsapp'), 'whatsapp')
+  assert.strictEqual(mapInquiryChannelToContactChannel('linkedin'), 'linkedin')
+  assert.strictEqual(mapInquiryChannelToContactChannel('zalo'), 'other')
+  assert.strictEqual(mapInquiryChannelToContactChannel('trade_fair'), 'other')
+  assert.strictEqual(mapInquiryChannelToContactChannel(null), 'other')
 })
 
 console.log(`\n${passed} passed, ${failed} failed`)

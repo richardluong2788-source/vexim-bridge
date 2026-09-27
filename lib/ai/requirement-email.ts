@@ -23,6 +23,7 @@ import { generateText, Output } from "ai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getSoftProductDescription, getSoftSeasonalityHook, getSeasonalCapacityAngle } from "@/lib/ai/vexim-positioning"
+import { buildPitchDeliveryLine } from "@/lib/buyers/pitch-helpers"
 
 export class RequirementEmailAuthError extends Error {
   constructor(message = "Unauthorized") {
@@ -71,6 +72,8 @@ type FallbackEmailContext = {
   contactPerson?: string | null
   industryOrProduct?: string | null
   shortlistUrl?: string | null
+  /** 095: câu mở theo nhu cầu + matched product (buyer chủ động) — null với cold. */
+  pitchLine?: string | null
 }
 
 function buildFallbackEmail(
@@ -151,6 +154,29 @@ function buildFallbackEmail(
   }
 
   if (emailType === "shortlist_delivery") {
+    // 095 — Buyer chủ động + matched product: dẫn email bằng nhu cầu + sản phẩm
+    // (cùng dữ liệu đã đóng băng trong pitch; không giá, không tên supplier).
+    if (ctx.pitchLine) {
+      return {
+        subject_en: `${ctx.industryOrProduct?.trim() || "Sourcing"} — factory profile to review`,
+        content_en: [
+          `Hi ${greetingName},`,
+          "",
+          ctx.pitchLine,
+          "",
+          `I've put the factory's full profile together here: ${ctx.shortlistUrl || ""} — take a look and let me know if the direction looks right.`,
+          signature_en,
+        ].join("\n"),
+        content_vi: [
+          `Xin chào ${greetingName},`,
+          "",
+          ctx.pitchLine,
+          "",
+          `Hồ sơ đầy đủ của nhà máy tại đây: ${ctx.shortlistUrl || ""} — anh/chị xem và cho em biết nếu hướng này phù hợp nhé.`,
+          signature_vi,
+        ].join("\n"),
+      }
+    }
     return {
       subject_en: `Supplier shortlist prepared for ${ctx.buyerCompany || "your company"}`,
       content_en: [
@@ -312,6 +338,32 @@ export async function generateRequirementInquiryEmail(
   const emailType: EngagementEmailType = input.emailType ?? "requirement_inquiry"
   const dbEmailType = emailType === "requirement_followup" ? "follow_up" : emailType
 
+  // 095 — Email pitch dẫn bằng sản phẩm: với shortlist_delivery, đọc matched_product
+  // đã ĐÓNG BĂNG trong version pitch (status sent) của engagement — cùng nguồn dữ
+  // liệu với share page nên email và trang luôn nhất quán. Chỉ áp dụng buyer chủ
+  // động (has_active_inquiry); buyer cold/research giữ nguyên framing V4.
+  let pitchLine: string | null = null
+  if (emailType === "shortlist_delivery") {
+    const { data: pitchItems } = await supabase
+      .from("buyer_engagement_shortlist_items")
+      .select(
+        "supplier_profile_snapshot, buyer_engagement_shortlist_versions!inner ( engagement_id, status, created_at )",
+      )
+      .eq("buyer_engagement_shortlist_versions.engagement_id", input.engagementId)
+      .eq("buyer_engagement_shortlist_versions.status", "sent")
+      .eq("role", "primary")
+      .order("buyer_engagement_shortlist_versions.created_at", { ascending: false })
+      .limit(1)
+    const snap = (pitchItems?.[0] as { supplier_profile_snapshot?: { matched_product?: unknown } } | undefined)
+      ?.supplier_profile_snapshot
+    const mp = (snap?.matched_product ?? null) as
+      | { product_name: string; key_specifications?: string | null; moq?: string | null; lead_time?: string | null }
+      | null
+    const inquiry =
+      lead["has_active_inquiry"] ? ((lead["inquiry_products"] as string | null) ?? null) : null
+    pitchLine = buildPitchDeliveryLine({ inquiryProducts: inquiry, matchedProduct: mp })
+  }
+
   if (emailType === "shortlist_delivery" && !input.shortlistUrl) {
     throw new Error("shortlistUrl is required for shortlist_delivery emails")
   }
@@ -413,6 +465,9 @@ export async function generateRequirementInquiryEmail(
         }
       : {}),
     ...(emailType === "requirement_followup" ? { shortlist_url: input.shortlistUrl ?? null } : {}),
+    // 095: câu mở theo nhu cầu + matched product — chỉ có ở shortlist_delivery
+    // khi buyer CHỦ ĐỘNG có active inquiry và pitch có matched_product đạt ngưỡng.
+    ...(emailType === "shortlist_delivery" ? { pitch_product_line: pitchLine } : {}),
   }
 
   const contextBlock = JSON.stringify(buyerIntelInternal, null, 2)
@@ -430,6 +485,8 @@ export async function generateRequirementInquiryEmail(
           "context, in that order — never use placeholders and never include a phone number. This",
           "buyer already replied with requirements, so do NOT add an opt-out line. Never invent",
           "facts not present in context. No emoji.",
+          "",
+          "PITCH PRODUCT LINE (context pitch_product_line): If pitch_product_line is present (non-null), this buyer proactively asked about a product and we selected ONE factory that matches. OPEN the email by adapting that line naturally (it already contains the buyer's requirement, the matched product name and 1-2 key specs/MOQ/lead time — use only what it contains, do NOT invent extra specs). Use soft wording — 'matches your requirement' is right; NEVER claim 'exactly', never add prices, never name the supplier company (say 'the factory'). Then reference the profile link inline (see link rule below) and close with a short low-pressure ask ('let me know if the direction looks right'). Keep the total body within 80-140 words. If pitch_product_line is null or absent, do NOT mention any specific product — follow the generic framing (a shortlist has been prepared).",
           "",
           "PRESENT THE LINK LIKE A PERSON, NOT LIKE A MARKETING CTA BUTTON. Reference it inline as",
           "part of a normal sentence (e.g. 'I've put together a shortlist for you here: <url>' or",
@@ -600,6 +657,7 @@ export async function generateRequirementInquiryEmail(
       contactPerson: lead["contact_person"] as string | null,
       industryOrProduct: (lead["industry"] as string | null) || (lead["main_product"] as string | null),
       shortlistUrl: input.shortlistUrl,
+      pitchLine,
     })
   }
 

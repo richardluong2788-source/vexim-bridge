@@ -10,6 +10,7 @@ const {
   mapInquiryChannelToContactChannel,
   buildMatchedProductSnapshot,
   MATCHED_PRODUCT_MIN_SCORE,
+  buildPitchDeliveryLine,
 } = require((process.argv[2] || '.') + '/pitch-helpers.js')
 
 let passed = 0, failed = 0
@@ -78,6 +79,32 @@ t('isInterestedAction: declined=false, viewed_only=null, còn lại=true', () =>
   assert.strictEqual(isInterestedAction('requested_sample'), true)
 })
 
+
+// ---- pitch delivery email line (095: email dẫn bằng requirement + matched product)
+t('email line: inquiry + product → requirement, "matches your requirement", MOQ, lead time, KHÔNG "exactly"', () => {
+  const line = buildPitchDeliveryLine({
+    inquiryProducts: 'frozen durian monthong pulp',
+    matchedProduct: { product_name: 'Frozen Monthong Durian Whole Peeled', key_specifications: 'Grade A, IQF, BRIX 24 min', moq: '1000 kg', lead_time: '2-4 weeks' },
+  })
+  assert.ok(line.includes('frozen durian monthong pulp'), line)
+  assert.ok(line.includes('Frozen Monthong Durian Whole Peeled'), line)
+  assert.ok(line.includes('matches your requirement'), line)
+  assert.ok(line.includes('MOQ 1000 kg') && line.includes('lead time 2-4 weeks'), line)
+  assert.ok(!line.toLowerCase().includes('exactly'), line)
+  assert.ok(!line.includes('BRIX 24 min'), 'chỉ 2 spec đầu: ' + line)
+})
+t('email line: không inquiry → mở đầu theo requirement chung', () => {
+  const line = buildPitchDeliveryLine({ inquiryProducts: null, matchedProduct: { product_name: 'X Kernel W240', moq: '5 MT' } })
+  assert.ok(line && line.includes('Based on your sourcing requirement') && line.includes('MOQ 5 MT'), line)
+})
+t('email line: không matched product → null (fallback framing cũ)', () => {
+  assert.strictEqual(buildPitchDeliveryLine({ inquiryProducts: 'durian', matchedProduct: null }), null)
+  assert.strictEqual(buildPitchDeliveryLine({ inquiryProducts: 'durian', matchedProduct: { product_name: '' } }), null)
+})
+t('email line: inquiry dài → cắt ~60 ký tự tại ranh giới từ, không crash', () => {
+  const line = buildPitchDeliveryLine({ inquiryProducts: 'we are looking for a reliable supplier of frozen tropical fruit pulp and whole peeled products for our retail line in the US', matchedProduct: { product_name: 'Frozen Mango Puree' } })
+  assert.ok(line && line.length < 200, line)
+})
 
 // ---- matched product snapshot (v1: sản phẩm đề xuất, KHÔNG giá)
 t('matched product: đủ điều kiện → snapshot đủ MOQ/lead time/incoterm, không giá', () => {

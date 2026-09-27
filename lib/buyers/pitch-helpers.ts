@@ -136,6 +136,60 @@ export function buildMatchedProductSnapshot(
 }
 
 /**
+ * Câu mở đầu email pitch delivery (shortlist_delivery) cho buyer CHỦ ĐỘNG —
+ * dẫn bằng đúng nhu cầu buyer đã hỏi + matched_product đã đóng băng trong
+ * pitch (không giá, không tên supplier — supplier name chỉ hiện trên share
+ * page sau khi buyer mở link).
+ *
+ * Wording có chủ ý: "matches your requirement" — KHÔNG dùng "exactly" vì
+ * matching v1 là keyword-overlap, chưa semantic; cam kết quá mức sẽ phản
+ * tác dụng nếu buyer thấy sản phẩm không khớp trên trang.
+ *
+ * Chỉ tạo khi có matchedProduct; inquiry chỉ enrich phần mở đầu. Trả null →
+ * caller dùng fallback "a shortlist has been prepared" như cũ (cold/research
+ * buyer giữ nguyên V4).
+ */
+export function buildPitchDeliveryLine(input: {
+  inquiryProducts: string | null | undefined
+  matchedProduct:
+    | {
+        product_name: string
+        key_specifications?: string | null
+        moq?: string | null
+        lead_time?: string | null
+      }
+    | null
+    | undefined
+}): string | null {
+  const mp = input.matchedProduct
+  if (!mp?.product_name) return null
+  // Chỉ lấy 2 spec đầu — email ngắn, chi tiết đầy đủ nằm trên share page.
+  const specs = (mp.key_specifications ?? "")
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+  const detailBits = [
+    specs.length > 0 ? specs.join(", ") : null,
+    mp.moq ? `MOQ ${mp.moq}` : null,
+    mp.lead_time ? `lead time ${mp.lead_time}` : null,
+  ].filter(Boolean)
+  // Nhu cầu buyer là text tự do — gọn về ~60 ký tự tại ranh giới từ.
+  let inquiry = input.inquiryProducts?.trim() || null
+  if (inquiry && inquiry.length > 60) {
+    inquiry = inquiry.slice(0, 60)
+    const lastSpace = inquiry.lastIndexOf(" ")
+    if (lastSpace > 30) inquiry = inquiry.slice(0, lastSpace)
+    inquiry = `${inquiry}…`
+  }
+  const head = inquiry
+    ? `You mentioned you're sourcing ${inquiry} — ${mp.product_name} matches your requirement`
+    : `Based on your sourcing requirement, ${mp.product_name} matches what you're looking for`
+  const tail = detailBits.length > 0 ? ` (${detailBits.join("; ")})` : ""
+  return `${head}${tail}.`
+}
+
+/**
  * Stage khởi đầu khi AE claim buyer (luồng claim → engagement).
  *
  * Buyer CHỦ ĐỘNG (inbound, `has_active_inquiry` = true — migration 068): nhu

@@ -9,8 +9,17 @@ import { CAPS, can } from "@/lib/auth/permissions"
 
 export const dynamic = "force-dynamic"
 
-export default async function ActivitiesPage() {
+const PAGE_SIZE = 50
+
+export default async function ActivitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const { t, locale } = await getDictionary()
+  const urlPage = Number((await searchParams).page ?? "1")
+  const page = Number.isFinite(urlPage) && urlPage >= 1 ? Math.floor(urlPage) : 1
+  const from = (page - 1) * PAGE_SIZE
 
   const current = await getCurrentRole()
   if (!current) redirect("/auth/login")
@@ -51,7 +60,6 @@ export default async function ActivitiesPage() {
       `,
     )
     .order("created_at", { ascending: false })
-    .limit(100)
 
   if (allowedOppIds !== null) {
     if (allowedOppIds.length === 0) {
@@ -64,7 +72,27 @@ export default async function ActivitiesPage() {
     }
   }
 
-  const { data, error } = await actQ
+  // Tổng số (cùng scope) để dựng phân trang — đếm trước khi áp .range().
+  let countQ = admin
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+  if (allowedOppIds !== null) {
+    if (allowedOppIds.length === 0) {
+      countQ = countQ.eq("performed_by", scope.kind === "owned" ? scope.userId : "")
+    } else {
+      countQ = countQ.in("opportunity_id", allowedOppIds)
+    }
+  }
+  const { count } = await countQ
+  const total = count ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Trang ngoài khoảng (URL tay) → kẹp về trang cuối, không 404.
+  const safePage = Math.min(page, totalPages)
+  const { data, error } = await actQ.range(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE - 1,
+  )
   const items = (error ? [] : (data ?? [])) as unknown as ActivityListItem[]
 
   return (
@@ -87,6 +115,37 @@ export default async function ActivitiesPage() {
           <ActivityList items={items} showOpportunity showPerformer />
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <p>
+            {t.admin.activities.title} {((safePage - 1) * PAGE_SIZE) + 1}
+            &ndash;
+            {Math.min(safePage * PAGE_SIZE, total)} / {total}
+          </p>
+          <div className="flex items-center gap-2">
+            {safePage > 1 && (
+              <a
+                href={`/admin/activities?page=${safePage - 1}`}
+                className="rounded-md border border-border px-3 py-1.5 hover:bg-muted"
+              >
+                &larr; {locale === "vi" ? "Trước" : "Prev"}
+              </a>
+            )}
+            <span className="px-1">
+              {safePage} / {totalPages}
+            </span>
+            {safePage < totalPages && (
+              <a
+                href={`/admin/activities?page=${safePage + 1}`}
+                className="rounded-md border border-border px-3 py-1.5 hover:bg-muted"
+              >
+                {locale === "vi" ? "Sau" : "Next"} &rarr;
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

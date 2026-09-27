@@ -94,7 +94,10 @@ export function ActivityList({
                 ) : null}
               </div>
               {item.description ? (
-                <p className="text-sm text-muted-foreground break-words">
+                <p
+                  className="text-sm text-muted-foreground break-words line-clamp-3"
+                  title={item.description}
+                >
                   {item.description}
                 </p>
               ) : null}

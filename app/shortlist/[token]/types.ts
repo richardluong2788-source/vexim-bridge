@@ -12,6 +12,14 @@ export type BuyerActionValue =
   // buildShortlist sẽ chặn AE đề xuất lại trong cùng engagement.
   | "declined"
 
+/** 094 — lý do chê có cấu trúc (buyer quick-pick, optional). */
+export type BuyerDeclineReason =
+  | "products_mismatch"
+  | "price_moq"
+  | "missing_certs"
+  | "existing_supplier"
+  | "other"
+
 // The only values a buyer can set from this public page. "selected_primary",
 // "sent_price_volume" and "sent_po" are internal/AE-only classifications
 // recorded elsewhere once a real commercial step has actually happened —

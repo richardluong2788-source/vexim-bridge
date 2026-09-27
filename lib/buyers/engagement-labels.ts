@@ -29,6 +29,21 @@ export const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: str
   declined: { vi: "Buyer từ chối supplier này", en: "Buyer declined this supplier" },
 }
 
+/**
+ * Nhãn lý do chê (094). EN hiển thị cho buyer trên share page (trang này
+ * chỉ có tiếng Anh), VI cho AE trong notification + dialog pitch.
+ */
+export const DECLINE_REASON_LABELS: Record<
+  import("./engagement-types").BuyerDeclineReason,
+  { vi: string; en: string }
+> = {
+  products_mismatch: { vi: "Sản phẩm không khớp lĩnh vực mình nhập", en: "Products don't match what we buy" },
+  price_moq: { vi: "Giá / MOQ không phù hợp", en: "Price / MOQ doesn't work for us" },
+  missing_certs: { vi: "Thiếu chứng nhận yêu cầu", en: "Missing certifications we need" },
+  existing_supplier: { vi: "Đã có supplier tương tự", en: "We already work with a similar supplier" },
+  other: { vi: "Lý do khác", en: "Other" },
+}
+
 /** Dwell time on the public shortlist, e.g. "1m 20s". */
 export function formatDwell(ms: number, locale: "vi" | "en"): string {
   const totalSeconds = Math.round(ms / 1000)

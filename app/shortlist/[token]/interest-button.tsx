@@ -5,7 +5,20 @@ import { Check, FileText, Loader2, MessageSquare, Package, ThumbsUp } from "luci
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { markShortlistInterest } from "./actions"
-import type { BuyerActionValue } from "./types"
+import type { BuyerActionValue, BuyerDeclineReason } from "./types"
+
+/**
+ * 094 — structured decline reasons. Buyer KHÔNG bắt buộc chọn: "No thanks"
+ * gửi decline không lý do (signal thô vẫn về), chọn lý do giúp AE pitch
+ * đúng hơn ở vòng sau và Phase 2 dạy AI re-rank.
+ */
+const DECLINE_REASONS: { value: BuyerDeclineReason; label: string }[] = [
+  { value: "products_mismatch", label: "Products don't match what we buy" },
+  { value: "price_moq", label: "Price / MOQ doesn't work for us" },
+  { value: "missing_certs", label: "Missing certifications we need" },
+  { value: "existing_supplier", label: "We already work with a similar supplier" },
+  { value: "other", label: "Other" },
+]
 
 const ACTION_LABEL: Partial<Record<BuyerActionValue, string>> = {
   requested_info: "Request info",
@@ -37,14 +50,22 @@ export function InterestButton({
   const [pendingAction, setPendingAction] = useState<BuyerActionValue | null>(null)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // 094: decline form — lý do optional + ghi chú optional.
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [declineReason, setDeclineReason] = useState<BuyerDeclineReason | null>(null)
+  const [declineNote, setDeclineNote] = useState("")
 
-  const handleClick = (value: BuyerActionValue) => {
+  const handleClick = (
+    value: BuyerActionValue,
+    meta?: { declineReason?: BuyerDeclineReason | null; declineReasonNote?: string | null },
+  ) => {
     setError(null)
     setPendingAction(value)
     startTransition(async () => {
-      const result = await markShortlistInterest(token, shortlistItemId, value)
+      const result = await markShortlistInterest(token, shortlistItemId, value, meta)
       if (result.ok) {
         setAction(value)
+        setDeclineOpen(false)
       } else {
         setError(result.error)
       }
@@ -106,12 +127,66 @@ export function InterestButton({
       </button>
       <button
         type="button"
-        onClick={() => handleClick("declined")}
+        onClick={() => setDeclineOpen((v) => !v)}
         disabled={pending}
         className="self-start text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
       >
-        {pending && pendingAction === "declined" ? "Sending..." : "This one isn't the right fit"}
+        This one isn&apos;t the right fit
       </button>
+
+      {declineOpen && (
+        <div className="w-full rounded-md border bg-muted/40 p-3 text-left">
+          <p className="text-xs font-medium">Mind sharing what didn&apos;t fit? It helps us suggest a better factory.</p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {DECLINE_REASONS.map((r) => (
+              <label key={r.value} className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="radio"
+                  name={`decline-reason-${shortlistItemId}`}
+                  checked={declineReason === r.value}
+                  onChange={() => setDeclineReason(r.value)}
+                  className="accent-primary"
+                />
+                {r.label}
+              </label>
+            ))}
+          </div>
+          {declineReason === "other" && (
+            <textarea
+              value={declineNote}
+              onChange={(e) => setDeclineNote(e.target.value)}
+              placeholder="Tell us more (optional)"
+              rows={2}
+              className="mt-2 w-full rounded-md border bg-background p-2 text-xs outline-none focus:ring-1 focus:ring-primary"
+            />
+          )}
+          <div className="mt-2.5 flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                handleClick("declined", {
+                  declineReason,
+                  declineReasonNote: declineNote.trim() || null,
+                })
+              }
+            >
+              {pending && pendingAction === "declined" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Send
+            </Button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => handleClick("declined")}
+              className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+            >
+              No thanks — just decline
+            </button>
+          </div>
+        </div>
+      )}
       {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>
   )

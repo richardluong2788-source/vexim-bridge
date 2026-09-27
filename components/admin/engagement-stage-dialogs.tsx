@@ -84,6 +84,7 @@ import {
   buildPitchNote,
   type PitchMode,
 } from "@/lib/buyers/pitch-helpers"
+import { DECLINE_REASON_LABELS } from "@/lib/buyers/engagement-labels"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
 import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
@@ -831,7 +832,9 @@ function ShortlistBuilderDialog({
     new Set((draftVersion?.buyer_engagement_shortlist_items ?? []).map((s) => s.client_id)),
   )
   const [saving, setSaving] = useState(false)
-  const [history, setHistory] = useState<Map<string, { timesPitched: number; declined: boolean }>>(new Map())
+  const [history, setHistory] = useState<
+    Map<string, { timesPitched: number; declined: boolean; lastDeclineReason?: string | null; lastDeclineNote?: string | null }>
+  >(new Map())
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const assignableIds = new Set(clients.map((c) => c.id))
 
@@ -861,8 +864,14 @@ function ShortlistBuilderDialog({
         )
       : null
     if (hist.ok) {
-      const map = new Map<string, { timesPitched: number; declined: boolean }>()
-      for (const h of hist.data ?? []) map.set(h.clientId, { timesPitched: h.timesPitched, declined: h.declined })
+      const map = new Map<string, { timesPitched: number; declined: boolean; lastDeclineReason?: string | null; lastDeclineNote?: string | null }>()
+      for (const h of hist.data ?? [])
+        map.set(h.clientId, {
+          timesPitched: h.timesPitched,
+          declined: h.declined,
+          lastDeclineReason: h.lastDeclineReason,
+          lastDeclineNote: h.lastDeclineNote,
+        })
       setHistory(map)
     }
     if (!result.ok) {
@@ -1112,8 +1121,15 @@ function ShortlistBuilderDialog({
                           </Badge>
                         )}
                         {isDeclined && (
-                          <Badge variant="outline" className="text-[9px] border-red-400 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 py-0 px-1">
-                            {t("Buyer đã chê — chặn re-pitch", "Buyer declined — blocked")}
+                          <Badge
+                            variant="outline"
+                            title={hist?.lastDeclineNote || undefined}
+                            className="text-[9px] border-red-400 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 py-0 px-1"
+                          >
+                            {t(
+                              `Buyer đã chê — chặn re-pitch${hist?.lastDeclineReason ? ` (${DECLINE_REASON_LABELS[hist.lastDeclineReason as keyof typeof DECLINE_REASON_LABELS]?.vi ?? hist.lastDeclineReason})` : ""}`,
+                              `Buyer declined — blocked${hist?.lastDeclineReason ? ` (${DECLINE_REASON_LABELS[hist.lastDeclineReason as keyof typeof DECLINE_REASON_LABELS]?.en ?? hist.lastDeclineReason})` : ""}`,
+                            )}
                           </Badge>
                         )}
                         {!isDeclined && hist && hist.timesPitched > 0 && (

@@ -672,7 +672,19 @@ export type BuyerActionValue =
  */
 export async function getPitchHistory(
   engagementId: string,
-): Promise<ActionResult<Array<{ clientId: string; timesPitched: number; declined: boolean; lastAction: string | null }>>> {
+): Promise<
+  ActionResult<
+    Array<{
+      clientId: string
+      timesPitched: number
+      declined: boolean
+      lastAction: string | null
+      // 094: lý do chê gần nhất + ghi chú — AE đọc để pitch đúng hơn ở vòng sau.
+      lastDeclineReason: string | null
+      lastDeclineNote: string | null
+    }>
+  >
+> {
   const guard = await requireCap(CAPS.BUYER_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin } = guard
@@ -680,18 +692,25 @@ export async function getPitchHistory(
   const { data, error } = await admin
     .from("buyer_engagement_shortlist_items")
     .select(
-      "client_id, buyer_action, buyer_engagement_shortlist_versions!inner ( engagement_id, status )",
+      "client_id, buyer_action, decline_reason, decline_reason_note, buyer_engagement_shortlist_versions!inner ( engagement_id, status )",
     )
     .eq("buyer_engagement_shortlist_versions.engagement_id", engagementId)
     .in("buyer_engagement_shortlist_versions.status", ["sent", "superseded"])
 
   if (error) return { ok: false, error: error.message }
 
-  const byClient = new Map<string, { timesPitched: number; declined: boolean; lastAction: string | null }>()
-  for (const r of (data ?? []) as Array<{ client_id: string; buyer_action: string | null }>) {
-    const cur = byClient.get(r.client_id) ?? { timesPitched: 0, declined: false, lastAction: null }
+  const byClient = new Map<
+    string,
+    { timesPitched: number; declined: boolean; lastAction: string | null; lastDeclineReason: string | null; lastDeclineNote: string | null }
+  >()
+  for (const r of (data ?? []) as Array<{ client_id: string; buyer_action: string | null; decline_reason?: string | null; decline_reason_note?: string | null }>) {
+    const cur = byClient.get(r.client_id) ?? { timesPitched: 0, declined: false, lastAction: null, lastDeclineReason: null, lastDeclineNote: null }
     cur.timesPitched += 1
-    if (r.buyer_action === "declined") cur.declined = true
+    if (r.buyer_action === "declined") {
+      cur.declined = true
+      if (r.decline_reason) cur.lastDeclineReason = r.decline_reason
+      if (r.decline_reason_note) cur.lastDeclineNote = r.decline_reason_note
+    }
     if (r.buyer_action) cur.lastAction = r.buyer_action
     byClient.set(r.client_id, cur)
   }

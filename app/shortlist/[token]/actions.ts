@@ -24,6 +24,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { engagementFocusPath } from "@/lib/notifications/paths"
 import { isInterestedAction } from "@/lib/buyers/pitch-helpers"
+import { DECLINE_REASON_LABELS } from "@/lib/buyers/engagement-labels"
+import type { BuyerDeclineReason } from "./types"
 import { BUYER_SELECTABLE_ACTIONS, type BuyerActionValue } from "./types"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
@@ -104,7 +106,25 @@ export async function markShortlistInterest(
   token: string,
   shortlistItemId: string,
   action: BuyerActionValue = "interested_no_details",
+  // 094: lý do chê optional (buyer có thể bỏ qua) — chỉ dùng khi action='declined'.
+  meta?: { declineReason?: BuyerDeclineReason | null; declineReasonNote?: string | null },
 ): Promise<ActionResult> {
+  const VALID_DECLINE_REASONS: BuyerDeclineReason[] = [
+    "products_mismatch",
+    "price_moq",
+    "missing_certs",
+    "existing_supplier",
+    "other",
+  ]
+  const declineReason =
+    action === "declined" && meta?.declineReason && VALID_DECLINE_REASONS.includes(meta.declineReason)
+      ? meta.declineReason
+      : null
+  // Ghi chú tự do: giới hạn 500 ký tự, chỉ lưu khi có chọn "other" hoặc kèm lý do.
+  const declineNote =
+    action === "declined" && meta?.declineReasonNote
+      ? String(meta.declineReasonNote).slice(0, 500)
+      : null
   if (!BUYER_SELECTABLE_ACTIONS.includes(action as any)) {
     // Defence-in-depth: even if a caller reaches this action with an
     // AE-only value (e.g. "sent_po"), reject it here too — not just in the
@@ -148,6 +168,9 @@ export async function markShortlistInterest(
       // Pitch-first (093): declined = KHÔNG quan tâm (buyer_interested=false).
       buyer_interested: isInterestedAction(action),
       buyer_responded_at: new Date().toISOString(),
+      // 094: lý do chê có cấu trúc (optional) — feed học hỏi của AE + Phase 2 AI.
+      decline_reason: declineReason,
+      decline_reason_note: declineNote,
     })
     .eq("id", shortlistItemId)
 
@@ -178,6 +201,9 @@ export async function markShortlistInterest(
   if (action === "declined" && previousAction !== action) {
     const buyerLabel =
       (engagement?.leads as { company_name?: string | null } | null)?.company_name ?? "buyer"
+    const reasonLabel = declineReason ? DECLINE_REASON_LABELS[declineReason].vi : null
+    const reasonSuffixVi = reasonLabel ? ` Lý do: ${reasonLabel}${declineNote ? ` — "${declineNote}"` : ""}.` : ""
+    const reasonSuffixEn = reasonLabel ? DECLINE_REASON_LABELS[declineReason!].en : null
     try {
       if (engagement?.account_manager_id) {
         await dispatchNotification({
@@ -187,8 +213,8 @@ export async function markShortlistInterest(
           dedupKey: `shortlist_declined_ae:${shortlistItemId}`,
           title: { vi: "Buyer từ chối một supplier — cần pitch lựa chọn khác", en: "Buyer declined a supplier — pitch an alternative" },
           body: {
-            vi: `Buyer (${buyerLabel}) đã bấm "không phù hợp" với một supplier trên bản đề xuất. Đề xuất supplier KHÁC kèm lý do mới — không gửi lại nhà máy đã chê.`,
-            en: `Buyer (${buyerLabel}) marked a supplier as not the right fit. Pitch a DIFFERENT supplier with a fresh reason — never re-send the declined one.`,
+            vi: `Buyer (${buyerLabel}) đã bấm "không phù hợp" với một supplier trên bản đề xuất.${reasonSuffixVi} Đề xuất supplier KHÁC kèm lý do mới — không gửi lại nhà máy đã chê.`,
+            en: `Buyer (${buyerLabel}) marked a supplier as not the right fit.${reasonSuffixEn ? ` Reason: ${reasonSuffixEn}.` : ""} Pitch a DIFFERENT supplier with a fresh reason — never re-send the declined one.`,
           },
           ctaLabel: { vi: "Mở phiên xử lý", en: "Open engagement" },
         })

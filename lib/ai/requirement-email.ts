@@ -119,7 +119,7 @@ function buildFallbackEmail(
           content_vi: [
             `Xin chào ${greetingName},`,
             "",
-            `Tôi muốn theo dõi lại về shortlist nhà cung cấp đã gửi trước đó — tôi chưa nhận được phản hồi và muốn hỏi bạn đã có dịp xem qua chưa: ${ctx.shortlistUrl}`,
+            `Tôi muốn theo dõi lại về shortlist nhà cung cấp đã gửi trước đó. Tôi chưa nhận được phản hồi và muốn hỏi bạn đã có dịp xem qua chưa: ${ctx.shortlistUrl}`,
             "",
             "Rất vui được giải đáp thêm hoặc cung cấp thông tin chi tiết hơn về các nhà cung cấp.",
             "",
@@ -173,7 +173,7 @@ function buildFallbackEmail(
           "",
           ctx.pitchLine,
           "",
-          `Hồ sơ đầy đủ của nhà máy tại đây: ${ctx.shortlistUrl || ""} — anh/chị xem và cho em biết nếu hướng này phù hợp nhé.`,
+          `Hồ sơ đầy đủ của nhà máy tại đây: ${ctx.shortlistUrl || ""}. Anh/chị xem và cho em biết nếu hướng này phù hợp nhé.`,
           signature_vi,
         ].join("\n"),
       }
@@ -197,7 +197,7 @@ function buildFallbackEmail(
         "",
         "Cảm ơn bạn đã chia sẻ nhu cầu sourcing với chúng tôi. Chúng tôi đã xem xét và chuẩn bị một shortlist các nhà cung cấp đã được kiểm tra kỹ để bạn tham khảo.",
         "",
-        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""} — cho chúng tôi biết bạn quan tâm đến nhà cung cấp nào nhé.`,
+        `Bạn có thể xem hồ sơ từng nhà cung cấp tại đây: ${ctx.shortlistUrl || ""}. Cho chúng tôi biết bạn quan tâm đến nhà cung cấp nào nhé.`,
         "",
         "Chúng tôi mong nhận được phản hồi từ bạn.",
         signature_vi,

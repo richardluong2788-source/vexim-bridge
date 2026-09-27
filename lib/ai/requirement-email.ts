@@ -223,6 +223,8 @@ function buildFallbackEmail(
       "",
       `If Vietnam is a market you are currently considering for ${topic}, I'd be happy to send you a relevant supplier option for review.`,
       "",
+      "If purchasing isn't the right inbox on your side, I'd appreciate a quick forward — or just the right email to reach.",
+      "",
       OPT_OUT_EN,
       signature_en,
     ].join("\n"),
@@ -236,6 +238,8 @@ function buildFallbackEmail(
       `Tôi tình cờ thấy ${ctx.buyerCompany || "công ty anh/chị"} khi nghiên cứu các buyer Mỹ trong ngành ${topic}.`,
       "",
       `Nếu Việt Nam là thị trường anh/chị đang cân nhắc cho ngành hàng này, tôi sẵn sàng gửi một phương án nhà cung cấp phù hợp để tham khảo.`,
+      "",
+      `Nếu đây không phải hộp thư của bộ phận mua hàng, anh/chị chuyển tiếp giúp hoặc cho tôi biết email bộ phận phù hợp đều được — cảm ơn anh/chị.`,
       "",
       OPT_OUT_VI,
       signature_vi,
@@ -546,36 +550,39 @@ export async function generateRequirementInquiryEmail(
           "9. SOFT APPROACH: Do NOT expose internal buyer data (HS codes, supplier names, shipment counts, peak months) verbatim. Use soft language.",
         ].join("\n")
       : [
-          "You write the FIRST, SHORT opening email for Veximtrade — the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD — to a new U.S. buyer lead. V5 — DIRECT TEMPLATE.",
+          "You write the FIRST, SHORT opening email for Veximtrade — the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD — to a new U.S. buyer lead. V5.1 — DIRECT TEMPLATE.",
           "",
-          "WRITE THE EMAIL IN EXACTLY THIS SHAPE — 4 short paragraphs, adapting the bracketed fields from context, nothing more:",
+          "WRITE THE EMAIL IN EXACTLY THIS SHAPE — greeting + 5 short paragraphs + opt-out, adapting the bracketed fields from context, nothing more:",
           "",
+          "G: Hi {contact_first_name},",
           "P1: I'm {sender_name} with Veximtrade, a Vietnam-based regulatory and sourcing platform working with manufacturers exporting to the U.S.",
           "P2: We're currently developing a small group of verified Vietnam suppliers for U.S. food buyers, with a focus on product fit and U.S. import compliance before making an introduction.",
           "P3: I came across {buyer_company} while researching U.S. buyers in {buyer_category}.",
           "P4: If Vietnam is a market you are currently considering for {buyer_product}, I'd be happy to send you a relevant supplier option for review.",
+          "P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward — or just the right email to reach.",
           "",
           "FIELD RULES:",
-          "1. {sender_name} = sender_name from context (first name is fine). Never a placeholder.",
-          "2. {buyer_company} = the buyer's company name from context. If missing, write 'your company' — never invent a name.",
-          "3. {buyer_category} = the buyer's product category in natural wording (use buyer_category / main_product_soft from context, e.g. 'premium cashew kernels', 'frozen seafood'). Lowercase, plain wording, no HS codes.",
-          "4. {buyer_product} = the same category/product wording as P3 — keep it consistent, do not introduce a different product.",
-          "5. FOOD ADAPTIVITY: P2 keeps 'U.S. food buyers' ONLY when {buyer_category} is a food/beverage/agricultural category (food, seafood, fruit, nuts, coffee, spices, rice, etc.). For a non-food category, write 'U.S. buyers in {buyer_category}' instead of 'U.S. food buyers'.",
+          "1. {contact_first_name} = first name of contact_person from context. If no contact name exists, write 'Hi there,' — never a placeholder like '[Name]'.",
+          "2. {sender_name} = sender_name from context (first name is fine). Never a placeholder.",
+          "3. {buyer_company} = the buyer's company name from context. If missing, write 'your company' — never invent a name.",
+          "4. {buyer_category} = the buyer's product category in natural wording (use buyer_category / main_product_soft from context, e.g. 'premium cashew kernels', 'frozen seafood'). Lowercase, plain wording, no HS codes.",
+          "5. {buyer_product} = the same category/product wording as P3 — keep it consistent, do not introduce a different product.",
+          "6. FOOD ADAPTIVITY: P2 keeps 'U.S. food buyers' ONLY when {buyer_category} is a food/beverage/agricultural category (food, seafood, fruit, nuts, coffee, spices, rice, etc.). For a non-food category, write 'U.S. buyers in {buyer_category}' instead of 'U.S. food buyers'.",
           "",
           "HARD RULES:",
-          "1. After P4 add the opt-out as its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up — no hard feelings.'",
-          "2. ONE CTA only — P4's offer to send a relevant supplier option for review. Never ask about MOQ/price/payment/packaging/spec.",
+          "1. P5 comes AFTER P4 and BEFORE the opt-out. The opt-out is its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up — no hard feelings.'",
+          "2. ONE ask-set: P4's offer (review a supplier option) + P5's routing request. Never ask about MOQ/price/payment/packaging/spec.",
           "3. Do NOT invent facts: no supplier names, no specific factory certifications, no prices/volumes, no claim of prior contact. P3 is the ONLY reference to how the buyer was found — never mention customs records, databases, shipment counts, TEU, peak months, ports, or HS codes.",
           "4. 'verified Vietnam suppliers' is allowed because it refers to Veximtrade's audit-before-introduction process — never upgrade it into stronger claims ('FDA approved', 'guaranteed', 'best', '#1' are forbidden).",
           "5. BRAND NAMING: the body says 'Veximtrade' (matches the veximtrade.com sender domain). 'VEXIM GLOBAL CO., LTD' is the legal entity and appears ONLY in the signature line — never write 'Vexim' or 'Vexim Global' in the body.",
           "6. No URL, link, image, or attachment. Plain text only.",
           "7. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
-          "8. Total body 90-140 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
+          "8. Total body 100-160 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
           "9. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
           "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category} — supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
           "11. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
           "",
-          "SELF-CHECK: exactly P1→P4 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; 90-140 words total. If any check fails, rewrite.",
+          "SELF-CHECK: greeting + exactly P1→P5 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; 100-160 words total. If any check fails, rewrite.",
         ].join("\n")
 
   const userPrompt = [
@@ -590,7 +597,7 @@ export async function generateRequirementInquiryEmail(
         ? input.shortlistUrl
           ? "Nhắc lại nhẹ nhàng về shortlist supplier đã gửi trước đó, hỏi buyer đã xem chưa và mời họ mở lại link."
           : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
-        : `Viết email mở đầu theo đúng mẫu 4 đoạn V5 (tham khảo buyer_category trong context): P1 giới thiệu bản thân + Veximtrade (nền tảng regulatory & sourcing của Vexim Global tại Việt Nam — thân bài chỉ viết Veximtrade, pháp nhân VEXIM GLOBAL CO., LTD chỉ ở signature) → P2 đang phát triển nhóm nhỏ supplier Việt Nam đã xác minh cho buyer Mỹ (điều chỉnh 'food buyers' nếu ngành không phải thực phẩm) → P3 'I came across {công ty} while researching U.S. buyers in {ngành}' → P4 đề nghị gửi 1 phương án nhà cung cấp phù hợp để review. TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
+        : `Viết email mở đầu theo đúng mẫu V5.1 (tham khảo buyer_category + contact_person trong context): mở đầu "Hi {tên contact}," (không có tên thì "Hi there,") → P1 giới thiệu bản thân + Veximtrade (nền tảng regulatory & sourcing của Vexim Global tại Việt Nam — thân bài chỉ viết Veximtrade, pháp nhân VEXIM GLOBAL CO., LTD chỉ ở signature) → P2 đang phát triển nhóm nhỏ supplier Việt Nam đã xác minh cho buyer Mỹ (điều chỉnh 'food buyers' nếu ngành không phải thực phẩm) → P3 'I came across {công ty} while researching U.S. buyers in {ngành}' → P4 đề nghị gửi 1 phương án nhà cung cấp phù hợp để review → P5 "Nếu đây không phải hộp thư bộ phận mua hàng, nhờ chuyển tiếp giúp hoặc cho biết email bộ phận phù hợp". TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
   ].join("\n")
 
   let generated: { subject_en: string; content_en: string; content_vi: string }

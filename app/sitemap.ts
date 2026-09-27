@@ -39,8 +39,6 @@ function staticEntries(now: Date): Entry[] {
     page(publicUrl(localizePath("/for-suppliers", "vi")), now, 0.85, "weekly"),
     page(publicUrl("/how-we-verify"), now, 0.8, "monthly"),
     page(publicUrl(localizePath("/how-we-verify", "vi")), now, 0.75, "monthly"),
-    page(publicUrl("/products"), now, 0.9, "daily"),
-    page(publicUrl(localizePath("/products", "vi")), now, 0.85, "daily"),
     {
       url: publicUrl("/auth/login"),
       lastModified: now,

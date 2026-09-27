@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { cache } from "react"
 import type { Metadata } from "next"
 import { unstable_cache } from "next/cache"
@@ -185,7 +185,13 @@ export async function generateStaticParams(): Promise<Array<{ id: string }>> {
   }
 }
 
-export async function generateMetadata({
+export async function generateMetadata(): Promise<Metadata> {
+  // Route đã đóng (redirect 308 ở page component) — chặn index trong lúc
+  // Google còn cache URL cũ.
+  return { title: siteConfig.name, robots: { index: false, follow: false } }
+}
+
+async function _closedProductMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params
@@ -233,7 +239,14 @@ export async function generateMetadata({
   }
 }
 
-export default async function ProductPage({ params }: PageProps) {
+export default async function ProductPage(): Promise<never> {
+  // Đã đóng (27/09/2026): catalog public bỏ — không phô supplier + giá ra
+  // Google (schema.org/Product), danh sách sống ở luồng pitch 1:1.
+  permanentRedirect("/")
+  return new Promise(() => {}) as never
+}
+
+async function _closedProductPage({ params }: PageProps) {
   const { id } = await params
 
   const loaded = await loadPublicProduct(id)

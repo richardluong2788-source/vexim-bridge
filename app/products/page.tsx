@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { unstable_cache } from "next/cache"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { ArrowRight, ChevronLeft, ChevronRight, Package, Search, Store, X } from "lucide-react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getDictionary } from "@/lib/i18n/server"
@@ -15,9 +15,18 @@ import { ProductCard, type CatalogProduct } from "@/components/product/product-c
 import { JsonLd } from "@/components/seo/json-ld"
 
 /**
- * Public product catalog (`/products`, Vietnamese twin at `/vi/products`).
+ * FORMER public product catalog (`/products`).
  *
- * Buyer-facing index over `client_products`, enforcing the same visibility
+ * CLOSED (quyết định 27/09/2026): danh mục public đi ngược positioning
+ * "not a marketplace" — nó để buyer tự browse/bypass form qualifying +
+ * matching + gate declined, phô danh sách supplier cho đối thủ sourcing,
+ * và schema.org giá bơm giá cũ ra Google. Route giữ lại CHỈ để redirect
+ * 308 (Google tự gỡ index); nội dung catalog sống ở luồng pitch 1:1
+ * (share page theo engagement) và portal supplier. Mở lại chỉ khi có
+ * quyết định ngược từ chủ sở hữu.
+ */
+/**
+ * (đã đóng) Buyer-facing index over `client_products`, enforcing the same visibility
  * rules as the product page it links into:
  *  - `status = 'active'`;
  *  - only suppliers whose `client_profiles.is_published = true`.
@@ -252,7 +261,13 @@ const loadCachedCatalog = unstable_cache(loadCatalog, ["catalog"], {
   tags: [CATALOG_CACHE_TAG],
 })
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+export async function generateMetadata(): Promise<Metadata> {
+  // Route đã đóng (redirect 308 ở page component) — chặn index trong lúc
+  // Google còn cache URL cũ.
+  return { title: siteConfig.name, robots: { index: false, follow: false } }
+}
+
+async function _closedCatalogMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { locale, t } = await getDictionary()
   const { total } = await loadCachedCatalog(readQuery(await searchParams))
 
@@ -276,7 +291,13 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   }
 }
 
-export default async function ProductsCatalogPage({ searchParams }: PageProps) {
+export default async function ProductsCatalogPage(): Promise<never> {
+  // Đã đóng — xem docstring ở đầu file.
+  permanentRedirect("/")
+  return new Promise(() => {}) as never
+}
+
+async function _closedCatalogPage({ searchParams }: PageProps) {
   const { locale, t } = await getDictionary()
   const query = readQuery(await searchParams)
 

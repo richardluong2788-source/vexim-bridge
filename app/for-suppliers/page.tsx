@@ -273,15 +273,6 @@ export default async function RootPage() {
             <a href="#solution" className="transition-colors hover:text-primary">{t.nav[1]}</a>
             <a href="#process" className="transition-colors hover:text-primary">{t.nav[2]}</a>
             <a href="#faq" className="transition-colors hover:text-primary">{t.nav[3]}</a>
-            {/* The catalog is the one thing on this page a buyer can browse without
-                talking to anyone, so it leads the nav rather than hiding in the
-                footer. Locale-prefixed so a /vi visitor stays in /vi. */}
-            <Link
-              href={localizePath("/products", locale)}
-              className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-semibold text-primary transition-colors hover:border-accent hover:bg-accent/20"
-            >
-              {t.catalog}
-            </Link>
           </nav>
           <details className="relative lg:hidden">
             <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border text-primary hover:bg-muted [&::-webkit-details-marker]:hidden" aria-label={localeLabel(locale, "Mở menu", "Open menu")}>
@@ -292,7 +283,6 @@ export default async function RootPage() {
               <a href="#solution" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[1]}</a>
               <a href="#process" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[2]}</a>
               <a href="#faq" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[3]}</a>
-              <Link href={localizePath("/products", locale)} className="block rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted">{t.catalog}</Link>
             </div>
           </details>
           <div className="flex items-center gap-2"><LanguageSwitcher compact /><Button asChild variant="outline" className="hidden border-primary/20 text-primary hover:bg-primary/5 sm:inline-flex"><Link href="/auth/login">{t.signIn}</Link></Button><Button asChild className="bg-cta text-cta-foreground shadow-sm hover:bg-cta/90"><a href="#consultation">{t.contact}</a></Button></div>
@@ -373,7 +363,7 @@ export default async function RootPage() {
             <div>
               <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "LIÊN KẾT" : "LINKS"}</p>
               <div className="mt-4 flex flex-col gap-2.5 text-sm">
-                <Link href={localizePath("/products", locale)} className="text-slate-300 hover:text-white">
+                <Link href={localizePath("/how-we-verify", locale)} className="text-slate-300 hover:text-white">
                   {locale === "vi" ? "Danh mục sản phẩm" : "Product catalog"}
                 </Link>
                 <Link href={localizePath("/", locale)} className="text-slate-400 hover:text-white">

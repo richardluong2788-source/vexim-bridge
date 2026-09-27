@@ -189,9 +189,9 @@ const content = {
       "Chúng tôi không gọi video do NCC cung cấp là audit trừ khi chúng tôi thực hiện xác minh tại chỗ",
     ],
     catalogEyebrow: "BẰNG CHỨNG",
-    catalogTitle: "Xem các NCC & sản phẩm đã được sàng lọc",
+    catalogTitle: "Mỗi hồ sơ NCC cho thấy đã kiểm tra những gì",
     catalogText:
-      "Mỗi hồ sơ cho thấy những gì đã được rà soát và khi nào. Mức độ xác minh khác nhau tùy NCC.",
+      "Khi nhận danh sách đề xuất, mỗi nhà máy kèm hồ sơ rà soát: đã kiểm gì, khi nào, ở mức xác minh nào. Danh mục không công khai — chúng tôi ghép NCC theo nhu cầu của bạn, không phải cho bạn lướt chọn.",
     catalogCta: "Xem tất cả sản phẩm",
     compEyebrow: "CHI PHÍ",
     compTitle: "Cách chúng tôi được trả phí",
@@ -330,8 +330,8 @@ const content = {
       "We don't call supplier-provided video an audit unless we conduct on-site verification",
     ],
     catalogEyebrow: "EVIDENCE",
-    catalogTitle: "Browse Screened Vietnamese Suppliers & Products.",
-    catalogText: "Each profile shows what was reviewed and when. Verification levels vary by supplier.",
+    catalogTitle: "What a Supplier Profile Shows.",
+    catalogText: "Every introduction comes with a review record: what was checked, when, and at which verification level. The catalog isn't public. We match suppliers to your request instead of letting you scroll a list.",
     catalogCta: "Browse all products",
     compEyebrow: "COMPENSATION",
     compTitle: "How We Are Compensated.",
@@ -407,9 +407,6 @@ export default async function RootPage() {
             <a href="#how-it-works" className="transition-colors hover:text-primary">
               {t.nav.howItWorks}
             </a>
-            <Link href={localizePath("/products", locale)} className="transition-colors hover:text-primary">
-              {t.nav.catalog}
-            </Link>
             <Link href={localizePath("/for-suppliers", locale)} className="text-muted-foreground/70 hover:text-primary">
               {t.nav.suppliers}
             </Link>
@@ -428,9 +425,6 @@ export default async function RootPage() {
               <a href="#how-it-works" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">
                 {t.nav.howItWorks}
               </a>
-              <Link href={localizePath("/products", locale)} className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">
-                {t.nav.catalog}
-              </Link>
               <Link href={localizePath("/for-suppliers", locale)} className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">
                 {t.nav.suppliers}
               </Link>
@@ -471,9 +465,6 @@ export default async function RootPage() {
                   {t.ctaPrimary}
                   <ArrowRight className="h-4 w-4" />
                 </a>
-              </Button>
-              <Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white">
-                <Link href={localizePath("/products", locale)}>{t.ctaSecondary}</Link>
               </Button>
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
@@ -705,9 +696,9 @@ export default async function RootPage() {
             <p className="mt-4 text-base leading-7 text-muted-foreground">{t.catalogText}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="bg-cta text-cta-foreground hover:bg-cta/90">
-                <Link href={localizePath("/products", locale)}>
-                  {t.catalogCta} <ArrowRight className="h-4 w-4" />
-                </Link>
+                <a href="#sourcing-request">
+                  {t.ctaPrimary} <ArrowRight className="h-4 w-4" />
+                </a>
               </Button>
               <Button asChild variant="outline" size="lg" className="border-primary/20 text-primary">
                 <Link href={localizePath("/how-we-verify", locale)}>How we verify</Link>
@@ -895,9 +886,6 @@ export default async function RootPage() {
             <div>
               <p className="text-xs font-bold tracking-[0.18em] text-slate-400">{locale === "vi" ? "LIÊN KẾT" : "LINKS"}</p>
               <div className="mt-4 flex flex-col gap-2.5 text-sm">
-                <Link href={localizePath("/products", locale)} className="text-slate-300 hover:text-white">
-                  {locale === "vi" ? "NCC đã sàng lọc" : "Screened suppliers"}
-                </Link>
                 <Link href={localizePath("/how-we-verify", locale)} className="text-slate-300 hover:text-white">
                   {locale === "vi" ? "Cách chúng tôi sàng lọc" : "How we verify"}
                 </Link>

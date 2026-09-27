@@ -28,15 +28,21 @@ export type GeneratedCampaignEmail = {
 }
 
 const STEP_TYPE_GUIDANCE: Record<string, string> = {
-  initial_outreach: `EMAIL 1 — Introduction + relevance. DO NOT pitch any supplier yet.
-Structure: 1-2 sentences acknowledging their world (product/category for the US market, softly, no surveillance data) → 1-2 sentences who Vexim is (compliance consulting partner for Vietnamese factories exporting to the US: FDA, HACCP, traceability; factories audited before joining; direct factory, not a marketplace or trading company) → 1 soft CTA (open to connect / worth a short conversation).
-Purpose: earn a reply, nothing more.`,
+  initial_outreach: `EMAIL 1 — Introduction + relevance. DO NOT pitch any specific supplier yet (offering to send ONE option for review is fine; naming or pitching a factory is not).
+Write EXACTLY this shape: greeting by first name, then 5 short paragraphs, then the opt-out line.
+P1: I'm {sender_name} with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.
+P2: We're currently working with a small number of verified suppliers in Vietnam for U.S. {broad_category} buyers. We check product fit and U.S. import requirements before introducing a supplier.
+P3: I came across {buyer_company} while researching U.S. buyers in {category}.
+P4: If you're currently considering Vietnam as a source for {product_or_category}, I can send you a relevant supplier option for a quick look.
+P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward, or just point me to the right contact.
+Opt-out: If this isn't relevant right now, just reply no and I won't follow up.
+Purpose: earn a reply, nothing more. Test signals: right buyer, right contact, real relevance.`,
   follow_up: `FOLLOW-UP — continue the conversation, never pressure.
 Step 2 goal (reinforce relevance): position Vexim as a low-effort way to add US-compliant Vietnamese manufacturers alongside existing sources — phrased CONDITIONALLY ("if adding a Vietnamese origin is on your radar"), never as a claim about the buyer's plans or the market.
-Step 3 goal (reduce friction): do NOT ask "Do you want suppliers?". Instead: "If you're currently reviewing any products or specifications, feel free to send them over and I can check whether we have a suitable manufacturer."
+Step 3 goal (reduce friction): do NOT ask "Do you want suppliers?". Instead: "If you're currently reviewing any products or specifications, just send them over and I can check whether we have a suitable manufacturer."
 MUST be noticeably SHORTER than the previous email and MUST NOT repeat its content, subject, or opening line.`,
   close_loop: `CLOSE-LOOP — final email of the sequence. Give the buyer an easy, dignified way to say no.
-Example spirit: "I don't want to keep landing in your inbox — if Vietnam sourcing isn't a priority right now, a simple 'no thanks' is completely fine and I'll close the file."
+Example spirit: "I don't want to keep landing in your inbox. If Vietnam sourcing isn't a priority right now, a simple 'no thanks' is completely fine and I'll close the file."
 It must actually CLOSE the loop: state clearly that this is the last email for now and that no reply is needed. Do NOT end with a question and do NOT force a choice ("which would you prefer?", "let me know either way") — that hands the buyer an admin task instead of closing politely. Leave the door open in one sentence, then stop.
 Keep it warm, 3-5 sentences total, no question mark.`,
   nurture: `NURTURE — long-interval check-in. Same rules as close_loop minus the explicit ask to say no.`,
@@ -54,7 +60,7 @@ function buildSignature(senderName?: string | null): string {
   return [
     "",
     "Best regards,",
-    senderName?.trim() || "Vexim",
+    senderName?.trim() || "Veximtrade",
     SIGNATURE_COMPANY,
     SIGNATURE_ADDRESS,
     SIGNATURE_WEBSITE,
@@ -72,8 +78,8 @@ export async function generateCampaignEmail(
   senderName?: string | null,
 ): Promise<GeneratedCampaignEmail> {
   const system = [
-    "You are Vexim's B2B sales assistant writing cold outreach emails to US food import buyers on behalf of Vexim Global (Vietnam).",
-    "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US — not a marketplace, not a trading company.",
+    "You are Veximtrade's B2B sales assistant writing cold outreach emails to US import buyers for Veximtrade, the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD.",
+    "Veximtrade works with Vietnamese manufacturers on U.S. regulatory compliance and sourcing — not a marketplace, not a trading company.",
     "",
     "NORTH STAR: the email works because it is genuinely relevant — a real angle grounded in THIS buyer's context and the campaign's positioning — not because it tricks a spam filter. Never optimize for 'sounding human'; optimize for being worth a reply. Every sentence must be explainable by something in the context or an approved fact.",
     "",
@@ -88,14 +94,16 @@ export async function generateCampaignEmail(
     "FACTS ABOUT VEXIM (whitelist — state ONLY these, lightly paraphrased, never embellished):",
     ...APPROVED_VEXIM_CLAIMS.map((c) => `- ${c}`),
     "- Nothing else about Vexim: no superlatives (leading, best, largest, premier...), no counts (X factories, X years, X buyers), no certifications beyond the services above (no ISO/BRC/SQF claims), no audit depth beyond 'audited before introduction'.",
-    "IDENTITY: in the body, call the company \"Vexim\". The legal entity \"VEXIM GLOBAL CO., LTD\" appears ONLY in the signature block. Never write \"Vexim Trade\".",
+    "IDENTITY: in the body, call the company \"Veximtrade\" (matches the veximtrade.com sender domain). The legal entity \"VEXIM GLOBAL CO., LTD\" appears ONLY in the signature block. Never write \"Vexim\" or \"Vexim Global\" in the body.",
     "",
     "DELIVERABILITY RULES (spec §22):",
     "- Plain text only. No links, no images, no attachments, no HTML, no emoji.",
     "- No spam trigger words (free, guarantee, discount, act now, risk-free, congratulations).",
+    "- PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell.",
+    "- AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Plain, human, direct.",
     "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
     "Best regards,\n" +
-    (senderName?.trim() || "Vexim") + "\n" +
+    (senderName?.trim() || "Veximtrade") + "\n" +
     SIGNATURE_COMPANY + "\n" +
     SIGNATURE_ADDRESS + "\n" +
     SIGNATURE_WEBSITE + "\n" +

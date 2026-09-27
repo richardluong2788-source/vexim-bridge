@@ -168,8 +168,8 @@ export const NOTIFICATION_DEDUP_PREFIX = "campaign"
  * → HIGH block.
  */
 export const APPROVED_VEXIM_CLAIMS = [
-  "Vexim is a compliance consulting partner for Vietnamese factories exporting to the US",
-  "Vexim is not a marketplace and not a trading company — direct factory relationships",
+  "Veximtrade works with Vietnamese manufacturers on U.S. regulatory compliance and sourcing",
+  "Veximtrade is not a marketplace and not a trading company, direct factory relationships",
   "Factories are audited/verified before being introduced to a buyer",
   "Vexim helps factories prepare FDA registration, HACCP and traceability documentation",
   "Buyers can send a product spec and Vexim will check whether a factory matches it",

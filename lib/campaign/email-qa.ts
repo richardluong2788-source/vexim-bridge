@@ -157,13 +157,13 @@ export function runEmailQA(params: {
   }
 
   // 12. Opt-out respected — follow-up trở đi cần đường lùi mềm.
-  if (optOutRequired && !/(no thanks|not interested|isn'?t (a priority|relevant)|won'?t reach out|stop emailing|feel free to (say|let me know))/i.test(body)) {
+  if (optOutRequired && !/(no thanks|not interested|isn'?t (a priority|relevant)|won'?t (reach out|follow up)|just reply no|stop emailing|feel free to (say|let me know))/i.test(body)) {
     issues.push({ check: "opt_out_line", severity: "MEDIUM", message: "Follow-up emails must offer an easy way out (soft opt-out line)." })
   }
 
   // Signature chuẩn (CAN-SPAM/Gmail): thương hiệu + địa chỉ thật trong body.
   if (!/vexim/i.test(body)) {
-    issues.push({ check: "signature_brand", severity: "LOW", message: "Signature missing Vexim brand." })
+    issues.push({ check: "signature_brand", severity: "LOW", message: "Signature missing Veximtrade brand." })
   }
   // Địa chỉ thật — check theo street/ward của signature chuẩn (chung chung
   // "Vietnam" sẽ false-positive vì tên quốc gia xuất hiện tự nhiên trong body).
@@ -214,6 +214,17 @@ export function runEmailQA(params: {
   // buyer chọn phương án trả lời ("which would you prefer?"...).
   if (/which\s+(would|do|can)\s+you\s+(prefer|like)|let me know which|either\s+(way|works)[,—-]*\s*(just\s+)?(reply|let me know)/i.test(body)) {
     issues.push({ check: "close_loop_pressure", severity: "MEDIUM", message: "Forced-choice ending hands the buyer an admin task — close the loop without demanding a reply." })
+  }
+
+  // 16. Punctuation (V5.2): em/en dash trong body là AI-tell — cấm.
+  if (/[\u2014\u2013]/.test(body)) {
+    issues.push({ check: "punctuation", severity: "MEDIUM", message: "Em/en dash in body (AI-generated tell) — use periods or commas." })
+  }
+
+  // 17. AI-style polished phrasing (V5.2) — cảm giác marketing/AI.
+  const aiPhrase = body.match(/no hard feelings|I'?d be delighted|I'?d love to|feel free to|I hope this (email|message) finds you well/i)
+  if (aiPhrase) {
+    issues.push({ check: "ai_phrasing", severity: "MEDIUM", message: `AI-style phrasing ("${aiPhrase[0]}") — say it plainly.` })
   }
 
   // ALL CAPS / exclamation (bắt từ requirement-email anti-spam kinh nghiệm).

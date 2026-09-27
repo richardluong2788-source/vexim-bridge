@@ -15,7 +15,7 @@ const ctx = (over = {}) => ({
 console.log('EMAIL QA TESTS')
 t('email sạch → LOW, passed', () => {
   const r = qa.runEmailQA({
-    email: { subjectEn: 'Following up on Vietnam sourcing', contentEn: 'Hi John,\n\nWanted to check if expanding your Vietnam supplier base is on the radar this quarter. We work with audited Vietnamese food factories exporting to the US.\n\nWould it be worth a short chat?\n\nIf this is not relevant right now, a simple "no thanks" is completely fine.\n\nBest regards,\nVexim\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\nveximtrade.com' },
+    email: { subjectEn: 'Following up on Vietnam sourcing', contentEn: 'Hi John,\n\nWanted to check if expanding your Vietnam supplier base is on the radar this quarter. We work with audited Vietnamese food factories exporting to the US.\n\nWould it be worth a short chat?\n\nIf this is not relevant right now, a simple "no thanks" is completely fine.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\nveximtrade.com' },
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
   assert.strictEqual(r.risk_level, 'LOW')
@@ -110,6 +110,42 @@ t('missing email → invalid_contact', () => {
 t('lead sạch → ok', () => {
   const r = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: null })
   assert.ok(r.ok)
+})
+
+t('follow-up thiếu opt-out line → MEDIUM', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nChecking in on my earlier note. We work with audited Vietnamese food factories exporting to the US.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(r.issues.some(i => i.check === 'opt_out_line'), JSON.stringify(r.issues))
+})
+t('opt-out wording V5.2 ("just reply no and I won\'t follow up") → ĐẠT', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nChecking in on my earlier note about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(!r.issues.some(i => i.check === 'opt_out_line'), JSON.stringify(r.issues))
+})
+t('em dash trong body → punctuation MEDIUM', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nWe work with Vietnamese factories — direct relationships only.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(r.issues.some(i => i.check === 'punctuation'), JSON.stringify(r.issues))
+})
+t('"feel free to" → ai_phrasing MEDIUM', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nFeel free to reply if you want more info about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVeximtrade\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(r.issues.some(i => i.check === 'ai_phrasing'), JSON.stringify(r.issues))
+})
+t('body brand Veximtrade + pháp nhân chỉ ở signature → sạch', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Vietnam sourcing for Acme', contentEn: 'Hi John,\n\nI\'m with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.\n\nWould a short intro call be worth your time?\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nVu Le Hong\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\nveximtrade.com' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))
 })
 
 console.log('reply rules -> tested separately with mocked AI')

@@ -17,11 +17,14 @@ export type BuyerActionValue =
   | "selected_primary"
   | "sent_price_volume"
   | "sent_po"
+  | "declined"
 
 export interface ShortlistItemRow {
   id: string
   client_id: string
   position: number
+  /** Pitch-first (093): primary | bench | option — bench không hiện cho buyer. */
+  role?: "primary" | "bench" | "option" | null
   match_score: number | null
   buyer_interested: boolean | null
   buyer_action: BuyerActionValue | null
@@ -41,6 +44,8 @@ export interface ShortlistVersionRow {
   sent_at: string | null
   superseded_at: string | null
   buyer_engagement_shortlist_items: ShortlistItemRow[]
+  /** Pitch-first (093): AI-drafted 'why this factory' note, AE-reviewed. */
+  pitch_note?: string | null
 }
 
 export interface ShareLinkRow {

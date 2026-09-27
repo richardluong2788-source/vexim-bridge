@@ -25,6 +25,12 @@
 
 import { revalidatePath } from "next/cache"
 import { requireCap } from "@/lib/auth/guard"
+import {
+  validatePitchSelection,
+  filterRepitchEligible,
+  buildPitchNote,
+  isInterestedAction,
+} from "@/lib/buyers/pitch-helpers"
 import { CAPS } from "@/lib/auth/permissions"
 import { assignBuyerToClients } from "@/app/admin/buyers/actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
@@ -38,7 +44,8 @@ import {
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
-  | { ok: false; error: string }
+  // message?: giải thích tiếng Việt hiển thị trực tiếp cho AE (không phải mã lỗi).
+  | { ok: false; error: string; message?: string }
 
 // ---------------------------------------------------------------------------
 // Claim a buyer from the AI inbox — creates the pre-opportunity workspace
@@ -343,13 +350,23 @@ function buildBuyerFacingHighlights(match: any): string[] {
 export async function buildShortlist(
   engagementId: string,
   clientIds: string[],
+  // Pitch-first flow (migration 093): mode 'pitch' = clientIds[0] là PRIMARY
+  // (buyer thấy duy nhất), phần sau là BENCH (AE giữ, buyer không thấy) +
+  // pitch_note. Mặc định 'list' giữ nguyên flow Option A/B/C cũ (ngoại lệ).
+  opts?: { mode?: "pitch" | "list"; pitchNote?: string | null },
 ): Promise<ActionResult<{ versionId: string; versionNumber: number }>> {
   const guard = await requireCap(CAPS.BUYER_WRITE)
   if (!guard.ok) return { ok: false, error: guard.error }
   const { admin, userId } = guard
 
+  const mode = opts?.mode ?? "list"
   if (clientIds.length < 1 || clientIds.length > 3) {
     return { ok: false, error: "shortlist_must_have_1_to_3_clients" }
+  }
+  if (mode === "pitch") {
+    // Primary = phần tử đầu; validate bench (tối đa 2, không trùng).
+    const check = validatePitchSelection(clientIds[0], clientIds.slice(1))
+    if (!check.ok) return { ok: false, error: check.error }
   }
 
   const { data: engagement, error: engErr } = await admin
@@ -360,6 +377,33 @@ export async function buildShortlist(
     .eq("id", engagementId)
     .single()
   if (engErr || !engagement) return { ok: false, error: "engagement_not_found" }
+
+  // Re-pitch gate (093): pitch mode KHÔNG được đề xuất lại supplier mà buyer
+  // đã bấm "declined" trong bất kỳ version nào trước đó của engagement này.
+  // Mỗi lần quay lại phải là một nhà máy khác — học từ lý do chê là Phase 2.
+  if (mode === "pitch") {
+    const { data: prevItems } = await admin
+      .from("buyer_engagement_shortlist_items")
+      .select("client_id, buyer_action, buyer_engagement_shortlist_versions!inner ( engagement_id )")
+      .eq("buyer_engagement_shortlist_versions.engagement_id", engagementId)
+      .eq("buyer_action", "declined")
+    const declined = new Set<string>(
+      ((prevItems ?? []) as Array<{ client_id: string }>).map((r) => r.client_id),
+    )
+    if (declined.size > 0) {
+      const checkDeclined = filterRepitchEligible(
+        clientIds.map((id) => ({ clientId: id })),
+        declined,
+      )
+      if (checkDeclined.blocked.length > 0) {
+        return {
+          ok: false,
+          error: "supplier_previously_declined",
+          message: `Buyer đã từ chối ${checkDeclined.blocked.length} supplier trong lựa chọn này (declined). Hãy chọn nhà máy khác — không đề xuất lại cái đã chê.`,
+        }
+      }
+    }
+  }
 
   // 1) Score every candidate with the live engine — this run's output is
   //    about to be frozen into the snapshot, so from this point on nothing
@@ -414,6 +458,24 @@ export async function buildShortlist(
       requirements_snapshot: requirementsSnapshot,
       scoring_engine_version: SCORING_ENGINE_VERSION,
       created_by: userId,
+      // Pitch-first (093): AI soạn note "vì sao đề xuất nhà máy này" từ match
+      // reasoning (deterministic template) — AE sửa trước khi duyệt gửi.
+      pitch_note:
+        mode === "pitch"
+          ? (opts?.pitchNote ??
+            buildPitchNote({
+              supplierName:
+                (profileById.get(clientIds[0]!) as any)?.company_name ??
+                clientIds[0],
+              highlights: buildBuyerFacingHighlights(matchByClient.get(clientIds[0])),
+              matchReasoning: matchByClient.get(clientIds[0])?.matchReasoning ?? null,
+              requirements: {
+                // Generated types chưa có 2 cột này trên buyer_engagements → unknown.
+                products: (engagement as any).requested_products ?? null,
+                moq: (engagement as any).moq ?? null,
+              },
+            }))
+          : null,
     })
     .select("id")
     .single()
@@ -463,6 +525,9 @@ export async function buildShortlist(
       version_id: version.id,
       client_id: clientId,
       position: idx,
+      // Pitch-first (093): phần tử đầu = primary (buyer thấy), còn lại = bench
+      // (AE giữ); list mode = 'option' cho toàn bộ như cũ.
+      role: mode === "pitch" ? (idx === 0 ? ("primary" as const) : ("bench" as const)) : ("option" as const),
       match_score: match?.finalScore ?? 0,
       match_factors: match?.matchBreakdown ?? [],
       match_reasoning: reasoning,
@@ -594,9 +659,47 @@ export type BuyerActionValue =
   | "requested_info"
   | "requested_sample"
   | "requested_meeting"
+  | "requested_order_discussion"
   | "selected_primary"
   | "sent_price_volume"
   | "sent_po"
+  | "declined"
+
+/**
+ * Lịch sử pitch theo supplier trong engagement (cho PitchDialog hiển thị badge
+ * "đã pitch vòng N" và chặn chọn lại supplier đã declined). Đọc qua các version
+ * cũ — items là snapshot immutable nên dữ liệu luôn trung thực.
+ */
+export async function getPitchHistory(
+  engagementId: string,
+): Promise<ActionResult<Array<{ clientId: string; timesPitched: number; declined: boolean; lastAction: string | null }>>> {
+  const guard = await requireCap(CAPS.BUYER_WRITE)
+  if (!guard.ok) return { ok: false, error: guard.error }
+  const { admin } = guard
+
+  const { data, error } = await admin
+    .from("buyer_engagement_shortlist_items")
+    .select(
+      "client_id, buyer_action, buyer_engagement_shortlist_versions!inner ( engagement_id, status )",
+    )
+    .eq("buyer_engagement_shortlist_versions.engagement_id", engagementId)
+    .in("buyer_engagement_shortlist_versions.status", ["sent", "superseded"])
+
+  if (error) return { ok: false, error: error.message }
+
+  const byClient = new Map<string, { timesPitched: number; declined: boolean; lastAction: string | null }>()
+  for (const r of (data ?? []) as Array<{ client_id: string; buyer_action: string | null }>) {
+    const cur = byClient.get(r.client_id) ?? { timesPitched: 0, declined: false, lastAction: null }
+    cur.timesPitched += 1
+    if (r.buyer_action === "declined") cur.declined = true
+    if (r.buyer_action) cur.lastAction = r.buyer_action
+    byClient.set(r.client_id, cur)
+  }
+  return {
+    ok: true,
+    data: Array.from(byClient.entries()).map(([clientId, v]) => ({ clientId, ...v })),
+  }
+}
 
 export async function markBuyerAction(
   itemId: string,
@@ -623,7 +726,9 @@ export async function markBuyerAction(
     .from("buyer_engagement_shortlist_items")
     .update({
       buyer_action: action,
-      buyer_interested: action !== "viewed_only",
+      // Fix 27/09 (093): declined = KHÔNG quan tâm (trước đây mọi action trừ
+      // viewed_only đều bị tính là interested=true).
+      buyer_interested: isInterestedAction(action),
       buyer_responded_at: new Date().toISOString(),
     })
     .eq("id", itemId)

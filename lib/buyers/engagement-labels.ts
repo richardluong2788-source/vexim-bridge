@@ -26,6 +26,7 @@ export const BUYER_ACTION_LABELS: Record<BuyerActionValue, { vi: string; en: str
   selected_primary: { vi: "Chọn làm supplier chính", en: "Selected as primary" },
   sent_price_volume: { vi: "Gửi giá & số lượng", en: "Sent price & volume" },
   sent_po: { vi: "Đã gửi PO", en: "Sent PO" },
+  declined: { vi: "Buyer từ chối supplier này", en: "Buyer declined this supplier" },
 }
 
 /** Dwell time on the public shortlist, e.g. "1m 20s". */

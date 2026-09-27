@@ -55,6 +55,7 @@ import {
 import {
   approveAndSendShortlist,
   buildShortlist,
+  getPitchHistory,
   convertEngagementToOpportunities,
   saveBuyerRequirements,
   type ConvertRoleAssignment,
@@ -77,6 +78,12 @@ import {
 } from "@/app/admin/ae-inbox/requirement-email-actions"
 import { sendEmailDraftAction } from "@/app/admin/opportunities/email-actions"
 import { getAIMatchedClients } from "@/app/admin/buyers/actions"
+import {
+  validatePitchSelection,
+  filterRepitchEligible,
+  buildPitchNote,
+  type PitchMode,
+} from "@/lib/buyers/pitch-helpers"
 import type { ClientMatchResult } from "@/lib/matching/client-types"
 import { LOW_MATCH_SCORE_THRESHOLD, MEDIUM_MATCH_SCORE_THRESHOLD } from "@/lib/matching/client-types"
 import { RequirementEmailComposer } from "@/components/admin/requirement-email-composer"
@@ -791,7 +798,8 @@ function RequirementFormDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Dialog: Build the AI shortlist (stage: requirements_received / shortlist_ready)
+// Dialog: Pitch một supplier (pitch-first, migration 093) hoặc build shortlist
+// so sánh Option A/B/C (ngoại lệ — stage: requirements_received / shortlist_ready)
 // ---------------------------------------------------------------------------
 
 function ShortlistBuilderDialog({
@@ -811,25 +819,121 @@ function ShortlistBuilderDialog({
   const [loaded, setLoaded] = useState(false)
   const [matches, setMatches] = useState<ClientMatchResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Pitch-first state (093)
+  const [mode, setMode] = useState<PitchMode>("pitch")
+  const [primaryId, setPrimaryId] = useState<string | null>(null)
+  const [bench, setBench] = useState<Set<string>>(new Set())
+  const [pitchNote, setPitchNote] = useState("")
+  const [noteTouched, setNoteTouched] = useState(false)
+  // Legacy list-mode selection (ngoại lệ Option A/B/C)
   const draftVersion = engagement.buyer_engagement_shortlist_versions.find((v) => v.status === "draft")
   const [selected, setSelected] = useState<Set<string>>(
     new Set((draftVersion?.buyer_engagement_shortlist_items ?? []).map((s) => s.client_id)),
   )
   const [saving, setSaving] = useState(false)
+  const [history, setHistory] = useState<Map<string, { timesPitched: number; declined: boolean }>>(new Map())
   const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
   const assignableIds = new Set(clients.map((c) => c.id))
+
+  const declinedIds = new Set(
+    Array.from(history.entries())
+      .filter(([, v]) => v.declined)
+      .map(([k]) => k),
+  )
 
   const handleLoadSuggestions = async () => {
     setLoading(true)
     setError(null)
-    const result = await getAIMatchedClients(engagement.lead_id)
+    const [result, hist] = await Promise.all([
+      getAIMatchedClients(engagement.lead_id),
+      getPitchHistory(engagement.id),
+    ])
     setLoading(false)
     setLoaded(true)
+    const eligible = hist.ok
+      ? filterRepitchEligible(
+          (result.ok ? result.data : []).map((m) => ({ clientId: m.clientId })),
+          new Set(
+            (hist.data ?? [])
+              .filter((h) => h.declined)
+              .map((h) => h.clientId),
+          ),
+        )
+      : null
+    if (hist.ok) {
+      const map = new Map<string, { timesPitched: number; declined: boolean }>()
+      for (const h of hist.data ?? []) map.set(h.clientId, { timesPitched: h.timesPitched, declined: h.declined })
+      setHistory(map)
+    }
     if (!result.ok) {
       setError(result.error)
       return
     }
-    setMatches(result.data.filter((m) => assignableIds.has(m.clientId)))
+    const filtered = result.data.filter((m) => assignableIds.has(m.clientId))
+    setMatches(filtered)
+    // Pitch-first: tự chọn hạng #1 chưa bị declined làm PRIMARY + soạn note.
+    const firstEligible =
+      eligible?.eligible.length
+        ? eligible.eligible[0].clientId
+        : filtered.find((m) => !hist.ok || !(hist.data ?? []).some((h) => h.clientId === m.clientId && h.declined))?.clientId
+    if (firstEligible) {
+      setPrimaryId(firstEligible)
+      autoDraftNote(firstEligible, filtered)
+    }
+  }
+
+  function autoDraftNote(clientId: string, list: ClientMatchResult[]) {
+    if (noteTouched) return
+    const m = list.find((x) => x.clientId === clientId)
+    // ClientMatchResult không có matchReasoning — derive từ matchBreakdown
+    // (cùng cách buildShortlist đóng băng reasoning vào item).
+    const reasoning =
+      (m?.matchBreakdown ?? [])
+        .map((f) => [f.factor, f.details].filter(Boolean).join(": "))
+        .filter(Boolean)
+        .join(" · ") || null
+    setPitchNote(
+      buildPitchNote({
+        supplierName: m?.clientName ?? "",
+        highlights: (m?.matchBreakdown ?? [])
+          .slice(0, 3)
+          .map((f) => [f.factor, f.details].filter(Boolean).join(": ")),
+        matchReasoning: reasoning,
+        requirements: {
+          products: engagement.requested_products ?? null,
+          moq: engagement.moq ?? null,
+        },
+      }),
+    )
+    setNoteTouched(false)
+  }
+
+  function choosePrimary(clientId: string) {
+    if (declinedIds.has(clientId)) return
+    setPrimaryId(clientId)
+    setBench((prev) => {
+      const next = new Set(prev)
+      next.delete(clientId)
+      return next
+    })
+    autoDraftNote(clientId, matches)
+  }
+
+  function toggleBench(clientId: string) {
+    if (declinedIds.has(clientId) || clientId === primaryId) return
+    setBench((prev) => {
+      const next = new Set(prev)
+      if (next.has(clientId)) {
+        next.delete(clientId)
+      } else {
+        if (next.size >= 2) {
+          toast.error(t("Tối đa 2 supplier dự bị (bench)", "Maximum 2 bench suppliers"))
+          return prev
+        }
+        next.add(clientId)
+      }
+      return next
+    })
   }
 
   const toggle = (clientId: string) => {
@@ -849,12 +953,46 @@ function ShortlistBuilderDialog({
   }
 
   const handleBuild = async () => {
+    if (mode === "pitch") {
+      const check = validatePitchSelection(primaryId, Array.from(bench))
+      if (!check.ok) {
+        toast.error(
+          t(
+            check.error === "pitch_primary_required"
+              ? "Chọn 1 supplier để đề xuất"
+              : check.error === "pitch_bench_max_2"
+                ? "Tối đa 2 supplier dự bị"
+                : "Lựa chọn pitch không hợp lệ",
+            check.error === "pitch_primary_required"
+              ? "Pick one supplier to pitch"
+              : check.error === "pitch_bench_max_2"
+                ? "Maximum 2 bench suppliers"
+                : "Invalid pitch selection",
+          ),
+        )
+        return
+      }
+      setSaving(true)
+      const result = await buildShortlist(engagement.id, check.ordered, {
+        mode: "pitch",
+        pitchNote: pitchNote.trim() || null,
+      })
+      setSaving(false)
+      if (!result.ok) {
+        toast.error(result.message ?? result.error)
+        return
+      }
+      toast.success(t("Đã tạo bản pitch", "Pitch created"))
+      onBuilt()
+      return
+    }
+    // Legacy list mode (ngoại lệ)
     if (selected.size < 1) {
       toast.error(t("Chọn ít nhất 1 supplier", "Select at least 1 supplier"))
       return
     }
     setSaving(true)
-    const result = await buildShortlist(engagement.id, Array.from(selected))
+    const result = await buildShortlist(engagement.id, Array.from(selected), { mode: "list" })
     setSaving(false)
     if (!result.ok) {
       toast.error(result.error)
@@ -868,11 +1006,22 @@ function ShortlistBuilderDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t("Chọn tối đa 3 supplier phù hợp nhất", "Pick up to 3 best-fit suppliers")}</DialogTitle>
+          <DialogTitle>
+            {mode === "pitch"
+              ? t("Đề xuất 1 nhà máy cho buyer (pitch-first)", "Pitch one factory to the buyer (pitch-first)")
+              : t("Chọn tối đa 3 supplier phù hợp nhất", "Pick up to 3 best-fit suppliers")}
+          </DialogTitle>
           <DialogDescription>
-            {t(
-              "Dựa trên nhu cầu buyer đã ghi nhận, AI xếp hạng supplier phù hợp. Buyer sẽ thấy đúng 3 lựa chọn (Option A/B/C) — nếu chọn ít hơn 3, hãy đảm bảo có lý do rõ ràng (ví dụ: không đủ supplier đạt tiêu chí) để có thể giải thích cho buyer.",
-              "Based on the buyer's recorded requirements, AI ranks the best-fit suppliers. The buyer will see exactly 3 options (Option A/B/C) — if you select fewer than 3, make sure you have a clear reason (e.g. not enough qualifying suppliers) you can explain to the buyer.",
+            {mode === "pitch" ? (
+              t(
+                "Buyer cần Vexim CHỌN GIÚP, không mua danh sách: AI xếp hạng, bạn chọn 1 nhà máy đề xuất (mặc định hạng #1) + tối đa 2 ghế dự bị (bench — buyer không thấy). Viết lý do đề xuất — buyer đọc dòng này trước tiên. Buyer từng chê nhà máy nào thì nhà máy đó bị chặn, không đề xuất lại.",
+                "Buyers need Vexim to DECIDE, not a list: AI ranks, you pick ONE factory to pitch (default rank #1) + up to 2 bench alternates (buyer never sees them). Write the pitch note — the buyer reads it first. Any supplier the buyer declined is blocked from re-pitching.",
+              )
+            ) : (
+              t(
+                "Dựa trên nhu cầu buyer đã ghi nhận, AI xếp hạng supplier phù hợp. Buyer sẽ thấy đúng 3 lựa chọn (Option A/B/C) — nếu chọn ít hơn 3, hãy đảm bảo có lý do rõ ràng (ví dụ: không đủ supplier đạt tiêu chí) để có thể giải thích cho buyer.",
+                "Based on the buyer's recorded requirements, AI ranks the best-fit suppliers. The buyer will see exactly 3 options (Option A/B/C) — if you select fewer than 3, make sure you have a clear reason (e.g. not enough qualifying suppliers) you can explain to the buyer.",
+              )
             )}
           </DialogDescription>
         </DialogHeader>
@@ -887,7 +1036,18 @@ function ShortlistBuilderDialog({
         ) : error && matches.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">{error}</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={mode === "list"}
+                onCheckedChange={(v) => setMode(v ? "list" : "pitch")}
+              />
+              {t(
+                "Ngoại lệ: gửi dạng so sánh Option A/B/C (buyer tự chọn)",
+                "Exception: send as an A/B/C comparison list (buyer picks)",
+              )}
+            </label>
+
             {matches.length > 0 && matches.every((m) => m.finalScore < LOW_MATCH_SCORE_THRESHOLD) && (
               <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 translate-y-px" />
@@ -895,10 +1055,10 @@ function ShortlistBuilderDialog({
                   {t(
                     "Chưa có supplier nào thực sự phù hợp với nhu cầu buyer (điểm khớp đều dưới " +
                       LOW_MATCH_SCORE_THRESHOLD +
-                      "/100). Cân nhắc báo buyer chờ thêm thời gian tìm supplier, mở rộng tiêu chí tìm kiếm, hoặc bổ sung supplier mới vào hệ thống trước khi gửi shortlist.",
+                      "/100). Cân nhắc báo buyer chờ thêm thời gian tìm supplier, mở rộng tiêu chí tìm kiếm, hoặc bổ sung supplier mới vào hệ thống trước khi gửi.",
                     "No supplier is a strong fit for this buyer's requirements (all match scores are below " +
                       LOW_MATCH_SCORE_THRESHOLD +
-                      "/100). Consider telling the buyer you need more time to source, broadening the search criteria, or onboarding a new supplier before sending a shortlist.",
+                      "/100). Consider telling the buyer you need more time to source, broadening the search criteria, or onboarding a new supplier before sending.",
                   )}
                 </span>
               </div>
@@ -912,15 +1072,36 @@ function ShortlistBuilderDialog({
                       ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
                       : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
                 const isFdaPending = m.matchBreakdown.some((f) => f.detail?.includes("Đang bổ sung"))
+                const isDeclined = declinedIds.has(m.clientId)
+                const hist = history.get(m.clientId)
+                const isPrimary = primaryId === m.clientId
+                const onBench = bench.has(m.clientId)
+                const inList = selected.has(m.clientId)
                 return (
-                  <label
+                  <div
                     key={m.clientId}
-                    className="flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2 cursor-pointer hover:bg-muted/40"
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md border bg-background px-2.5 py-2",
+                      isDeclined && "opacity-50",
+                      mode === "pitch" ? (isPrimary ? "border-primary bg-primary/5" : "") : inList ? "border-primary/50" : "",
+                    )}
                   >
-                    <Checkbox
-                      checked={selected.has(m.clientId)}
-                      onCheckedChange={() => toggle(m.clientId)}
-                    />
+                    {mode === "pitch" ? (
+                      <input
+                        type="radio"
+                        name="pitch-primary"
+                        checked={isPrimary}
+                        disabled={isDeclined}
+                        onChange={() => choosePrimary(m.clientId)}
+                        className="h-4 w-4 shrink-0 accent-primary"
+                        aria-label={t("Đề xuất nhà máy này", "Pitch this factory")}
+                      />
+                    ) : (
+                      <Checkbox
+                        checked={inList}
+                        onCheckedChange={() => toggle(m.clientId)}
+                      />
+                    )}
                     <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">#{idx + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -930,19 +1111,77 @@ function ShortlistBuilderDialog({
                             {t("⏳ FDA: Đang bổ sung", "⏳ FDA in progress")}
                           </Badge>
                         )}
+                        {isDeclined && (
+                          <Badge variant="outline" className="text-[9px] border-red-400 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 py-0 px-1">
+                            {t("Buyer đã chê — chặn re-pitch", "Buyer declined — blocked")}
+                          </Badge>
+                        )}
+                        {!isDeclined && hist && hist.timesPitched > 0 && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1">
+                            {t(`Đã pitch ×${hist.timesPitched}`, `Pitched ×${hist.timesPitched}`)}
+                          </Badge>
+                        )}
+                        {mode === "pitch" && isPrimary && (
+                          <Badge className="text-[9px] py-0 px-1 bg-primary text-primary-foreground">
+                            {t("ĐỀ XUẤT", "PITCH")}
+                          </Badge>
+                        )}
+                        {mode === "pitch" && onBench && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1">
+                            {t("Bench (dự bị)", "Bench")}
+                          </Badge>
+                        )}
                       </div>
                       <span className="truncate text-xs text-muted-foreground block">{m.productName}</span>
                     </div>
+                    {mode === "pitch" && !isPrimary && !isDeclined && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-[10px]"
+                        onClick={() => toggleBench(m.clientId)}
+                      >
+                        {onBench ? t("Bỏ bench", "Un-bench") : t("+ Bench", "+ Bench")}
+                      </Button>
+                    )}
                     {m.finalScore < LOW_MATCH_SCORE_THRESHOLD && (
                       <AlertTriangle className="h-3 w-3 shrink-0 text-red-500" />
                     )}
                     <Badge variant="outline" className={cn("shrink-0 text-[10px]", scoreTone)}>
                       {m.finalScore}
                     </Badge>
-                  </label>
+                  </div>
                 )
               })}
             </div>
+
+            {mode === "pitch" && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="pitch-note">
+                  {t("Lý do đề xuất (buyer đọc dòng này đầu tiên)", "Pitch note (the buyer reads this first)")}
+                </Label>
+                <Textarea
+                  id="pitch-note"
+                  rows={4}
+                  value={pitchNote}
+                  onChange={(e) => {
+                    setPitchNote(e.target.value)
+                    setNoteTouched(true)
+                  }}
+                  placeholder={t(
+                    "AI đã soạn sẵn theo điểm khớp — bạn có thể sửa. Viết như nói với buyer.",
+                    "AI drafted this from match factors — edit freely. Write like you talk to the buyer.",
+                  )}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {t(
+                    "Bench (dự bị) không hiện cho buyer — dùng để pitch vòng sau nếu buyer chê, KHÔNG gửi lại nhà máy đã chê.",
+                    "Bench alternates are never shown to the buyer — pitch them in a later round if the buyer declines, but NEVER re-send a declined factory.",
+                  )}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -950,9 +1189,15 @@ function ShortlistBuilderDialog({
           <Button variant="outline" onClick={onClose}>
             {t("Hủy", "Cancel")}
           </Button>
-          <Button onClick={handleBuild} disabled={saving || selected.size === 0} className="gap-2">
+          <Button
+            onClick={handleBuild}
+            disabled={saving || (mode === "pitch" ? !primaryId : selected.size === 0)}
+            className="gap-2"
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            {t(`Tạo shortlist (${selected.size})`, `Create shortlist (${selected.size})`)}
+            {mode === "pitch"
+              ? t("Tạo bản pitch", "Create pitch")
+              : t(`Tạo shortlist (${selected.size})`, `Create shortlist (${selected.size})`)}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1172,8 +1417,11 @@ function ConvertDialog({
 
   const [roles, setRoles] = useState<Map<string, SupplierRole>>(() => {
     const initial = new Map<string, SupplierRole>()
+    // Pitch-first (093): chỉ tự chọn DUY NHẤT supplier buyer quan tâm đầu tiên
+    // làm primary. Không tự tạo opportunity backup — buyer chọn ai thì tạo cho
+    // người đó; backup phải do AE chủ động thêm (toggle).
     const interested = items.filter((s) => s.buyer_interested === true)
-    interested.forEach((s, idx) => initial.set(s.client_id, idx === 0 ? "primary" : "backup"))
+    if (interested.length > 0) initial.set(interested[0].client_id, "primary")
     return initial
   })
   const [saving, setSaving] = useState(false)

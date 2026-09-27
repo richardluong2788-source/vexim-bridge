@@ -8,6 +8,9 @@ export type BuyerActionValue =
   | "selected_primary"
   | "sent_price_volume"
   | "sent_po"
+  // Pitch-first (migration 093): buyer chê supplier này — gate re-pitch ở
+  // buildShortlist sẽ chặn AE đề xuất lại trong cùng engagement.
+  | "declined"
 
 // The only values a buyer can set from this public page. "selected_primary",
 // "sent_price_volume" and "sent_po" are internal/AE-only classifications
@@ -19,4 +22,7 @@ export const BUYER_SELECTABLE_ACTIONS = [
   "requested_meeting",
   "interested_no_details",
   "requested_order_discussion",
+  // Pitch-first (093): buyer được nói "không phù hợp" — quan trọng cho gate
+  // re-pitch (AE không được đề xuất lại supplier đã chê).
+  "declined",
 ] as const satisfies readonly BuyerActionValue[]

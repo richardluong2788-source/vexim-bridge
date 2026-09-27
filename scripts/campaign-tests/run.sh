@@ -9,6 +9,10 @@ pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campai
   lib/campaign/email-qa.ts lib/campaign/reply-intent.ts lib/campaign/followup-gate.ts \
   --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
+# pitch-first helpers (093) — pure, không import gì. OUT/pitch để tránh
+# rootDir lệch (file này ở lib/buyers, còn lại ở lib/campaign).
+pnpm exec tsc lib/buyers/pitch-helpers.ts --outDir "$OUT/pitch" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
+
 # Stub 'ai' module: rule-confident paths không gọi AI; AI path trả UNKNOWN.
 mkdir -p "$OUT/node_modules/ai"
 cat > "$OUT/node_modules/ai/package.json" <<PKG
@@ -42,4 +46,5 @@ node scripts/campaign-tests/qa-suppression.test.js "$OUT" || fail=1
 node scripts/campaign-tests/reply-rules.test.js "$OUT" || fail=1
 node scripts/campaign-tests/followup-gate.test.js "$OUT" || fail=1
 node scripts/campaign-tests/sending-window.test.js "$OUT" || fail=1
+node scripts/campaign-tests/pitch.test.js "$OUT/pitch" || fail=1
 exit $fail

@@ -23,6 +23,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { engagementFocusPath } from "@/lib/notifications/paths"
+import { isInterestedAction } from "@/lib/buyers/pitch-helpers"
 import { BUYER_SELECTABLE_ACTIONS, type BuyerActionValue } from "./types"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
@@ -144,7 +145,8 @@ export async function markShortlistInterest(
     .from("buyer_engagement_shortlist_items")
     .update({
       buyer_action: action,
-      buyer_interested: action !== "viewed_only",
+      // Pitch-first (093): declined = KHÔNG quan tâm (buyer_interested=false).
+      buyer_interested: isInterestedAction(action),
       buyer_responded_at: new Date().toISOString(),
     })
     .eq("id", shortlistItemId)
@@ -171,6 +173,32 @@ export async function markShortlistInterest(
   // forget — notifications must never break the buyer's click. Only fire
   // when the action actually changed, so a repeat/double click and the
   // dedup keys both keep delivery to exactly once.
+  // Pitch-first (093): declined chỉ báo AE — supplier tuyệt đối không được
+  // biết buyer đã chê mình. AE nhận action_required để pitch supplier khác.
+  if (action === "declined" && previousAction !== action) {
+    const buyerLabel =
+      (engagement?.leads as { company_name?: string | null } | null)?.company_name ?? "buyer"
+    try {
+      if (engagement?.account_manager_id) {
+        await dispatchNotification({
+          userId: engagement.account_manager_id as string,
+          category: "action_required",
+          linkPath: engagementFocusPath(String(link.engagement_id)),
+          dedupKey: `shortlist_declined_ae:${shortlistItemId}`,
+          title: { vi: "Buyer từ chối một supplier — cần pitch lựa chọn khác", en: "Buyer declined a supplier — pitch an alternative" },
+          body: {
+            vi: `Buyer (${buyerLabel}) đã bấm "không phù hợp" với một supplier trên bản đề xuất. Đề xuất supplier KHÁC kèm lý do mới — không gửi lại nhà máy đã chê.`,
+            en: `Buyer (${buyerLabel}) marked a supplier as not the right fit. Pitch a DIFFERENT supplier with a fresh reason — never re-send the declined one.`,
+          },
+          ctaLabel: { vi: "Mở phiên xử lý", en: "Open engagement" },
+        })
+      }
+    } catch (err) {
+      console.error("[shortlist] declined notification failed", err)
+    }
+    return { ok: true }
+  }
+
   if (STRONG_ACTIONS.has(action) && previousAction !== action && row.client_id) {
     const copy = STRONG_COPY[action as keyof typeof STRONG_COPY]
     const buyerLabel =

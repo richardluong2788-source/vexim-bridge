@@ -16,6 +16,7 @@ const ACTION_LABEL: Partial<Record<BuyerActionValue, string>> = {
 }
 
 const ACTION_CONFIRMATION: Partial<Record<BuyerActionValue, string>> = {
+  declined: "Thanks for letting us know — we'll come back with a different suggestion.",
   requested_info: "We've let your account manager know you'd like more information.",
   requested_sample: "We've let your account manager know you'd like to request a sample.",
   requested_meeting: "We've let your account manager know you'd like to schedule a call.",
@@ -102,6 +103,14 @@ export function InterestButton({
         className="self-start text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
       >
         {pending && pendingAction === "requested_order_discussion" ? "Sending..." : "I'd like to discuss placing an order"}
+      </button>
+      <button
+        type="button"
+        onClick={() => handleClick("declined")}
+        disabled={pending}
+        className="self-start text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+      >
+        {pending && pendingAction === "declined" ? "Sending..." : "This one isn't the right fit"}
       </button>
       {error && <p className="text-[11px] text-destructive">{error}</p>}
     </div>

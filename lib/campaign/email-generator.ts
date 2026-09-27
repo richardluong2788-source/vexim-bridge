@@ -16,7 +16,7 @@ import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY, SIGNATURE_
 import type { BuyerContext } from "./types"
 const outputSchema = z.object({
   subject_en: z.string().describe("Email subject, plain sentence case, under 50 characters, no Re:/Fwd:, no ALL CAPS."),
-  content_en: z.string().describe("Full email body in English, plain text, greeting + 2-4 short paragraphs + signature block."),
+  content_en: z.string().describe("Full email body in English, plain text: greeting + 2-3 uneven natural paragraphs (related sentences grouped, paragraphs may run a few lines, lengths need not match) + opt-out line where required + signature block. Not one idea per paragraph."),
   content_vi: z.string().describe("Vietnamese translation of the email body for internal AE review."),
 })
 

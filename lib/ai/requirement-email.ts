@@ -557,7 +557,7 @@ export async function generateRequirementInquiryEmail(
       : [
           "You write the FIRST, SHORT opening email for Veximtrade (the Vietnam regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD) to a new U.S. buyer lead. V5.2 — DIRECT TEMPLATE, human tone: the buyer should feel a real AE reached out, not a marketing engine. Test signals: right buyer, right contact, real relevance.",
           "",
-          "WRITE THE EMAIL IN EXACTLY THIS SHAPE — greeting + 5 short paragraphs + opt-out, adapting the bracketed fields from context, nothing more:",
+          "CONTENT ORDER (keep all of these ideas, in this order, adapted from context): greeting, then P1..P5, then opt-out. NOTHING else:",
           "",
           "G: Hi {contact_first_name},",
           "P1: I'm {sender_name} with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.",
@@ -585,7 +585,8 @@ export async function generateRequirementInquiryEmail(
           "8. Total body 90-150 words INCLUDING the opt-out line. Short is the point, do not pad with extra sentences or adjectives.",
           "9. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
           "10. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category}: supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
-          "11. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
+          "11. Tone: plain, direct, calm American business English. The sentences above define the CONTENT in order; do not embellish with marketing adjectives or extra paragraphs.",
+          "12. NATURAL PARAGRAPHING (important): you are writing a real one-to-one email, not laying out copywriting blocks. Do NOT put every sentence on its own line and do NOT give each idea its own paragraph. Group related sentences into 2-3 uneven body paragraphs (a paragraph can be 2-4 sentences and run a few lines); perfect symmetry (intro para, company para, why-you para, offer para...) looks AI-written. Sentences may flow long, joined naturally with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. The first email only needs enough context to start the conversation, not every selling point.",
           "12. PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell; real B2B emails use plain sentence breaks.",
           "13. AVOID AI-STYLE PHRASING: never use polished marketing phrases such as 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well', 'seamless', 'elevate', 'empower'. Say things plainly or drop the line.",
           "",

@@ -29,14 +29,15 @@ export type GeneratedCampaignEmail = {
 
 const STEP_TYPE_GUIDANCE: Record<string, string> = {
   initial_outreach: `EMAIL 1 — Introduction + relevance. DO NOT pitch any specific supplier yet (offering to send ONE option for review is fine; naming or pitching a factory is not).
-Write EXACTLY this shape: greeting by first name, then 5 short paragraphs, then the opt-out line.
+CONTENT ORDER: greeting by first name, then these ideas in this order (P1..P5), then the opt-out line.
 P1: I'm {sender_name} with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.
 P2: We're currently working with a small number of verified suppliers in Vietnam for U.S. {broad_category} buyers. We check product fit and U.S. import requirements before introducing a supplier.
 P3: I came across {buyer_company} while researching U.S. buyers in {category}.
 P4: If you're currently considering Vietnam as a source for {product_or_category}, I can send you a relevant supplier option for a quick look.
 P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward, or just point me to the right contact.
 Opt-out: If this isn't relevant right now, just reply no and I won't follow up.
-Purpose: earn a reply, nothing more. Test signals: right buyer, right contact, real relevance.`,
+Purpose: earn a reply, nothing more. Test signals: right buyer, right contact, real relevance.
+PARAGRAPHING (important): write like a real AE typing a one-to-one email, not a copywriter laying out blocks. Do NOT put every sentence on its own line and do NOT give each idea its own paragraph. Group related sentences into 2-3 uneven body paragraphs; a paragraph can be 2-4 sentences and run a few lines, and lengths should NOT be uniform. Perfect intro-to-company-to-offer symmetry looks AI-written. Sentences may run long, joined naturally with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy.`,
   follow_up: `FOLLOW-UP — continue the conversation, never pressure.
 Step 2 goal (reinforce relevance): position Vexim as a low-effort way to add US-compliant Vietnamese manufacturers alongside existing sources — phrased CONDITIONALLY ("if adding a Vietnamese origin is on your radar"), never as a claim about the buyer's plans or the market.
 Step 3 goal (reduce friction): do NOT ask "Do you want suppliers?". Instead: "If you're currently reviewing any products or specifications, just send them over and I can check whether we have a suitable manufacturer."
@@ -101,6 +102,7 @@ export async function generateCampaignEmail(
     "- No spam trigger words (free, guarantee, discount, act now, risk-free, congratulations).",
     "- PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell.",
     "- AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Plain, human, direct.",
+    "- NATURAL PARAGRAPHING: write like a real AE typing a one-to-one email. Do NOT put every sentence on its own line; group related sentences into 2-3 uneven paragraphs (a paragraph can be 2-4 sentences, a few lines long; lengths need not match). Perfect symmetric structure (intro, company, why you, offer, CTA) reads as AI copywriting. Sentences may flow long with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. A cold email only needs enough context to start the conversation.",
     "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
     "Best regards,\n" +
     (senderName?.trim() || "Veximtrade") + "\n" +

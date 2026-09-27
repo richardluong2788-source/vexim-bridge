@@ -206,17 +206,21 @@ function buildFallbackEmail(
     }
   }
 
-  // V3 fallback — soft compliance consulting positioning, no raw data exposure
+  // V5 fallback — same DIRECT TEMPLATE the AI is asked to produce (095/V5)
+  const foodWords = /(food|seafood|fruit|nut|cashew|coffee|pepper|rice|spice|durian|mango|banana|shrimp|fish|poultry|meat|dairy|beverage|tea|agri)/i
+  const audienceEn = foodWords.test(topic) ? "U.S. food buyers" : `U.S. buyers in ${topic}`
   return {
-    subject_en: `Vietnam sourcing — ${topic} with US compliance support`,
+    subject_en: `Vietnam ${topic} — supplier option`,
     content_en: [
       `Hi ${greetingName},`,
       "",
-      `I'm ${ctx.senderName} with Vexim in Vietnam. We work as a compliance consulting partner for Vietnamese factories exporting to the US — helping them meet FDA, HACCP, and traceability requirements that US buyers expect.`,
+      `I'm ${ctx.senderName} from Vexim Global, a Vietnam-based regulatory and sourcing company working with manufacturers exporting to the U.S.`,
       "",
-      `For ${topic}, we only work with factories that have been through our compliance program and audit — direct factory, not trading companies.`,
+      `We're currently developing a small group of verified Vietnam suppliers for ${audienceEn}, with a focus on product fit and U.S. import compliance before making an introduction.`,
       "",
-      `Would you be open to exploring additional Vietnam sourcing with compliance support included? If now isn't the right time, no worries at all.`,
+      `I came across ${ctx.buyerCompany || "your company"} while researching U.S. buyers in ${topic}.`,
+      "",
+      `If Vietnam is a market you are currently considering for ${topic}, I'd be happy to send you a relevant supplier option for review.`,
       "",
       OPT_OUT_EN,
       signature_en,
@@ -224,11 +228,13 @@ function buildFallbackEmail(
     content_vi: [
       `Xin chào ${greetingName},`,
       "",
-      `Tôi là ${ctx.senderName} từ Vexim tại Việt Nam. Chúng tôi là đơn vị tư vấn tuân thủ cho các nhà máy Việt Nam xuất khẩu vào Mỹ — hỗ trợ họ đáp ứng các yêu cầu FDA, HACCP và truy xuất nguồn gốc mà buyer Mỹ yêu cầu.`,
+      `Tôi là ${ctx.senderName} từ Vexim Global — công ty regulatory & sourcing tại Việt Nam, làm việc với các nhà máy xuất khẩu vào Mỹ.`,
       "",
-      `Với ngành ${topic}, chúng tôi chỉ làm việc với các nhà máy đã qua chương trình tuân thủ và audit của Vexim — làm việc trực tiếp với nhà máy, không qua trading.`,
+      `Hiện chúng tôi đang xây dựng một nhóm nhỏ supplier Việt Nam đã được xác minh cho ${audienceEn === "U.S. food buyers" ? "các buyer thực phẩm Mỹ" : `các buyer Mỹ trong ngành ${topic}`}, tập trung vào độ phù hợp sản phẩm và tuân thủ nhập khẩu Mỹ trước khi giới thiệu.`,
       "",
-      `Bạn có muốn tìm hiểu thêm về nguồn cung từ Việt Nam với hỗ trợ tuân thủ không? Nếu hiện tại chưa phải thời điểm thích hợp thì cũng hoàn toàn không sao.`,
+      `Tôi tình cờ thấy ${ctx.buyerCompany || "công ty anh/chị"} khi nghiên cứu các buyer Mỹ trong ngành ${topic}.`,
+      "",
+      `Nếu Việt Nam là thị trường anh/chị đang cân nhắc cho ngành hàng này, tôi sẵn sàng gửi một phương án nhà cung cấp phù hợp để tham khảo.`,
       "",
       OPT_OUT_VI,
       signature_vi,
@@ -404,6 +410,11 @@ export async function generateRequirementInquiryEmail(
   const peakMonthsRaw = (lead as any)["top_peak_months"] as string | null ?? null
   const productSoft = getSoftProductDescription(mainProductRaw)
   const seasonHook = getSoftSeasonalityHook(peakMonthsRaw, now)
+  const buyerCategory =
+    (lead["industry"] as string | null)?.trim() ||
+    ((lead as any)["inquiry_products"] as string | null)?.trim() ||
+    productSoft ||
+    "your product category"
   const capacityAngle = getSeasonalCapacityAngle(seasonHook)
 
   const buyerIntelInternal = {
@@ -412,6 +423,7 @@ export async function generateRequirementInquiryEmail(
     contact_title: (lead as any)["contact_title"] ?? null,
     main_product: lead["main_product"],
     main_product_soft: productSoft,
+    buyer_category: buyerCategory,
     industry: lead["industry"],
     country: lead["country"],
     website: (lead as any)["website"] ?? null,
@@ -533,88 +545,35 @@ export async function generateRequirementInquiryEmail(
           "9. SOFT APPROACH: Do NOT expose internal buyer data (HS codes, supplier names, shipment counts, peak months) verbatim. Use soft language.",
         ].join("\n")
       : [
-          "You write the FIRST, SOFT opening email a Vietnamese compliance consulting team (Vexim) sends to a new buyer lead. V4 — 60/40 split.",
+          "You write the FIRST, SHORT opening email for a Vietnam-based regulatory & sourcing company (Vexim Global) to a new U.S. buyer lead. V5 — DIRECT TEMPLATE.",
           "",
-          "EMAIL STRUCTURE — 60% compliance consulting + 40% buyer product & seasonality:",
-          "Total 120-170 words body (excluding signature).",
-          "40% = Buyer product insight + seasonality hook (soft, not surveillance)",
-          "60% = Vexim compliance consulting positioning (who we are, compliance program, audit, direct factory)",
+          "WRITE THE EMAIL IN EXACTLY THIS SHAPE — 4 short paragraphs, adapting the bracketed fields from context, nothing more:",
           "",
-          "40% BUYER INSIGHT & SEASONALITY — from context main_product_soft, season_hook_soft, capacity_angle_soft, example_40_percent:",
-          "You have internal buyer data for reasoning, but you must produce SOFT language:",
-          "- Mention buyer's specific product category softly using main_product_soft (e.g., 'premium cashew kernels', 'arabica coffee', 'black pepper') — DO NOT use HS codes",
-          "- Mention seasonality softly using season_hook_soft and capacity_angle_soft (e.g., 'As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind') — DO NOT mention exact months like 'Oct, Nov, Dec' or 'your peak is Oct-Dec' or shipment counts",
-          "- Example desired 40% part from context: example_40_percent — adapt it naturally, do not copy verbatim if buyer_company missing",
-          "- BAD (surveillance): 'I noticed you import cashew W320 under HS 0801.32 from Vietnam and Chile, peak Oct-Dec, 120 shipments, 16,800kg'",
-          "- GOOD (soft 40%): 'I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.'",
-          "- GOOD: 'We work with a number of buyers in the cashew category who are looking to strengthen their Vietnam supply with US-compliant factories'",
-          "- This 40% part should be 1-2 sentences at the opening, right after greeting, before Vexim intro, or woven into same sentence as Vexim intro",
+          "P1: I'm {sender_name} from Vexim Global, a Vietnam-based regulatory and sourcing company working with manufacturers exporting to the U.S.",
+          "P2: We're currently developing a small group of verified Vietnam suppliers for U.S. food buyers, with a focus on product fit and U.S. import compliance before making an introduction.",
+          "P3: I came across {buyer_company} while researching U.S. buyers in {buyer_category}.",
+          "P4: If Vietnam is a market you are currently considering for {buyer_product}, I'd be happy to send you a relevant supplier option for review.",
           "",
-          "60% VEXIM COMPLIANCE CONSULTING — from context vexim_positioning:",
-          "Vexim = compliance consulting partner for Vietnamese factories exporting to US, not marketplace/trading.",
-          "We help factories meet FDA, HACCP, ISO 22000, BRC, traceability, audit readiness.",
-          "Only factories that have been through compliance program and audit, meeting US standards, join network. Reject 80%. Direct factory, no trading.",
-          "Buyers get US-compliant suppliers, not random quotes.",
-          "Use vexim_positioning.example_60_percent as reference for soft phrasing, adapt naturally.",
-          "Mention 1 compliance pillar softly (e.g., 'FDA registration and traceability from raw material') — not a list, not brochure.",
-          "This 60% part should be 2-3 sentences, after buyer insight, or woven into same paragraph.",
+          "FIELD RULES:",
+          "1. {sender_name} = sender_name from context (first name is fine). Never a placeholder.",
+          "2. {buyer_company} = the buyer's company name from context. If missing, write 'your company' — never invent a name.",
+          "3. {buyer_category} = the buyer's product category in natural wording (use buyer_category / main_product_soft from context, e.g. 'premium cashew kernels', 'frozen seafood'). Lowercase, plain wording, no HS codes.",
+          "4. {buyer_product} = the same category/product wording as P3 — keep it consistent, do not introduce a different product.",
+          "5. FOOD ADAPTIVITY: P2 keeps 'U.S. food buyers' ONLY when {buyer_category} is a food/beverage/agricultural category (food, seafood, fruit, nuts, coffee, spices, rice, etc.). For a non-food category, write 'U.S. buyers in {buyer_category}' instead of 'U.S. food buyers'.",
           "",
-          "CORE POSITIONING (must be reflected):",
-          "Vexim = đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ. Đối tác được tuyển chọn chất lượng đạt yêu cầu tuân thủ Hoa Kỳ: FDA, HACCP, ISO, BRC, traceability, lot tracking, audit readiness.",
+          "HARD RULES:",
+          "1. After P4 add the opt-out as its own short line, peer tone not a legal footer: 'If this isn't relevant right now, just reply no and I won't follow up — no hard feelings.'",
+          "2. ONE CTA only — P4's offer to send a relevant supplier option for review. Never ask about MOQ/price/payment/packaging/spec.",
+          "3. Do NOT invent facts: no supplier names, no specific factory certifications, no prices/volumes, no claim of prior contact. P3 is the ONLY reference to how the buyer was found — never mention customs records, databases, shipment counts, TEU, peak months, ports, or HS codes.",
+          "4. 'verified Vietnam suppliers' is allowed because it refers to Vexim's audit-before-introduction process — never upgrade it into stronger claims ('FDA approved', 'guaranteed', 'best', '#1' are forbidden).",
+          "5. No URL, link, image, or attachment. Plain text only.",
+          "6. No emoji, no ALL CAPS, no exclamation marks, no spam vocabulary ('free', 'discount', '100%', 'act now', 'limited time', ...).",
+          "7. Total body 90-140 words INCLUDING the opt-out line — short is the point, do not pad with extra sentences or adjectives.",
+          "8. Signature exact shape after a blank line: 'Best regards,' / sender_name / 'VEXIM GLOBAL CO., LTD' / sender_email / signature_address — verbatim from context, no phone, no title, no placeholder.",
+          "9. Subject: short, human, sentence case, under 50 chars, category-specific, e.g. 'Vietnam {category} — supplier option' or 'Verified {category} suppliers for U.S. buyers'. No Re:/Fwd:, no Title Case.",
+          "10. Tone: plain, direct, calm American business English. The template above is ALREADY the correct voice — do not embellish it with marketing adjectives or additional paragraphs.",
           "",
-          "GOAL: Briefly introduce Vexim as compliance consulting partner with 60% weight, show soft understanding of buyer's product & seasonality with 40% weight, and end with ONE CTA: whether buyer would be open to evaluating additional Vietnam sourcing with compliance support.",
-          "",
-          "CRITICAL — SOFT APPROACH & DATA PRIVACY:",
-          "1. INTERNAL REASONING ONLY: _internal_* fields (hs_code, purchase_history, top_suppliers, main_import_countries, peak_months, total_shipments, origin_ports...) are FOR REASONING ONLY to choose angle. NEVER mention verbatim.",
-          "2. SOFT LANGUAGE: Use main_product_soft and season_hook_soft from context for soft reference. Never expose HS codes, supplier names, shipment counts, TEU, exact peak months, origin/destination ports, BOL descriptions, exact volumes/years.",
-          "3. NO SUPPLIER SPECIFICS: No supplier chosen yet. Only reference Vexim NETWORK and COMPLIANCE PROGRAM generally.",
-          "4. 60/40 SPLIT: Email must feel like 40% about buyer's product & seasonal timing + 60% about Vexim compliance consulting. Count roughly: 2 sentences buyer/season + 3 sentences Vexim/compliance + CTA.",
-          "5. CURRENT DATE: Use current_date and current_month from context to make seasonality timely. As we approach [season_hook_soft] is timely now.",
-          "",
-          "MANDATORY RULES:",
-          "1. Exactly ONE CTA: whether buyer open to evaluating Vietnam sourcing with compliance support.",
-          "2. Do NOT ask about product spec, target price, MOQ, payment terms, packaging.",
-          "3. Do NOT invent facts — no prices, quantities, certifications for specific supplier, capacity, delivery times, or claimed history with this buyer.",
-          "4. Do NOT use forbidden claims: no 'FDA approved' as guarantee, no 'guaranteed', 'cheapest', 'best', 'top supplier', '#1'. You CAN say 'factories that have been through our FDA registration and HACCP compliance program' — factual about process.",
-          "5. Do NOT mention attachments, catalogs, price lists, files.",
-          "6. Vexim intro 60% weight, buyer insight 40% weight, woven naturally — example structure: Greeting + 40% buyer product & seasonality (1-2 sentences) + 60% Vexim compliance (2-3 sentences) + CTA + opt-out + signature. Or weave 40% and 60% into same opening: 'Hi John, I noticed [Company] has strong presence in premium cashew kernels for US market. As we approach peak year-end sourcing period, securing compliant supply is top of mind — I'm Hoc with Vexim, we work as compliance consulting partner...'",
-          "7. Professional, warm, consultative — compliance advisor tone, not sales rep.",
-          "8. No emoji, no excessive punctuation, no ALL CAPS.",
-          "9. Total length: 120-170 words body (excluding signature).",
-          "10. Signature exact shape: blank line, 'Best regards,', sender_name, signature_company ('VEXIM GLOBAL CO., LTD'), sender_email, signature_address verbatim. No phone, no title, no placeholder.",
-          "11. No 'Re:' subject prefix.",
-          "12. No P.S., no second CTA.",
-          "13. Use buyer's ACTUAL product category from main_product_soft for soft reference — e.g., 'premium cashew kernels' — never hardcode unrelated product.",
-          "14. If context missing, stay generic rather than fabricate.",
-          "15. AVOID COLD SALES TEMPLATE SHAPE: Do not write greeting → company pitch paragraph → value prop → CTA → sign-off. That's Promotions pattern. Write as one-off note: weave reason + Vexim context into same 1-2 sentences.",
-          "16. No generic taglines like 'trusted sourcing partner', 'end-to-end solution'. Describe plainly: 'We help Vietnamese factories meet US compliance requirements'.",
-          "17. NO URL, LINK, IMAGE, BUTTON, ATTACHMENT in first email. Plain text only.",
-          "18. ANTI-SPAM: never use 'free', 'discount', 'cheap', 'guarantee/guaranteed', '100%', 'act now', 'limited time', 'risk-free', 'no obligation', 'click here', 'unsubscribe', 'congratulations', 'dear friend', savings/ROI %. No ALL-CAPS, no exclamation, no emoji.",
-          "19. CAN-SPAM: final sentence body before signature, human opt-out: 'If sourcing from Vietnam isn't on your radar right now, just reply 'no' and I won't reach out again — no hard feelings at all.'",
-          "20. DATA PRIVACY SELF-CHECK: Before finalizing, verify you did NOT include: HS codes, specific supplier names, shipment counts, TEU, exact peak months like 'Oct, Nov, Dec', origin/destination ports, BOL descriptions, exact volumes/years, purchase_history details. Also verify 60/40 split: ~40% buyer product & seasonality (mention product_soft + season_hook_soft) + ~60% compliance consulting (FDA, HACCP, traceability, audit, direct factory). If fail, rewrite.",
-          "",
-          "AMERICAN BUSINESS VOICE:",
-          "- Greet by first name 'Hi {first name},' if known, else 'Hi there,'. Never 'Dear Sir/Madam'.",
-          "- Natural contractions (I'm, you're, we've), plain words, short paragraphs 1-3 sentences.",
-          "- Avoid stiff phrases: 'I hope this email finds you well', 'I am writing to...', 'kindly', 'please revert', 'whilst', 'do the needful', 'esteemed company'.",
-          "- Never mention databases, customs records, scraping, AI, scores, CRM fields, or HOW buyer was found beyond light 'I came across {company} while looking into {category} buyers' or 'We work with buyers in the {category} space'.",
-          "- Low-friction ask with easy out: 'Would you be open to exploring...? If now isn't the right time, no worries at all.'",
-          "- Subject: short, human, sentence case, specific to category with compliance angle, under 50 chars, e.g., 'Vietnam {category} — US compliance support' or 'Sourcing {category} from Vietnam'. No Title Case, no Re:/Fwd.",
-          "",
-          "STRUCTURE V4 — 60/40:",
-          "1. Greeting by first name.",
-          "2. 40% Buyer insight & seasonality (1-2 sentences): Use main_product_soft + season_hook_soft + capacity_angle_soft from context. E.g., 'I noticed [Company] has a strong presence in premium cashew kernels for the US market. As we approach peak year-end sourcing period, securing consistent capacity and compliant supply is likely top of mind.' — this is 40% part.",
-          "3. 60% Vexim compliance consulting (2-3 sentences): Use vexim_positioning. E.g., 'I'm Hoc with Vexim in Vietnam — we work as a compliance consulting partner for Vietnamese factories exporting to the US, helping them meet FDA, HACCP, and traceability requirements. Our factories go through our US compliance program and audit before joining our network — direct factory, not trading companies, only those meeting US standards.' — this is 60% part.",
-          "4. Single CTA: ask clearly whether buyer would be open to evaluating additional Vietnam sourcing with compliance support for their product category.",
-          "5. Low-pressure closing with easy out.",
-          "6. Opt-out sentence.",
-          "7. Complete signature.",
-          "",
-          "WRITING STYLE:",
-          "Concise, plain American business English, active voice, short sentences/paragraphs. Confident but soft, compliance advisor tone, not pushy sales. No jargon, no filler adjectives, no hype. Write like specific person emailing one specific contact who cares about US compliance and seasonal capacity, not template.",
-          "",
-          "SELF-CHECK BEFORE RETURNING:",
-          "Verify: one CTA only; no MOQ/price/payment/packaging/spec question; no supplier named; no raw buyer data exposed (HS, supplier names, shipment counts, TEU, exact peak months like Oct/Nov/Dec, ports, volumes, years); soft product mention using main_product_soft + soft seasonality using season_hook_soft present (40% part); compliance consulting positioning present (60% part: FDA, HACCP, traceability, audit, direct factory); no forbidden claim; no URL/attachment; no spam vocab/caps/exclamation/emoji; greeting first name; opt-out present before signature; Vexim intro 60% weight + buyer insight 40% weight woven naturally; length 120-170 words; signature exact name / VEXIM GLOBAL CO., LTD / email / address no phone. If any check fails, rewrite.",
+          "SELF-CHECK: exactly P1→P4 in order + opt-out line + signature; every field filled from context; food/non-food adaptation applied in P2; no invented facts; no forbidden claims; no URL; 90-140 words total. If any check fails, rewrite.",
         ].join("\n")
 
   const userPrompt = [
@@ -629,9 +588,7 @@ export async function generateRequirementInquiryEmail(
         ? input.shortlistUrl
           ? "Nhắc lại nhẹ nhàng về shortlist supplier đã gửi trước đó, hỏi buyer đã xem chưa và mời họ mở lại link."
           : "Nhắc lại nhẹ nhàng về email trước đó (trong trường hợp buyer chưa nhận được), hỏi lại buyer có muốn đánh giá thêm nguồn cung từ Việt Nam không."
-        : `Giới thiệu ngắn gọn về Vexim — đơn vị tư vấn tuân thủ cho doanh nghiệp Việt xuất khẩu vào Mỹ, đối tác được tuyển chọn chất lượng đạt yêu cầu tuân thủ Hoa Kỳ. Hỏi buyer có muốn đánh giá thêm nguồn cung ${
-            (lead["industry"] as string | null) || (lead["main_product"] as string | null) || "sản phẩm liên quan"
-          } từ Việt Nam với hỗ trợ tuân thủ không. Dùng dữ liệu buyer nội bộ để chọn góc tiếp cận mềm mại, TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
+        : `Viết email mở đầu theo đúng mẫu 4 đoạn V5 (tham khảo buyer_category trong context): P1 giới thiệu bản thân + Vexim Global (regulatory & sourcing, Việt Nam, làm việc với nhà máy xuất khẩu vào Mỹ) → P2 đang phát triển nhóm nhỏ supplier Việt Nam đã xác minh cho buyer Mỹ (điều chỉnh 'food buyers' nếu ngành không phải thực phẩm) → P3 'I came across {công ty} while researching U.S. buyers in {ngành}' → P4 đề nghị gửi 1 phương án nhà cung cấp phù hợp để review. TUYỆT ĐỐI KHÔNG đưa raw data (HS code, tên supplier, số lượng, peak months) lên email. KHÔNG hỏi MOQ, giá, thanh toán, bao bì.`),
   ].join("\n")
 
   let generated: { subject_en: string; content_en: string; content_vi: string }

@@ -22,7 +22,7 @@ export interface QAResult {
 }
 
 const SPAM_WORDS = [
-  /\bfree\b/i,
+  /\bfree\s+(?:sample|trial|offer|quote|gift)\b/i,
   /\bguarantee(d)?\b/i,
   /\bdiscount\b/i,
   /\bact now\b/i,
@@ -118,8 +118,8 @@ export function runEmailQA(params: {
     const prose = body.split(/\n\s*Best regards,/i)[0]
       .replace(/If you'd rather not hear from me, just reply ['’]no thanks['’] and I won't contact you again\.?/i, "")
     const proseWords = countWords(prose)
-    if (proseWords < 90 || proseWords > 130) {
-      issues.push({ check: "first_email_word_count", severity: "HIGH", message: `Email 1 body is ${proseWords} words; required range is 90-130 excluding opt-out/signature.` })
+    if (proseWords < 120 || proseWords > 160) {
+      issues.push({ check: "first_email_word_count", severity: "HIGH", message: `Email 1 body is ${proseWords} words; required range is 120-160 excluding opt-out/signature.` })
     }
     const questions = (body.match(/\?/g) ?? []).length
     if (questions !== 1) {
@@ -274,12 +274,11 @@ export function runEmailQA(params: {
     issues.push({ check: "close_loop_pressure", severity: "MEDIUM", message: "Forced-choice ending hands the buyer an admin task — close the loop without demanding a reply." })
   }
 
-  // 15b. Subject punctuation (V5.2): subject chi duoc la noi dung tran,
-  // toi da dau phay/cham; dash/colon/quote/question mark la separator kieu
-  // marketing → roi Promotions.
-  const subjectPunct = email.subjectEn.match(/[\u2014\u2013:;'"()?!]/)
+  // Keep subject lines plain, while allowing a simple question mark when it
+  // sounds natural. Marketing separators and stylized punctuation stay flagged.
+  const subjectPunct = email.subjectEn.match(/[\u2014\u2013:;'"()!]/)
   if (subjectPunct) {
-    issues.push({ check: "subject_punctuation", severity: "MEDIUM", message: `Subject has marketing separator ("${subjectPunct[0]}") — plain words only (at most a comma or period).` })
+    issues.push({ check: "subject_punctuation", severity: "MEDIUM", message: `Subject has a distracting separator ("${subjectPunct[0]}"). Keep it plain and conversational.` })
   }
 
   // 16. Punctuation (V5.2): em/en dash trong body là AI-tell — cấm.
@@ -288,7 +287,7 @@ export function runEmailQA(params: {
   }
 
   // 17. AI-style polished phrasing (V5.2) — cảm giác marketing/AI.
-  const aiPhrase = body.match(/no hard feelings|I'?d be delighted|I'?d love to|feel free to|I hope this (email|message) finds you well/i)
+  const aiPhrase = body.match(/no hard feelings|I'?d be delighted|I'?d love to|I hope this (email|message) finds you well/i)
   if (aiPhrase) {
     issues.push({ check: "ai_phrasing", severity: "MEDIUM", message: `AI-style phrasing ("${aiPhrase[0]}") — say it plainly.` })
   }

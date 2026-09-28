@@ -94,15 +94,30 @@ t('feedback 26/09: close_loop không cần dấu "?" (bỏ cta_missing)', () => 
   assert.ok(rOther.issues.some(i => i.check === 'cta_missing'), JSON.stringify(rOther.issues))
 })
 
-const firstEmailBody = `Hi Angela,\n\nIt can take time to sort through manufacturers, product specifications, and import requirements before a useful introduction is clear. Veximtrade handles that early groundwork in Vietnam by identifying relevant manufacturers, reviewing available information about their capacity and export history, and checking product fit alongside the importing country's relevant requirements. We also coordinate communication toward samples or quotations when both sides want to continue. You decide whether a supplier is a fit and whether to proceed. This can leave your existing supply relationships unchanged while you consider another source. Is Vietnam an additional source you are currently considering for this product category?\n\nIf you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
-t('first email compliant 90-130 words and one sourcing question', () => {
+const firstEmailBody = `Hi Angela,
+
+If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time.
+
+Each new source can mean reviewing company information, products and specifications, looking at available export information, discussing pricing, requesting samples, and checking relevant import requirements. Much of the early effort can be in screening rather than searching.
+
+That's where Veximtrade may help. We handle the initial sourcing groundwork on the Vietnam side, from finding relevant manufacturers to reviewing available information about capacity and export history and considering product fit. The buyer decides which sources are worth exploring further.
+
+If Vietnam is a market you're considering for additional supply, is there a product area you're currently reviewing?
+
+If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.
+
+Best regards,
+Angela Divincenzo
+VEXIM GLOBAL CO., LTD
+25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
+t('natural first email within 120-160 words and one sourcing question', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(!r.issues.some(i => ['first_email_word_count', 'first_email_question_count', 'first_email_situation_question', 'first_email_meeting_ask', 'brand_wording', 'opt_out_line'].includes(i.check)), JSON.stringify(r.issues))
 })
-t('first email outside 90-130 words is blocked', () => {
+t('first email below 120 words is blocked', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const tooShort = firstEmailBody.replace(/It can take time[\s\S]*?category\?/, 'Vietnam sourcing can involve early screening. Is Vietnam an additional source for this product category?')
+  const tooShort = firstEmailBody.replace(/If you're responsible[\s\S]*?currently reviewing\?/, 'Supplier screening takes time. Is Vietnam an additional source for this product category?')
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: tooShort }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'first_email_word_count' && i.severity === 'HIGH'), JSON.stringify(r.issues))
 })
@@ -175,12 +190,12 @@ t('em dash trong body → punctuation MEDIUM', () => {
   })
   assert.ok(r.issues.some(i => i.check === 'punctuation'), JSON.stringify(r.issues))
 })
-t('"feel free to" → ai_phrasing MEDIUM', () => {
+t('conversational “feel free to” wording is allowed', () => {
   const r = qa.runEmailQA({
     email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nFeel free to reply if you want more info about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
-  assert.ok(r.issues.some(i => i.check === 'ai_phrasing'), JSON.stringify(r.issues))
+  assert.ok(!r.issues.some(i => i.check === 'ai_phrasing' || i.check === 'spam_word'), JSON.stringify(r.issues))
 })
 t('body brand Veximtrade + pháp nhân chỉ ở signature → sạch', () => {
   const r = qa.runEmailQA({
@@ -203,6 +218,13 @@ t('subject có dấu ":" → subject_punctuation MEDIUM', () => {
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
   assert.ok(r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
+})
+t('a natural question-mark subject is allowed', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Where does Veximtrade fit in the sourcing process?', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing for your category.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
+  })
+  assert.ok(!r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
 })
 t('subject trần "Vietnam agriculture sourcing" → sạch', () => {
   const r = qa.runEmailQA({

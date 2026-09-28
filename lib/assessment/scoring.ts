@@ -20,6 +20,7 @@ export interface ScoreResult {
 export interface FdaInfo {
   fda_registration_number: string | null
   fda_expires_at: string | null
+  fda_status?: string | null
 }
 
 const has = (arr: string[] | null | undefined, v: string) =>
@@ -56,13 +57,26 @@ export function computeScore(
   ex = Math.min(ex, 15)
   breakdown.push({ key: "export", label: "Kinh nghiệm xuất khẩu", score: ex, max: 15 })
 
-  // 3. FDA (10d)
+  // 3. FDA (10d) - them trang thai Dang trien khai
   let fdaScore = 0
-  if (fda.fda_registration_number) {
+  const fdaNum = fda.fda_registration_number?.trim() ?? ""
+  const fdaStat = (fda.fda_status ?? "").toLowerCase()
+  const isPendingStatus =
+    fdaStat === "pending_supplement" ||
+    fdaStat === "in_progress" ||
+    fdaStat === "dang_bo_sung" ||
+    fdaStat === "dang trien khai" ||
+    fdaNum.toLowerCase() === "pending" ||
+    fdaNum.toLowerCase().includes("dang")
+
+  if (fdaNum && fdaNum.toLowerCase() !== "pending" && !isPendingStatus) {
     const expired = fda.fda_expires_at
       ? new Date(fda.fda_expires_at).getTime() < Date.now()
       : false
     fdaScore = expired ? 4 : 10
+  } else if (isPendingStatus) {
+    // Dang trien khai: van du dieu kien co dieu kien, cho 3 diem de khuyen khich bo sung
+    fdaScore = 3
   }
   breakdown.push({ key: "fda", label: "Đăng ký FDA", score: fdaScore, max: 10 })
 
@@ -108,32 +122,9 @@ export function computeScore(
   if (a.project_priority === "high") commit += 2
   breakdown.push({ key: "commit", label: "Cam kết triển khai", score: commit, max: 5 })
 
-  // 11. Lao dong & moi truong (10d)
-  let labor = 0
-  // Gio lam viec hop ly: <=8h/ngay va <=6 ngay/tuan (chong lao dong cuong buc/qua gio)
-  if (a.work_hours_start && a.work_hours_end) {
-    const [sh, sm] = a.work_hours_start.split(":").map(Number)
-    const [eh, em] = a.work_hours_end.split(":").map(Number)
-    if (!Number.isNaN(sh) && !Number.isNaN(eh)) {
-      let hours = eh + em / 60 - (sh + sm / 60)
-      if (hours < 0) hours += 24
-      if (hours <= 8.5) labor += 2
-    }
-  }
-  if (a.work_days_per_week != null && a.work_days_per_week <= 6) labor += 1
-  if (a.food_safety_training_regular) labor += 2
-  if (a.equipment_calibration_regular) labor += 2
-  if (has(a.water_source, "municipal") || has(a.water_source, "filtered")) labor += 1
-  if (a.water_testing) labor += 1
-  if (a.near_pollution_source === false) labor += 1
-  labor = Math.min(labor, 10)
-  breakdown.push({ key: "labor_env", label: "Lao động & môi trường", score: labor, max: 10 })
-
-  // Chuan hoa ve thang 100 (tong max cac hang muc hien la 110 sau khi
-  // them "Lao dong & moi truong") de nguong xep hang A/B/C/D khong doi.
+  // Tong diem toi da hien la 100 (sau khi xoa muc 6 Lao dong & moi truong)
   const rawTotal = breakdown.reduce((s, c) => s + c.score, 0)
-  const maxTotal = breakdown.reduce((s, c) => s + c.max, 0)
-  const total = maxTotal > 0 ? Math.round((rawTotal / maxTotal) * 100) : 0
+  const total = Math.min(rawTotal, 100)
   return { total, grade: gradeFromScore(total), breakdown }
 }
 

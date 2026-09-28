@@ -25,9 +25,20 @@ import { ShieldAlert, Clock, Building2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { InterestButton } from "./interest-button"
+import { isBuyerFacingItem } from "@/lib/buyers/pitch-helpers"
 import { DwellTracker } from "./dwell-tracker"
+import type { Metadata } from "next"
+import { NOINDEX } from "@/lib/seo/alternates"
 
 export const dynamic = "force-dynamic"
+
+// A shortlist snapshot names suppliers and their terms for one buyer. It is
+// reachable by anyone holding the link, so it is kept out of indexes here and
+// in app/robots.ts.
+export const metadata: Metadata = {
+  title: "Supplier shortlist",
+  robots: NOINDEX,
+}
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -46,12 +57,22 @@ type SupplierProfileSnapshot = {
   company_name: string | null
   full_name: string | null
   highlights: string[] | null
+  // Pitch-first v1: sản phẩm đề xuất cho nhu cầu buyer (không giá — giá là
+  // sân của AE ở bước quote). Null/legacy → không hiện block.
+  matched_product?: {
+    product_name: string
+    key_specifications: string | null
+    moq: string | null
+    lead_time: string | null
+    incoterm: string | null
+  } | null
 }
 
 type ShortlistItemRow = {
   id: string
   client_id: string
   position: number
+  role?: string | null
   buyer_interested: boolean | null
   buyer_action: string | null
   supplier_profile_snapshot: SupplierProfileSnapshot
@@ -120,7 +141,7 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
   // draft rebuild never leaks into an already-delivered link.
   const { data: version } = await admin
     .from("buyer_engagement_shortlist_versions")
-    .select("id, status, version_number")
+    .select("id, status, version_number, pitch_note")
     .eq("id", link.version_id)
     .maybeSingle()
 
@@ -136,12 +157,20 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
   const { data: rows } = await admin
     .from("buyer_engagement_shortlist_items")
     .select(
-      "id, client_id, position, buyer_interested, buyer_action, supplier_profile_snapshot, supplier_profile_version",
+      "id, client_id, position, role, buyer_interested, buyer_action, supplier_profile_snapshot, supplier_profile_version",
     )
     .eq("version_id", version.id)
     .order("position", { ascending: true })
 
-  const suppliers = (rows ?? []) as ShortlistItemRow[]
+  // Pitch-first (093): bench items là ghế dự bị NỘI BỘ của AE — tuyệt đối
+  // không render cho buyer kể cả khi query trả về. Legacy items (role='option'
+  // / null) hiển thị như cũ.
+  const allItems = (rows ?? []) as ShortlistItemRow[]
+  const suppliers = allItems.filter((s) => isBuyerFacingItem(s.role))
+  const pitchMode =
+    suppliers.length === 1 &&
+    suppliers[0]?.role === "primary" &&
+    !!(version as { pitch_note?: string | null }).pitch_note
 
   // Best-effort telemetry + stage advance — never blocks rendering.
   await admin
@@ -191,32 +220,53 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
         <DwellTracker token={token} itemIds={suppliers.map((s) => s.id)} />
         <div className="max-w-4xl mx-auto px-6 py-10 flex flex-col gap-8">
           <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-semibold text-foreground text-balance">
-              We&apos;ve shortlisted {suppliers.length} {suppliers.length === 1 ? "option" : "options"} for you
-            </h1>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-              Based on the requirements you shared, our team reviewed your product needs and matched
-              you with the suppliers below. Open each profile to review their capabilities, then let
-              us know which one(s) you&apos;d like to move forward with.
-              {suppliers.length < 3 && (
-                <span className="block mt-1">
-                  We currently have fewer than our usual 3 options for this request — ask your account manager if
-                  you&apos;d like us to keep looking for additional fits.
-                </span>
-              )}
-            </p>
+            {pitchMode ? (
+              <>
+                <h1 className="text-2xl font-semibold text-foreground text-balance">
+                  We&apos;ve handpicked a supplier for you
+                </h1>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                  Rather than a long list, your account manager reviewed your requirements and selected
+                  the one factory they believe fits best. Here&apos;s why:
+                </p>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-foreground/90 max-w-2xl whitespace-pre-line">
+                  {(version as { pitch_note?: string | null }).pitch_note}
+                </div>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-semibold text-foreground text-balance">
+                  We&apos;ve shortlisted {suppliers.length} {suppliers.length === 1 ? "option" : "options"} for you
+                </h1>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                  Based on the requirements you shared, our team reviewed your product needs and matched
+                  you with the suppliers below. Open each profile to review their capabilities, then let
+                  us know which one(s) you&apos;d like to move forward with.
+                  {suppliers.length < 3 && (
+                    <span className="block mt-1">
+                      We currently have fewer than our usual 3 options for this request — ask your account manager if
+                      you&apos;d like us to keep looking for additional fits.
+                    </span>
+                  )}
+                </p>
+              </>
+            )}
           </div>
 
           {suppliers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No suppliers have been added to this shortlist yet.</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={pitchMode ? "flex flex-col gap-4 max-w-2xl" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
               {suppliers.map((s, idx) => {
                 const profile = s.supplier_profile_snapshot
                 const name = profile?.display_name || profile?.company_name || profile?.full_name || "Supplier"
                 const usp = (profile?.usp_points ?? []).slice(0, 2)
                 const highlights = (profile?.highlights ?? []).slice(0, 2)
-                const optionLabel = OPTION_LABELS[idx] ?? `Option ${idx + 1}`
+                // Pitch-first (093): buyer chỉ thấy 1 nhà máy được chọn tay —
+                // không gọi là "Option A" (đó là nhãn của flow so sánh ngoại lệ).
+                const optionLabel = pitchMode
+                  ? "Recommended for you"
+                  : (OPTION_LABELS[idx] ?? `Option ${idx + 1}`)
                 const updatedAt = s.supplier_profile_version
                   ? new Date(s.supplier_profile_version).toLocaleDateString("en-US", {
                       year: "numeric",
@@ -257,6 +307,36 @@ export default async function ShortlistTokenPage({ params }: PageProps) {
                         {optionLabel}
                       </Badge>
                     </div>
+
+                    {profile?.matched_product && (
+                      <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-primary">
+                          Recommended product for your needs
+                        </span>
+                        <p className="mt-0.5 text-sm font-medium text-foreground">
+                          {profile.matched_product.product_name}
+                        </p>
+                        {profile.matched_product.key_specifications && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {profile.matched_product.key_specifications}
+                          </p>
+                        )}
+                        {(profile.matched_product.moq ||
+                          profile.matched_product.lead_time ||
+                          profile.matched_product.incoterm) && (
+                          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                            {profile.matched_product.moq && <span>MOQ: {profile.matched_product.moq}</span>}
+                            {profile.matched_product.lead_time && (
+                              <span>Lead time: {profile.matched_product.lead_time}</span>
+                            )}
+                            {profile.matched_product.incoterm && <span>Incoterm: {profile.matched_product.incoterm}</span>}
+                          </div>
+                        )}
+                        <span className="mt-1 block text-[10px] text-muted-foreground/70">
+                          Indicative — to be confirmed with the supplier before ordering
+                        </span>
+                      </div>
+                    )}
 
                     {(profile?.moq || profile?.lead_time_days) && (
                       <div className="flex flex-col gap-1">

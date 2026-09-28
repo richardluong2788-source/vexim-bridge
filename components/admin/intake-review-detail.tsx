@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { INDUSTRIES, INDUSTRY_LABELS_VI, type Industry } from "@/lib/constants/industries"
+import { splitMainProducts } from "@/lib/client-intake/split-main-products"
 import { FactoryCapabilityStep } from "@/components/client-intake/factory-capability-step"
 import {
   EMPTY_FACTORY_CAPABILITY_ANSWERS,
@@ -90,6 +91,7 @@ export interface IntakeSubmissionDetail {
   video_url: string | null
   certifications: string[] | null
   certifications_other: string | null
+  certification_image_urls?: string[] | null
   submitted_at: string | null
   created_client_id: string | null
   review_notes: string | null
@@ -105,18 +107,7 @@ export interface IntakeSubmissionDetail {
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
-  staff_engineers_count?: number | null
-  staff_workers_count?: number | null
-  work_hours_start?: string | null
-  work_hours_end?: string | null
-  work_days_per_week?: number | null
-  food_safety_training_regular?: boolean | null
-  equipment_calibration_regular?: boolean | null
-  water_source?: string[] | null
-  water_source_other?: string | null
-  water_testing?: boolean | null
-  near_pollution_source?: boolean | null
-  pollution_source_note?: string | null
+  fda_certificate_url?: string | null
   audit_readiness?: string[] | null
   audit_owner?: string | null
   incoterms?: string[] | null
@@ -155,6 +146,10 @@ export function IntakeReviewDetail({
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
   const [approved, setApproved] = useState(submission.status === "approved")
+  // Seeding is on by default and reversible (the rows are inactive drafts), but
+  // it stays a choice: an SR cleaning up a messy intake text may prefer to skip it.
+  const [seedDrafts, setSeedDrafts] = useState(true)
+  const [notice, setNotice] = useState<string | null>(null)
   const [rejected, setRejected] = useState(submission.status === "rejected")
 
   const tr = (vi: string, en: string) => (locale === "vi" ? vi : en)
@@ -185,6 +180,7 @@ export function IntakeReviewDetail({
     videoUrl: submission.video_url ?? "",
     certifications: submission.certifications ?? [],
     certificationsOther: submission.certifications_other ?? "",
+    certificationImageUrls: (submission.certification_image_urls ?? []).join(", "),
   })
 
   const [assessment, setAssessment] = useState<FactoryCapabilityAnswers>(() => ({
@@ -200,18 +196,7 @@ export function IntakeReviewDetail({
     fda_status: submission.fda_status ?? "",
     fda_number: submission.fda_number ?? "",
     fda_expires_at: submission.fda_expires_at ?? "",
-    staff_engineers_count: submission.staff_engineers_count?.toString() ?? "",
-    staff_workers_count: submission.staff_workers_count?.toString() ?? "",
-    work_hours_start: submission.work_hours_start ?? "",
-    work_hours_end: submission.work_hours_end ?? "",
-    work_days_per_week: submission.work_days_per_week?.toString() ?? "",
-    food_safety_training_regular: submission.food_safety_training_regular === true ? "yes" : submission.food_safety_training_regular === false ? "no" : "",
-    equipment_calibration_regular: submission.equipment_calibration_regular === true ? "yes" : submission.equipment_calibration_regular === false ? "no" : "",
-    water_source: submission.water_source ?? [],
-    water_source_other: submission.water_source_other ?? "",
-    water_testing: submission.water_testing ? "yes" : "",
-    near_pollution_source: submission.near_pollution_source ? "yes" : "",
-    pollution_source_note: submission.pollution_source_note ?? "",
+    fda_certificate_url: submission.fda_certificate_url ?? "",
     audit_readiness: submission.audit_readiness ?? [],
     audit_owner: submission.audit_owner ?? "",
     incoterms: submission.incoterms ?? [],
@@ -301,6 +286,10 @@ export function IntakeReviewDetail({
       video_url: form.videoUrl || null,
       certifications: form.certifications,
       certifications_other: form.certificationsOther || null,
+      certification_image_urls: form.certificationImageUrls
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
       quality_systems: assessment.quality_systems,
       quality_systems_other: assessment.quality_systems_other || null,
       oem_odm: assessment.oem_odm,
@@ -312,18 +301,7 @@ export function IntakeReviewDetail({
       fda_status: assessment.fda_status || null,
       fda_number: assessment.fda_number || null,
       fda_expires_at: assessment.fda_expires_at || null,
-      staff_engineers_count: Number(assessment.staff_engineers_count) || null,
-      staff_workers_count: Number(assessment.staff_workers_count) || null,
-      work_hours_start: assessment.work_hours_start || null,
-      work_hours_end: assessment.work_hours_end || null,
-      work_days_per_week: Number(assessment.work_days_per_week) || null,
-      food_safety_training_regular: assessment.food_safety_training_regular === "yes" ? true : assessment.food_safety_training_regular === "no" ? false : null,
-      equipment_calibration_regular: assessment.equipment_calibration_regular === "yes" ? true : assessment.equipment_calibration_regular === "no" ? false : null,
-      water_source: assessment.water_source,
-      water_source_other: assessment.water_source_other || null,
-      water_testing: assessment.water_testing === "yes" ? true : assessment.water_testing === "no" ? false : null,
-      near_pollution_source: assessment.near_pollution_source === "yes" ? true : assessment.near_pollution_source === "no" ? false : null,
-      pollution_source_note: assessment.pollution_source_note || null,
+      fda_certificate_url: assessment.fda_certificate_url || null,
       audit_readiness: assessment.audit_readiness,
       audit_owner: assessment.audit_owner || null,
       incoterms: assessment.incoterms,
@@ -358,6 +336,16 @@ export function IntakeReviewDetail({
     }
   }
 
+  /**
+   * Live preview of exactly what approving will create. The textarea is the
+   * editor: fixing the text fixes the chips, so no separate product editor is
+   * needed before a row exists anywhere.
+   */
+  const productPreview = useMemo(
+    () => splitMainProducts(form.mainProducts, { companyName: form.companyName }),
+    [form.mainProducts, form.companyName],
+  )
+
   function handleApprove() {
     if (missingRequired.length > 0) {
       setError(
@@ -369,13 +357,24 @@ export function IntakeReviewDetail({
       return
     }
     setError(null)
+    setNotice(null)
     startTransition(async () => {
-      const result = await approveIntakeSubmission(submission.id, buildFields())
+      const result = await approveIntakeSubmission(submission.id, buildFields(), undefined, {
+        seedProductsFromIntake: seedDrafts,
+      })
       if (!result.ok) {
         setError(translateError(result.error ?? "unknown"))
         return
       }
       setApproved(true)
+      if (result.seededProducts) {
+        setNotice(
+          tr(
+            `Đã tạo ${result.seededProducts} sản phẩm nháp (ẩn với buyer tới khi bạn bật lên ở Quản lý hồ sơ).`,
+            `Created ${result.seededProducts} draft product(s) (hidden from buyers until you publish them in the profile manager).`,
+          ),
+        )
+      }
       router.refresh()
     })
   }
@@ -583,6 +582,55 @@ export function IntakeReviewDetail({
                   value={form.mainProducts}
                   onChange={(e) => update("mainProducts", e.target.value)}
                 />
+                <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/30 p-3">
+                  {productPreview.candidates.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {productPreview.candidates.map((candidate) => (
+                        <Badge
+                          key={candidate.nameKey}
+                          variant={candidate.confidence === "low" ? "outline" : "secondary"}
+                          className="font-normal"
+                          title={candidate.hsCode ? `HS ${candidate.hsCode}` : undefined}
+                        >
+                          {candidate.productName}
+                          {candidate.hsCode ? ` · ${candidate.hsCode}` : ""}
+                          {candidate.category ? ` · ${candidate.category}` : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {tr(
+                        "Chưa tách được sản phẩm nào từ phần này — viết mỗi sản phẩm một dòng (hoặc cách nhau bởi dấu phẩy) để hệ thống tự lập danh mục.",
+                        "Nothing separable here yet — put one product per line (or comma-separate them) so the catalog can be built automatically.",
+                      )}
+                    </p>
+                  )}
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={seedDrafts}
+                      onCheckedChange={(checked) => setSeedDrafts(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      {tr(
+                        `Duyệt xong tạo ${productPreview.candidates.length} sản phẩm nháp từ danh sách trên (ẩn với buyer). Bỏ chọn nếu bạn sẽ tự nhập.`,
+                        `On approval, create ${productPreview.candidates.length} draft product(s) from the list above (hidden from buyers). Uncheck if you will type them yourself.`,
+                      )}
+                    </span>
+                  </label>
+                  {productPreview.dropped.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {tr(
+                        `Bỏ qua ${productPreview.dropped.length} cụm từ không phải tên sản phẩm (${[...new Set(productPreview.dropped.map((d) => d.reason))].join(", ")}).`,
+                        `Skipped ${productPreview.dropped.length} non-product phrase(s) (${[...new Set(productPreview.dropped.map((d) => d.reason))].join(", ")}).`,
+                      )}
+                    </p>
+                  )}
+                </div>
+                {notice && (
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{notice}</p>
+                )}
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-2">
@@ -697,6 +745,17 @@ export function IntakeReviewDetail({
                 />
               </div>
               <div className="flex flex-col gap-2">
+                <Label>{tr("Ảnh chứng nhận (HACCP, ISO, FDA...)", "Certification images (HACCP, ISO, FDA...)")}</Label>
+                <Input
+                  value={form.certificationImageUrls}
+                  onChange={(e) => update("certificationImageUrls", e.target.value)}
+                  placeholder={tr("Nhiều URL, ngăn cách bởi dấu phẩy", "Comma-separated URLs")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {tr("Ảnh sẽ hiển thị trên trang hồ sơ công khai ở mục Chứng nhận & Tuân thủ.", "Images will show on the public profile in Certifications & Compliance.")}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
                 <Label>{tr("URL video nhà máy", "Factory video URL")}</Label>
                 <Input value={form.videoUrl} onChange={(e) => update("videoUrl", e.target.value)} />
               </div>
@@ -707,7 +766,7 @@ export function IntakeReviewDetail({
             <CardHeader>
               <CardTitle>{tr("Đánh giá năng lực nhà máy", "Factory capability assessment")}</CardTitle>
               <CardDescription>
-                {tr("10 mục thông tin được đánh số lại từ 1 đến 10.", "Ten assessment sections, numbered 1 through 10.")}
+                {tr("9 mục thông tin được đánh số từ 1 đến 9.", "Nine assessment sections, numbered 1 through 9.")}
               </CardDescription>
             </CardHeader>
             <CardContent>

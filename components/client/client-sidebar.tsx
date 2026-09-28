@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { SidebarAvatar } from "@/components/sidebar-avatar"
 import { useTranslation } from "@/components/i18n/language-provider"
 
 interface ClientSidebarProps {
@@ -40,7 +41,7 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
     { href: "/client/analytics", label: t.client.analytics.navLabel, icon: BarChart3 },
     { href: "/client/reports", label: t.client.reports.navLabel, icon: FileText },
     { href: "/client/sla", label: "SLA & Yêu cầu", icon: ShieldCheck },
-    { href: "/settings/notifications", label: t.nav_extra.settings, icon: Settings },
+    { href: "/settings/profile", label: t.nav_extra.settings, icon: Settings },
   ]
 
   async function handleSignOut() {
@@ -89,17 +90,21 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
 
       {/* User footer */}
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 px-2 py-2 mb-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold shrink-0">
-            {(companyName ?? fullName ?? email ?? "C").charAt(0).toUpperCase() || "C"}
-          </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-medium truncate">
+        <Link
+          href="/settings/profile"
+          className="mb-1 flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-sidebar-accent/50"
+        >
+          <SidebarAvatar
+            name={companyName ?? fullName ?? email ?? "C"}
+            avatarUrl={profile?.avatar_url}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-medium">
               {companyName ?? fullName ?? email}
             </span>
-            <span className="text-xs text-sidebar-foreground/50 truncate">{email}</span>
+            <span className="truncate text-xs text-sidebar-foreground/50">{email}</span>
           </div>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           size="sm"

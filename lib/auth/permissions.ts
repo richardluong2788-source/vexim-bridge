@@ -91,6 +91,25 @@ export const CAPS = {
   ACTIVITY_LOG_VIEW:           "system:activity_log:view",
   NOTIFICATIONS_MANAGE:        "system:notifications:manage",
 
+  // --- Campaign engine (B1, migration 089) ---
+  // CAMPAIGN_VIEW — /admin/campaigns: list campaigns, campaign detail,
+  // approval queue, own enrollments. AE sees campaigns they own buyers in;
+  // admin/super_admin see everything.
+  // CAMPAIGN_MANAGE — approve/reject AI drafts, pause/resume/stop enrollment,
+  // resolve human-review holds, enroll leads. Creating/activating a campaign
+  // is additionally restricted to admin/super_admin in the server action.
+  CAMPAIGN_VIEW:               "campaign:view",
+  CAMPAIGN_MANAGE:             "campaign:manage",
+
+  // --- Marketing inbound (added in 082) ---
+  // marketing_leads = submissions from public forms (landing consultation
+  // form today, US-buyer RFQ forms later). VIEW lists the queue; TRIAGE
+  // changes status / assigns an owner / writes internal notes. Nothing here
+  // creates buyers or clients — converting a lead still goes through the
+  // normal gates (BUYER_MANUAL_INTAKE / CLIENT_WRITE / the AI inbox).
+  MARKETING_LEADS_VIEW:        "marketing:leads:view",
+  MARKETING_LEADS_TRIAGE:      "marketing:leads:triage",
+
   // --- Analytics / Reporting (added in 029) ---
   // VIEW_ALL — see every client's history (admin/super_admin/finance).
   // VIEW_OWN — see only clients where profiles.account_manager_id = current user
@@ -117,10 +136,13 @@ export const CAPS = {
   //   `profiles.account_manager_id` (live) and
   //   `opportunities.account_manager_id` (snapshot) columns.
   //
-  //   Roles that get bypass: super_admin, admin, finance.
+  //   Roles that get bypass: super_admin, admin, finance, supplier_researcher.
   //   Roles WITHOUT bypass — account_executive, lead_researcher, staff —
   //   are scoped to records they own. This is what makes per-AE revenue
   //   accounting reliable: AEs cannot accidentally touch another AE's deals.
+  //   Do NOT grant this to account_executive just because AE also sources
+  //   suppliers. Pool-wide supplier counts live on /admin/sourcing; the
+  //   client directory, pipeline and exports must stay ownership-scoped.
   OWNERSHIP_BYPASS:            "ownership:bypass",
 } as const
 
@@ -170,13 +192,29 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // AI matching inbox — the AE's main daily queue.
     CAPS.MATCH_INBOX_VIEW,
 
-    // Clients & Supplier Sourcing (AE kiêm nhiệm SR)
+    // Campaign engine (B1): review/approve AI outreach drafts for buyers the
+    // AE owns; resolve reply-review holds.
+    CAPS.CAMPAIGN_VIEW,
+    CAPS.CAMPAIGN_MANAGE,
+
+    // Clients & Supplier Sourcing (AE kiêm nhiệm SR).
+    // CLIENT_VIEW/WRITE lets an AE onboard a client they will own.
+    // OWNERSHIP_BYPASS is intentionally absent: the clients directory,
+    // client detail, pipeline, activities and CSV export all key off that
+    // cap, and an AE must only see clients assigned to them
+    // (profiles.account_manager_id). Supplier Researcher keeps the bypass
+    // so sourcing can see the whole pool and avoid duplicates.
     CAPS.CLIENT_VIEW,
     CAPS.CLIENT_WRITE,
     CAPS.CLIENT_COMPLIANCE_WRITE,
     CAPS.BILLING_PLAN_PROPOSE,
     CAPS.INVOICE_VIEW_OWN,
-    CAPS.OWNERSHIP_BYPASS,
+
+    // Inbound website enquiries (migration 082): a VN factory asking Vexim to
+    // sell for them, or — once the EN buyer pages ship — a US importer asking
+    // for a quote. The AE owns the first call, so they triage as well as read.
+    CAPS.MARKETING_LEADS_VIEW,
+    CAPS.MARKETING_LEADS_TRIAGE,
 
     // Read-only signals.
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
@@ -207,6 +245,11 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     // AE Inbox component which gates write actions on `BUYER_WRITE`
     // + role check.
     CAPS.MATCH_INBOX_VIEW,
+    // Inbound website enquiries — READ ONLY. LR handles buyer-side demand, so
+    // they can see buyer-audience rows (a US importer asking for a quote), but
+    // must not change status: UI gates triage controls on MARKETING_LEADS_TRIAGE
+    // (which LR is deliberately NOT given).
+    CAPS.MARKETING_LEADS_VIEW,
     // NOTE: COUNTRY_RISK_READ is intentionally NOT granted. The country
     // risk register is curated by super_admin / admin only to avoid
     // inconsistent classifications. LR can still SEE per-country risk on
@@ -254,6 +297,14 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
 
     // Demand signals for sourcing priorities (aggregate-only page —
     // /admin/sourcing is gated on CLIENT_VIEW and never shows buyer PII).
+    //
+    // Inbound supplier enquiries from the public landing page are SR's own
+    // pipeline (migration 082): a factory that asked Vexim to sell for it
+    // arrives with contact details + industry already filled in. TRIAGE lets
+    // SR own the follow-up and mark junk; converting the enquiry into a real
+    // client still goes through CLIENT_WRITE, not this queue.
+    CAPS.MARKETING_LEADS_VIEW,
+    CAPS.MARKETING_LEADS_TRIAGE,
   ],
 
   finance: [

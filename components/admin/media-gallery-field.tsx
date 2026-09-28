@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { ImageLinkInput } from "@/components/ui/image-link-input"
 import { toast } from "sonner"
+import { validateAndCompressImage, MAX_INPUT_SIZE } from "@/lib/images/compress"
 
 interface MediaGalleryFieldProps {
   id: string
@@ -19,7 +20,6 @@ interface MediaGalleryFieldProps {
 }
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
-const MAX_SIZE = 10 * 1024 * 1024
 
 export function MediaGalleryField({
   id,
@@ -31,6 +31,7 @@ export function MediaGalleryField({
   maxFiles = 12,
 }: MediaGalleryFieldProps) {
   const [uploading, setUploading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,12 +44,30 @@ export function MediaGalleryField({
       toast.error(`Tối đa ${maxFiles} ảnh.`)
       return
     }
-    const toUpload = files.slice(0, remaining)
+    const toUploadRaw = files.slice(0, remaining)
 
-    const oversized = toUpload.find((f) => f.size > MAX_SIZE)
-    if (oversized) {
-      toast.error(`"${oversized.name}" quá lớn. Tối đa ${MAX_SIZE / (1024 * 1024)}MB mỗi ảnh.`)
-      return
+    for (const f of toUploadRaw) {
+      if (f.size > MAX_INPUT_SIZE) {
+        toast.error(`"${f.name}" vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn 5MB.`)
+        return
+      }
+    }
+
+    setCompressing(true)
+    let toUpload: File[] = []
+    try {
+      for (const f of toUploadRaw) {
+        try {
+          const result = await validateAndCompressImage(f)
+          toUpload.push(result.file)
+        } catch (err: any) {
+          toast.error(err.message || `Không thể xử lý ảnh ${f.name}`)
+          setCompressing(false)
+          return
+        }
+      }
+    } finally {
+      setCompressing(false)
     }
 
     setUploading(true)
@@ -64,7 +83,7 @@ export function MediaGalleryField({
       }
       onChange([...value, ...uploaded])
       toast.success(
-        uploaded.length > 1 ? `Đã tải lên ${uploaded.length} ảnh` : "Tải lên thành công",
+        uploaded.length > 1 ? `Đã tải lên ${uploaded.length} ảnh` : "Tải lên thành công"
       )
     } catch (error) {
       console.error("[v0] gallery upload error:", error)
@@ -74,9 +93,8 @@ export function MediaGalleryField({
     }
   }
 
-  // Thêm ảnh bằng link ngoài: chỉ lưu URL, không upload nên không tốn dung lượng.
   const handleLinksAdd = (urls: string[]) => {
-    onChange([...value, ...urls])
+    onChange([...value, ...urls].slice(0, maxFiles))
   }
 
   const removeAt = (index: number) => {
@@ -87,12 +105,11 @@ export function MediaGalleryField({
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
 
-      {/* Dán link ảnh ngoài — thumbnail hiện ngay bên dưới, không tốn Blob storage */}
       <ImageLinkInput
         existing={value}
         max={maxFiles}
         onAdd={handleLinksAdd}
-        disabled={uploading}
+        disabled={uploading || compressing}
       />
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -123,17 +140,15 @@ export function MediaGalleryField({
           </div>
         ))}
 
-        {/* Ô chọn file chỉ hiện khi chưa có ảnh nào — đã có ảnh (link) thì
-            ẩn hẳn để tránh người dùng lỡ bấm tải file lên. */}
-        {value.length === 0 && (
+        {value.length < maxFiles && (
           <button
             id={id}
             type="button"
-            disabled={uploading}
+            disabled={uploading || compressing}
             onClick={() => inputRef.current?.click()}
             className="aspect-square rounded-lg border border-dashed border-border hover:border-accent/50 hover:bg-muted/30 transition-colors flex flex-col items-center justify-center gap-1.5 text-muted-foreground"
           >
-            {uploading ? (
+            {uploading || compressing ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
@@ -145,15 +160,15 @@ export function MediaGalleryField({
         )}
       </div>
 
-      {value.length === 0 && !uploading && (
+      <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ImageIcon className="h-3.5 w-3.5" />
           <span>
-            Chưa có ảnh nào. Dán link ảnh phía trên hoặc bấm &quot;Thêm ảnh&quot; để tải file lên
-            (chọn được nhiều ảnh).
+            {value.length}/{maxFiles} ảnh · Dưới 5MB/ảnh
           </span>
         </div>
-      )}
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
 
       <input
         ref={inputRef}
@@ -163,8 +178,6 @@ export function MediaGalleryField({
         className="hidden"
         onChange={handleFilesSelect}
       />
-
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }

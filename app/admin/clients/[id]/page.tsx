@@ -21,6 +21,7 @@ import { CAPS, canAny } from "@/lib/auth/permissions"
 import { ownershipScopeFor } from "@/lib/auth/scope"
 import { getProfileByClientId } from "@/lib/profile/actions"
 import { AdminClientProfileTab } from "@/components/admin/admin-client-profile-tab"
+import { SupplementIntakeLinkGenerator } from "@/components/admin/supplement-intake-link-generator"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -39,6 +40,10 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
   const current = await getCurrentRole()
   const canSeeAnalytics =
     !!current && canAny(current.role, [CAPS.ANALYTICS_VIEW_ALL, CAPS.ANALYTICS_VIEW_OWN])
+  // Link hồ sơ doanh nghiệp: cùng nhóm quyền với tạo client / link sản phẩm
+  // (lead_researcher cố ý không có — LR là role buyer-side).
+  const canManageIntakeLinks =
+    !!current && ["admin", "staff", "super_admin", "account_executive", "supplier_researcher"].includes(current.role)
 
   // Fetch profile, docs, tokenized links, and client profile in parallel — they're independent.
   const [{ data: client }, { data: docs }, { data: links }, clientProfileResult] = await Promise.all([
@@ -359,7 +364,8 @@ export default async function AdminClientDetailPage({ params, searchParams }: Pa
               />
             </TabsContent>
 
-            <TabsContent value="profile" className="mt-4">
+            <TabsContent value="profile" className="mt-4 space-y-4">
+              {canManageIntakeLinks && <SupplementIntakeLinkGenerator clientId={client.id} />}
               <AdminClientProfileTab
                 clientId={client.id}
                 clientName={companyLabel}

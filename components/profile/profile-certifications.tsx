@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+import { SmartImage } from "@/components/ui/smart-image"
 import { ChevronLeft, ChevronRight, FileCheck, Copy, Check, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { privateFileHref } from "@/lib/blob/file-url"
@@ -72,7 +72,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                 {/* Document preview */}
                 <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-white border border-border group-hover:border-accent/50 group-hover:shadow-md transition-all">
                   {isImage && fileUrl ? (
-                    <Image
+                    <SmartImage
                       src={fileUrl}
                       alt={doc.title || "Certificate"}
                       fill
@@ -116,7 +116,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
               {selectedDoc && (
                 <>
                   {selectedDoc.mime_type?.startsWith("image/") && privateFileHref(selectedDoc.url) ? (
-                    <Image
+                    <SmartImage
                       src={privateFileHref(selectedDoc.url)!}
                       alt={selectedDoc.title || "Certificate"}
                       width={1600}

@@ -11,6 +11,7 @@ import {
   isOutboundEmailEvent,
   type OutboundEventPayload,
 } from "@/lib/email/delivery-events"
+import { maybeHandleCampaignReply } from "@/lib/campaign/reply-handler"
 
 // Ensure this webhook route is never affected by middleware
 export const runtime = "nodejs"
@@ -670,6 +671,34 @@ export async function POST(req: NextRequest) {
           .trim()
       }
 
+      // ─── Campaign engine (B1): buyer đang trong campaign outreach nhưng
+      // chưa có opportunity/engagement → handler xử lý reply (classify
+      // 7-intent, state machine, handoff/stop/pause). Không khớp campaign
+      // nào → flow cũ chạy tiếp (lưu unmatched_inbound_emails). ───
+      const campaignResult = await maybeHandleCampaignReply({
+        fromEmail,
+        subject: data.subject,
+        body: extractReplyBody(bodyForLog) || bodyForLog || `[No body - Subject: ${data.subject}]`,
+        messageId: data.message_id,
+        inReplyTo: data.in_reply_to ?? null,
+        receivedAt: data.created_at,
+        matchedOpportunityId: null,
+        matchedLeadId: null,
+        matchedEngagementId: null,
+        matchedEngagementStage: null,
+      })
+      if (campaignResult.handled) {
+        console.log(
+          "[v0] Campaign reply handled:",
+          campaignResult.intent,
+          "requiresHuman:",
+          campaignResult.requiresHuman,
+          "handoff:",
+          campaignResult.handoffEngagementId,
+        )
+        return NextResponse.json({ ok: true, handled: "campaign", intent: campaignResult.intent })
+      }
+
       const { error: unmatchedErr } = await admin.from("unmatched_inbound_emails").insert({
         resend_email_id: data.email_id,
         message_id: data.message_id,
@@ -766,6 +795,33 @@ export async function POST(req: NextRequest) {
 
     // Use subject as fallback if body is empty
     const finalBody = cleanBody || `[No body - Subject: ${data.subject}]`
+
+    // ─── Campaign engine (B1): buyer có enrollment campaign active → handler
+    // xử lý (vẫn truyền match cũ để giữ liên kết engagement/opportunity cho UI
+    // hiện có). handled → return sớm, tránh double-insert buyer_replies. ───
+    const campaignResult = await maybeHandleCampaignReply({
+      fromEmail,
+      subject: data.subject,
+      body: finalBody,
+      messageId: data.message_id,
+      inReplyTo: data.in_reply_to ?? null,
+      receivedAt: data.created_at,
+      matchedOpportunityId: match?.opportunityId ?? null,
+      matchedLeadId: match?.leadId ?? engagementMatch?.leadId ?? null,
+      matchedEngagementId: engagementMatch?.engagementId ?? null,
+      matchedEngagementStage: engagementMatch?.stage ?? null,
+    })
+    if (campaignResult.handled) {
+      console.log(
+        "[v0] Campaign reply handled:",
+        campaignResult.intent,
+        "requiresHuman:",
+        campaignResult.requiresHuman,
+        "handoff:",
+        campaignResult.handoffEngagementId,
+      )
+      return NextResponse.json({ ok: true, handled: "campaign", intent: campaignResult.intent })
+    }
 
     // Run AI classification
     let classification: Awaited<ReturnType<typeof classifyBuyerReply>> | null = null

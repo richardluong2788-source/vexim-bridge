@@ -1,3 +1,5 @@
+import { optimizedImageRemotePatterns } from "./lib/images/hosts.mjs"
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
@@ -14,7 +16,18 @@ const nextConfig = {
       process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
   },
   images: {
-    unoptimized: true,
+    // Remote images used to be passed through untouched (`unoptimized: true`),
+    // so a 4 MB supplier photo reached a US buyer's laptop at full size.
+    // `lib/images/hosts.mjs` is the allow-list: only hosts listed there are
+    // fetched + resized + re-encoded (AVIF/WebP), and every component guards
+    // its <Image> with isOptimizableImageSrc(), so an unknown host degrades to
+    // a plain <img> instead of a failed optimizer request.
+    remotePatterns: optimizedImageRemotePatterns(),
+    formats: ["image/avif", "image/webp"],
+    // How long the optimizer may reuse its own copy of a source image. Supplier
+    // photos are replaceable in place (the uploader does not add random
+    // suffixes), so keep this short instead of the year-long default.
+    minimumCacheTTL: 60 * 60,
   },
   // Ensure consistent URL handling for webhooks
   // trailingSlash: false means /api/webhooks/resend (no trailing slash)

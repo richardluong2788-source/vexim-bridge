@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { can, CAPS, normaliseRole } from '@/lib/auth/permissions';
 import { ownershipScopeFor, assertClientOwned } from '@/lib/auth/scope';
 import { redirect } from 'next/navigation';
+import { revalidateCatalog } from "@/lib/catalog/cache"
+import { dispatchNotification } from "@/lib/notifications/dispatcher"
 
 type AdminSB = ReturnType<typeof createAdminClient>;
 
@@ -107,6 +109,10 @@ export interface ClientProduct {
   storage_conditions: string | null;
   private_label_available: boolean;
   private_label_notes: string | null;
+  price_confirmed?: boolean;
+  price_attested_at?: string | null;
+  price_attested_by?: string | null;
+  price_attestation_text?: string | null;
 }
 
 // Add a new client product
@@ -145,6 +151,9 @@ export async function addClientProductAction(
     storage_conditions?: string;
     private_label_available?: boolean;
     private_label_notes?: string;
+    price_confirmed?: boolean;
+    price_attested_at?: string | null;
+    price_attestation_text?: string;
   }
 ) {
   const actor = await resolveActor();
@@ -197,6 +206,10 @@ export async function addClientProductAction(
         storage_conditions: data.storage_conditions || null,
         private_label_available: data.private_label_available ?? false,
         private_label_notes: data.private_label_notes || null,
+        price_confirmed: data.price_confirmed ?? false,
+        price_attested_at: data.price_attested_at || (data.price_confirmed ? new Date().toISOString() : null),
+        price_attested_by: data.price_confirmed ? userId : null,
+        price_attestation_text: data.price_attestation_text || (data.price_confirmed ? 'Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.' : null),
         created_by: userId,
       },
     ])
@@ -216,6 +229,43 @@ export async function addClientProductAction(
       performed_by: userId,
     },
   ]);
+
+  // Notify AE/SR if client self-added product (userId == clientId)
+  if (userId === clientId) {
+    try {
+      const { data: clientProfile } = await admin
+        .from("profiles")
+        .select("company_name, account_manager_id, sourced_by")
+        .eq("id", clientId)
+        .maybeSingle()
+      const companyName = clientProfile?.company_name || "Nhà cung cấp"
+      const notifyIds = new Set<string>()
+      if (clientProfile?.account_manager_id) notifyIds.add(clientProfile.account_manager_id as string)
+      if (clientProfile?.sourced_by) notifyIds.add(clientProfile.sourced_by as string)
+      for (const notifyId of notifyIds) {
+        dispatchNotification({
+          userId: notifyId,
+          category: "new_assignment",
+          opportunityId: null,
+          linkPath: `/admin/clients/${clientId}?tab=products`,
+          dedupKey: `client_product_added:${product.id}:${notifyId}`,
+          title: {
+            vi: `Sản phẩm mới — ${data.product_name}`,
+            en: `New product — ${data.product_name}`,
+          },
+          body: {
+            vi: `${companyName} vừa thêm sản phẩm "${data.product_name}" trong portal.`,
+            en: `${companyName} just added product "${data.product_name}" in portal.`,
+          },
+          ctaLabel: { vi: "Xem sản phẩm", en: "View product" },
+        }).catch(() => {})
+      }
+    } catch {}
+  }
+
+  // A new listing must show up in the public catalog immediately, not after
+  // the 5-minute revalidation window.
+  revalidateCatalog();
 
   return { success: true, data: product };
 }
@@ -256,6 +306,10 @@ export async function updateClientProductAction(
     storage_conditions: string;
     private_label_available: boolean;
     private_label_notes: string;
+    price_confirmed: boolean;
+    price_attested_at: string | null;
+    price_attested_by: string | null;
+    price_attestation_text: string;
   }>
   ) {
   const actor = await resolveActor();
@@ -303,6 +357,8 @@ export async function updateClientProductAction(
   },
   ]);
   
+  revalidateCatalog();
+
   return { success: true, data: updated };
   }
   
@@ -347,6 +403,8 @@ export async function updateClientProductAction(
   performed_by: userId,
   },
   ]);
+
+  revalidateCatalog();
 
   return { success: true };
 }

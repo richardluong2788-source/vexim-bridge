@@ -75,12 +75,12 @@ export function IntakeLinkGenerator({ locale }: IntakeLinkGeneratorProps) {
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
         <CardTitle>
-          {tr("Gửi form cho khách hàng tự điền", "Send Client Intake Link")}
+          {tr("Gửi form bổ sung hồ sơ cho khách hàng", "Send Supplement Form to Client")}
         </CardTitle>
         <CardDescription>
           {tr(
-            "Tạo một liên kết riêng, dùng một lần cho khách hàng bạn đã liên hệ. Khách hàng điền thông tin đăng ký và hồ sơ năng lực — không cần tài khoản. Sau khi khách gửi, hồ sơ sẽ chờ bạn xét duyệt tại mục \"Hồ sơ chờ duyệt\".",
-            "Generate a private, single-use link for a client you've contacted. They fill in registration and capability details without an account. Once submitted, it will wait for your review in \"Pending Profiles\".",
+            "Quy trình mới: AE/SR tạo tài khoản khách hàng trước (ở mục Tạo tài khoản khách hàng). Sau đó tạo link này để khách hàng bổ sung thông tin từ bước Giới thiệu doanh nghiệp, Năng lực & Chứng nhận, Đánh giá nhà máy – đã bỏ bước Liên hệ & Đăng ký vì tài khoản đã tồn tại. Link dùng một lần, hết hạn sau 14 ngày.",
+            "New flow: AE/SR creates the client account first (in Create Client Account). Then generate this link for the client to supplement Company intro, Capability & Certifications, Factory Assessment – Contact & Registration step is skipped because the account already exists. Single-use, expires in 14 days.",
           )}
         </CardDescription>
       </CardHeader>

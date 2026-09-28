@@ -103,7 +103,7 @@ const MESSAGES = {
     contactEmail: "Notification email (optional)",
     contactEmailPlaceholder: "colleague@company.com",
     contactEmailHint:
-      "Only used to deliver system notifications. The account always signs in with its username.",
+      "Only used to deliver system notifications. The account always signs in with its username. Leave blank to add it later on their profile or in this table.",
     role: "Role",
     rolePlaceholder: "Select a role",
     industry: "Industries",
@@ -158,7 +158,7 @@ const MESSAGES = {
     contactEmail: "Email nhận thông báo (không bắt buộc)",
     contactEmailPlaceholder: "dongnghiep@congty.com",
     contactEmailHint:
-      "Chỉ dùng để gửi thông báo hệ thống. Tài khoản luôn đăng nhập bằng tên đăng nhập.",
+      "Chỉ dùng để gửi thông báo hệ thống. Tài khoản luôn đăng nhập bằng tên đăng nhập. Bỏ trống vẫn tạo được — bổ sung sau ở trang cá nhân hoặc ngay tại bảng này.",
     role: "Vai trò",
     rolePlaceholder: "Chọn vai trò",
     industry: "Ngành hàng",

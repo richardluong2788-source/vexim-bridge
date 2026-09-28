@@ -9,6 +9,7 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
   const vi = locale === "vi"
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [reference, setReference] = useState("")
   const [error, setError] = useState("")
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -18,7 +19,10 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
 
     const form = event.currentTarget
     const formData = new FormData(form)
-    const payload = Object.fromEntries(formData.entries())
+    // Hidden attribution fields (marketing_leads, migration 082): which page,
+    // which campaign, which language. Sent as ordinary fields so the API stays
+    // a plain JSON endpoint — no headers, no extra round trip.
+    const payload = { ...Object.fromEntries(formData.entries()), ...collectAttribution(locale) }
 
     try {
       const response = await fetch("/api/consultation", {
@@ -26,10 +30,11 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-      const result = (await response.json()) as { ok?: boolean; error?: string }
+      const result = (await response.json()) as { ok?: boolean; error?: string; reference?: string }
       if (!response.ok || !result.ok) {
         throw new Error(result.error || (vi ? "Vui lòng kiểm tra lại thông tin." : "Please check your information and try again."))
       }
+      setReference(result.reference ?? "")
       setSubmitted(true)
       form.reset()
     } catch (submissionError) {
@@ -47,6 +52,12 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
         <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
           {vi ? "Đội ngũ Vexim sẽ liên hệ lại trong 2–4 giờ làm việc để trao đổi về mức độ phù hợp." : "A Vexim specialist will contact you within 2–4 business hours to discuss fit and next steps."}
         </p>
+        {reference && (
+          <p className="mt-4 inline-flex items-center gap-2 rounded-md border border-accent/30 bg-card px-3 py-1.5 font-mono text-xs text-foreground">
+            <span className="text-muted-foreground">{vi ? "Mã yêu cầu" : "Request ID"}</span>
+            {reference}
+          </p>
+        )}
       </div>
     )
   }
@@ -88,4 +99,33 @@ function Field({ label, name, type = "text", required = false }: { label: string
       <input name={name} type={type} required={required} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30" />
     </label>
   )
+}
+
+/**
+ * UTM + submission context stored on marketing_leads, so "kênh nào ra lead"
+ * becomes a SQL query instead of a guess. Read at submit time (not render time)
+ * so the values stay correct after in-page navigation, and every field is
+ * optional — an older cached bundle simply sends less attribution, never breaks.
+ */
+function collectAttribution(locale: "vi" | "en"): Record<string, string> {
+  const out: Record<string, string> = { locale }
+  if (typeof window === "undefined") return out
+
+  out.pagePath = `${window.location.pathname}${window.location.hash}`.slice(0, 200)
+  if (document.referrer) out.referrer = document.referrer.slice(0, 300)
+
+  const params = new URLSearchParams(window.location.search)
+  const campaignFields: Array<[string, string]> = [
+    ["utm_source", "utmSource"],
+    ["utm_medium", "utmMedium"],
+    ["utm_campaign", "utmCampaign"],
+    ["utm_content", "utmContent"],
+    ["utm_term", "utmTerm"],
+    ["gclid", "gclid"],
+  ]
+  for (const [param, field] of campaignFields) {
+    const value = params.get(param)?.trim()
+    if (value) out[field] = value.slice(0, 200)
+  }
+  return out
 }

@@ -336,7 +336,14 @@ export interface CreateIntakeLinkResult {
  * already in REVIEWER_ROLES (intake/actions.ts) so they can approve it
  * later too.
  */
-export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
+export async function createIntakeLink(prefill?: {
+  email?: string
+  company_name?: string
+  contact_name?: string
+  phone?: string
+  industries?: string[]
+  client_id?: string
+}): Promise<CreateIntakeLinkResult> {
   const supabase = await createClient()
   const {
     data: { user: caller },
@@ -363,11 +370,71 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
   const token = randomBytes(24).toString("base64url")
   const admin = createAdminClient()
 
-  const { data: row, error } = await admin
-    .from("client_intake_submissions")
-    .insert({ token, ae_id: caller.id })
-    .select("expires_at")
-    .single()
+  // Prefill from existing client if client_id provided
+  let prefillData: Record<string, any> = {}
+  if (prefill?.client_id) {
+    const { data: client } = await admin
+      .from("profiles")
+      .select("email, full_name, company_name, industries, phone")
+      .eq("id", prefill.client_id)
+      .maybeSingle()
+    if (client) {
+      prefillData = {
+        email: client.email ?? prefill.email ?? null,
+        contact_name: client.full_name ?? prefill.contact_name ?? null,
+        company_name: client.company_name ?? prefill.company_name ?? null,
+        industries: client.industries ?? prefill.industries ?? [],
+        phone: client.phone ?? prefill.phone ?? null,
+      }
+    }
+  } else if (prefill) {
+    prefillData = {
+      email: prefill.email ?? null,
+      company_name: prefill.company_name ?? null,
+      contact_name: prefill.contact_name ?? null,
+      phone: prefill.phone ?? null,
+      industries: prefill.industries ?? [],
+    }
+  }
+
+  const insertPayload: Record<string, any> = {
+    token,
+    ae_id: caller.id,
+    ...prefillData,
+  }
+
+  // If client_id provided, also store in a dedicated column if exists (fallback to created_client_id for tracking)
+  // We use a JSON column or just keep in company_name etc. For future, we store linked client id in review_notes as JSON
+  // But we also try to insert into a column client_id if migration added it – ignore error if column missing
+  // So we attempt with client_id, and fallback without
+
+  let row: any = null
+  let error: any = null
+
+  // Try insert with client_id column (new flow)
+  const tryPayloads = [
+    { ...insertPayload, client_id: prefill?.client_id ?? null },
+    insertPayload,
+  ]
+
+  for (const payload of tryPayloads) {
+    const res = await admin
+      .from("client_intake_submissions")
+      .insert(payload)
+      .select("expires_at")
+      .single()
+    if (!res.error) {
+      row = res.data
+      error = null
+      break
+    }
+    // If error is about missing column client_id, try next
+    if (res.error?.message?.includes("client_id") || res.error?.code === "42703") {
+      continue
+    }
+    error = res.error
+    break
+  }
 
   if (error) {
     return { ok: false, error: error.message }
@@ -377,7 +444,7 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     await admin.from("activities").insert({
       opportunity_id: null,
       action_type: "client_intake_link_created",
-      description: JSON.stringify({ token_prefix: token.slice(0, 8) }),
+      description: JSON.stringify({ token_prefix: token.slice(0, 8), prefill: !!prefillData.company_name, client_id: prefill?.client_id ?? null }),
       performed_by: caller.id,
     })
   } catch (auditErr) {
@@ -391,4 +458,86 @@ export async function createIntakeLink(): Promise<CreateIntakeLinkResult> {
     url: `${siteConfig.url}/client-intake/${token}`,
     expiresAt: row?.expires_at,
   }
+}
+
+// Helper for supplement flow after account creation – creates link tied to existing client
+export async function createSupplementLinkForClient(clientId: string): Promise<CreateIntakeLinkResult> {
+  return createIntakeLink({ client_id: clientId })
+}
+
+export interface SupplementIntakeLinkRow {
+  id: string
+  url: string
+  expiresAt: string | null
+  usedAt: string | null
+  createdAt: string
+}
+
+/** Danh sách link bổ sung hồ sơ đã sinh cho 1 client (mới nhất trước).
+ *  Cùng phân quyền với createSupplementLinkForClient — fix 27/09/2026: trước
+ *  đây link doanh nghiệp chỉ sinh được MỘT LẦN ở panel success của trang tạo
+ *  client, lỡ đóng trang là mất (trang client chỉ có nút link sản phẩm). */
+export async function listSupplementIntakeLinks(clientId: string): Promise<{ ok: boolean; data?: SupplementIntakeLinkRow[]; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user: caller },
+  } = await supabase.auth.getUser()
+  if (!caller) return { ok: false, error: "unauthenticated" }
+
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", caller.id)
+    .single()
+
+  const allowedRoles = ["admin", "staff", "super_admin", "account_executive", "supplier_researcher"]
+  if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  const admin = createAdminClient()
+  // LƯU Ý: client_intake_submissions (064) KHÔNG có cột used_at (used_at là
+  // cột của bảng product_intake_links 085). Link đã dùng = status != 'pending'
+  // (thường 'submitted'), mốc thời gian = submitted_at. Fix 27/09/2026.
+  const COLS = "id, token, expires_at, status, submitted_at, created_at"
+  const ORDER = { ascending: false as const }
+
+  // Primary: theo cột client_id (migration 087).
+  let res = await (admin.from("client_intake_submissions") as any)
+    .select(COLS)
+    .eq("client_id", clientId)
+    .order("created_at", ORDER)
+    .limit(10)
+
+  // Fallback (DB chưa chạy 087 — cột client_id chưa tồn tại): link supplement
+  // được prefill email của client nên dò theo email. Trả message lỗi để UI
+  // toast thay vì im lặng (bug 27/09/2026: toast xanh "đã tạo" nhưng list
+  // trống rừng because query chết âm thầm).
+  if (res.error && /client_id/i.test(res.error.message ?? "")) {
+    const { data: clientRow } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", clientId)
+      .maybeSingle()
+    const clientEmail = (clientRow as { email?: string | null } | null)?.email ?? null
+    if (clientEmail) {
+      res = await (admin.from("client_intake_submissions") as any)
+        .select(COLS)
+        .eq("email", clientEmail)
+        .order("created_at", ORDER)
+        .limit(10)
+    }
+  }
+
+  if (res.error) return { ok: false, error: res.error.message ?? "query_failed" }
+
+  const rows = ((res.data ?? []) as Array<{ id: string; token: string; expires_at: string | null; status: string; submitted_at: string | null; created_at: string }>).map((r) => ({
+    id: r.id,
+    url: `${siteConfig.url}/client-intake/${r.token}`,
+    expiresAt: r.expires_at,
+    // "đã dùng" = client đã submit (status rời 'pending'); mốc = submitted_at
+    usedAt: r.status && r.status !== "pending" ? (r.submitted_at ?? r.created_at) : null,
+    createdAt: r.created_at,
+  }))
+  return { ok: true, data: rows }
 }

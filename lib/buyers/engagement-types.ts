@@ -7,6 +7,17 @@
 //
 // Plain types, no "use client": server components read them too.
 
+/**
+ * Lý do chê có cấu trúc (094) — buyer quick-pick trên share page, KHÔNG bắt
+ * buộc (null = chê không chọn lý do). Phase 2: AI re-rank theo dữ liệu này.
+ */
+export type BuyerDeclineReason =
+  | "products_mismatch"
+  | "price_moq"
+  | "missing_certs"
+  | "existing_supplier"
+  | "other"
+
 export type BuyerActionValue =
   | "viewed_only"
   | "interested_no_details"
@@ -17,11 +28,18 @@ export type BuyerActionValue =
   | "selected_primary"
   | "sent_price_volume"
   | "sent_po"
+  | "declined"
 
 export interface ShortlistItemRow {
   id: string
   client_id: string
   position: number
+  /** Pitch-first (093): primary | bench | option — bench không hiện cho buyer. */
+  role?: "primary" | "bench" | "option" | null
+  /** Pitch-first 094: lý do chê có cấu trúc (buyer tự chọn, optional). */
+  decline_reason?: BuyerDeclineReason | null
+  /** Ghi chú tự do tuỳ chọn của buyer khi chê — chỉ AE đọc. */
+  decline_reason_note?: string | null
   match_score: number | null
   buyer_interested: boolean | null
   buyer_action: BuyerActionValue | null
@@ -41,6 +59,8 @@ export interface ShortlistVersionRow {
   sent_at: string | null
   superseded_at: string | null
   buyer_engagement_shortlist_items: ShortlistItemRow[]
+  /** Pitch-first (093): AI-drafted 'why this factory' note, AE-reviewed. */
+  pitch_note?: string | null
 }
 
 export interface ShareLinkRow {

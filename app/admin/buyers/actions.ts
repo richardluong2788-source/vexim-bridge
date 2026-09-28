@@ -335,14 +335,25 @@ export async function getAIMatchedClients(
     .select(
       `id, hs_code, main_product, secondary_hs_codes, main_import_countries,
        avg_teu_per_month, origin_ports, destination_ports, container_types,
-       purchase_history, bol_description, priority_rating`,
+       purchase_history, bol_description, priority_rating,
+       has_active_inquiry, inquiry_products`,
     )
     .eq("id", buyerId)
     .single()
   if (buyerErr || !buyerRow) {
     return { ok: false, error: "buyer_not_found" }
   }
-  const buyer: BuyerMatchInput = buyerRow
+  const buyerRowAny = buyerRow as typeof buyerRow & {
+    has_active_inquiry: boolean | null
+    inquiry_products: string | null
+  }
+  const buyer: BuyerMatchInput = {
+    ...buyerRowAny,
+    // 095: nhu cầu thực tế của buyer CHỦ ĐỘNG (068) tham gia matching —
+    // nếu không, nhóm buyer quan trọng nhất này bị match bằng hơi (matcher
+    // chỉ đọc main_product/bol_description do ImportYeti/LR điền).
+    inquiry_products: buyerRowAny.has_active_inquiry ? buyerRowAny.inquiry_products : null,
+  }
 
   // 2) Active products across all clients, joined with client identity
   const { data: rawProducts, error: productsErr } = await admin

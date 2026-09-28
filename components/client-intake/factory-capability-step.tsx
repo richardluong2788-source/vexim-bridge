@@ -15,14 +15,15 @@ import {
   OEM_ODM,
   QUALITY_SYSTEMS,
   TRACEABILITY,
-  WATER_SOURCES,
   toggleAssessmentValue,
   type FactoryCapabilityAnswers,
 } from "@/lib/assessment/constants"
+import { ImageLinkField } from "@/components/client-intake/image-link-field"
 
 interface FactoryCapabilityStepProps {
   values: FactoryCapabilityAnswers
   onChange: (patch: Partial<FactoryCapabilityAnswers>) => void
+  token?: string
 }
 
 function YesNo({
@@ -47,10 +48,14 @@ function YesNo({
 export function FactoryCapabilityStep({
   values: v,
   onChange,
+  token,
 }: FactoryCapabilityStepProps) {
+  const showFdaDetails = v.fda_status === "valid" || v.fda_status === "expired" || v.fda_status === "in_progress" || v.fda_status === "pending_supplement"
+  const requireFdaFields = v.fda_status === "valid"
+
   return (
     <div className="flex flex-col gap-8">
-      {/* 1 (muc 6): He thong quan ly chat luong & ATTP */}
+      {/* 1: He thong quan ly chat luong & ATTP */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           1. Hệ thống quản lý chất lượng &amp; ATTP đang áp dụng
@@ -79,7 +84,7 @@ export function FactoryCapabilityStep({
         )}
       </section>
 
-      {/* 2 (muc 7): OEM/ODM */}
+      {/* 2: OEM/ODM */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           2. Năng lực OEM / ODM
@@ -108,7 +113,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 3 (muc 8): Kinh nghiem xuat khau */}
+      {/* 3: Kinh nghiem xuat khau */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">3. Kinh nghiệm xuất khẩu</h3>
         <div className="flex flex-col gap-2">
@@ -147,7 +152,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 4 (muc 9): Truy xuat nguon goc */}
+      {/* 4: Truy xuat nguon goc */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">4. Hệ thống truy xuất nguồn gốc</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -165,7 +170,7 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 5 (muc 10): Dang ky FDA */}
+      {/* 5: Dang ky FDA - with in_progress + certificate upload */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">5. Đăng ký FDA</h3>
         <RadioGroup
@@ -179,168 +184,71 @@ export function FactoryCapabilityStep({
             </label>
           ))}
         </RadioGroup>
-        {v.fda_status === "valid" && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaNumber">Số đăng ký FDA</Label>
-              <Input
-                id="fdaNumber"
-                placeholder="VD: 12345678901"
-                value={v.fda_number}
-                onChange={(e) => onChange({ fda_number: e.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fdaExpiresAt">Ngày hết hạn</Label>
-              <Input
-                id="fdaExpiresAt"
-                type="date"
-                value={v.fda_expires_at}
-                onChange={(e) => onChange({ fda_expires_at: e.target.value })}
-              />
-            </div>
-          </div>
+
+        {v.fda_status === "in_progress" && (
+          <p className="text-xs text-muted-foreground rounded-md border border-dashed p-3 bg-muted/20">
+            Nhà máy đang trong quá trình đăng ký FDA. Vui lòng bổ sung số đăng ký và chứng chỉ ngay khi có. Trạng thái này vẫn đủ điều kiện để Vexim đánh giá và đưa vào shortlist (đủ điều kiện có điều kiện).
+          </p>
         )}
-      </section>
 
-      {/* 6 (muc 11): Nhan su, gio lam viec & rui ro lao dong / moi truong */}
-      <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">
-          6. Nhân sự, giờ làm việc &amp; rủi ro lao động / môi trường
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          Dùng để đánh giá rủi ro lao động cưỡng bức, an toàn thực phẩm và môi trường sản xuất.
-        </p>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staffEngineers">Số lượng kỹ sư / nhân viên kỹ thuật</Label>
-            <Input
-              id="staffEngineers"
-              type="number"
-              min={0}
-              placeholder="VD: 8"
-              value={v.staff_engineers_count}
-              onChange={(e) => onChange({ staff_engineers_count: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staffWorkers">Số lượng công nhân sản xuất</Label>
-            <Input
-              id="staffWorkers"
-              type="number"
-              min={0}
-              placeholder="VD: 120"
-              value={v.staff_workers_count}
-              onChange={(e) => onChange({ staff_workers_count: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workHoursStart">Giờ bắt đầu ca làm việc</Label>
-            <Input
-              id="workHoursStart"
-              type="time"
-              value={v.work_hours_start}
-              onChange={(e) => onChange({ work_hours_start: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workHoursEnd">Giờ kết thúc ca làm việc</Label>
-            <Input
-              id="workHoursEnd"
-              type="time"
-              value={v.work_hours_end}
-              onChange={(e) => onChange({ work_hours_end: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workDaysPerWeek">Số ngày làm việc / tuần</Label>
-            <Input
-              id="workDaysPerWeek"
-              type="number"
-              min={1}
-              max={7}
-              placeholder="VD: 6"
-              value={v.work_days_per_week}
-              onChange={(e) => onChange({ work_days_per_week: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label>Đào tạo / tập huấn ATTP định kỳ</Label>
-            <YesNo
-              value={v.food_safety_training_regular}
-              onChange={(val) => onChange({ food_safety_training_regular: val })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Kiểm tra / kiểm định máy móc định kỳ</Label>
-            <YesNo
-              value={v.equipment_calibration_regular}
-              onChange={(val) => onChange({ equipment_calibration_regular: val })}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label>Nguồn nước sử dụng trong sản xuất</Label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {WATER_SOURCES.map((w) => (
-              <label key={w} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={v.water_source.includes(w)}
-                  onCheckedChange={() =>
-                    onChange({ water_source: toggleAssessmentValue(v.water_source, w) })
-                  }
+        {showFdaDetails && (
+          <div className="flex flex-col gap-4 rounded-md border border-border p-4 bg-card">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaNumber">
+                  Số đăng ký FDA {requireFdaFields && <span className="text-destructive">*</span>}
+                </Label>
+                <Input
+                  id="fdaNumber"
+                  placeholder={v.fda_status === "in_progress" ? "Đang triển khai" : "VD: 12345678901"}
+                  value={v.fda_number}
+                  onChange={(e) => onChange({ fda_number: e.target.value })}
                 />
-                {ASSESSMENT_LABELS[w]}
-              </label>
-            ))}
-          </div>
-          {v.water_source.includes("other") && (
-            <Input
-              placeholder="Nguồn nước khác..."
-              value={v.water_source_other}
-              onChange={(e) => onChange({ water_source_other: e.target.value })}
-            />
-          )}
-        </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="fdaExpiresAt">
+                  Ngày hết hạn {requireFdaFields && <span className="text-destructive">*</span>}
+                </Label>
+                <Input
+                  id="fdaExpiresAt"
+                  type="date"
+                  value={v.fda_expires_at}
+                  onChange={(e) => onChange({ fda_expires_at: e.target.value })}
+                />
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label>Nguồn nước có được kiểm định định kỳ</Label>
-            <YesNo value={v.water_testing} onChange={(val) => onChange({ water_testing: val })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Nhà máy có gần nguồn ô nhiễm (KCN nặng, bãi rác, sông ô nhiễm...)</Label>
-            <YesNo
-              value={v.near_pollution_source}
-              onChange={(val) => onChange({ near_pollution_source: val })}
-            />
-          </div>
-        </div>
-        {v.near_pollution_source === "yes" && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="pollutionNote">Ghi chú vị trí / nguồn ô nhiễm gần nhà máy</Label>
-            <Textarea
-              id="pollutionNote"
-              rows={2}
-              placeholder="VD: cách khu công nghiệp X 500m..."
-              value={v.pollution_source_note}
-              onChange={(e) => onChange({ pollution_source_note: e.target.value })}
-            />
+            <div className="flex flex-col gap-2">
+              <Label>
+                Chứng chỉ / Giấy đăng ký FDA (ảnh) {requireFdaFields && <span className="text-destructive">*</span>}
+              </Label>
+              {token ? (
+                <ImageLinkField
+                  max={1}
+                  token={token}
+                  value={v.fda_certificate_url ? [v.fda_certificate_url] : []}
+                  onChange={(urls) => onChange({ fda_certificate_url: urls[0] ?? "" })}
+                  recommendedSize="1200 x 1600px – ảnh rõ nét, có số FDA"
+                  uploadLabel="Tải ảnh chứng chỉ FDA – dưới 5MB"
+                />
+              ) : (
+                <Input
+                  placeholder="https://.../fda-certificate.jpg (hoặc tải ở bước hồ sơ)"
+                  value={v.fda_certificate_url}
+                  onChange={(e) => onChange({ fda_certificate_url: e.target.value })}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                Ảnh này sẽ được mapping với số FDA ở trên và hiển thị trên trang hồ sơ nhà cung cấp (mục Chứng nhận & Tuân thủ).
+              </p>
+            </div>
           </div>
         )}
       </section>
 
-      {/* 7 (muc 12): Buyer Audit */}
+      {/* 6: Buyer Audit */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">7. Khả năng tiếp đón Buyer Audit</h3>
+        <h3 className="text-sm font-semibold text-foreground">6. Khả năng tiếp đón Buyer Audit</h3>
         <div className="flex flex-col gap-2">
           {AUDIT_READINESS.map((a) => (
             <label key={a} className="flex items-center gap-2 text-sm">
@@ -367,9 +275,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 8 (muc 13): Nang luc thuong mai */}
+      {/* 7: Nang luc thuong mai */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">8. Năng lực thương mại</h3>
+        <h3 className="text-sm font-semibold text-foreground">7. Năng lực thương mại</h3>
         <div className="flex flex-wrap gap-4">
           {INCOTERMS.map((i) => (
             <label key={i} className="flex items-center gap-2 text-sm">
@@ -414,9 +322,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 9 (muc 14): Nhan su phu trach du an */}
+      {/* 8: Nhan su phu trach du an */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">9. Nhân sự phụ trách dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">8. Nhân sự phụ trách dự án</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label>Có bộ phận xuất khẩu</Label>
@@ -441,9 +349,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 10 (muc 15): Cam ket trien khai du an */}
+      {/* 9: Cam ket trien khai du an */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">10. Cam kết triển khai dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">9. Cam kết triển khai dự án</h3>
         <div className="flex flex-col gap-2">
           {COMMITMENTS.map((c) => (
             <label key={c} className="flex items-start gap-2 text-sm">

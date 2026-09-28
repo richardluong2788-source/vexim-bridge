@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Empty } from '@/components/ui/empty';
 import { listClientProductsAction } from '@/app/admin/clients/products-actions';
 import type { ClientProduct } from '@/app/admin/clients/products-actions';
 import { markdownToPlainText } from '@/lib/markdown-preview';
+import { ClientProductDialog } from '@/components/client/client-product-dialog';
 
 interface ClientProductsListProps {
   clientId: string;
@@ -16,11 +18,21 @@ interface ClientProductsListProps {
 export function ClientProductsList({ clientId }: ClientProductsListProps) {
   const [products, setProducts] = useState<ClientProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ClientProduct | null>(null);
 
-  // Load products
   useEffect(() => {
     loadProducts();
   }, [clientId]);
+
+  const handleOpenDialog = (product?: ClientProduct) => {
+    setEditingProduct(product || null);
+    setDialogOpen(true);
+  };
+
+  const handleSaved = () => {
+    loadProducts();
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -52,9 +64,17 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold">My Products</h1>
-          <p className="text-muted-foreground mt-2">Your product catalog is managed by Admin. Contact Admin to add or modify products.</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="mb-2">
+            <h1 className="text-3xl font-bold">My Products</h1>
+            <p className="text-muted-foreground mt-2">
+              Quản lý catalog sản phẩm của bạn. Mỗi sản phẩm cần cam kết giá: không nâng riêng cho Vexim và phản ánh giá thương mại thực tế.
+            </p>
+          </div>
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            Thêm sản phẩm
+          </Button>
         </div>
       </div>
 
@@ -67,7 +87,7 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
       ) : products.length === 0 ? (
         <Empty
           title="No products yet"
-          description="Start by adding your first product to your catalog"
+          description="Start by adding your first product — you will be asked to confirm price attestation."
           action={
             <Button onClick={() => handleOpenDialog()}>
               <Plus className="w-4 h-4 mr-2" />
@@ -94,9 +114,10 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant={statusBadgeVariant(product.status)}>
-                      {product.status}
-                    </Badge>
+                    <Badge variant={statusBadgeVariant(product.status)}>{product.status}</Badge>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog(product)}>
+                      Sửa
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -172,12 +193,31 @@ export function ClientProductsList({ clientId }: ClientProductsListProps) {
                     <span className="font-medium">Last Updated</span>
                     <p className="text-muted-foreground">{new Date(product.updated_at).toLocaleDateString()}</p>
                   </div>
+
+                  {(product as any).price_confirmed && (
+                    <div className="col-span-2">
+                      <span className="font-medium text-emerald-700">✓ Đã cam kết giá</span>
+                      <p className="text-muted-foreground text-xs">
+                        {(product as any).price_attested_at
+                          ? `Xác nhận lúc ${new Date((product as any).price_attested_at).toLocaleString('vi-VN')}`
+                          : 'Đã xác nhận cam kết giá thương mại thực tế'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <ClientProductDialog
+        clientId={clientId}
+        product={editingProduct}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSaved={handleSaved}
+      />
     </div>
   );
 }

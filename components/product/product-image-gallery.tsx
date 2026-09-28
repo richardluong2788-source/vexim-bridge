@@ -5,6 +5,7 @@ import { Package, ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { SmartImage } from "@/components/ui/smart-image"
 
 interface ProductImageGalleryProps {
   images: string[]
@@ -64,11 +65,13 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
       >
         {currentImage ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <SmartImage
               src={currentImage}
               alt={`${productName} - Image ${selectedIndex + 1}`}
-              className={`w-full h-full object-cover transition-transform duration-300 ${
+              fill
+              priority={selectedIndex === 0}
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className={`object-cover transition-transform duration-300 ${
                 isHovering ? "scale-110" : "scale-100"
               }`}
               style={

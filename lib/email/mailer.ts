@@ -26,8 +26,9 @@ export const SENDER_EMAILS = {
   noreply: "noreply@veximtrade.com",
   /** Commercial: buyer outreach emails, quotations, follow-ups */
   trade: "trade@veximtrade.com",
-  /** General contact & consultation enquiries */
-  hello: "hello@veximtrade.com",
+  /** General contact & consultation enquiries - primary contact@veximglobal.com */
+  hello: "contact@veximglobal.com",
+  contact: "contact@veximglobal.com",
 } as const
 
 export type SenderKey = keyof typeof SENDER_EMAILS

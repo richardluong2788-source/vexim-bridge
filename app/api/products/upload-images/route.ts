@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/server"
  * Client-side direct upload for product images. The browser uploads
  * straight to Vercel Blob using a short-lived token issued here, so
  * large images never pass through this function's request body.
+ *
+ * Spec B: limit input 5MB, client compresses to 300-800KB webp before upload.
  */
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB – client compresses to 300-800KB
 export const MAX_FILES = 10
 export const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 

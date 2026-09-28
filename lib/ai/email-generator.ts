@@ -516,8 +516,6 @@ export async function generateEmailDraft(
       companyScale: fa?.company_scale ?? null,
       hasExportDept: fa?.has_export_dept ?? null,
       hasEnglishStaff: fa?.has_english_staff ?? null,
-      staffEngineersCount: fa?.staff_engineers_count ?? null,
-      staffWorkersCount: fa?.staff_workers_count ?? null,
       uspPoints: cp?.usp_points ?? null,
       products: supplierProducts.map((p: any) => ({
         productName: p.product_name,
@@ -786,8 +784,6 @@ export async function generateEmailDraft(
         company_scale: supplierVetting.companyScale,
         has_export_dept: supplierVetting.hasExportDept,
         has_english_staff: supplierVetting.hasEnglishStaff,
-        staff_engineers: supplierVetting.staffEngineersCount,
-        staff_workers: supplierVetting.staffWorkersCount,
         usp_points: supplierVetting.uspPoints,
         key_products: supplierVetting.products,
         trust_signals_text: supplierTrustText,

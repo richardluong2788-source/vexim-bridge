@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClientAccount, type CreateClientInput } from "@/app/admin/clients/new/actions"
 import { upsertAssessment, type AssessmentInput } from "@/lib/assessment/actions"
+import { seedProductsFromMainProducts } from "@/lib/client-intake/split-main-products"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 
 export interface IntakeEditableFields {
@@ -30,29 +31,19 @@ export interface IntakeEditableFields {
   video_url?: string | null
   certifications?: string[]
   certifications_other?: string | null
+  certification_image_urls?: string[]
   quality_systems?: string[]
   quality_systems_other?: string | null
   oem_odm?: string[]
   company_scale?: string | null
   export_since_year?: number | null
-  export_markets?: string[]
+  export_markets?: string[] | null
   export_markets_other?: string | null
   traceability?: string[]
   fda_status?: string | null
   fda_number?: string | null
   fda_expires_at?: string | null
-  staff_engineers_count?: number | null
-  staff_workers_count?: number | null
-  work_hours_start?: string | null
-  work_hours_end?: string | null
-  work_days_per_week?: number | null
-  food_safety_training_regular?: boolean | null
-  equipment_calibration_regular?: boolean | null
-  water_source?: string[]
-  water_source_other?: string | null
-  water_testing?: boolean | null
-  near_pollution_source?: boolean | null
-  pollution_source_note?: string | null
+  fda_certificate_url?: string | null
   audit_readiness?: string[]
   audit_owner?: string | null
   incoterms?: string[]
@@ -143,6 +134,7 @@ export async function updateIntakeSubmission(
     video_url: fields.video_url?.trim() || null,
     certifications: fields.certifications ?? [],
     certifications_other: fields.certifications_other?.trim() || null,
+    certification_image_urls: fields.certification_image_urls ?? [],
     quality_systems: fields.quality_systems ?? [],
     quality_systems_other: fields.quality_systems_other?.trim() || null,
     oem_odm: fields.oem_odm ?? [],
@@ -154,18 +146,7 @@ export async function updateIntakeSubmission(
     fda_status: fields.fda_status?.trim() || null,
     fda_number: fields.fda_number?.trim() || null,
     fda_expires_at: fields.fda_expires_at || null,
-    staff_engineers_count: fields.staff_engineers_count ?? null,
-    staff_workers_count: fields.staff_workers_count ?? null,
-    work_hours_start: fields.work_hours_start || null,
-    work_hours_end: fields.work_hours_end || null,
-    work_days_per_week: fields.work_days_per_week ?? null,
-    food_safety_training_regular: fields.food_safety_training_regular ?? null,
-    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
-    water_source: fields.water_source ?? [],
-    water_source_other: fields.water_source_other?.trim() || null,
-    water_testing: fields.water_testing ?? null,
-    near_pollution_source: fields.near_pollution_source ?? null,
-    pollution_source_note: fields.pollution_source_note?.trim() || null,
+    fda_certificate_url: fields.fda_certificate_url?.trim() || null,
     audit_readiness: fields.audit_readiness ?? [],
     audit_owner: fields.audit_owner?.trim() || null,
     incoterms: fields.incoterms ?? [],
@@ -188,18 +169,16 @@ export async function updateIntakeSubmission(
   return { ok: true }
 }
 
-/**
- * AE-only: approve a submitted intake. Provisions the client account
- * (reusing the same `createClientAccount` flow as manual admin creation),
- * then mirrors the capability-profile fields into `client_profiles` so
- * "Quản lý hồ sơ" opens already populated. Marks the submission approved
- * and links it to the new profile id.
- */
+export interface ApproveIntakeOptions {
+  seedProductsFromIntake?: boolean
+}
+
 export async function approveIntakeSubmission(
   id: string,
   fields: IntakeEditableFields,
   reviewNotes?: string,
-): Promise<ActionResult & { clientId?: string }> {
+  options: ApproveIntakeOptions = {},
+): Promise<ActionResult & { clientId?: string; seededProducts?: number }> {
   const { caller, callerProfile } = await getCallerOrForbidden()
   if (!caller) return { ok: false, error: "unauthenticated" }
   if (!callerProfile || !REVIEWER_ROLES.includes(callerProfile.role)) {
@@ -208,14 +187,11 @@ export async function approveIntakeSubmission(
 
   const admin = createAdminClient()
 
-  // Re-fetch the row directly (bypassing RLS is fine — caller role already
-  // checked) to confirm it's still awaiting review and not already acted on
-  // by someone else / re-approved twice.
   const { data: submission, error: fetchErr } = await admin
     .from("client_intake_submissions")
-    .select("id, status, ae_id")
+    .select("id, status, ae_id, client_id, email")
     .eq("id", id)
-    .single()
+    .single() as { data: { id: string; status: string; ae_id: string; client_id: string | null; email: string | null } | null; error: any }
 
   if (fetchErr || !submission) return { ok: false, error: "not_found" }
   if (submission.status === "approved") {
@@ -231,33 +207,66 @@ export async function approveIntakeSubmission(
   }
   const isSR = callerProfile.role === "supplier_researcher"
 
-  // Persist any last-minute AE edits first.
   const editResult = await updateIntakeSubmission(id, fields)
   if (!editResult.ok) return editResult
 
-  // ---- Provision the client account (registration fields) -----------------
-  const createInput: CreateClientInput = {
-    email: fields.email,
-    full_name: fields.contact_name,
-    company_name: fields.company_name,
-    industries: fields.industries,
-    phone: fields.phone,
-    country: fields.country ?? null,
-    // SR owns the supplier pipeline: when an SR approves an intake, they are
-    // the sourcer of record (drives their billing-proposal scope).
-    sourced_by: isSR ? caller.id : null,
+  let clientId: string
+
+  // Supplement flow: if intake was generated for an existing client, reuse that client_id directly
+  if ((submission as any).client_id) {
+    clientId = (submission as any).client_id as string
+    try {
+      await admin
+        .from("profiles")
+        .update({
+          company_name: fields.company_name || undefined,
+          full_name: fields.contact_name || undefined,
+          phone: fields.phone || undefined,
+          industries: fields.industries?.length ? fields.industries : undefined,
+        })
+        .eq("id", clientId)
+    } catch {}
+  } else {
+    const createInput: CreateClientInput = {
+      email: fields.email,
+      full_name: fields.contact_name,
+      company_name: fields.company_name,
+      industries: fields.industries,
+      phone: fields.phone,
+      country: fields.country ?? null,
+      sourced_by: isSR ? caller.id : null,
+    }
+
+    const createResult = await createClientAccount(createInput)
+    if (createResult.ok && createResult.userId) {
+      clientId = createResult.userId
+    } else if (createResult.error === "email_exists") {
+      // Fallback supplement flow via email match
+      const { data: existingProfile } = await admin
+        .from("profiles")
+        .select("id, email")
+        .eq("email", fields.email.trim().toLowerCase())
+        .maybeSingle()
+      if (!existingProfile?.id) {
+        return { ok: false, error: "email_exists_but_profile_not_found" }
+      }
+      clientId = existingProfile.id
+      try {
+        await admin
+          .from("profiles")
+          .update({
+            company_name: fields.company_name || undefined,
+            full_name: fields.contact_name || undefined,
+            phone: fields.phone || undefined,
+            industries: fields.industries?.length ? fields.industries : undefined,
+          })
+          .eq("id", clientId)
+      } catch {}
+    } else {
+      return { ok: false, error: (createResult as any).error ?? "create_failed" }
+    }
   }
 
-  const createResult = await createClientAccount(createInput)
-  if (!createResult.ok || !createResult.userId) {
-    return { ok: false, error: createResult.error ?? "create_failed" }
-  }
-
-  const clientId = createResult.userId
-
-  // ---- Mirror the complete factory assessment into client_factory_assessments
-  // The assessment action recomputes the internal score and upserts atomically
-  // by client_id, so re-running approval cannot create duplicate assessments.
   const toNumber = (value: number | null | undefined) => value ?? null
   const assessmentInput: AssessmentInput = {
     quality_systems: fields.quality_systems ?? [],
@@ -282,18 +291,6 @@ export async function approveIntakeSubmission(
     moq: fields.moq ?? null,
     lead_time_days: fields.lead_time_days ?? null,
     production_capacity: fields.production_capacity ?? null,
-    staff_engineers_count: toNumber(fields.staff_engineers_count),
-    staff_workers_count: toNumber(fields.staff_workers_count),
-    work_hours_start: fields.work_hours_start ?? null,
-    work_hours_end: fields.work_hours_end ?? null,
-    work_days_per_week: toNumber(fields.work_days_per_week),
-    food_safety_training_regular: fields.food_safety_training_regular ?? null,
-    equipment_calibration_regular: fields.equipment_calibration_regular ?? null,
-    water_source: fields.water_source ?? [],
-    water_source_other: fields.water_source_other ?? null,
-    water_testing: fields.water_testing ?? null,
-    near_pollution_source: fields.near_pollution_source ?? null,
-    pollution_source_note: fields.pollution_source_note ?? null,
   }
   const assessmentResult = await upsertAssessment(clientId, assessmentInput)
   if (!assessmentResult.success) {
@@ -301,7 +298,6 @@ export async function approveIntakeSubmission(
     return { ok: false, error: "assessment_create_failed" }
   }
 
-  // ---- Mirror capability-profile fields into client_profiles ---------------
   const slugBase = fields.company_name
     .toLowerCase()
     .normalize("NFD")
@@ -340,11 +336,123 @@ export async function approveIntakeSubmission(
 
   if (profileErr) {
     console.error("[v0] client_profiles upsert after intake approval failed:", profileErr.message)
-    // Don't fail the whole approval — the account exists; AE can fill the
-    // profile manually in "Quản lý hồ sơ" if this mirror step had an issue.
   }
 
-  // ---- Mark submission approved --------------------------------------------
+  // ---- Mirror FDA + certification images into compliance_docs ----------------
+  // These images come from the intake wizard (ImageLinkField uploads to Blob)
+  // and should become visible on the supplier's public profile page.
+  try {
+    const complianceDocsToInsert: Array<{
+      owner_id: string
+      kind: string
+      title: string | null
+      url: string
+      mime_type: string | null
+      notes: string | null
+      uploaded_by: string | null
+    }> = []
+
+    if (fields.fda_certificate_url) {
+      complianceDocsToInsert.push({
+        owner_id: clientId,
+        kind: "fda_certificate",
+        title: fields.fda_number ? `FDA ${fields.fda_number}` : "FDA Certificate",
+        url: fields.fda_certificate_url,
+        mime_type: "image/jpeg",
+        notes: fields.fda_number || null,
+        uploaded_by: caller.id,
+      })
+    }
+
+    if (fields.certification_image_urls && fields.certification_image_urls.length > 0) {
+      for (const url of fields.certification_image_urls) {
+        if (!url) continue
+        complianceDocsToInsert.push({
+          owner_id: clientId,
+          kind: "other",
+          title: "Certification",
+          url,
+          mime_type: "image/jpeg",
+          notes: null,
+          uploaded_by: caller.id,
+        })
+      }
+    }
+
+    if (complianceDocsToInsert.length > 0) {
+      const { data: insertedDocs, error: docsErr } = await admin
+        .from("compliance_docs")
+        .insert(complianceDocsToInsert)
+        .select("id")
+
+      if (docsErr) {
+        console.error("[v0] compliance_docs insert from intake failed:", docsErr.message)
+      } else if (insertedDocs && insertedDocs.length > 0) {
+        // Auto-feature these docs on the profile so they show on public page
+        const docIds = insertedDocs.map((d: any) => d.id)
+        // Fetch current featured to merge
+        const { data: existingProfile } = await admin
+          .from("client_profiles")
+          .select("featured_certifications")
+          .eq("client_id", clientId)
+          .maybeSingle()
+
+        const currentFeatured = (existingProfile as any)?.featured_certifications ?? []
+        const mergedFeatured = Array.from(new Set([...currentFeatured, ...docIds]))
+
+        await admin
+          .from("client_profiles")
+          .update({ featured_certifications: mergedFeatured, updated_by: caller.id })
+          .eq("client_id", clientId)
+
+        // Also update FDA registration in profiles if provided
+        if (fields.fda_number || fields.fda_status) {
+          const fdaStatusMap: Record<string, string> = {
+            valid: "valid",
+            expired: "expired",
+            in_progress: "pending_supplement",
+            pending_supplement: "pending_supplement",
+            none: "missing",
+          }
+          const mappedStatus = fdaStatusMap[fields.fda_status ?? ""] ?? "missing"
+          const fdaNumberToSave =
+            fields.fda_status === "in_progress" || fields.fda_status === "pending_supplement"
+              ? "PENDING"
+              : fields.fda_number || null
+
+          await admin
+            .from("profiles")
+            .update({
+              fda_registration_number: fdaNumberToSave,
+              fda_expires_at: fields.fda_expires_at || null,
+              fda_status: mappedStatus,
+            })
+            .eq("id", clientId)
+        }
+      }
+    }
+  } catch (docErr) {
+    console.error("[v0] compliance_docs mirror from intake unexpected error:", docErr)
+  }
+
+  let seededProducts = 0
+  if (options.seedProductsFromIntake !== false) {
+    const seeded = await seedProductsFromMainProducts(admin, {
+      clientId,
+      mainProducts: fields.main_products,
+      submissionId: id,
+      createdBy: caller.id,
+      companyName: fields.company_name,
+      status: "inactive",
+      onlyWhenClientEmpty: true,
+    })
+    if (!seeded.ok) {
+      console.error("[v0] intake product seeding failed after approval:", seeded.error)
+    } else {
+      seededProducts = seeded.inserted
+    }
+  }
+
   await admin
     .from("client_intake_submissions")
     .update({
@@ -360,7 +468,11 @@ export async function approveIntakeSubmission(
     await admin.from("activities").insert({
       opportunity_id: null,
       action_type: "client_intake_approved",
-      description: JSON.stringify({ submission_id: id, new_client_id: clientId }),
+      description: JSON.stringify({
+        submission_id: id,
+        new_client_id: clientId,
+        seeded_products: seededProducts,
+      }),
       performed_by: caller.id,
     })
   } catch (auditErr) {
@@ -370,13 +482,9 @@ export async function approveIntakeSubmission(
   revalidatePath("/admin/clients/intake")
   revalidatePath("/admin/clients")
 
-  return { ok: true, clientId }
+  return { ok: true, clientId, seededProducts }
 }
 
-/**
- * AE-only: reject a submission (e.g. industry not a fit, or client never
- * followed up on missing info). Does not touch `profiles` at all.
- */
 export async function rejectIntakeSubmission(
   id: string,
   reason: string,

@@ -13,8 +13,22 @@ export async function GET(request: NextRequest) {
     const minPrice = searchParams.get('min_price');
     const maxPrice = searchParams.get('max_price');
     const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    // Clamp paging: PostgREST would cap a single response anyway, but an
+    // unbounded `limit` is a free way to make the API do 1000-row work per hit.
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50') || 50));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0') || 0);
+
+    // This endpoint is public (no auth in front of it), and it used to return
+    // every column RLS allowed — including the supplier's contact email and FDA
+    // registration number. Those are not catalog fields: a buyer contacts the
+    // supplier through a quote request, and the FDA number is a business
+    // credential our desk verifies itself. They are now only included for a
+    // signed-in caller (the app's own admin/AE and supplier surfaces).
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const includePrivate = Boolean(user);
 
     // Build query
     let query = supabase
@@ -34,9 +48,7 @@ export async function GET(request: NextRequest) {
         profiles:client_id (
           id,
           company_name,
-          email,
-          fda_registration_number,
-          industry,
+          ${includePrivate ? 'email, fda_registration_number, ' : ''}industry,
           industries
         )
       `,

@@ -17,12 +17,16 @@
  * Rows carry the headline facts and come pre-ordered by urgency from
  * lib/buyers/engagement-summary.ts, so the list is the priority order, not just
  * a list. A buyer who wrote to us and has not been read is at the top.
+ *
+ * The left column shows at most 10 buyers. The rest stay on later pages, so the
+ * list never wraps into the peek.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
+  ChevronLeft,
   ChevronRight,
   ClipboardList,
   ExternalLink,
@@ -118,6 +122,9 @@ const PRIORITY_TONE: Record<string, string> = {
   low: "bg-slate-500/10 text-slate-600 border-slate-500/20",
 }
 
+/** One page of the left column. Buyer 11 starts page 2 — it does not open a second column. */
+const BUYERS_PER_PAGE = 10
+
 export function InboxWorkspace({
   pendingItems,
   engagements,
@@ -138,6 +145,7 @@ export function InboxWorkspace({
   )
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [engagementId, setEngagementId] = useState<string | null>(initialFocus)
+  const [page, setPage] = useState(1)
 
   // Urgency order: unread replies first, then most recently touched.
   const ordered = useMemo(() => sortEngagementsForWorklist(engagements), [engagements])
@@ -161,6 +169,25 @@ export function InboxWorkspace({
   }, [tab, engagementId, pendingId])
 
   const unreadTotal = ordered.filter((e) => summarizeEngagement(e).needsAttention).length
+  const activeItems = tab === "pending" ? pendingItems : ordered
+  const pageCount = Math.max(1, Math.ceil(activeItems.length / BUYERS_PER_PAGE))
+  const safePage = Math.min(page, pageCount)
+  const pageStart = (safePage - 1) * BUYERS_PER_PAGE
+
+  // A notification can land on a buyer past the first 10. Open that page once,
+  // then leave paging to the user — switching tabs always returns to page 1.
+  const didFocusPage = useRef(false)
+  useEffect(() => {
+    if (didFocusPage.current || !initialFocus) return
+    didFocusPage.current = true
+    const index = ordered.findIndex((engagement) => engagement.id === initialFocus)
+    if (index >= 0) setPage(Math.floor(index / BUYERS_PER_PAGE) + 1)
+  }, [initialFocus, ordered])
+
+  function selectTab(next: InboxTab) {
+    setTab(next)
+    setPage(1)
+  }
 
   const tabs: Array<{
     key: InboxTab
@@ -198,7 +225,7 @@ export function InboxWorkspace({
             <button
               key={item.key}
               type="button"
-              onClick={() => setTab(item.key)}
+              onClick={() => selectTab(item.key)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                 active
@@ -231,16 +258,30 @@ export function InboxWorkspace({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        {/* ---- The worklist ---- */}
-        <div className={cn("flex flex-col gap-2", focusIsSet && "hidden lg:flex")}>
-          {tab === "pending" ? (
-            pendingItems.length === 0 ? (
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        {/* ---- The worklist: one column, 10 buyers per page ---- */}
+        <div
+          className={cn(
+            // justify-between pins the pager to the foot of this column.
+            // The grid track is capped at 380px, so rows cannot wrap into the peek.
+            "w-full max-w-full min-w-0 flex-col justify-between gap-3 overflow-hidden lg:h-[calc(100dvh-15rem)]",
+            focusIsSet ? "hidden lg:flex" : "flex",
+          )}
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            {activeItems.length === 0 ? (
               <EmptyQueue
-                label={t("Không có buyer nào chờ nhận", "No buyers waiting to be claimed")}
+                label={
+                  tab === "pending"
+                    ? t("Không có buyer nào chờ nhận", "No buyers waiting to be claimed")
+                    : t(
+                        "Chưa có buyer nào đang xử lý. Nhận buyer ở tab “Chờ nhận” để bắt đầu.",
+                        "No buyers in progress. Claim one from “To claim” to start.",
+                      )
+                }
               />
-            ) : (
-              pendingItems.map((item) => (
+            ) : tab === "pending" ? (
+              pendingItems.slice(pageStart, pageStart + BUYERS_PER_PAGE).map((item) => (
                 <PendingRow
                   key={item.id}
                   item={item}
@@ -249,29 +290,31 @@ export function InboxWorkspace({
                   onSelect={() => setPendingId(item.id)}
                 />
               ))
-            )
-          ) : ordered.length === 0 ? (
-            <EmptyQueue
-              label={t(
-                "Chưa có buyer nào đang xử lý. Nhận buyer ở tab “Chờ nhận” để bắt đầu.",
-                "No buyers in progress. Claim one from “To claim” to start.",
-              )}
+            ) : (
+              ordered.slice(pageStart, pageStart + BUYERS_PER_PAGE).map((engagement) => (
+                <EngagementRow
+                  key={engagement.id}
+                  engagement={engagement}
+                  locale={locale}
+                  selected={engagement.id === engagementId}
+                  onSelect={() => setEngagementId(engagement.id)}
+                />
+              ))
+            )}
+          </div>
+
+          {pageCount > 1 && (
+            <WorklistPager
+              page={safePage}
+              pageCount={pageCount}
+              onPage={setPage}
+              locale={locale}
             />
-          ) : (
-            ordered.map((engagement) => (
-              <EngagementRow
-                key={engagement.id}
-                engagement={engagement}
-                locale={locale}
-                selected={engagement.id === engagementId}
-                onSelect={() => setEngagementId(engagement.id)}
-              />
-            ))
           )}
         </div>
 
         {/* ---- Read-only peek ---- */}
-        <div className={cn("min-w-0", !focusIsSet && "hidden lg:block")}>
+        <div className={cn("min-w-0 flex-1", !focusIsSet && "hidden lg:block")}>
           {focusIsSet && (
             <Button
               variant="ghost"
@@ -337,6 +380,7 @@ function PendingRow({
 
   return (
     <MasterRow
+      rowId={item.id}
       leadId={item.lead_id}
       selected={selected}
       onSelect={onSelect}
@@ -397,6 +441,7 @@ function EngagementRow({
 
   return (
     <MasterRow
+      rowId={engagement.id}
       leadId={engagement.lead_id}
       selected={selected}
       attention={summary.needsAttention}
@@ -456,6 +501,7 @@ function EngagementRow({
  */
 function MasterRow({
   children,
+  rowId,
   leadId,
   selected,
   attention = false,
@@ -463,6 +509,8 @@ function MasterRow({
   openLabel,
 }: {
   children: ReactNode
+  /** Inbox item or engagement id — used to scroll a focused buyer into view. */
+  rowId: string
   leadId: string
   selected: boolean
   attention?: boolean
@@ -471,6 +519,7 @@ function MasterRow({
 }) {
   return (
     <div
+      id={`inbox-row-${rowId}`}
       className={cn(
         "flex items-stretch gap-1 rounded-lg border bg-card text-card-foreground shadow-sm transition-colors",
         selected && "border-primary bg-primary/5",
@@ -832,4 +881,91 @@ function EmptyQueue({ label }: { label: string }) {
       {label}
     </div>
   )
+}
+
+/**
+ * `< 1 2 3 >` pinned to the foot of the left column. Page numbers stay inside
+ * that column — they wrap downward if there are many, they do not spill into
+ * the peek.
+ */
+function WorklistPager({
+  page,
+  pageCount,
+  onPage,
+  locale,
+}: {
+  page: number
+  pageCount: number
+  onPage: (page: number) => void
+  locale: "vi" | "en"
+}) {
+  const t = (vi: string, en: string) => (locale === "vi" ? vi : en)
+  const pages = pageWindow(page, pageCount)
+
+  return (
+    <nav
+      aria-label={t("Phân trang danh sách buyer", "Buyer list pages")}
+      className="mt-auto flex shrink-0 flex-nowrap items-center justify-center gap-1 border-t bg-background px-1 py-2"
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        disabled={page <= 1}
+        aria-label={t("Trang trước", "Previous page")}
+        onClick={() => onPage(page - 1)}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      {pages.map((entry, index) =>
+        entry === "ellipsis" ? (
+          <span
+            key={`ellipsis-${index}`}
+            className="px-1 text-xs text-muted-foreground"
+            aria-hidden
+          >
+            …
+          </span>
+        ) : (
+          <Button
+            key={entry}
+            type="button"
+            variant={entry === page ? "default" : "outline"}
+            size="icon-sm"
+            aria-label={t(`Trang ${entry}`, `Page ${entry}`)}
+            aria-current={entry === page ? "page" : undefined}
+            onClick={() => onPage(entry)}
+          >
+            {entry}
+          </Button>
+        ),
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        disabled={page >= pageCount}
+        aria-label={t("Trang sau", "Next page")}
+        onClick={() => onPage(page + 1)}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </nav>
+  )
+}
+
+/** `1 2 3` when there are few pages; a short window plus the ends when there are many. */
+function pageWindow(page: number, pageCount: number): Array<number | "ellipsis"> {
+  if (pageCount <= 5) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1)
+  }
+
+  const pages: Array<number | "ellipsis"> = [1]
+  const start = Math.max(2, page - 1)
+  const end = Math.min(pageCount - 1, page + 1)
+  if (start > 2) pages.push("ellipsis")
+  for (let n = start; n <= end; n++) pages.push(n)
+  if (end < pageCount - 1) pages.push("ellipsis")
+  pages.push(pageCount)
+  return pages
 }

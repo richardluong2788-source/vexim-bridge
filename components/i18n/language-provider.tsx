@@ -1,8 +1,36 @@
 "use client"
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react"
-import { DEFAULT_LOCALE, LOCALE_COOKIE, type Locale, isLocale } from "@/lib/i18n/config"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, type Locale, isLocale } from "@/lib/i18n/config"
 import { getDictionarySync, type Dictionary } from "@/lib/i18n/dictionaries"
+
+/**
+ * The locale the server most likely rendered this document with.
+ *
+ * The root layout has to stay free of per-request APIs (cookies/headers) or no
+ * public page can be prerendered, so it can no longer hand the provider a
+ * locale. Reading it here in the same order the server does keeps hydration in
+ * agreement: a `/vi/...` URL is Vietnamese by construction (the middleware also
+ * mirrors that choice into the cookie), otherwise the cookie decides.
+ *
+ * Layouts that are dynamic anyway and render localized client components pass
+ * `initialLocale` explicitly (see app/auth/layout.tsx); a server-rendered value
+ * always wins over this fallback so nothing has to be corrected after mount.
+ */
+function readLocaleOnClient(): Locale {
+  if (typeof document === "undefined") return DEFAULT_LOCALE
+
+  const firstSegment = window.location.pathname.split("/")[1]?.toLowerCase()
+  const fromPath = LOCALES.find((locale) => locale === firstSegment)
+  if (fromPath) return fromPath
+
+  const cookie = document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${LOCALE_COOKIE}=`))
+    ?.slice(LOCALE_COOKIE.length + 1)
+  return isLocale(cookie) ? cookie : DEFAULT_LOCALE
+}
 
 type LanguageContextValue = {
   locale: Locale
@@ -16,12 +44,20 @@ export function LanguageProvider({
   initialLocale,
   children,
 }: {
-  initialLocale: Locale
+  /** Pass it only when the locale is known per request (a dynamic route). */
+  initialLocale?: Locale
   children: React.ReactNode
 }) {
-  const [locale, setLocaleState] = useState<Locale>(
-    isLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE,
+  const [locale, setLocaleState] = useState<Locale>(() =>
+    isLocale(initialLocale) ? initialLocale : readLocaleOnClient(),
   )
+
+  // <html lang> is a static attribute in the shell (that is what lets the
+  // public pages be cached), so align it with the locale the provider settled
+  // on before anything reads it for accessibility or translation hints.
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next)

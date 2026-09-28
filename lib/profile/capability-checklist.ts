@@ -40,15 +40,5 @@ export function buildVerifiedCapabilityChecklist(
     if (label) items.push(label)
   }
 
-  if (capability.food_safety_training_regular) {
-    items.push("Đào tạo an toàn thực phẩm định kỳ")
-  }
-  if (capability.equipment_calibration_regular) {
-    items.push("Kiểm định máy móc định kỳ")
-  }
-  if (capability.water_testing) {
-    items.push("Nguồn nước được kiểm định định kỳ")
-  }
-
   return items
 }

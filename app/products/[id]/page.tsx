@@ -1,5 +1,8 @@
-import { notFound } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { notFound, permanentRedirect } from "next/navigation"
+import { cache } from "react"
+import type { Metadata } from "next"
+import { unstable_cache } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -15,6 +18,11 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import type { ClientProduct } from "@/lib/supabase/types"
+import { siteConfig } from "@/lib/site-config"
+import { formatPrice, toMetaDescription } from "@/lib/product-format"
+import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
+import { CATALOG_CACHE_TAG, CATALOG_REVALIDATE_SECONDS } from "@/lib/catalog/cache"
+import { JsonLd } from "@/components/seo/json-ld"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
 import { ProductMarkdown } from "@/components/product"
@@ -22,10 +30,27 @@ import { InfoTile, ProductOrderTradeInfo, ProductPackagingAndSpecs } from "@/com
 
 interface PageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ ref?: string }>
 }
 
-export const dynamic = "force-dynamic"
+// Real ISR now: the root layout no longer reads cookies, and `?ref=` (quote
+// attribution) is decoded inside the quote dialog, so nothing in this route
+// touches a per-request API. Next prerenders it at build time for the ids from
+// generateStaticParams() and for every other product on first request, caches
+// the HTML on the CDN for five minutes, and revalidates in the
+// background. Saving a product or publishing a profile calls revalidateCatalog()
+// (lib/catalog/cache.ts), which busts both this document and the data below.
+// Must stay in step with CATALOG_REVALIDATE_SECONDS (the TTL of the data below):
+// Next only accepts a literal for a segment config, so it cannot reference the const.
+export const revalidate = 300
+
+// Prerender the freshest catalog pages at build so the first US buyer to arrive
+// does not wait on a cold render + Postgres round-trip. Bounded on purpose:
+// the point is a warm cache for what a crawler reaches first, not a full copy
+// of the catalog. Anything not listed here is rendered on demand instead.
+const PRERENDER_PRODUCT_COUNT = 200
+
+/** Keep in step with the catalog index's supplier scan limit. */
+const SUPPLIER_SCAN_LIMIT = 500
 
 const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> = {
   fda: { label: "FDA Registered", color: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -38,74 +63,199 @@ const COMPLIANCE_BADGE_LABELS: Record<string, { label: string; color: string }> 
   haccp: { label: "HACCP", color: "bg-teal-50 text-teal-700 border-teal-200" },
 }
 
-function formatPrice(min: number | null, max: number | null, currency: string): string | null {
-  if (!min && !max) return null
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(n)
-
-  if (min && max && min !== max) {
-    return `${fmt(min)} - ${fmt(max)}`
+/**
+ * Product row + the public identity of its supplier.
+ *
+ * Two layers of de-duplication: `unstable_cache` (5 minutes, `CATALOG_CACHE_TAG`)
+ * so a crawler sweeping the catalog does not hit Postgres per URL, and React
+ * `cache()` so `generateMetadata` and the page body share one pass per request.
+ *
+ * The read deliberately uses the service-role client instead of the session
+ * client: the page is one document for an anonymous buyer, a supplier previewing
+ * their own listing and an AE opening a tracked link, and cookies on a public
+ * page would both defeat caching and change what a preview shows. Because RLS no
+ * longer filters for us, the visibility rules the anon policy enforced are stated
+ * here: only `status = 'active'` products, and the supplier link only for a
+ * published profile. Never widen this `select("*")` by joining `profiles` beyond
+ * (id, company_name) — that is how `/api/products/search` ended up exposing
+ * supplier emails and FDA registration numbers to anonymous callers.
+ *
+ * A non-active product therefore returns 404 rather than a preview; the admin and
+ * client product dialogs render the row themselves, so nothing internal depends
+ * on this URL for editing.
+ */
+const loadPublicProductUncached = async (id: string) => {
+  let supabase: ReturnType<typeof createAdminClient>
+  try {
+    supabase = createAdminClient()
+  } catch (cause) {
+    console.error("[catalog] supabase client unavailable:", cause)
+    return null
   }
-  return fmt(min || max || 0)
-}
 
-export default async function ProductPage({ params, searchParams }: PageProps) {
-  const { id } = await params
-  const { ref: trackingRef } = await searchParams
-
-  // Decode tracking ref to get opportunity ID (if present)
-  let opportunityId: string | null = null
-  if (trackingRef) {
-    try {
-      opportunityId = atob(trackingRef)
-    } catch {
-      // Invalid base64, ignore
-    }
-  }
-
-  const supabase = await createClient()
-
-  // Fetch product with client info
-  const { data: product, error } = await supabase
+  const { data, error } = await supabase
     .from("client_products")
-    .select(`
+    .select(
+      `
       *,
-      client:client_id(
+      client:client_id (
         id,
         company_name
       )
-    `)
+    `,
+    )
     .eq("id", id)
+    .eq("status", "active")
     .single()
 
-  if (error || !product) {
+  if (error || !data) return null
+
+  const clientId = (data as { client_id?: string }).client_id
+  let profileSlug: string | null = null
+  let profileUpdatedAt: string | null = null
+  if (clientId) {
+    const { data: clientProfile } = await supabase
+      .from("client_profiles")
+      .select("slug, updated_at")
+      .eq("client_id", clientId)
+      .eq("is_published", true)
+      .single()
+    profileSlug = clientProfile?.slug ?? null
+    profileUpdatedAt = clientProfile?.updated_at ?? null
+  }
+
+  const product = data as unknown as ClientProduct & {
+    client: { id: string; company_name: string } | null
+  }
+
+  // `created_by` is an internal profile id; it has no business in the HTML or in
+  // the RSC payload of a public page.
+  const { created_by: _createdBy, ...publicProduct } = product
+
+  return {
+    product: publicProduct as ClientProduct & { client: typeof product.client },
+    profileSlug,
+    profileUpdatedAt,
+  }
+}
+
+const loadPublicProductCached = unstable_cache(loadPublicProductUncached, ["catalog-product"], {
+  revalidate: CATALOG_REVALIDATE_SECONDS,
+  tags: [CATALOG_CACHE_TAG],
+})
+
+const loadPublicProduct = cache(loadPublicProductCached)
+
+export async function generateStaticParams(): Promise<Array<{ id: string }>> {
+  // Same visibility rules as the catalog index and the page body: only active
+  // products of suppliers who publish a profile may be prerendered.
+  try {
+    const admin = createAdminClient()
+    const { data: supplierData } = await admin
+      .from("client_profiles")
+      .select("client_id")
+      .eq("is_published", true)
+      .order("updated_at", { ascending: false })
+      .limit(SUPPLIER_SCAN_LIMIT)
+
+    const clientIds = [
+      ...new Set(
+        (supplierData ?? [])
+          .map((row: { client_id?: string | null }) => row.client_id)
+          .filter((value: string | null | undefined): value is string => Boolean(value))
+      ),
+    ]
+    if (clientIds.length === 0) return []
+
+    const { data, error } = await admin
+      .from("client_products")
+      .select("id")
+      .eq("status", "active")
+      .in("client_id", clientIds)
+      .order("created_at", { ascending: false })
+      .limit(PRERENDER_PRODUCT_COUNT)
+
+    if (error || !data) return []
+    return (data as Array<{ id: string }>).map((row) => ({ id: row.id }))
+  } catch (cause) {
+    // A build without database access (CI, a preview without secrets) still has
+    // to succeed: products not prerendered are simply rendered on demand.
+    console.error("[catalog] prerender list unavailable:", cause)
+    return []
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Route đã đóng (redirect 308 ở page component) — chặn index trong lúc
+  // Google còn cache URL cũ.
+  return { title: siteConfig.name, robots: { index: false, follow: false } }
+}
+
+async function _closedProductMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { id } = await params
+  const loaded = await loadPublicProduct(id)
+
+  if (!loaded) {
+    return {
+      title: `Product not found — ${siteConfig.name}`,
+      robots: { index: false, follow: true },
+    }
+  }
+
+  const { product } = loaded
+  const supplier = product.client?.company_name
+  const title = supplier
+    ? `${product.product_name} — ${supplier}`
+    : `${product.product_name} — ${siteConfig.name}`
+  const price = formatPrice(product.min_unit_price, product.max_unit_price, product.currency)
+  const summary = [
+    supplier ? `${supplier} (Vietnam)` : null,
+    product.category ?? null,
+    price ? `Indicative price ${price} per ${product.unit_of_measure}` : null,
+    product.moq_value ? `MOQ ${product.moq_value} ${product.moq_unit ?? product.unit_of_measure}` : null,
+    product.lead_time ? `Lead time ${product.lead_time}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ")
+  const description = summary
+    ? toMetaDescription(`${summary}. ${product.usp ?? product.description ?? ""}`)
+    : toMetaDescription(product.description)
+  const ogImage = product.image_urls?.find((url) => url.startsWith("http"))
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${siteConfig.url}/products/${id}`,
+      type: "website",
+      ...(ogImage ? { images: [{ url: ogImage, alt: product.product_name }] } : {}),
+    },
+    alternates: localizedAlternates(`/products/${id}`),
+    robots: INDEXABLE,
+  }
+}
+
+export default async function ProductPage(): Promise<never> {
+  // Đã đóng (27/09/2026): catalog public bỏ — không phô supplier + giá ra
+  // Google (schema.org/Product), danh sách sống ở luồng pitch 1:1.
+  permanentRedirect("/")
+  return new Promise(() => {}) as never
+}
+
+async function _closedProductPage({ params }: PageProps) {
+  const { id } = await params
+
+  const loaded = await loadPublicProduct(id)
+
+  if (!loaded) {
     notFound()
   }
 
-  // Fetch client profile slug separately
-  let profileSlug: string | null = null
-  if (product.client_id) {
-    const { data: clientProfile } = await supabase
-      .from("client_profiles")
-      .select("slug")
-      .eq("client_id", product.client_id)
-      .eq("is_published", true)
-      .single()
-    
-    profileSlug = clientProfile?.slug ?? null
-  }
-
-  const typedProduct = product as ClientProduct & {
-    client: {
-      id: string
-      company_name: string
-    } | null
-  }
+  const { product: typedProduct, profileSlug } = loaded!
 
   const companyName = typedProduct.client?.company_name
   const priceDisplay = formatPrice(
@@ -114,14 +264,57 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     typedProduct.currency
   )
 
+  // schema.org/Product so a Google shopping/industrial listing shows price,
+  // supplier and availability instead of a bare snippet. Every value below is
+  // supplier-authored, which is why it is rendered through <JsonLd> (it escapes
+  // < and > so a "</script>" inside a product description cannot break out).
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: typedProduct.product_name,
+    description: toMetaDescription(typedProduct.usp || typedProduct.description),
+    ...(typedProduct.image_urls?.length ? { image: typedProduct.image_urls } : {}),
+    ...(typedProduct.product_code ? { sku: typedProduct.product_code } : {}),
+    ...(typedProduct.hs_code ? { mpn: typedProduct.hs_code } : {}),
+    ...(companyName
+      ? {
+          brand: {
+            "@type": "Organization",
+            name: companyName,
+            ...(profileSlug ? { url: `${siteConfig.url}/profile/${profileSlug}` } : {}),
+          },
+        }
+      : {}),
+    ...(priceDisplay && typedProduct.min_unit_price
+      ? {
+          offers: {
+            "@type": "Offer",
+            // A published price range is announced at its floor: schema.org has
+            // no "from" price, and quoting the top of the range would make the
+            // listing look more expensive than the supplier's own page.
+            price: typedProduct.min_unit_price,
+            priceCurrency: typedProduct.currency,
+            availability: "https://schema.org/InStock",
+            url: `${siteConfig.url}/products/${id}`,
+          },
+        }
+      : {}),
+  }
+
   return (
-    <main className="min-h-screen bg-background">
+    <main lang="en" className="min-h-screen bg-background">
+      <JsonLd data={productJsonLd} id="product-json-ld" />
+
       {/* Breadcrumb */}
       <div className="border-b bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">
               Home
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <Link href="/products" className="hover:text-foreground transition-colors">
+              Export catalog
             </Link>
             <ChevronRight className="w-4 h-4" />
             {typedProduct.category && (
@@ -141,34 +334,73 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           
-          {/* Left: Images Gallery */}
-          <ProductImageGallery 
-            images={typedProduct.image_urls || []} 
-            productName={typedProduct.product_name} 
-          />
+          {/* Left: Images Gallery with Verification Badge */}
+          <div className="relative">
+            {/* Verification badge - top right overlay */}
+            <div className="absolute top-3 right-3 z-20">
+              <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-white/95 px-3 py-1.5 shadow-lg backdrop-blur-sm">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </span>
+                <span className="text-xs font-semibold tracking-wide text-emerald-800">Screened Supplier</span>
+              </div>
+            </div>
+            <ProductImageGallery 
+              images={typedProduct.image_urls || []} 
+              productName={typedProduct.product_name} 
+            />
+            {/* Verification details under gallery */}
+            <div className="mt-4 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Verification</p>
+                <Link href="/how-we-verify" className="text-[11px] font-medium text-primary hover:text-cta">How we verify →</Link>
+              </div>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Company information reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Production capability reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Export history reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Certifications reviewed</div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> U.S. regulatory requirements reviewed</div>
+              </div>
+              {loaded.profileUpdatedAt && (
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  Last reviewed: {new Date(loaded.profileUpdatedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+                Commercial participation does not replace screening. FDA registration is not FDA approval.
+              </p>
+            </div>
+          </div>
 
           {/* Right: Product Info */}
           <div className="space-y-6">
-            {/* Category & Status */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {typedProduct.category && (
-                <Badge variant="secondary" className="text-xs">
-                  {typedProduct.category}
+            {/* Verification badge - top right for product info */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {typedProduct.category && (
+                  <Badge variant="secondary" className="text-xs">
+                    {typedProduct.category}
+                  </Badge>
+                )}
+                {typedProduct.subcategory && (
+                  <Badge variant="outline" className="text-xs">
+                    {typedProduct.subcategory}
+                  </Badge>
+                )}
+                <Badge
+                  variant={typedProduct.status === "active" ? "default" : "secondary"}
+                  className={typedProduct.status === "active" ? "bg-green-600" : ""}
+                >
+                  {typedProduct.status === "active" ? "Available" : "Unavailable"}
                 </Badge>
-              )}
-              {typedProduct.subcategory && (
-                <Badge variant="outline" className="text-xs">
-                  {typedProduct.subcategory}
-                </Badge>
-              )}
-              <Badge
-                variant={typedProduct.status === "active" ? "default" : "secondary"}
-                className={typedProduct.status === "active" ? "bg-green-600" : ""}
-              >
-                {typedProduct.status === "active" ? "Available" : "Unavailable"}
-              </Badge>
+              </div>
+              {/* Top-right verification pill */}
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                <span className="text-[11px] font-semibold text-emerald-800">Screened</span>
+              </div>
             </div>
-
             {/* Product Name */}
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
               {typedProduct.product_name}
@@ -280,7 +512,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 productId={typedProduct.id}
                 productName={typedProduct.product_name}
                 clientId={typedProduct.client_id}
-                opportunityRef={opportunityId}
               >
                 <Button size="lg" className="w-full">
                   <Mail className="w-4 h-4 mr-2" />

@@ -10,9 +10,15 @@ interface SettingsPageHeaderProps {
    * caller's role so we don't need another round-trip on the client.
    */
   backHref: string
+  /**
+   * Optional subtitle override. The settings shell passes a generic one
+   * because the header now sits above every settings tab, not just
+   * notifications.
+   */
+  subtitle?: string
 }
 
-export function SettingsPageHeader({ backHref }: SettingsPageHeaderProps) {
+export function SettingsPageHeader({ backHref, subtitle }: SettingsPageHeaderProps) {
   const { t } = useTranslation()
 
   return (
@@ -29,7 +35,7 @@ export function SettingsPageHeader({ backHref }: SettingsPageHeaderProps) {
         {t.settings.title}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground text-pretty">
-        {t.settings.subtitle}
+        {subtitle ?? t.settings.subtitle}
       </p>
     </div>
   )

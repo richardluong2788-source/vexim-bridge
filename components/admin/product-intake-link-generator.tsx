@@ -20,6 +20,8 @@ interface LinkRow {
   expires_at: string
   used_at: string | null
   created_at: string
+  /** Products actually submitted through this link (migration 089). */
+  product_count?: number
 }
 
 export function ProductIntakeLinkGenerator({ clientId, clientName }: Props) {
@@ -87,7 +89,9 @@ export function ProductIntakeLinkGenerator({ clientId, clientName }: Props) {
             {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Tạo link mới
           </Button>
-          <p className="text-xs text-muted-foreground self-center">Hạn 30 ngày, dùng nhiều lần</p>
+          <p className="text-xs text-muted-foreground self-center">
+            Hạn 30 ngày · 1 link cho N sản phẩm, không cần tạo link mới
+          </p>
         </div>
 
         {loading ? (
@@ -113,7 +117,16 @@ export function ProductIntakeLinkGenerator({ clientId, clientName }: Props) {
                   </Button>
                   <div className="text-[10px] text-muted-foreground whitespace-nowrap">
                     {expired ? 'Hết hạn' : `Hết hạn ${new Date(l.expires_at).toLocaleDateString('vi-VN')}`}
-                    {l.used_at && <span className="ml-1">· Đã dùng</span>}
+                    {(l.product_count ?? 0) > 0 ? (
+                      // Say how many products arrived, not "đã dùng" - the token
+                      // is multi-use, so the old wording read as "spent" and
+                      // led people to mint unnecessary replacement links.
+                      <span className="ml-1" title="Link này vẫn dùng được cho nhiều sản phẩm khác">
+                        · {l.product_count} sản phẩm
+                      </span>
+                    ) : (
+                      l.used_at && <span className="ml-1">· Đã dùng</span>
+                    )}
                   </div>
                 </div>
               )

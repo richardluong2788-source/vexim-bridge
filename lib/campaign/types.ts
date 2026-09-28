@@ -12,6 +12,7 @@ export interface CampaignRow {
   name: string
   description: string | null
   target_segment: string | null
+  target_country: string | null
   product_category: string | null
   status: "draft" | "active" | "paused" | "completed" | "archived"
   start_date: string | null
@@ -99,8 +100,6 @@ export interface BuyerContext {
   buyer: {
     company_name: string | null
     country: string | null
-    /** Explicitly parsed destination/import market, not inferred from company location. */
-    importing_country?: string | null
     industry: string | null
     website: string | null
     contact_name: string | null
@@ -123,6 +122,7 @@ export interface BuyerContext {
     name: string
     description: string | null
     target_segment: string | null
+    target_country: string | null
     product_category: string | null
   }
   // Research data (migration 079) — INTERNAL REASONING ONLY. Email generator

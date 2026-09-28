@@ -113,7 +113,6 @@ export interface BuyerDetailData {
   contact_email: string | null
   contact_phone: string | null
   country: string | null
-  importing_country: string | null
   industry: string | null
   website: string | null
   linkedin_url: string | null
@@ -1159,7 +1158,6 @@ function BuyerInfoCard({
     contact_email: buyer.contact_email ?? "",
     contact_phone: buyer.contact_phone ?? "",
     country: buyer.country ?? "",
-    importing_country: buyer.importing_country ?? "",
     industry: buyer.industry ?? "",
     website: buyer.website ?? "",
     linkedin_url: buyer.linkedin_url ?? "",
@@ -1175,7 +1173,6 @@ function BuyerInfoCard({
         contact_email: form.contact_email || null,
         contact_phone: form.contact_phone || null,
         country: form.country || null,
-        importing_country: form.importing_country || null,
         industry: form.industry || null,
         website: form.website || null,
         linkedin_url: form.linkedin_url || null,
@@ -1255,11 +1252,6 @@ function BuyerInfoCard({
               value={buyer.linkedin_url}
               isLink
             />
-            <InfoRow
-              icon={Globe2}
-              label={locale === "vi" ? "Quốc gia nhập khẩu đã xác nhận" : "Confirmed importing country"}
-              value={buyer.importing_country}
-            />
             <div className="flex flex-col gap-1 pt-2 border-t border-border">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <StickyNote className="h-3.5 w-3.5" />
@@ -1313,20 +1305,6 @@ function BuyerInfoCard({
                 />
               </Field>
             </div>
-            <Field label={locale === "vi" ? "Quốc gia nhập khẩu đã xác nhận" : "Confirmed importing country"}>
-              <Input
-                value={form.importing_country}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, importing_country: e.target.value }))
-                }
-                placeholder={locale === "vi" ? "Nhập riêng; không suy ra từ nước xuất xứ lô hàng" : "Enter explicitly; do not infer from shipment origins"}
-              />
-              <p className="text-xs text-muted-foreground">
-                {locale === "vi"
-                  ? "Chỉ điền khi đã xác nhận thị trường đích; nếu để trống, campaign sẽ yêu cầu rà soát."
-                  : "Only enter a confirmed destination market; a blank value triggers review."}
-              </p>
-            </Field>
             <Field label="Email">
               <Input
                 type="email"
@@ -1404,8 +1382,7 @@ function BuyerInfoCard({
                     contact_email: buyer.contact_email ?? "",
                     contact_phone: buyer.contact_phone ?? "",
                     country: buyer.country ?? "",
-                    importing_country: buyer.importing_country ?? "",
-                    industry: buyer.industry ?? "",
+                                    industry: buyer.industry ?? "",
                     website: buyer.website ?? "",
                     linkedin_url: buyer.linkedin_url ?? "",
                     notes: buyer.notes ?? "",

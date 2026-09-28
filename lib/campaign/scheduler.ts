@@ -33,13 +33,14 @@ import {
   onSuppression,
   onInvalidContact,
   onResumeAfterPause,
+  onManualStop,
 } from "./state-machine"
 import { applyTransition, countAllCampaignEmailsSentToday, countCampaignEmailsSentToday, getCampaign, getCampaignSteps } from "./enrollments"
 import { buildBuyerContext } from "./context-builder"
 import { assessFollowupJustification, applyFollowupGateDecision } from "./followup-gate"
 import { generateCampaignEmail } from "./email-generator"
 import { runEmailQA } from "./email-qa"
-import { getCampaignCountryReviewReason } from "./country-validation"
+import { getCampaignCountryMismatch } from "./country-validation"
 import { addBusinessDays } from "./scheduling-utils"
 import { checkLeadStop } from "./suppression"
 import { resolveEnrollmentTimezone, checkSendingWindow } from "./sending-window"
@@ -141,28 +142,21 @@ const DRAFT_TYPE_BY_STEP: Record<string, "introduction" | "follow_up" | "custom"
   nurture: "custom",
 }
 
-async function holdForCountryReview(
-  enrollment: { id: string; lead_id: string; campaign_id: string; current_step_number: number; followup_count: number },
+async function stopForCountryMismatch(
+  enrollment: { id: string; lead_id: string; campaign_id: string; state: EnrollmentState },
   stepNumber: number,
   reason: string,
 ): Promise<void> {
-  await resolveFiring(enrollment.id, stepNumber, "skipped", { error: `needs_review:${reason}` })
-  await applyTransition(enrollment as never, {
-    to: null,
-    needsHumanReview: true,
-    humanReviewReason: `country_validation:${reason}`,
-    nextActionAt: null,
-    nextActionType: "human_review",
-    note: "campaign_country_validation_hold",
-  })
+  await resolveFiring(enrollment.id, stepNumber, "skipped", { error: `country_mismatch:${reason}` })
+  await applyTransition(enrollment as never, onManualStop(enrollment.state, `campaign_country_mismatch:${reason}`))
   await logSystemEvent({
     buyerId: enrollment.lead_id,
     campaignId: enrollment.campaign_id,
     enrollmentId: enrollment.id,
     step: stepNumber,
-    event: "country_validation_hold",
+    event: "campaign_country_mismatch",
     detail: { reason },
-    description: `[Campaign] Outreach held for country review: ${reason} (lead ${enrollment.lead_id}).`,
+    description: `[Campaign] Enrollment stopped because buyer country does not match the selected campaign country: ${reason}`,
   })
 }
 
@@ -203,10 +197,10 @@ async function queueDraftForEnrollment(
 
   try {
     const ctx = prebuiltCtx ?? (await buildBuyerContext(enrollment as never, step as never))
-    const countryReviewReason = getCampaignCountryReviewReason(ctx)
-    if (countryReviewReason) {
-      await holdForCountryReview(enrollment, step.step_number, countryReviewReason)
-      return { ok: false, error: "needs_human_review:country_validation" }
+    const countryMismatch = getCampaignCountryMismatch(ctx)
+    if (countryMismatch) {
+      await stopForCountryMismatch(enrollment, step.step_number, countryMismatch)
+      return { ok: false, error: "country_mismatch" }
     }
 
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
@@ -565,7 +559,6 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               if (!claimed) break // tick khác đang xử lý
               const r = await queueDraftForEnrollment(e, step1, campaign.name, e.owner_id)
               if (r.ok) result.draftsQueued += 1
-              else if (r.error === "needs_human_review:country_validation") result.gateHold += 1
               else result.draftFailures += 1
             }
             break
@@ -598,7 +591,6 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               if (!claimed) break
               const r = await queueDraftForEnrollment(e, stepRetry, campaign.name, e.owner_id)
               if (r.ok) result.draftsQueued += 1
-              else if (r.error === "needs_human_review:country_validation") result.gateHold += 1
               else result.draftFailures += 1
             }
             break
@@ -695,10 +687,10 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               // hợp lý để liên hệ tiếp không. Không có lý do → KHÔNG gửi.
               if (nextStep.step_number >= 2) {
                 const gateCtx = await buildBuyerContext(e as never, nextStep as never)
-                const countryReviewReason = getCampaignCountryReviewReason(gateCtx)
-                if (countryReviewReason) {
-                  await holdForCountryReview(e, nextStep.step_number, countryReviewReason)
-                  result.gateHold += 1
+                const countryMismatch = getCampaignCountryMismatch(gateCtx)
+                if (countryMismatch) {
+                  await stopForCountryMismatch(e, nextStep.step_number, countryMismatch)
+                  result.draftFailures += 1
                   break
                 }
                 const daysSinceLastContact = e.last_contact_at
@@ -772,8 +764,6 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                 const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id, gateCtx)
                 if (r.ok) {
                   result.followupsQueued += 1
-                } else if (r.error === "needs_human_review:country_validation") {
-                  result.gateHold += 1
                 } else {
                   result.draftFailures += 1
                 }
@@ -783,8 +773,6 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id)
               if (r.ok) {
                 result.followupsQueued += 1
-              } else if (r.error === "needs_human_review:country_validation") {
-                result.gateHold += 1
               } else {
                 result.draftFailures += 1
               }

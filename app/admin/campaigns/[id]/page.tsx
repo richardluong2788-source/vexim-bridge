@@ -44,7 +44,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   if (!campaign) notFound()
   const c = campaign as {
     id: string; name: string; description: string | null; status: string
-    target_segment: string | null; product_category: string | null
+    target_segment: string | null; target_country: string | null; product_category: string | null
     daily_send_limit: number; start_date: string | null; end_date: string | null
   }
 
@@ -170,6 +170,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">{c.name}</h1>
             <Badge variant="outline" className={STATUS_TONE[c.status]}>{c.status}</Badge>
+            <Badge variant="secondary">Buyer country: {c.target_country ?? "not set"}</Badge>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{c.description ?? "—"}</p>
         </div>
@@ -177,7 +178,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           {!steps?.length && isAdmin && (
             <CloneStepsButton campaignId={c.id} sources={stepSources} />
           )}
-          <EnrollDialog campaignId={c.id} campaignStatus={c.status} canManage={isAdmin || isAE} />
+          <EnrollDialog campaignId={c.id} campaignStatus={c.status} targetCountry={c.target_country} canManage={isAdmin || isAE} />
           {isAdmin && <CampaignControls campaignId={c.id} status={c.status} />}
         </div>
       </div>

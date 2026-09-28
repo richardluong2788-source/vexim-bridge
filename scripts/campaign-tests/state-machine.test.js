@@ -128,7 +128,7 @@ t('review resolved resume → clear flag + action now', () => {
   assert.strictEqual(r.to, 'waiting_reply')
   assert.ok(r.nextActionAt)
 })
-t('first-step country review resume → enrolled/step1_due', () => {
+t('first-step human review resume → enrolled/step1_due', () => {
   const r = sm.onReviewResolved('contact_pending', 'resume', new Date('2026-09-28T10:00:00Z'), { neverContacted: true })
   assert.strictEqual(r.to, 'enrolled')
   assert.strictEqual(r.nextActionType, 'step1_due')

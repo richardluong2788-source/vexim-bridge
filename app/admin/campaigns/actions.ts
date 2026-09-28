@@ -16,7 +16,8 @@ import { runCampaignSchedulerTick } from "@/lib/campaign/scheduler"
 import { buildBuyerContext } from "@/lib/campaign/context-builder"
 import { generateCampaignEmail } from "@/lib/campaign/email-generator"
 import { runEmailQA } from "@/lib/campaign/email-qa"
-import { getCampaignCountryReviewReason } from "@/lib/campaign/country-validation"
+import { countriesMatch, getCampaignCountryMismatch } from "@/lib/campaign/country-validation"
+import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { appendInteraction } from "@/lib/campaign/interactions"
 import { onManualPause, onManualStop, onReviewResolved } from "@/lib/campaign/state-machine"
 import { applyTransition, getCampaignSteps, getEnrollment } from "@/lib/campaign/enrollments"
@@ -31,10 +32,42 @@ export type CreateCampaignResult =
   | { ok: true; campaignId: string }
   | { ok: false; error: ActionError | "validation"; message?: string }
 
+const DEFAULT_CAMPAIGN_STEPS = [
+  {
+    step_number: 1,
+    step_type: "initial_outreach",
+    delay_days: 0,
+    objective: "Open with a concrete sourcing-filtering burden, explain Vietnam-side groundwork, and ask one question about the buyer's current situation.",
+    ai_prompt_guidance: "Email 1: lead with a modest sourcing-filtering burden; explain Veximtrade's Vietnam-side groundwork before introductions; ask one question about the buyer's current sourcing situation. Use the buyer's selected campaign country only as context, make no unverified country-specific compliance claims, and preserve AE approval.",
+  },
+  {
+    step_number: 2,
+    step_type: "follow_up",
+    delay_days: 4,
+    objective: "Explain Veximtrade's Vietnam-side groundwork before introductions; distinguish the service from a directory or supplier list.",
+    ai_prompt_guidance: "Email 2: explain that Veximtrade does Vietnam-side sourcing groundwork before introductions and is not a directory or supplier list. Add a new angle without repeating the opener. Do not ask for a meeting unless explicitly required.",
+  },
+  {
+    step_number: 3,
+    step_type: "follow_up",
+    delay_days: 7,
+    objective: "Explain how repeating sourcing groundwork can add sourcing cost or delay product development; the buyer retains the final decision.",
+    ai_prompt_guidance: "Email 3: explain modestly that repeating sourcing groundwork for each product may add cost or delay product development. Make clear the buyer retains the final supplier decision. Use a fresh angle and no pressure.",
+  },
+  {
+    step_number: 4,
+    step_type: "close_loop",
+    delay_days: 30,
+    objective: "Close the sequence without pressure; leave the door open if the target country becomes a relevant additional source later.",
+    ai_prompt_guidance: "Final email: close the sequence politely without pressure, state that no reply is needed, and leave the door open if Vietnam becomes a relevant additional source later. Do not request a meeting.",
+  },
+] as const
+
 export async function createCampaignAction(input: {
   name: string
   description?: string
   targetSegment?: string
+  targetCountry: string
   productCategory?: string
   dailySendLimit?: number
 }): Promise<CreateCampaignResult> {
@@ -44,6 +77,9 @@ export async function createCampaignAction(input: {
     return { ok: false, error: "forbidden", message: "Chỉ admin/super_admin được tạo campaign." }
   }
   if (!input.name?.trim()) return { ok: false, error: "validation", message: "Thiếu tên campaign." }
+  if (!COUNTRY_SUGGESTIONS.some((country) => countriesMatch(country, input.targetCountry))) {
+    return { ok: false, error: "validation", message: "Chọn quốc gia mục tiêu hợp lệ cho campaign." }
+  }
 
   try {
     const { data, error } = await (guard.admin.from("campaigns") as any)
@@ -51,6 +87,7 @@ export async function createCampaignAction(input: {
         name: input.name.trim(),
         description: input.description?.trim() || null,
         target_segment: input.targetSegment?.trim() || null,
+        target_country: input.targetCountry.trim(),
         product_category: input.productCategory?.trim() || null,
         status: "draft",
         daily_send_limit: Math.max(1, Math.min(input.dailySendLimit ?? 20, 200)),
@@ -59,7 +96,20 @@ export async function createCampaignAction(input: {
       .select("id")
       .single()
     if (error) return { ok: false, error: "serverError", message: error.message }
-    return { ok: true, campaignId: (data as { id: string }).id }
+    const campaignId = (data as { id: string }).id
+    const { error: stepsError } = await (guard.admin.from("campaign_steps") as any).insert(
+      DEFAULT_CAMPAIGN_STEPS.map((step) => ({
+        campaign_id: campaignId,
+        ...step,
+        max_attempts: 1,
+        stop_conditions: { stop: ["any_reply", "opt_out", "hard_bounce", "invalid_contact"] },
+      })),
+    )
+    if (stepsError) {
+      await (guard.admin.from("campaigns") as any).delete().eq("id", campaignId)
+      return { ok: false, error: "serverError", message: `Tạo campaign steps thất bại: ${stepsError.message}` }
+    }
+    return { ok: true, campaignId }
   } catch (err) {
     console.error("[campaign] createCampaignAction:", err)
     return { ok: false, error: "serverError" }
@@ -201,20 +251,30 @@ export interface PilotCandidate {
 
 export type PilotPreviewResult =
   | { ok: true; candidates: PilotCandidate[] }
-  | { ok: false; error: ActionError | "serverError"; message?: string }
+  | { ok: false; error: ActionError | "campaign_not_found" | "serverError"; message?: string }
 
 /**
  * Preview danh sách lead đạt tiêu chí pilot (không enroll):
+ *   - country khớp campaign.target_country
  *   - contact_email hợp lệ, chưa unsubscribe/bounce/complain
  *   - industry food-related (food|beverage|agriculture|seafood|snack|grocery...)
  *   - có tín hiệu VN: purchase_history hoặc top_suppliers nhắc "viet"
  * Shipment count chỉ là biến sắp xếp ưu tiên (desc), KHÔNG phải điều kiện.
  */
-export async function previewPilotCandidatesAction(): Promise<PilotPreviewResult> {
+export async function previewPilotCandidatesAction(campaignId: string): Promise<PilotPreviewResult> {
   const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
   if (!guard.ok) return { ok: false, error: guard.error }
 
   try {
+    const { data: campaign, error: campaignError } = await (guard.admin.from("campaigns") as any)
+      .select("id, target_country")
+      .eq("id", campaignId)
+      .single()
+    if (campaignError || !campaign) return { ok: false, error: "campaign_not_found" }
+    if (!campaign.target_country) {
+      return { ok: false, error: "serverError", message: "Campaign chưa có quốc gia mục tiêu; hãy tạo lại campaign và chọn quốc gia." }
+    }
+
     const { data, error } = await (guard.admin.from("leads") as any)
       .select(
         `id, company_name, country, industry, contact_email, contact_person,
@@ -226,7 +286,7 @@ export async function previewPilotCandidatesAction(): Promise<PilotPreviewResult
       .is("email_hard_bounced_at", null)
       .is("email_complained_at", null)
       .order("customs_shipment_count", { ascending: false, nullsFirst: false })
-      .limit(300)
+      .limit(3000)
 
     if (error) return { ok: false, error: "serverError", message: error.message }
 
@@ -247,6 +307,7 @@ export async function previewPilotCandidatesAction(): Promise<PilotPreviewResult
         top_suppliers: Array<{ supplier_name?: string; name?: string; country?: string }> | null
         hs_codes: string[] | null
       }
+      if (!countriesMatch(l.country, campaign.target_country)) continue
       const industry = l.industry ?? ""
       if (!FOOD_RE.test(industry)) continue
       const historyHasVN = l.purchase_history ? VN_RE.test(l.purchase_history) : false
@@ -303,11 +364,33 @@ export async function enrollLeadsAction(input: {
     return { ok: false, error: "validation", message: "Tối đa 100 lead mỗi lần enroll (pilot)." }
   }
   try {
-    const result = await enrollLeads(input.campaignId, input.leadIds, input.ownerId, guard.userId)
+    const { data: campaign, error: campaignError } = await (guard.admin.from("campaigns") as any)
+      .select("id, target_country")
+      .eq("id", input.campaignId)
+      .single()
+    if (campaignError || !campaign) return { ok: false, error: "campaign_not_found" }
+    if (!campaign.target_country) {
+      return { ok: false, error: "validation", message: "Campaign chưa có quốc gia mục tiêu." }
+    }
+
+    const { data: leads, error: leadsError } = await (guard.admin.from("leads") as any)
+      .select("id, country")
+      .in("id", input.leadIds)
+    if (leadsError) return { ok: false, error: "serverError", message: leadsError.message }
+    const leadRows = (leads ?? []) as Array<{ id: string; country: string | null }>
+    const byId = new Map(leadRows.map((lead) => [lead.id, lead]))
+    const eligibleIds = input.leadIds.filter((id) => countriesMatch(byId.get(id)?.country, campaign.target_country))
+    const skippedCountry = input.leadIds
+      .filter((id) => !eligibleIds.includes(id))
+      .map((leadId) => ({ leadId, reason: `country_mismatch:${byId.get(leadId)?.country ?? "missing"}` }))
+
+    const result = eligibleIds.length
+      ? await enrollLeads(input.campaignId, eligibleIds, input.ownerId, guard.userId)
+      : { ok: true as const, enrolled: 0, skipped: [] as Array<{ leadId: string; reason: string }> }
     if (!result.ok) {
       return { ok: false, error: result.error, message: result.message }
     }
-    return result
+    return { ...result, skipped: [...result.skipped, ...skippedCountry] }
   } catch (err) {
     console.error("[campaign] enrollLeadsAction:", err)
     return { ok: false, error: "serverError" }
@@ -320,7 +403,7 @@ export async function enrollLeadsAction(input: {
 
 export type ApproveDraftResult =
   | { ok: true }
-  | { ok: false; error: ActionError | "not_found" | "not_pending" | "qa_blocked" | "country_review" | "send_failed"; message?: string }
+  | { ok: false; error: ActionError | "not_found" | "not_pending" | "not_eligible" | "qa_blocked" | "send_failed"; message?: string }
 
 export async function approveCampaignDraftAction(
   draftId: string,
@@ -343,8 +426,8 @@ export async function rejectCampaignDraftAction(draftId: string, reason: string)
 }
 
 export type RegenerateCampaignDraftResult =
-  | { ok: true; qaBlocked: boolean; riskLevel: "LOW" | "MEDIUM" | "HIGH"; qaMessage?: string; reviewRequired?: boolean }
-  | { ok: false; error: ActionError | "not_found" | "not_pending" | "serverError"; message?: string }
+  | { ok: true; qaBlocked: boolean; riskLevel: "LOW" | "MEDIUM" | "HIGH"; qaMessage?: string }
+  | { ok: false; error: ActionError | "not_found" | "not_pending" | "not_eligible" | "serverError"; message?: string }
 
 /**
  * Regenerate a pending campaign draft in place. This deliberately does NOT
@@ -381,50 +464,15 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
     if (!step) return { ok: false, error: "not_found", message: "Không tìm thấy cấu hình campaign step." }
 
     const ctx = await buildBuyerContext(enrollment, step)
-    const countryReviewReason = getCampaignCountryReviewReason(ctx)
-    if (countryReviewReason) {
-      const { error: holdError } = await (guard.admin.from("email_drafts") as any)
-        .update({
-          status: "draft",
-          error_message: `needs_review: ${countryReviewReason}`,
-        })
+    const countryMismatch = getCampaignCountryMismatch(ctx)
+    if (countryMismatch) {
+      const { error: blockError } = await (guard.admin.from("email_drafts") as any)
+        .update({ status: "draft", error_message: `not_eligible_country: ${countryMismatch}` })
         .eq("id", draftId)
         .in("status", ["pending_approval", "draft"])
-      if (holdError) throw new Error(holdError.message)
-
-      await applyTransition(enrollment, {
-        to: null,
-        needsHumanReview: true,
-        humanReviewReason: `country_validation:${countryReviewReason}`,
-        nextActionAt: null,
-        nextActionType: "human_review",
-        note: "campaign_country_validation_hold",
-      })
-      await appendInteraction(
-        {
-          buyer_id: enrollment.lead_id,
-          campaign_id: enrollment.campaign_id,
-          enrollment_id: enrollment.id,
-          interaction_type: "SYSTEM_EVENT",
-          direction: "INTERNAL",
-          subject: "country_validation_hold",
-          sequence_step: step.step_number,
-          metadata: { draft_id: draftId, reason: countryReviewReason },
-          created_by: guard.userId,
-        },
-        {
-          actionType: "campaign_country_validation_hold",
-          description: `[Campaign] Draft step ${step.step_number} held for country review: ${countryReviewReason}`,
-          performedBy: guard.userId,
-        },
-      )
-      return {
-        ok: true,
-        qaBlocked: true,
-        reviewRequired: true,
-        riskLevel: "HIGH",
-        qaMessage: countryReviewReason,
-      }
+      if (blockError) throw new Error(blockError.message)
+      await applyTransition(enrollment, onManualStop(enrollment.state, `campaign_country_mismatch:${countryMismatch}`))
+      return { ok: false, error: "not_eligible", message: countryMismatch }
     }
 
     const signatureUserId = enrollment.owner_id ?? guard.userId
@@ -460,16 +508,6 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
 
     if (updateError) throw new Error(updateError.message)
     if (!updated) return { ok: false, error: "not_pending", message: "Draft vừa được xử lý ở nơi khác; hãy tải lại trang." }
-
-    if (enrollment.needs_human_review && enrollment.human_review_reason?.startsWith("country_validation:")) {
-      await applyTransition(enrollment, {
-        to: null,
-        clearHumanReview: true,
-        nextActionAt: new Date(Date.now() + 2 * 86400000),
-        nextActionType: "approval_overdue_check",
-        note: "campaign_country_validation_resolved",
-      })
-    }
 
     await appendInteraction(
       {

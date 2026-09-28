@@ -100,7 +100,6 @@ export function CampaignEnrollmentsTable({
             <TableBody>
               {enrollments.map((e) => {
                 const isTerminal = TERMINAL.includes(e.state)
-                const countryReview = e.human_review_reason?.startsWith("country_validation:") ?? false
                 const canAct = canManage && (!isAE || e.owner_id === currentUserId) && !isTerminal
                 return (
                   <TableRow key={e.id}>
@@ -116,13 +115,12 @@ export function CampaignEnrollmentsTable({
                       </Badge>
                       {e.needs_human_review && (
                         <Badge variant="outline" className="ml-1 border-amber-400 text-amber-600">
-                          <UserCheck className="mr-1 h-3 w-3" /> {countryReview ? "Soát quốc gia" : "Review"}
+                          <UserCheck className="mr-1 h-3 w-3" /> Review
                         </Badge>
                       )}
                       {e.needs_human_review && e.human_review_reason && (
                         <div className="mt-1 max-w-xs text-[11px] text-amber-700">
-                          {countryReview ? e.human_review_reason.replace(/^country_validation:/, "") : e.human_review_reason}
-                          {countryReview && <div>Cập nhật quốc gia công ty và nước nhập khẩu, rồi tạo lại draft hoặc bấm kiểm tra lại.</div>}
+                          {e.human_review_reason}
                         </div>
                       )}
                       {e.stopped_reason && (
@@ -153,7 +151,7 @@ export function CampaignEnrollmentsTable({
                                 onClick={() => run(() => resolveReviewAction(e.id, "resume"), e.id)}
                               >
                                 {busyId === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                                {countryReview ? "Kiểm tra lại" : "Tiếp tục"}
+                                Tiếp tục
                               </Button>
                               <Button
                                 size="sm"

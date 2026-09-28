@@ -25,6 +25,7 @@ interface CampaignListItem {
   description: string | null
   status: string
   target_segment: string | null
+  target_country: string | null
   product_category: string | null
   daily_send_limit: number
   created_at: string
@@ -102,9 +103,7 @@ export default async function CampaignsPage() {
       {list.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Chưa có campaign nào. Migration 090 đã seed campaign pilot
-            &ldquo;US Food Buyer – Vietnam Sourcing – Pilot&rdquo; — nếu không thấy, chạy
-            <code className="mx-1 rounded bg-muted px-1 py-0.5">scripts/090_campaign_pilot_seed.sql</code>.
+            Chưa có campaign nào. Tạo campaign mới và chọn quốc gia mục tiêu để bắt đầu.
           </CardContent>
         </Card>
       ) : (
@@ -122,6 +121,7 @@ export default async function CampaignsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <p className="line-clamp-2 text-muted-foreground">{c.description ?? "—"}</p>
+                  <Badge variant="secondary">Quốc gia mục tiêu: {c.target_country ?? "chưa chọn"}</Badge>
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span>
                       <strong className="text-foreground">{c.enrollment_count}</strong> buyer

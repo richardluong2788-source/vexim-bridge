@@ -8,7 +8,6 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_EMAIL_WORDS } from "./constants"
 import { loadInboundReplies, loadOutboundEmails } from "./interactions"
-import { resolveExplicitImportingCountry } from "./country-validation"
 import type { BuyerContext, CampaignEnrollmentRow, CampaignStepRow } from "./types"
 
 interface LeadFields {
@@ -18,7 +17,6 @@ interface LeadFields {
   contact_email: string | null
   contact_title: string | null
   country: string | null
-  importing_country: string | null
   industry: string | null
   website: string | null
   source: string | null
@@ -77,24 +75,14 @@ export async function buildBuyerContext(
 ): Promise<BuyerContext> {
   const admin = createAdminClient()
 
-  const leadColumns = `id, company_name, contact_person, contact_email, contact_title, country, importing_country, industry,
+  const leadColumns = `id, company_name, contact_person, contact_email, contact_title, country, industry,
        website, source, source_ref, product_keywords, hs_code, hs_codes,
        purchase_history, top_suppliers, customs_shipment_count, peak_months,
        buyer_analysis, buyer_strategy, buyer_analysis_at`
-  const leadQuery = admin.from("leads") as any
-  let leadLookup = await leadQuery
+  const { data: lead, error } = await (admin.from("leads") as any)
     .select(leadColumns)
     .eq("id", enrollment.lead_id)
     .single()
-  // During a rolling deploy before migration 097, fail closed for the import
-  // market but keep generation context available for the review hold.
-  if (leadLookup.error && /importing_country/i.test(leadLookup.error.message ?? "")) {
-    leadLookup = await leadQuery
-      .select(leadColumns.replace("importing_country, ", ""))
-      .eq("id", enrollment.lead_id)
-      .single()
-  }
-  const { data: lead, error } = leadLookup
 
   if (error || !lead) {
     throw new Error(`buildBuyerContext: lead ${enrollment.lead_id} lookup failed: ${error?.message ?? "not found"}`)
@@ -106,13 +94,13 @@ export async function buildBuyerContext(
     loadOutboundEmails(enrollment.id),
     loadInboundReplies(enrollment.id),
     (admin.from("campaigns") as any)
-      .select("name, description, target_segment, product_category")
+      .select("name, description, target_segment, target_country, product_category")
       .eq("id", enrollment.campaign_id)
       .single(),
   ])
   const campaign = (campaignRes.data ?? {}) as {
     name?: string; description?: string | null
-    target_segment?: string | null; product_category?: string | null
+    target_segment?: string | null; target_country?: string | null; product_category?: string | null
   }
 
   const hsCodes = Array.isArray(l.hs_codes) && l.hs_codes.length > 0
@@ -130,7 +118,6 @@ export async function buildBuyerContext(
     buyer: {
       company_name: l.company_name,
       country: l.country,
-      importing_country: resolveExplicitImportingCountry(l.importing_country, l.buyer_analysis, l.buyer_strategy),
       industry: l.industry,
       website: l.website,
       contact_name: l.contact_person,
@@ -152,6 +139,7 @@ export async function buildBuyerContext(
       name: campaign.name ?? "unknown",
       description: campaign.description ?? null,
       target_segment: campaign.target_segment ?? null,
+      target_country: campaign.target_country ?? null,
       product_category: campaign.product_category ?? null,
     },
     research: {

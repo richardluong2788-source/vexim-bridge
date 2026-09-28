@@ -38,10 +38,12 @@ import {
 export function EnrollDialog({
   campaignId,
   campaignStatus,
+  targetCountry,
   canManage,
 }: {
   campaignId: string
   campaignStatus: string
+  targetCountry: string | null
   canManage: boolean
 }) {
   const router = useRouter()
@@ -57,7 +59,7 @@ export function EnrollDialog({
 
   async function load() {
     setLoading(true)
-    const res = await previewPilotCandidatesAction()
+    const res = await previewPilotCandidatesAction(campaignId)
     setLoading(false)
     if (res.ok) {
       setCandidates(res.candidates)
@@ -116,8 +118,9 @@ export function EnrollDialog({
         <DialogHeader>
           <DialogTitle>Enroll buyer pilot</DialogTitle>
           <DialogDescription>
-            Bộ lọc: food importer + có tín hiệu sourcing từ Vietnam + contact hợp lệ, chưa
-            suppress. Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần. Bỏ chọn AE →
+            Quốc gia buyer phải khớp campaign ({targetCountry ?? "chưa chọn"}); bộ lọc còn lại:
+            food importer + có tín hiệu sourcing từ Vietnam + contact hợp lệ, chưa suppress.
+            Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần. Bỏ chọn AE →
             fallback là người tạo campaign khi handoff.
             {disabled && " — Campaign phải ở trạng thái draft/active."}
           </DialogDescription>

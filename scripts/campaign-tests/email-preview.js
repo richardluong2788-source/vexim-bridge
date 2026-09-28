@@ -31,7 +31,6 @@ const SIG = [
   "Linda Nguyen",
   "VEXIM GLOBAL CO., LTD",
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam",
-  "veximtrade.com",
 ].join("\n")
 
 ;(globalThis).__AI_SCRIPT = [

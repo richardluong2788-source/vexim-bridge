@@ -150,10 +150,12 @@ export function runEmailQA(params: {
     issues.push({ check: "length", severity: "MEDIUM", message: `Email is ${words} words (limit ${MAX_EMAIL_WORDS}).` })
   }
 
-  // 11. No links / attachments / unnecessary URLs.
-  const urlMatch = body.match(/https?:\/\/\S+/)
+  // 11. No links / attachments / unnecessary URLs, including bare domains.
+  // Keep the website out of cold-email copy; sender identity and postal
+  // address are already present in From/signature.
+  const urlMatch = body.match(/\b(?:https?:\/\/|www\.)\S+|\b(?:[a-z0-9-]+\.)+(?:com|net|org|edu|gov|io|co|vn|us|biz|info|app|dev|trade)\b(?:\/\S*)?/i)
   if (urlMatch) {
-    issues.push({ check: "links", severity: "HIGH", message: `Link found in cold email (${urlMatch[0]}). Only veximtrade.com plain-text allowed.` })
+    issues.push({ check: "links", severity: "HIGH", message: `Link or domain found in cold email (${urlMatch[0]}). Remove URLs and bare domains.` })
   }
 
   // 12. Opt-out respected — follow-up trở đi cần đường lùi mềm.

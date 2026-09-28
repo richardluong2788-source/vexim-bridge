@@ -20,6 +20,7 @@ import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent } from "./state-
 import { appendInteraction } from "./interactions"
 import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
 import { isAutoSendEnabled } from "./constants"
+import { withCampaignSignature } from "./email-generator"
 import { siteConfig } from "@/lib/site-config"
 
 export type ApproveResult =
@@ -99,12 +100,25 @@ export async function approveAndSendCampaignDraft(
     extraHeaders["List-Unsubscribe"] = `<https://${siteConfig.domain}/unsubscribe/${leadUnsub.unsubscribe_token}>`
   }
 
+  // The From header is built from the authenticated approver's profile in
+  // sendEmailDraft. Match the visible signature to that same real sender.
+  const { data: sendingProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", auth.userId)
+    .maybeSingle()
+  const senderName = (sendingProfile as { full_name?: string | null } | null)?.full_name?.trim() || "Vexim"
+  const contentToSend = withCampaignSignature(
+    edit?.content?.trim() || d.generated_content_en || "",
+    senderName,
+  )
+
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).
   let sendResult
   try {
     sendResult = await sendEmailDraft(draftId, {
       overrideSubject: edit?.subject,
-      overrideContent: edit?.content,
+      overrideContent: contentToSend,
       extraHeaders,
       // recipient đã set lúc tạo draft; không override.
     })
@@ -117,11 +131,11 @@ export async function approveAndSendCampaignDraft(
 
   const sentAt = new Date()
   const finalSubject = edit?.subject?.trim() || d.generated_subject || ""
-  const finalContent = edit?.content?.trim() || d.generated_content_en || ""
-  // Human-edit-rate metric (yêu cầu 25/09/2026): so bản gửi với bản AI gốc.
+  const finalContent = contentToSend
+  // Human-edit-rate counts only explicit AE edits, not deterministic signature sync.
   const wasEdited =
-    (edit?.subject?.trim() ?? "") !== (d.generated_subject ?? "").trim() ||
-    (edit?.content?.trim() ?? "") !== (d.generated_content_en ?? "").trim()
+    (!!edit?.subject?.trim() && edit.subject.trim() !== (d.generated_subject ?? "").trim()) ||
+    (!!edit?.content?.trim() && edit.content.trim() !== (d.generated_content_en ?? "").trim())
 
   // Firing → sent.
   await (supabase.from("campaign_step_firings") as any)

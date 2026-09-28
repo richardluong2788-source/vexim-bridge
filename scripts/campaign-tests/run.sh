@@ -9,6 +9,10 @@ pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campai
   lib/campaign/email-qa.ts lib/campaign/reply-intent.ts lib/campaign/followup-gate.ts \
   --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
+# Signature normalization (owner name at generation, authenticated sender at send).
+pnpm exec tsc lib/campaign/email-generator.ts lib/campaign/constants.ts lib/campaign/types.ts \
+  --outDir "$OUT/signature" --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop
+
 # pitch-first helpers (093) — pure, không import gì. OUT/pitch để tránh
 # rootDir lệch (file này ở lib/buyers, còn lại ở lib/campaign).
 pnpm exec tsc lib/buyers/pitch-helpers.ts --outDir "$OUT/pitch" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
@@ -56,6 +60,7 @@ cp "$OUT/pure/suppression-pure.js" "$OUT/suppression-pure.js"
 sed -i '/require("server-only")/d; /require("@\/lib\/supabase\/admin")/d' "$OUT/suppression-pure.js" || true
 
 fail=0
+node scripts/campaign-tests/email-signature.test.js "$OUT/signature" || fail=1
 node -e "
 const sm = require('$OUT/state-machine.js'); const assert = require('assert');
 // quick sanity — full suites below

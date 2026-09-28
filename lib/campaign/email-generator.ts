@@ -12,7 +12,7 @@
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY, SIGNATURE_WEBSITE } from "./constants"
+import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY } from "./constants"
 import type { BuyerContext } from "./types"
 const outputSchema = z.object({
   subject_en: z.string().describe("Email subject, plain content only, like a person typing quickly: 3-7 words, sentence case, under 50 characters. Punctuation limited to at most a comma or period; never dashes, colons, semicolons, quotes or parentheses. No Re:/Fwd:, no ALL CAPS, no promo words (option, offer, deal, exclusive)."),
@@ -38,19 +38,33 @@ function formatContextBlock(ctx: BuyerContext): string {
   return JSON.stringify(ctx, null, 2)
 }
 
-/**
- * Signature chuẩn Gmail/CAN-SPAM: tên người thật (khớp From header — AE owner
- * qua buildPersonalizedSender) + công ty + ĐỊA CHỈ THẬT (bắt buộc CAN-SPAM).
- */
+/** Human sender name + legal entity + postal address. No brand-name fallback or website link. */
 function buildSignature(senderName?: string | null): string {
+  const name = senderName?.replace(/[\r\n]+/g, " ").trim()
   return [
     "",
     "Best regards,",
-    senderName?.trim() || "Veximtrade",
+    ...(name ? [name] : []),
     SIGNATURE_COMPANY,
     SIGNATURE_ADDRESS,
-    SIGNATURE_WEBSITE,
   ].join("\n")
+}
+
+/**
+ * Replace any model-written sign-off with the deterministic signature. Also
+ * used at send time so the printed name matches the authenticated sender in
+ * the From header, even if a different AE/admin approves the draft.
+ */
+export function withCampaignSignature(content: string, senderName?: string | null): string {
+  const lower = content.toLowerCase()
+  const signoffs = [...content.matchAll(/(?:^|\n)[ \t]*(?:best regards|kind regards|regards|sincerely|best|thanks),?[ \t]*(?=\n|$)/gim)]
+  const signoffIndex = signoffs.length > 0
+    ? signoffs[signoffs.length - 1].index ?? 0
+    : lower.lastIndexOf(SIGNATURE_COMPANY.toLowerCase())
+  const body = (signoffIndex >= 0 ? content.slice(0, signoffIndex) : content)
+    .replace(/\n[ \t]*(?:https?:\/\/)?(?:www\.)?veximtrade\.com\/?[ \t]*$/i, "")
+    .replace(/\s+$/, "")
+  return `${body}${buildSignature(senderName)}`
 }
 
 /**
@@ -80,7 +94,7 @@ export async function generateCampaignEmail(
     "FACTS ABOUT VEXIM (whitelist — state ONLY these, lightly paraphrased, never embellished):",
     ...APPROVED_VEXIM_CLAIMS.map((c) => `- ${c}`),
     "- Nothing else about Vexim: no superlatives (leading, best, largest, premier...), no counts (X factories, X years, X buyers), no certifications beyond the services above (no ISO/BRC/SQF claims), no audit depth beyond 'audited before introduction'.",
-    "IDENTITY: in the body, call the company \"Veximtrade\" (matches the veximtrade.com sender domain). The legal entity \"VEXIM GLOBAL CO., LTD\" appears ONLY in the signature block. Never write \"Vexim\" or \"Vexim Global\" in the body.",
+    "IDENTITY: in the body, call the company \"Veximtrade\". The legal entity \"VEXIM GLOBAL CO., LTD\" appears ONLY in the signature block. Never write \"Vexim\" or \"Vexim Global\" in the body.",
     "",
     "DELIVERABILITY RULES (spec §22):",
     "- Plain text only. No links, no images, no attachments, no HTML, no emoji.",
@@ -89,12 +103,11 @@ export async function generateCampaignEmail(
     "- AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Plain, human, direct.",
     "- NATURAL PARAGRAPHING: write like a real AE typing a one-to-one email. Do NOT put every sentence on its own line; group related sentences into 2-3 uneven paragraphs (a paragraph can be 2-4 sentences, a few lines long; lengths need not match). Perfect symmetric structure (intro, company, why you, offer, CTA) reads as AI copywriting. Sentences may flow long with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. A cold email only needs enough context to start the conversation.",
     "- SUBJECT (deliverability-critical): plain content only, like a person typing quickly. 3-7 words naming the category or the buyer's world (e.g. 'Vietnam agriculture sourcing', 'Rice supply question'). Punctuation limited to at most a comma or period; NEVER em/en dashes, colons, semicolons, quotes, parentheses or question marks. No Title Case, no Re:/Fwd:, no promo words (option, offer, deal, exclusive, verified suppliers).",
-    "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
+    "- SIGNATURE: never use a brand name such as Veximtrade as the sender's name. Use the real sender name supplied below when available; do not invent a name. Include the legal entity and postal address, but NO website, bare domain, or hyperlink. The application will replace the model's sign-off deterministically. Expected signature:\n" +
     "Best regards,\n" +
-    (senderName?.trim() || "Veximtrade") + "\n" +
+    (senderName?.trim() ? `${senderName.trim()}\n` : "") +
     SIGNATURE_COMPANY + "\n" +
     SIGNATURE_ADDRESS + "\n" +
-    SIGNATURE_WEBSITE + "\n" +
     "- Do NOT invent any other human name, title, phone number, or office address.",
     `- Under ${ctx.business_rules.max_words} words excluding signature.`,
     "",
@@ -133,10 +146,9 @@ export async function generateCampaignEmail(
 
   if (!output) throw new Error("generateCampaignEmail: empty AI output")
 
-  // Đảm bảo signature tồn tại (model thi thoảng bỏ) — deterministic append.
-  const contentEn = output.content_en.includes(SIGNATURE_COMPANY)
-    ? output.content_en
-    : output.content_en + buildSignature(senderName)
+  // Always replace the model-written sign-off with the deterministic human-name
+  // signature; this prevents generic "Veximtrade" and website links from leaking.
+  const contentEn = withCampaignSignature(output.content_en, senderName)
 
   return {
     subjectEn: output.subject_en.trim().slice(0, 120),

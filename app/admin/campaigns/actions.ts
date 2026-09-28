@@ -381,13 +381,12 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
 
     const ctx = await buildBuyerContext(enrollment, step)
     let senderName: string | null = null
-    if (enrollment.owner_id) {
-      const { data: owner } = await (guard.admin.from("profiles") as any)
-        .select("full_name")
-        .eq("id", enrollment.owner_id)
-        .maybeSingle()
-      senderName = (owner as { full_name?: string | null } | null)?.full_name ?? null
-    }
+    const signatureUserId = enrollment.owner_id ?? guard.userId
+    const { data: owner } = await (guard.admin.from("profiles") as any)
+      .select("full_name")
+      .eq("id", signatureUserId)
+      .maybeSingle()
+    senderName = (owner as { full_name?: string | null } | null)?.full_name ?? null
 
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
     const qa = runEmailQA({

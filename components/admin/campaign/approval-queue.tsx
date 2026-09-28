@@ -5,7 +5,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Check, Loader2, X } from "lucide-react"
+import { AlertTriangle, Check, Loader2, RefreshCw, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { approveCampaignDraftAction, rejectCampaignDraftAction } from "@/app/admin/campaigns/actions"
+import { approveCampaignDraftAction, regenerateCampaignDraftAction, rejectCampaignDraftAction } from "@/app/admin/campaigns/actions"
 
 export interface ApprovalDraft {
   id: string
@@ -77,6 +77,23 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
     }
   }
 
+  async function regenerate(draft: ApprovalDraft) {
+    if (!window.confirm("Tạo lại email theo prompt hiện tại? Bản đang xem sẽ được thay thế, nhưng không tính là AI bị từ chối và không gửi email.")) return
+    setBusyId(draft.id)
+    const res = await regenerateCampaignDraftAction(draft.id)
+    setBusyId(null)
+    if (res.ok) {
+      if (res.qaBlocked) {
+        toast.error(`Đã tạo bản mới nhưng QA chặn gửi. ${res.qaMessage ?? ""}`)
+      } else {
+        toast.success(`Đã tạo lại draft (${res.riskLevel}), vẫn chờ AE duyệt.`)
+      }
+      router.refresh()
+    } else {
+      toast.error(res.message ?? "Không tạo lại được draft")
+    }
+  }
+
   if (drafts.length === 0) {
     return (
       <Card>
@@ -96,6 +113,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
           draft={d}
           busy={busyId === d.id}
           onApprove={() => approve(d)}
+          onRegenerate={() => regenerate(d)}
           onReject={() => {
             setRejecting(d)
             setRejectReason("")
@@ -103,7 +121,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
         />
       ))}
       {blocked.map((d) => (
-        <DraftCard key={d.id} draft={d} busy={busyId === d.id} blocked />
+        <DraftCard key={d.id} draft={d} busy={busyId === d.id} blocked onRegenerate={() => regenerate(d)} />
       ))}
 
       <Dialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)}>
@@ -145,12 +163,14 @@ function DraftCard({
   busy,
   blocked,
   onApprove,
+  onRegenerate,
   onReject,
 }: {
   draft: ApprovalDraft
   busy?: boolean
   blocked?: boolean
   onApprove?: () => void
+  onRegenerate?: () => void
   onReject?: () => void
 }) {
   const router = useRouter()
@@ -167,7 +187,7 @@ function DraftCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm">
             <span className="font-medium">{lead?.company_name ?? "(không rõ công ty)"}</span>
-            <span className="text-muted-foreground"> · {lead?.contact_name ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt;</span>
+            <span className="text-muted-foreground"> · {lead?.contact_person ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt;</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <Badge variant="outline">Step {draft.campaign_step_number ?? "?"}</Badge>
@@ -208,6 +228,13 @@ function DraftCard({
           )}
         </div>
 
+        {blocked && onRegenerate && (
+          <Button size="sm" variant="outline" onClick={onRegenerate} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Tạo lại bằng AI
+          </Button>
+        )}
+
         {!blocked && (
           <div className="flex items-center gap-2">
             <Button
@@ -221,6 +248,12 @@ function DraftCard({
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Duyệt &amp; gửi
             </Button>
+            {onRegenerate && (
+              <Button size="sm" variant="outline" onClick={onRegenerate} disabled={busy}>
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Tạo lại bằng AI
+              </Button>
+            )}
             {onReject && (
               <Button size="sm" variant="outline" onClick={onReject} disabled={busy}>
                 <X className="mr-2 h-4 w-4" /> Từ chối

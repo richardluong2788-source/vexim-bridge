@@ -16,6 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { sendEmailDraft } from "@/lib/ai/email-sender"
 import { getCampaignSteps, getEnrollment, applyTransition } from "./enrollments"
+import { buildBuyerContext } from "./context-builder"
+import { getCampaignCountryReviewReason } from "./country-validation"
 import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent } from "./state-machine"
 import { appendInteraction } from "./interactions"
 import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
@@ -25,7 +27,7 @@ import { siteConfig } from "@/lib/site-config"
 
 export type ApproveResult =
   | { ok: true; state: "sent" }
-  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "qa_blocked" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
+  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "qa_blocked" | "country_review" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
 
 async function assertStaff(): Promise<{ ok: true; userId: string; role: string } | { ok: false; error: "unauthorized" | "forbidden" }> {
   const current = await getCurrentRole()
@@ -68,6 +70,61 @@ export async function approveAndSendCampaignDraft(
   const sentStepNumber = d.campaign_step_number ?? enrollment.current_step_number
   const sentStep = steps.find((s) => s.step_number === sentStepNumber)
   const nextStep = steps.find((s) => s.step_number === sentStepNumber + 1)
+
+  if (!sentStep) {
+    return { ok: false, error: "serverError", message: "Không xác minh được campaign step; email chưa được gửi." }
+  }
+
+  // Approval is a second safety boundary: drafts queued before country checks
+  // existed must not bypass the current company/import-market validation.
+  {
+    let countryReason: string | null
+    try {
+      const context = await buildBuyerContext(enrollment, sentStep)
+      countryReason = getCampaignCountryReviewReason(context)
+    } catch (err) {
+      console.error("[campaign] country revalidation failed before approval:", err)
+      return { ok: false, error: "serverError", message: "Không xác minh được quốc gia buyer; email chưa được gửi." }
+    }
+    if (countryReason) {
+      const { data: heldDraft, error: holdError } = await (supabase.from("email_drafts") as any)
+        .update({ status: "draft", error_message: `needs_review: ${countryReason}` })
+        .eq("id", draftId)
+        .eq("status", "pending_approval")
+        .select("id")
+        .maybeSingle()
+      if (holdError) return { ok: false, error: "serverError", message: holdError.message }
+      if (!heldDraft) return { ok: false, error: "not_pending" }
+
+      await applyTransition(enrollment, {
+        to: null,
+        needsHumanReview: true,
+        humanReviewReason: `country_validation:${countryReason}`,
+        nextActionAt: null,
+        nextActionType: "human_review",
+        note: "campaign_country_validation_hold_at_approval",
+      })
+      await appendInteraction(
+        {
+          buyer_id: enrollment.lead_id,
+          campaign_id: enrollment.campaign_id,
+          enrollment_id: enrollment.id,
+          interaction_type: "SYSTEM_EVENT",
+          direction: "INTERNAL",
+          subject: "country_validation_hold_at_approval",
+          sequence_step: sentStepNumber,
+          metadata: { draft_id: draftId, reason: countryReason },
+          created_by: auth.userId,
+        },
+        {
+          actionType: "campaign_country_validation_hold",
+          description: `[Campaign] Pending draft blocked at approval for country review: ${countryReason}`,
+          performedBy: auth.userId,
+        },
+      )
+      return { ok: false, error: "country_review", message: countryReason }
+    }
+  }
 
   // ── SENDING WINDOW (backend policy — AI không quyết định giờ gửi) ──
   // CAMPAIGN_AUTO_SEND=true → chặn CỨNG nếu ngoài window hoặc timezone không

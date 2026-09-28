@@ -320,7 +320,7 @@ export async function enrollLeadsAction(input: {
 
 export type ApproveDraftResult =
   | { ok: true }
-  | { ok: false; error: ActionError | "not_found" | "not_pending" | "qa_blocked" | "send_failed"; message?: string }
+  | { ok: false; error: ActionError | "not_found" | "not_pending" | "qa_blocked" | "country_review" | "send_failed"; message?: string }
 
 export async function approveCampaignDraftAction(
   draftId: string,

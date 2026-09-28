@@ -60,6 +60,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
       router.refresh()
     } else {
       toast.error(res.message ?? `Lỗi: ${res.error}`)
+      if (res.error === "country_review") router.refresh()
     }
   }
 

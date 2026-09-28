@@ -39,6 +39,8 @@ import { buildBuyerContext } from "./context-builder"
 import { assessFollowupJustification, applyFollowupGateDecision } from "./followup-gate"
 import { generateCampaignEmail } from "./email-generator"
 import { runEmailQA } from "./email-qa"
+import { getCampaignCountryReviewReason } from "./country-validation"
+import { addBusinessDays } from "./scheduling-utils"
 import { checkLeadStop } from "./suppression"
 import { resolveEnrollmentTimezone, checkSendingWindow } from "./sending-window"
 import { appendInteraction, logSystemEvent } from "./interactions"
@@ -139,6 +141,31 @@ const DRAFT_TYPE_BY_STEP: Record<string, "introduction" | "follow_up" | "custom"
   nurture: "custom",
 }
 
+async function holdForCountryReview(
+  enrollment: { id: string; lead_id: string; campaign_id: string; current_step_number: number; followup_count: number },
+  stepNumber: number,
+  reason: string,
+): Promise<void> {
+  await resolveFiring(enrollment.id, stepNumber, "skipped", { error: `needs_review:${reason}` })
+  await applyTransition(enrollment as never, {
+    to: null,
+    needsHumanReview: true,
+    humanReviewReason: `country_validation:${reason}`,
+    nextActionAt: null,
+    nextActionType: "human_review",
+    note: "campaign_country_validation_hold",
+  })
+  await logSystemEvent({
+    buyerId: enrollment.lead_id,
+    campaignId: enrollment.campaign_id,
+    enrollmentId: enrollment.id,
+    step: stepNumber,
+    event: "country_validation_hold",
+    detail: { reason },
+    description: `[Campaign] Outreach held for country review: ${reason} (lead ${enrollment.lead_id}).`,
+  })
+}
+
 async function queueDraftForEnrollment(
   enrollment: { id: string; lead_id: string; campaign_id: string; state: EnrollmentState; current_step_number: number; followup_count: number },
   step: { step_number: number; step_type: string; objective: string | null; ai_prompt_guidance: string | null },
@@ -171,18 +198,24 @@ async function queueDraftForEnrollment(
       .select("full_name")
       .eq("id", ownerId)
       .single()
-    senderName = (ownerProfile as { full_name?: string } | null)?.full_name ?? null
+    senderName = (ownerProfile as { full_name?: string | null } | null)?.full_name ?? null
   }
 
   try {
     const ctx = prebuiltCtx ?? (await buildBuyerContext(enrollment as never, step as never))
+    const countryReviewReason = getCampaignCountryReviewReason(ctx)
+    if (countryReviewReason) {
+      await holdForCountryReview(enrollment, step.step_number, countryReviewReason)
+      return { ok: false, error: "needs_human_review:country_validation" }
+    }
+
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
 
     const qa = runEmailQA({
       email: { subjectEn: generated.subjectEn, contentEn: generated.contentEn },
       recipient: contactEmail,
       ctx,
-      optOutRequired: step.step_number >= 2,
+      optOutRequired: true,
       stepType: step.step_type,
     })
 
@@ -491,8 +524,11 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                 result.resumed += 1
                 if (e.last_contact_at) {
                   const nextStep = steps.find((s) => s.step_number === e.current_step_number + 1)
-                  const delayDays = nextStep?.delay_days ?? 14
-                  const nextAt = new Date(new Date(e.last_contact_at).getTime() + Math.max(delayDays, 1) * 86400000)
+                  const delayDays = nextStep?.delay_business_days ?? nextStep?.delay_days ?? 14
+                  const lastContact = new Date(e.last_contact_at)
+                  const nextAt = nextStep?.delay_business_days != null
+                    ? addBusinessDays(lastContact, Math.max(delayDays, 1))
+                    : new Date(lastContact.getTime() + Math.max(delayDays, 1) * 86400000)
                   await (admin.from("campaign_enrollments") as any)
                     .update({ next_action_at: nextAt.toISOString(), next_action_type: nextStep ? "followup_due" : "nurture_due" })
                     .eq("id", e.id)
@@ -529,6 +565,7 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               if (!claimed) break // tick khác đang xử lý
               const r = await queueDraftForEnrollment(e, step1, campaign.name, e.owner_id)
               if (r.ok) result.draftsQueued += 1
+              else if (r.error === "needs_human_review:country_validation") result.gateHold += 1
               else result.draftFailures += 1
             }
             break
@@ -561,6 +598,7 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               if (!claimed) break
               const r = await queueDraftForEnrollment(e, stepRetry, campaign.name, e.owner_id)
               if (r.ok) result.draftsQueued += 1
+              else if (r.error === "needs_human_review:country_validation") result.gateHold += 1
               else result.draftFailures += 1
             }
             break
@@ -569,7 +607,8 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
           case "contacted": {
             if (e.next_action_type === "contacted_grace") {
               const step2 = steps.find((s) => s.step_number === e.current_step_number + 1)
-              const t = onContactedGraceElapsed(e.state, step2?.delay_days ?? 4, now)
+              const followupDelay = step2?.delay_business_days ?? step2?.delay_days ?? 4
+              const t = onContactedGraceElapsed(e.state, followupDelay, now, step2?.delay_business_days != null)
               if (await applyTransition(e, t)) result.graceAdvanced += 1
             }
             break
@@ -656,6 +695,12 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               // hợp lý để liên hệ tiếp không. Không có lý do → KHÔNG gửi.
               if (nextStep.step_number >= 2) {
                 const gateCtx = await buildBuyerContext(e as never, nextStep as never)
+                const countryReviewReason = getCampaignCountryReviewReason(gateCtx)
+                if (countryReviewReason) {
+                  await holdForCountryReview(e, nextStep.step_number, countryReviewReason)
+                  result.gateHold += 1
+                  break
+                }
                 const daysSinceLastContact = e.last_contact_at
                   ? Math.floor((now.getTime() - new Date(e.last_contact_at).getTime()) / 86400000)
                   : null
@@ -705,7 +750,9 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                     // đếm followup_count vì chưa gửi gì). Hết bảng → NURTURE.
                     const after = steps.find((s) => s.step_number === nextStep.step_number + 1)
                     if (after) {
-                      const nextAt = new Date(now.getTime() + Math.max(after.delay_days, 1) * 86400000)
+                      const nextAt = after.delay_business_days != null
+                        ? addBusinessDays(now, Math.max(after.delay_business_days, 1))
+                        : new Date(now.getTime() + Math.max(after.delay_days, 1) * 86400000)
                       await (admin.from("campaign_enrollments") as any)
                         .update({
                           current_step_number: nextStep.step_number,
@@ -725,6 +772,8 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                 const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id, gateCtx)
                 if (r.ok) {
                   result.followupsQueued += 1
+                } else if (r.error === "needs_human_review:country_validation") {
+                  result.gateHold += 1
                 } else {
                   result.draftFailures += 1
                 }
@@ -734,6 +783,8 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               const r = await queueDraftForEnrollment(e, nextStep, campaign.name, e.owner_id)
               if (r.ok) {
                 result.followupsQueued += 1
+              } else if (r.error === "needs_human_review:country_validation") {
+                result.gateHold += 1
               } else {
                 result.draftFailures += 1
               }

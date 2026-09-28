@@ -68,7 +68,7 @@ function trigramSimilarity(a: string, b: string): number {
  * @param params.email       Bản email sinh ra (hoặc AE sửa)
  * @param params.recipient   Địa chỉ sẽ gửi
  * @param params.ctx         BuyerContext đã dùng để sinh
- * @param params.optOutRequired Follow-up/close-loop bắt buộc có opt-out line mềm
+ * @param params.optOutRequired Every campaign step requires the exact approved opt-out sentence.
  */
 export function runEmailQA(params: {
   email: { subjectEn: string; contentEn: string }
@@ -82,6 +82,58 @@ export function runEmailQA(params: {
   const { email, recipient, ctx, optOutRequired, stepType } = params
   const body = email.contentEn
   const words = countWords(body)
+  const proseBeforeSignature = body.split(/\n\s*Best regards,/i)[0]
+
+  if (/^\s*(?:[-*•]|\d+[.)])\s+/m.test(proseBeforeSignature)) {
+    issues.push({ check: "body_bullets", severity: "HIGH", message: "Campaign email bodies must use plain prose, not bullet lists." })
+  }
+
+  // Pilot-specific hard language guardrails: these should never reach approval.
+  const bannedCopy = body.match(/\bverified suppliers?\b|\baudited\b|\bleading\b|\btrusted\b|\bbest\b(?!\s+regards)|\bworld[- ]class\b|\bone[- ]stop\b|\bgame[- ]changer\b|hope this email finds you well|I wanted to reach out|\bsynergy\b|\bcutting[- ]edge\b/i)
+  if (bannedCopy) {
+    issues.push({ check: "campaign_banned_copy", severity: "HIGH", message: `Banned campaign wording: "${bannedCopy[0]}".` })
+  }
+  if (/\b(?:your|the buyer'?s|your team's) team in Vietnam\b|\bteam in Vietnam\b/i.test(body)) {
+    issues.push({ check: "buyer_location", severity: "HIGH", message: "Do not describe the buyer or buyer team as being in Vietnam." })
+  }
+  if (/align(?:ing|s)? product fit|aligning .* compliance needs/i.test(body)) {
+    issues.push({ check: "consultant_jargon", severity: "HIGH", message: "Avoid consultant jargon; say plainly that Veximtrade reviews product fit and relevant import requirements." })
+  }
+  if (/\b(?:FDA|FSVP|CFIA)\b/i.test(body)) {
+    issues.push({ check: "unconfirmed_regulation", severity: "HIGH", message: "Do not name a specific regulator or import program unless its relevance is confirmed for this buyer." })
+  }
+  if ((!ctx.buyer.source_of_personalization || ctx.buyer.source_of_personalization === "UNKNOWN") && /\bI came across\b|\bI found your company\b|\bwhile researching you\b/i.test(body)) {
+    issues.push({ check: "unsupported_personalization_source", severity: "HIGH", message: "A research-source personalization line requires an explicit source in BuyerContext." })
+  }
+  if (/\b(?:replace|replacing|switch from|move away from) your current (?:supplier|source|country)/i.test(body)) {
+    issues.push({ check: "replace_current_source", severity: "HIGH", message: "Position Vietnam only as an additional source, never as a replacement." })
+  }
+  if (ctx.crm.campaign_step === 1) {
+    if (/\b(?:finding|sourcing) (?:the )?(?:right )?suppliers?\b.{0,100}\b(?:easy|straightforward|simple)\b.{0,100}\b(?:challenging|difficult|complicated)\b/i.test(body)) {
+      issues.push({ check: "contradictory_opener", severity: "HIGH", message: "Self-contradicting first-touch opener." })
+    }
+    if (/\b(?:quick )?(?:call|meeting|chat)\b|schedule a call|book a call|set up a meeting/i.test(body)) {
+      issues.push({ check: "first_email_meeting_ask", severity: "HIGH", message: "Email 1 must ask about current sourcing needs, not request a call or meeting." })
+    }
+    const prose = body.split(/\n\s*Best regards,/i)[0]
+      .replace(/If you'd rather not hear from me, just reply ['’]no thanks['’] and I won't contact you again\.?/i, "")
+    const proseWords = countWords(prose)
+    if (proseWords < 90 || proseWords > 130) {
+      issues.push({ check: "first_email_word_count", severity: "HIGH", message: `Email 1 body is ${proseWords} words; required range is 90-130 excluding opt-out/signature.` })
+    }
+    const questions = (body.match(/\?/g) ?? []).length
+    if (questions !== 1) {
+      issues.push({ check: "first_email_question_count", severity: "HIGH", message: `Email 1 must contain exactly one question; found ${questions}.` })
+    } else {
+      const finalQuestion = body.slice(0, body.lastIndexOf("?")).split(/[.!?\n]/).pop()?.trim() ?? ""
+      if (!/\b(?:sourc|supply|product|category|manufacturer|purchase|import|need|currently|current|looking|buy|procure)\b/i.test(finalQuestion)) {
+        issues.push({ check: "first_email_situation_question", severity: "HIGH", message: "Email 1's one question must ask about the buyer's current sourcing or supply situation." })
+      }
+    }
+  }
+  if (/^(?:re|fwd?)\s*:/i.test(email.subjectEn.trim())) {
+    issues.push({ check: "misleading_subject", severity: "HIGH", message: "Do not use Re/Fwd subject tricks." })
+  }
 
   // 1. Correct recipient? (dạng email hợp lệ + không rỗng)
   if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
@@ -158,14 +210,18 @@ export function runEmailQA(params: {
     issues.push({ check: "links", severity: "HIGH", message: `Link or domain found in cold email (${urlMatch[0]}). Remove URLs and bare domains.` })
   }
 
-  // 12. Opt-out respected — follow-up trở đi cần đường lùi mềm.
-  if (optOutRequired && !/(no thanks|not interested|isn'?t (a priority|relevant)|won'?t (reach out|follow up)|just reply no|stop emailing|feel free to (say|let me know))/i.test(body)) {
-    issues.push({ check: "opt_out_line", severity: "MEDIUM", message: "Follow-up emails must offer an easy way out (soft opt-out line)." })
+  // 12. Exact opt-out sentence is required in every campaign email.
+  const requiredOptOut = "If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again."
+  if (optOutRequired && !body.includes(requiredOptOut)) {
+    issues.push({ check: "opt_out_line", severity: "HIGH", message: "Required exact opt-out sentence is missing." })
+  } else if (optOutRequired && !proseBeforeSignature.trimEnd().endsWith(requiredOptOut)) {
+    issues.push({ check: "opt_out_position", severity: "HIGH", message: "Place the exact opt-out sentence immediately before the signature." })
   }
 
-  // Signature chuẩn (CAN-SPAM/Gmail): thương hiệu + địa chỉ thật trong body.
-  if (!/vexim/i.test(body)) {
-    issues.push({ check: "signature_brand", severity: "LOW", message: "Signature missing Veximtrade brand." })
+  // Consistent brand wording belongs in the body; the legal entity is in the signature.
+  const bodyWithoutSignature = body.split(/\n\s*Best regards,/i)[0]
+  if (!/\bVeximtrade\b/i.test(bodyWithoutSignature)) {
+    issues.push({ check: "brand_wording", severity: "HIGH", message: "Use the consistent brand name Veximtrade in the email body." })
   }
   // Địa chỉ thật — check theo street/ward của signature chuẩn (chung chung
   // "Vietnam" sẽ false-positive vì tên quốc gia xuất hiện tự nhiên trong body).

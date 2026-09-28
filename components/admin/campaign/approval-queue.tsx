@@ -32,6 +32,7 @@ export interface ApprovalDraft {
   generated_content_en: string | null
   translated_content_vi: string | null
   recipient_email: string | null
+  error_message?: string | null
   created_at: string
   enrollment: {
     id: string
@@ -83,7 +84,9 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
     const res = await regenerateCampaignDraftAction(draft.id)
     setBusyId(null)
     if (res.ok) {
-      if (res.qaBlocked) {
+      if (res.reviewRequired) {
+        toast.error(`Draft được giữ để rà soát quốc gia, chưa tạo nội dung mới. ${res.qaMessage ?? ""}`)
+      } else if (res.qaBlocked) {
         toast.error(`Đã tạo bản mới nhưng QA chặn gửi. ${res.qaMessage ?? ""}`)
       } else {
         toast.success(`Đã tạo lại draft (${res.riskLevel}), vẫn chờ AE duyệt.`)
@@ -180,9 +183,10 @@ function DraftCard({
 
   const lead = draft.enrollment?.lead
   const wordCount = content.split(/\s+/).filter(Boolean).length
+  const countryHold = draft.error_message?.startsWith("needs_review:") ?? false
 
   return (
-    <Card className={blocked ? "border-red-300 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20" : ""}>
+    <Card className={blocked ? (countryHold ? "border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20" : "border-red-300 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20") : ""}>
       <CardContent className="space-y-3 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm">
@@ -192,8 +196,8 @@ function DraftCard({
           <div className="flex items-center gap-2 text-xs">
             <Badge variant="outline">Step {draft.campaign_step_number ?? "?"}</Badge>
             {blocked ? (
-              <Badge variant="outline" className="border-red-400 text-red-600">
-                <AlertTriangle className="mr-1 h-3 w-3" /> QA chặn — KHÔNG gửi
+              <Badge variant="outline" className={countryHold ? "border-amber-400 text-amber-700" : "border-red-400 text-red-600"}>
+                <AlertTriangle className="mr-1 h-3 w-3" /> {countryHold ? "Chờ soát quốc gia — KHÔNG gửi" : "QA chặn — KHÔNG gửi"}
               </Badge>
             ) : (
               <Badge variant="outline" className="border-emerald-400 text-emerald-600">Chờ duyệt</Badge>
@@ -201,6 +205,12 @@ function DraftCard({
             <Badge variant="outline">{wordCount} từ</Badge>
           </div>
         </div>
+        {blocked && draft.error_message && (
+          <p className={countryHold ? "text-xs text-amber-800 dark:text-amber-300" : "text-xs text-red-700 dark:text-red-300"}>
+            {draft.error_message.replace(/^needs_review:\s*/, "")}
+            {countryHold && " Cập nhật dữ liệu công ty/nước nhập khẩu rồi bấm Tạo lại bằng AI để kiểm tra lại."}
+          </p>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor={`subject-${draft.id}`}>Subject</Label>

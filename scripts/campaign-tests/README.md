@@ -1,8 +1,6 @@
 # Campaign Engine B1 — Pure-function tests
 
-Không cần DB, không cần AI key thật, không cần test framework. **77 test.** Các module pure
-(state-machine, email-qa, getStopReason, reply-intent rules layer) được compile
-riêng rồi chạy assertion bằng node thuần.
+Không cần DB, không cần AI key thật, không cần test framework. **150 assertions** across the pure campaign, copy QA, country-gate, scheduling, and supporting suites. Modules are compiled separately and run with Node.
 
 ## Chạy tất cả
 
@@ -12,10 +10,14 @@ bash scripts/campaign-tests/run.sh
 
 ## Có gì trong đây
 
-| File | Phủ | Số test |
-|---|---|---|
-| `state-machine.test.js` | 25 phép chuyển state (happy path, reply routing 7 intent, STOP, pause/resume, human-review hold, terminal không hồi sinh) | 25 |
-| `qa-suppression.test.js` | Email QA (link/FDA claim/duplicate/length/opt-out/spam), suppression rules (unsub/bounce/complaint/missing email) | 14 |
-| `reply-rules.test.js` | Rule layer của classifier: OPT_OUT / OUT_OF_OFFICE (pause) / NOT_INTERESTED / WRONG_CONTACT / NOT_NOW + ambiguous→UNKNOWN + empty→human review (AI được stub) | 12 |
-| `followup-gate.test.js` | Cổng "có lý do liên hệ tiếp không": defensive rules (đã reply/chưa gửi email → không AI), AI fail → fail-safe không gửi, output rác → skip, conf < 0.7 → human review | 7 |
-| `sending-window.test.js` | Window Mon–Fri 08:00–11:30 / 13:00–16:30 local: ranh giới khung, nghỉ trưa, weekend→Mon, tz hỏng; resolve tz (manual > US state > country > approx); auto-send check chặn tz không confident | 19 |
+| File | Phủ | Assertions |
+|---|---|---:|
+| `email-signature.test.js` | Signature dùng sender thật, bỏ website, không tự bịa sender | 5 |
+| `country-validation.test.js` | Company country và importing country khớp/missing/conflict cho US pilot | 6 |
+| `state-machine.test.js` | State transitions, hold/resume (including step-1 country review), STOP, weekend-skipping business-day schedule | 37 |
+| `qa-suppression.test.js` | Banned copy, CTA/word count, exact opt-out placement, provenance, signature, and suppression rules | 38 |
+| `reply-rules.test.js` | OPT_OUT / OUT_OF_OFFICE / NOT_INTERESTED / WRONG_CONTACT / NOT_NOW và human review | 12 |
+| `followup-gate.test.js` | Defensive follow-up gate, AI fail/output errors, confidence hold | 7 |
+| `sending-window.test.js` | Sending windows/timezone boundaries and auto-send gate | 19 |
+| `pitch.test.js` | Pitch helper rules | 21 |
+| `client-match.test.js` | Client matching from buyer inquiries | 5 |

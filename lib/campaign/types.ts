@@ -28,6 +28,8 @@ export interface CampaignStepRow {
   step_number: number
   step_type: "initial_outreach" | "follow_up" | "close_loop" | "nurture"
   delay_days: number
+  /** Optional weekday interval for sequences that require business-day timing. */
+  delay_business_days?: number | null
   objective: string | null
   ai_prompt_guidance: string | null
   max_attempts: number
@@ -97,11 +99,15 @@ export interface BuyerContext {
   buyer: {
     company_name: string | null
     country: string | null
+    /** Explicitly parsed destination/import market, not inferred from company location. */
+    importing_country?: string | null
     industry: string | null
     website: string | null
     contact_name: string | null
     contact_email: string | null
     contact_title: string | null
+    /** Provenance string for personalization, or UNKNOWN if no explicit source exists. */
+    source_of_personalization: string | "UNKNOWN"
   }
   import_data: {
     // Mọi trường không có dữ liệu phải là "UNKNOWN" — KHÔNG được điền bừa.

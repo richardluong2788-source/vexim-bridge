@@ -16,6 +16,7 @@ import { runCampaignSchedulerTick } from "@/lib/campaign/scheduler"
 import { buildBuyerContext } from "@/lib/campaign/context-builder"
 import { generateCampaignEmail } from "@/lib/campaign/email-generator"
 import { runEmailQA } from "@/lib/campaign/email-qa"
+import { getCampaignCountryReviewReason } from "@/lib/campaign/country-validation"
 import { appendInteraction } from "@/lib/campaign/interactions"
 import { onManualPause, onManualStop, onReviewResolved } from "@/lib/campaign/state-machine"
 import { applyTransition, getCampaignSteps, getEnrollment } from "@/lib/campaign/enrollments"
@@ -342,7 +343,7 @@ export async function rejectCampaignDraftAction(draftId: string, reason: string)
 }
 
 export type RegenerateCampaignDraftResult =
-  | { ok: true; qaBlocked: boolean; riskLevel: "LOW" | "MEDIUM" | "HIGH"; qaMessage?: string }
+  | { ok: true; qaBlocked: boolean; riskLevel: "LOW" | "MEDIUM" | "HIGH"; qaMessage?: string; reviewRequired?: boolean }
   | { ok: false; error: ActionError | "not_found" | "not_pending" | "serverError"; message?: string }
 
 /**
@@ -380,20 +381,65 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
     if (!step) return { ok: false, error: "not_found", message: "Không tìm thấy cấu hình campaign step." }
 
     const ctx = await buildBuyerContext(enrollment, step)
-    let senderName: string | null = null
+    const countryReviewReason = getCampaignCountryReviewReason(ctx)
+    if (countryReviewReason) {
+      const { error: holdError } = await (guard.admin.from("email_drafts") as any)
+        .update({
+          status: "draft",
+          error_message: `needs_review: ${countryReviewReason}`,
+        })
+        .eq("id", draftId)
+        .in("status", ["pending_approval", "draft"])
+      if (holdError) throw new Error(holdError.message)
+
+      await applyTransition(enrollment, {
+        to: null,
+        needsHumanReview: true,
+        humanReviewReason: `country_validation:${countryReviewReason}`,
+        nextActionAt: null,
+        nextActionType: "human_review",
+        note: "campaign_country_validation_hold",
+      })
+      await appendInteraction(
+        {
+          buyer_id: enrollment.lead_id,
+          campaign_id: enrollment.campaign_id,
+          enrollment_id: enrollment.id,
+          interaction_type: "SYSTEM_EVENT",
+          direction: "INTERNAL",
+          subject: "country_validation_hold",
+          sequence_step: step.step_number,
+          metadata: { draft_id: draftId, reason: countryReviewReason },
+          created_by: guard.userId,
+        },
+        {
+          actionType: "campaign_country_validation_hold",
+          description: `[Campaign] Draft step ${step.step_number} held for country review: ${countryReviewReason}`,
+          performedBy: guard.userId,
+        },
+      )
+      return {
+        ok: true,
+        qaBlocked: true,
+        reviewRequired: true,
+        riskLevel: "HIGH",
+        qaMessage: countryReviewReason,
+      }
+    }
+
     const signatureUserId = enrollment.owner_id ?? guard.userId
     const { data: owner } = await (guard.admin.from("profiles") as any)
       .select("full_name")
       .eq("id", signatureUserId)
       .maybeSingle()
-    senderName = (owner as { full_name?: string | null } | null)?.full_name ?? null
+    const senderName = (owner as { full_name?: string | null } | null)?.full_name ?? null
 
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
     const qa = runEmailQA({
       email: { subjectEn: generated.subjectEn, contentEn: generated.contentEn },
       recipient: draft.recipient_email ?? ctx.buyer.contact_email,
       ctx,
-      optOutRequired: step.step_number >= 2,
+      optOutRequired: true,
       stepType: step.step_type,
     })
     const qaBlocked = qa.risk_level === "HIGH"
@@ -414,6 +460,16 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
 
     if (updateError) throw new Error(updateError.message)
     if (!updated) return { ok: false, error: "not_pending", message: "Draft vừa được xử lý ở nơi khác; hãy tải lại trang." }
+
+    if (enrollment.needs_human_review && enrollment.human_review_reason?.startsWith("country_validation:")) {
+      await applyTransition(enrollment, {
+        to: null,
+        clearHumanReview: true,
+        nextActionAt: new Date(Date.now() + 2 * 86400000),
+        nextActionType: "approval_overdue_check",
+        note: "campaign_country_validation_resolved",
+      })
+    }
 
     await appendInteraction(
       {

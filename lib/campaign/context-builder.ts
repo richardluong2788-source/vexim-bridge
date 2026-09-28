@@ -17,8 +17,12 @@ interface LeadFields {
   contact_email: string | null
   contact_title: string | null
   country: string | null
+  main_import_countries: string | null
   industry: string | null
   website: string | null
+  source: string | null
+  source_ref: string | null
+  product_keywords: string[] | null
   hs_code: string | null
   hs_codes: string[] | null
   purchase_history: string | null
@@ -33,6 +37,34 @@ interface LeadFields {
 function unknownIfEmpty(value: string | null | undefined): string | "UNKNOWN" {
   const v = value?.trim()
   return v ? v : "UNKNOWN"
+}
+
+/** Read only explicitly labeled parsed destination fields; never infer from company country. */
+function parsedImportingCountry(...sources: unknown[]): string | null {
+  const keys = ["importing_country", "import_country", "destination_country", "import_market_country"]
+  for (const source of sources) {
+    if (typeof source === "string" && source.trim()) return source.trim()
+    if (!source || typeof source !== "object" || Array.isArray(source)) continue
+    const record = source as Record<string, unknown>
+    for (const key of keys) {
+      const value = record[key]
+      if (typeof value === "string" && value.trim()) return value.trim()
+    }
+  }
+  return null
+}
+
+function personalizationSource(lead: LeadFields): string | "UNKNOWN" {
+  if (lead.source?.toLowerCase() !== "importyeti" || !lead.source_ref?.trim()) return "UNKNOWN"
+  try {
+    const url = new URL(lead.source_ref)
+    if (url.protocol === "https:" && /(^|\.)importyeti\.com$/i.test(url.hostname)) {
+      return "ImportYeti public customs/import records"
+    }
+  } catch {
+    // Missing/malformed source reference is not evidence of provenance.
+  }
+  return "UNKNOWN"
 }
 
 /** VN supplier detection từ top_suppliers JSONB (ImportYeti) — FACT only. */
@@ -62,10 +94,10 @@ export async function buildBuyerContext(
   const { data: lead, error } = await admin
     .from("leads")
     .select(
-      `id, company_name, contact_person, contact_email, contact_title, country, industry,
-       website, hs_code, hs_codes, purchase_history, top_suppliers,
-       customs_shipment_count, peak_months, buyer_analysis, buyer_strategy,
-       buyer_analysis_at`,
+      `id, company_name, contact_person, contact_email, contact_title, country, main_import_countries, industry,
+       website, source, source_ref, product_keywords, hs_code, hs_codes,
+       purchase_history, top_suppliers, customs_shipment_count, peak_months,
+       buyer_analysis, buyer_strategy, buyer_analysis_at`,
     )
     .eq("id", enrollment.lead_id)
     .single()
@@ -104,15 +136,19 @@ export async function buildBuyerContext(
     buyer: {
       company_name: l.company_name,
       country: l.country,
+      importing_country: parsedImportingCountry(l.main_import_countries, l.buyer_analysis, l.buyer_strategy),
       industry: l.industry,
       website: l.website,
       contact_name: l.contact_person,
       contact_email: l.contact_email,
       contact_title: l.contact_title,
+      source_of_personalization: personalizationSource(l),
     },
     import_data: {
       hs_codes: hsCodes === "UNKNOWN" ? ("UNKNOWN" as const) : hsCodes,
-      main_products: unknownIfEmpty(l.industry),
+      main_products: Array.isArray(l.product_keywords) && l.product_keywords.length > 0
+        ? l.product_keywords.map((x) => x.trim()).filter(Boolean).join(", ") || unknownIfEmpty(l.industry)
+        : unknownIfEmpty(l.industry),
       purchase_history: unknownIfEmpty(l.purchase_history),
       vietnam_supplier_exists: detectVietnamSupplier(l.top_suppliers),
       shipment_count: typeof l.customs_shipment_count === "number" ? l.customs_shipment_count : "UNKNOWN",
@@ -154,7 +190,7 @@ export async function buildBuyerContext(
       max_words: MAX_EMAIL_WORDS,
       no_links: true,
       no_attachments: true,
-      opt_out_line_required: step.step_number >= 2,
+      opt_out_line_required: true,
     },
   }
 }

@@ -107,7 +107,8 @@ export async function approveAndSendCampaignDraft(
     .select("full_name")
     .eq("id", auth.userId)
     .maybeSingle()
-  const senderName = (sendingProfile as { full_name?: string | null } | null)?.full_name?.trim() || "Vexim"
+  const senderProfile = sendingProfile as { full_name?: string | null } | null
+  const senderName = senderProfile?.full_name?.trim() || null
   const contentToSend = withCampaignSignature(
     edit?.content?.trim() || d.generated_content_en || "",
     senderName,
@@ -150,8 +151,9 @@ export async function approveAndSendCampaignDraft(
     : onFollowupEmailSent(
         enrollment.state,
         sentStepNumber,
-        nextStep ? nextStep.delay_days : null,
+        nextStep ? (nextStep.delay_business_days ?? nextStep.delay_days) : null,
         sentAt,
+        nextStep?.delay_business_days != null,
       )
   if (transition.to !== null) {
     await applyTransition(enrollment, transition, { performedBy: auth.userId })

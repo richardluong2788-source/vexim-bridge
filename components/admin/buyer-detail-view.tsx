@@ -1158,6 +1158,7 @@ function BuyerInfoCard({
     contact_email: buyer.contact_email ?? "",
     contact_phone: buyer.contact_phone ?? "",
     country: buyer.country ?? "",
+    main_import_countries: buyer.main_import_countries ?? "",
     industry: buyer.industry ?? "",
     website: buyer.website ?? "",
     linkedin_url: buyer.linkedin_url ?? "",
@@ -1173,6 +1174,7 @@ function BuyerInfoCard({
         contact_email: form.contact_email || null,
         contact_phone: form.contact_phone || null,
         country: form.country || null,
+        main_import_countries: form.main_import_countries || null,
         industry: form.industry || null,
         website: form.website || null,
         linkedin_url: form.linkedin_url || null,
@@ -1252,6 +1254,11 @@ function BuyerInfoCard({
               value={buyer.linkedin_url}
               isLink
             />
+            <InfoRow
+              icon={Globe2}
+              label={locale === "vi" ? "Thị trường nhập khẩu (đã phân tích)" : "Parsed importing markets"}
+              value={buyer.main_import_countries}
+            />
             <div className="flex flex-col gap-1 pt-2 border-t border-border">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <StickyNote className="h-3.5 w-3.5" />
@@ -1296,7 +1303,7 @@ function BuyerInfoCard({
                   }
                 />
               </Field>
-              <Field label={locale === "vi" ? "Quốc gia" : "Country"}>
+              <Field label={locale === "vi" ? "Quốc gia công ty" : "Company country"}>
                 <Input
                   value={form.country}
                   onChange={(e) =>
@@ -1305,6 +1312,20 @@ function BuyerInfoCard({
                 />
               </Field>
             </div>
+            <Field label={locale === "vi" ? "Thị trường nhập khẩu đã phân tích" : "Parsed importing markets"}>
+              <Input
+                value={form.main_import_countries}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, main_import_countries: e.target.value }))
+                }
+                placeholder={locale === "vi" ? "Ví dụ: United States" : "Example: United States"}
+              />
+              <p className="text-xs text-muted-foreground">
+                {locale === "vi"
+                  ? "Nếu có nhiều thị trường hoặc chưa xác nhận, campaign sẽ yêu cầu rà soát thay vì tự suy đoán."
+                  : "Multiple or unconfirmed markets trigger review rather than an automatic guess."}
+              </p>
+            </Field>
             <Field label="Email">
               <Input
                 type="email"
@@ -1382,6 +1403,7 @@ function BuyerInfoCard({
                     contact_email: buyer.contact_email ?? "",
                     contact_phone: buyer.contact_phone ?? "",
                     country: buyer.country ?? "",
+                    main_import_countries: buyer.main_import_countries ?? "",
                     industry: buyer.industry ?? "",
                     website: buyer.website ?? "",
                     linkedin_url: buyer.linkedin_url ?? "",

@@ -7,6 +7,7 @@ cd "$(dirname "$0")/../.."
 OUT=$(mktemp -d)
 pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campaign/types.ts \
   lib/campaign/email-qa.ts lib/campaign/reply-intent.ts lib/campaign/followup-gate.ts \
+  lib/campaign/country-validation.ts \
   --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
 # Signature normalization (owner name at generation, authenticated sender at send).
@@ -61,6 +62,7 @@ sed -i '/require("server-only")/d; /require("@\/lib\/supabase\/admin")/d' "$OUT/
 
 fail=0
 node scripts/campaign-tests/email-signature.test.js "$OUT/signature" || fail=1
+node scripts/campaign-tests/country-validation.test.js "$OUT" || fail=1
 node -e "
 const sm = require('$OUT/state-machine.js'); const assert = require('assert');
 // quick sanity — full suites below

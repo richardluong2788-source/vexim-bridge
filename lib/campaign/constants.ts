@@ -167,9 +167,10 @@ export const NOTIFICATION_DEDUP_PREFIX = "campaign"
  * → HIGH block.
  */
 export const APPROVED_VEXIM_CLAIMS = [
-  "Veximtrade works with Vietnamese manufacturers on U.S. regulatory compliance and sourcing",
-  "Veximtrade is not a marketplace and not a trading company, direct factory relationships",
-  "Factories are audited/verified before being introduced to a buyer",
-  "Vexim helps factories prepare FDA registration, HACCP and traceability documentation",
-  "Buyers can send a product spec and Vexim will check whether a factory matches it",
+  "Veximtrade takes the initial sourcing groundwork off the buyer's team on the Vietnam side",
+  "Veximtrade identifies relevant manufacturers and screens available evidence about whether they are real manufacturers, their capacity, and export history",
+  "Veximtrade reviews product fit and the relevant import requirements of the buyer's country",
+  "Veximtrade coordinates communication and can help qualified suppliers move toward samples, quotations, and orders",
+  "The buyer always makes the final decision about whether to proceed with a supplier",
+  "Veximtrade is not a supplier marketplace or trading company",
 ]

@@ -37,6 +37,16 @@ export const metadata: Metadata = {
   title: appCopy.app.name,
   description: appCopy.app.tagline,
   generator: "v0.app",
+  // Real Vexim logo (cropped from public/vexim-logo.png). app/icon.png +
+  // app/apple-icon.png are Next file-convention icons (auto-injected here);
+  // favicon.ico in /public covers browsers that request it by path.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-icon.png",
+  },
 }
 
 export default function RootLayout({

@@ -296,6 +296,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     contact_email: buyer.contact_email,
     contact_phone: buyer.contact_phone,
     country: buyer.country,
+    importing_country: buyer.importing_country ?? null,
     industry: buyer.industry,
     website: buyer.website,
     linkedin_url: buyer.linkedin_url,

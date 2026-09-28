@@ -8,6 +8,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_EMAIL_WORDS } from "./constants"
 import { loadInboundReplies, loadOutboundEmails } from "./interactions"
+import { resolveExplicitImportingCountry } from "./country-validation"
 import type { BuyerContext, CampaignEnrollmentRow, CampaignStepRow } from "./types"
 
 interface LeadFields {
@@ -17,7 +18,7 @@ interface LeadFields {
   contact_email: string | null
   contact_title: string | null
   country: string | null
-  main_import_countries: string | null
+  importing_country: string | null
   industry: string | null
   website: string | null
   source: string | null
@@ -37,21 +38,6 @@ interface LeadFields {
 function unknownIfEmpty(value: string | null | undefined): string | "UNKNOWN" {
   const v = value?.trim()
   return v ? v : "UNKNOWN"
-}
-
-/** Read only explicitly labeled parsed destination fields; never infer from company country. */
-function parsedImportingCountry(...sources: unknown[]): string | null {
-  const keys = ["importing_country", "import_country", "destination_country", "import_market_country"]
-  for (const source of sources) {
-    if (typeof source === "string" && source.trim()) return source.trim()
-    if (!source || typeof source !== "object" || Array.isArray(source)) continue
-    const record = source as Record<string, unknown>
-    for (const key of keys) {
-      const value = record[key]
-      if (typeof value === "string" && value.trim()) return value.trim()
-    }
-  }
-  return null
 }
 
 function personalizationSource(lead: LeadFields): string | "UNKNOWN" {
@@ -91,16 +77,24 @@ export async function buildBuyerContext(
 ): Promise<BuyerContext> {
   const admin = createAdminClient()
 
-  const { data: lead, error } = await admin
-    .from("leads")
-    .select(
-      `id, company_name, contact_person, contact_email, contact_title, country, main_import_countries, industry,
+  const leadColumns = `id, company_name, contact_person, contact_email, contact_title, country, importing_country, industry,
        website, source, source_ref, product_keywords, hs_code, hs_codes,
        purchase_history, top_suppliers, customs_shipment_count, peak_months,
-       buyer_analysis, buyer_strategy, buyer_analysis_at`,
-    )
+       buyer_analysis, buyer_strategy, buyer_analysis_at`
+  const leadQuery = admin.from("leads") as any
+  let leadLookup = await leadQuery
+    .select(leadColumns)
     .eq("id", enrollment.lead_id)
     .single()
+  // During a rolling deploy before migration 097, fail closed for the import
+  // market but keep generation context available for the review hold.
+  if (leadLookup.error && /importing_country/i.test(leadLookup.error.message ?? "")) {
+    leadLookup = await leadQuery
+      .select(leadColumns.replace("importing_country, ", ""))
+      .eq("id", enrollment.lead_id)
+      .single()
+  }
+  const { data: lead, error } = leadLookup
 
   if (error || !lead) {
     throw new Error(`buildBuyerContext: lead ${enrollment.lead_id} lookup failed: ${error?.message ?? "not found"}`)
@@ -136,7 +130,7 @@ export async function buildBuyerContext(
     buyer: {
       company_name: l.company_name,
       country: l.country,
-      importing_country: parsedImportingCountry(l.main_import_countries, l.buyer_analysis, l.buyer_strategy),
+      importing_country: resolveExplicitImportingCountry(l.importing_country, l.buyer_analysis, l.buyer_strategy),
       industry: l.industry,
       website: l.website,
       contact_name: l.contact_person,

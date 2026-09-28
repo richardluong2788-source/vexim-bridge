@@ -1,6 +1,6 @@
 const assert = require('assert')
 const path = require('path')
-const { getCampaignCountryReviewReason } = require(path.join(process.argv[2] || '.', 'country-validation.js'))
+const { getCampaignCountryReviewReason, resolveExplicitImportingCountry } = require(path.join(process.argv[2] || '.', 'country-validation.js'))
 
 const context = (country, importing_country) => ({
   buyer: { country, importing_country },
@@ -13,4 +13,7 @@ assert.match(getCampaignCountryReviewReason(context('Canada', 'US')), /company's
 assert.match(getCampaignCountryReviewReason(context('United States', null)), /Importing country is not explicitly confirmed/)
 assert.match(getCampaignCountryReviewReason(context('United States', 'Canada')), /parsed importing country \(Canada\)/)
 assert.match(getCampaignCountryReviewReason(context(null, 'US')), /company country is missing/)
-console.log('COUNTRY VALIDATION TESTS: 6 passed, 0 failed')
+assert.strictEqual(resolveExplicitImportingCountry('United States'), 'United States')
+assert.strictEqual(resolveExplicitImportingCountry(null, { destination_country: 'US' }), 'US')
+assert.strictEqual(resolveExplicitImportingCountry(null, { main_import_countries: '99.8% Asia: Thailand, China, Vietnam' }), null)
+console.log('COUNTRY VALIDATION TESTS: 9 passed, 0 failed')

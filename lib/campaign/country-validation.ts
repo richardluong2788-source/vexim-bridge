@@ -1,5 +1,26 @@
 import type { BuyerContext } from "./types"
 
+/**
+ * Resolve only explicitly labeled destination fields. Shipment-origin aggregates
+ * such as `main_import_countries` are intentionally not accepted here.
+ */
+export function resolveExplicitImportingCountry(
+  importingCountry: string | null | undefined,
+  ...sources: unknown[]
+): string | null {
+  if (importingCountry?.trim()) return importingCountry.trim()
+  const keys = ["importing_country", "import_country", "destination_country", "import_market_country"]
+  for (const source of sources) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) continue
+    const record = source as Record<string, unknown>
+    for (const key of keys) {
+      const value = record[key]
+      if (typeof value === "string" && value.trim()) return value.trim()
+    }
+  }
+  return null
+}
+
 function normalizeCountry(value: string | null | undefined): "US" | "CA" | "UNKNOWN" | string {
   const normalized = value?.trim().toLowerCase().replace(/[._]/g, " ").replace(/\s+/g, " ")
   if (!normalized) return "UNKNOWN"

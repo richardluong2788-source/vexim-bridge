@@ -249,6 +249,7 @@ export type Database = {
           website: string | null
           region: string | null
           country: string | null
+          importing_country: string | null
           notes: string | null
           source: string | null
           enriched_data: Record<string, unknown> | null
@@ -312,6 +313,7 @@ export type Database = {
           website?: string | null
           region?: string | null
           country?: string | null
+          importing_country?: string | null
           notes?: string | null
           source?: string | null
           enriched_data?: Record<string, unknown> | null
@@ -375,6 +377,7 @@ export type Database = {
           website?: string | null
           region?: string | null
           country?: string | null
+          importing_country?: string | null
           notes?: string | null
           source?: string | null
           enriched_data?: Record<string, unknown> | null

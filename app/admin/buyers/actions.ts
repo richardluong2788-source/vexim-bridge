@@ -38,7 +38,7 @@ export interface UpdateBuyerInput {
   website: string | null
   linkedin_url: string | null
   country: string | null
-  main_import_countries: string | null
+  importing_country: string | null
   industry: string | null
   notes: string | null
 }
@@ -94,7 +94,7 @@ export async function updateBuyer(
       website: input.website?.trim() || null,
       linkedin_url: input.linkedin_url?.trim() || null,
       country: input.country?.trim() || null,
-      main_import_countries: input.main_import_countries?.trim() || null,
+      importing_country: input.importing_country?.trim() || null,
       industry: input.industry?.trim() || null,
       notes: input.notes?.trim() || null,
     })

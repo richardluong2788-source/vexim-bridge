@@ -13,7 +13,7 @@ bash scripts/campaign-tests/run.sh
 | File | Phủ | Assertions |
 |---|---|---:|
 | `email-signature.test.js` | Signature dùng sender thật, bỏ website, không tự bịa sender | 5 |
-| `country-validation.test.js` | Separates confirmed destination country from ImportYeti supplier-origin aggregates; company/destination conflict cases | 9 |
+| `country-validation.test.js` | Uses LR company country for US-buyer eligibility, holds explicit conflicts, ignores ImportYeti supplier-origin aggregates | 9 |
 | `state-machine.test.js` | State transitions, hold/resume (including step-1 country review), STOP, weekend-skipping business-day schedule | 37 |
 | `qa-suppression.test.js` | Banned copy, CTA/word count, exact opt-out placement, provenance, signature, and suppression rules | 38 |
 | `reply-rules.test.js` | OPT_OUT / OUT_OF_OFFICE / NOT_INTERESTED / WRONG_CONTACT / NOT_NOW và human review | 12 |

@@ -30,9 +30,11 @@ function normalizeCountry(value: string | null | undefined): "US" | "CA" | "UNKN
 }
 
 /**
- * Deterministic safety gate for the US Food Buyer pilot. Company location and
- * explicitly parsed importing market are independent facts. Missing, unclear,
- * non-US, or conflicting values are held for human review before generation.
+ * Deterministic safety gate for US-based buyer campaigns. Lead Researcher's
+ * `country` is the buyer/company location already used by country-risk/SWIFT;
+ * it is sufficient for this audience criterion. If a separate importing
+ * destination is explicitly recorded and contradicts the campaign market, hold
+ * for review. Never infer that destination from shipment-origin aggregates.
  */
 export function getCampaignCountryReviewReason(ctx: BuyerContext): string | null {
   const target = `${ctx.campaign.target_segment ?? ""} ${ctx.campaign.name}`
@@ -42,21 +44,17 @@ export function getCampaignCountryReviewReason(ctx: BuyerContext): string | null
   const companyCountry = normalizeCountry(ctx.buyer.country)
   const importingCountry = normalizeCountry(ctx.buyer.importing_country)
   if (companyCountry === "UNKNOWN") {
-    return "Buyer company country is missing; verify company location and importing market before outreach."
+    return "Buyer company country is missing; verify company location before outreach."
   }
   if (companyCountry !== "US") {
     const label = companyCountry === "CA" ? "Canada" : ctx.buyer.country?.trim() || "unclear"
-    return `US Food Buyer campaign conflicts with the buyer company's recorded country (${label}); verify both company location and importing market before outreach.`
+    return `US Food Buyer campaign conflicts with the buyer company's recorded country (${label}); verify company location before outreach.`
   }
-  if (importingCountry === "UNKNOWN") {
-    return "Importing country is not explicitly confirmed; verify the destination market before outreach."
-  }
-  if (importingCountry !== "US") {
+  // The US buyer location already qualifies this audience. Do not require a
+  // duplicate destination field unless an explicit destination contradicts it.
+  if (importingCountry !== "UNKNOWN" && importingCountry !== "US") {
     const label = importingCountry === "CA" ? "Canada" : ctx.buyer.importing_country?.trim() || "unclear"
-    return `US Food Buyer campaign conflicts with the explicitly parsed importing country (${label}); verify both countries before outreach.`
-  }
-  if (companyCountry !== importingCountry) {
-    return "Buyer company country and importing country conflict; verify both before outreach."
+    return `US Food Buyer campaign conflicts with the explicitly recorded importing country (${label}); verify before outreach.`
   }
   return null
 }

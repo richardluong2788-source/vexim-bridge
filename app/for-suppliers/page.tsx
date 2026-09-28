@@ -30,6 +30,7 @@ import { landingPathForRole, normaliseRole } from "@/lib/auth/permissions"
 import { getLocale } from "@/lib/i18n/server"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 import { ConsultationForm } from "@/components/landing/consultation-form"
+import { BrandLogo } from "@/components/brand-logo"
 import { Button } from "@/components/ui/button"
 import { siteConfig } from "@/lib/site-config"
 import { localizePath } from "@/lib/i18n/routing"
@@ -265,7 +266,7 @@ export default async function RootPage() {
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">
           <Link href="/" className="group flex items-center gap-2.5" aria-label="Vexim Trade home">
-            <Image src="/vexim-logo.png" alt="VEXIM" width={36} height={36} className="h-9 w-9 object-contain" />
+            <BrandLogo size={36} priority />
             <span className="text-base font-bold tracking-tight text-primary">Vexim Trade</span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground lg:flex" aria-label="Primary navigation">
@@ -318,7 +319,7 @@ export default async function RootPage() {
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <div className="flex items-center gap-3">
-                <Image src="/vexim-logo.png" alt="VEXIM" width={36} height={36} className="h-9 w-9 object-contain rounded-lg bg-white p-1" />
+                <BrandLogo size={36} onDark />
                 <span className="text-base font-bold tracking-tight text-white">Vexim Trade</span>
               </div>
               <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">

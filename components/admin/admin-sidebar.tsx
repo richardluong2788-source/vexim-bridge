@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  TrendingUp,
   Users,
   Kanban,
   PlusCircle,
@@ -35,6 +34,7 @@ import { CAPS, can, canAny, ROLE_META, type Capability } from "@/lib/auth/permis
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SidebarAvatar } from "@/components/sidebar-avatar"
+import { BrandLogo } from "@/components/brand-logo"
 import { useTranslation } from "@/components/i18n/language-provider"
 import type { SidebarBadgeCounts } from "@/lib/nav/sidebar-badges"
 
@@ -133,9 +133,7 @@ export function AdminSidebar({ profile, role, badgeCounts }: AdminSidebarProps) 
       {/* Logo */}
       <div className="flex items-center justify-between gap-3 px-5 py-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary">
-            <TrendingUp className="h-4 w-4 text-sidebar-primary-foreground" />
-          </div>
+          <BrandLogo size={32} onDark />
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-semibold leading-tight truncate">{t.app.name}</span>
             <span className="text-xs text-sidebar-foreground/50 capitalize truncate">

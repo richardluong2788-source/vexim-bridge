@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/supabase/types"
 import {
-  TrendingUp,
   LayoutDashboard,
   List,
   LogOut,
@@ -18,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SidebarAvatar } from "@/components/sidebar-avatar"
+import { BrandLogo } from "@/components/brand-logo"
 import { useTranslation } from "@/components/i18n/language-provider"
 
 interface ClientSidebarProps {
@@ -55,9 +55,7 @@ export function ClientSidebar({ profile }: ClientSidebarProps) {
     <aside className="flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground sticky top-0">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary">
-          <TrendingUp className="h-4 w-4 text-sidebar-primary-foreground" />
-        </div>
+        <BrandLogo size={32} onDark />
         <div className="flex flex-col min-w-0">
           <span className="text-sm font-semibold leading-tight truncate">{t.app.name}</span>
           <span className="text-xs text-sidebar-foreground/50 truncate">

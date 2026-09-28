@@ -14,7 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, Loader2, TrendingUp } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 
 /**
@@ -170,9 +171,7 @@ export default function AcceptInvitePage() {
 
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <TrendingUp className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <BrandLogo size={36} />
           <span className="text-lg font-semibold">Vexim Trade</span>
         </div>
 

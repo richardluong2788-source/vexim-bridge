@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { siteConfig } from "@/lib/site-config"
+import { BrandLogo } from "@/components/brand-logo"
 
 /**
  * Shell tối giản cho các trang /legal/*.
@@ -22,8 +23,9 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/"
-            className="text-sm font-semibold tracking-tight text-foreground"
+            className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-foreground"
           >
+            <BrandLogo size={28} />
             {siteConfig.name}
           </Link>
           <Link

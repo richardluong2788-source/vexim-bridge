@@ -1,6 +1,6 @@
-import Image from "next/image"
 import Link from "next/link"
 import { CheckCircle2, Clock, ShieldCheck } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { getLocale } from "@/lib/i18n/server"
 import { localizePath } from "@/lib/i18n/routing"
 import { localizedAlternates } from "@/lib/seo/alternates"
@@ -31,7 +31,7 @@ export default async function HowWeVerifyPage() {
       <header className="border-b border-border/70 bg-background/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/vexim-logo.png" alt="VEXIM" width={36} height={36} className="h-9 w-9 object-contain" />
+            <BrandLogo size={36} priority />
             <span className="text-base font-bold tracking-tight text-primary">Vexim Trade</span>
           </Link>
           <div className="flex items-center gap-2">

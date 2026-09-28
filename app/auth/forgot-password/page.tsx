@@ -12,7 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, Loader2, TrendingUp } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 import { requestPasswordResetAction } from "@/app/auth/forgot-password/actions"
@@ -50,9 +51,7 @@ export default function ForgotPasswordPage() {
 
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <TrendingUp className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <BrandLogo size={36} />
           <span className="text-lg font-semibold">{t.app.name}</span>
         </div>
 

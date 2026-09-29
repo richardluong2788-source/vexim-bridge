@@ -13,15 +13,13 @@ import {
 const PATHNAME = "/legal/privacy"
 const TITLE = "Chính sách bảo mật"
 const SUMMARY =
-  "Cách Vexim Trade thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
+  "Cách Vexim Trade thu thập, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
 const EFFECTIVE_DATE = "2026-04-26"
 
 const SECTIONS: LegalSection[] = [
   { id: "tong-quan", title: "Tổng quan" },
   { id: "du-lieu-thu-thap", title: "Dữ liệu chúng tôi thu thập" },
-  { id: "muc-dich", title: "Mục đích sử dụng" },
   { id: "co-so-phap-ly", title: "Cơ sở pháp lý" },
-  { id: "ben-thu-ba", title: "Đối tác xử lý dữ liệu" },
   { id: "luu-tru-mai-hoa", title: "Lưu trữ & mã hoá" },
   { id: "thoi-gian-luu", title: "Thời gian lưu trữ" },
   { id: "chuyen-du-lieu-quoc-te", title: "Chuyển dữ liệu quốc tế" },
@@ -105,8 +103,8 @@ export default function PrivacyPolicyPage() {
         <LegalParagraph>
           Vexim Trade cam kết bảo vệ dữ liệu cá nhân và dữ liệu kinh doanh của khách hàng. Chính
           sách này mô tả những loại dữ liệu chúng tôi thu thập khi bạn sử dụng nền tảng tại{" "}
-          <strong>{siteConfig.domain}</strong>, cách chúng tôi sử dụng dữ liệu đó, đối tác mà chúng
-          tôi chia sẻ dữ liệu, thời gian lưu trữ và quyền của bạn.
+          <strong>{siteConfig.domain}</strong>, cách chúng tôi lưu trữ và bảo vệ dữ liệu, thời gian lưu trữ
+          và quyền của bạn.
         </LegalParagraph>
         <LegalParagraph>
           Đơn vị kiểm soát dữ liệu (Data Controller) là <strong>{siteConfig.legalName}</strong>,
@@ -153,19 +151,7 @@ export default function PrivacyPolicyPage() {
         </LegalCallout>
       </Section>
 
-      <Section id="muc-dich" title="3. Mục đích sử dụng">
-        <LegalDefinitionList
-          items={[
-            { term: "Cung cấp dịch vụ", definition: "Vận hành pipeline kinh doanh, tạo hóa đơn, xác thực SWIFT, theo dõi FDA." },
-            { term: "Hỗ trợ AI", definition: "Soạn email outreach và phân loại email phản hồi qua Vercel AI Gateway. Nội dung email không được dùng để huấn luyện mô hình bên ngoài." },
-            { term: "Bảo mật & gian lận", definition: "Phát hiện đăng nhập bất thường, audit log thay đổi quan trọng, cảnh báo SoD vi phạm." },
-            { term: "Tuân thủ pháp lý", definition: "Lưu hồ sơ kế toán, ghi chú giao dịch SWIFT, hồ sơ FDA — phục vụ kiểm toán và pháp lý." },
-            { term: "Truyền thông", definition: "Email giao dịch (hóa đơn, mời, nhắc nhở, weekly report, monthly digest). Bạn có thể tắt từng loại tại /settings/notifications hoặc một-cú-nhấp tại link unsubscribe." },
-          ]}
-        />
-      </Section>
-
-      <Section id="co-so-phap-ly" title="4. Cơ sở pháp lý">
+      <Section id="co-so-phap-ly" title="3. Cơ sở pháp lý">
         <LegalParagraph>
           Chúng tôi xử lý dữ liệu cá nhân dựa trên các cơ sở pháp lý sau (tham chiếu khái niệm
           GDPR/PDPA cho khách hàng EU/SEA):
@@ -180,27 +166,7 @@ export default function PrivacyPolicyPage() {
         />
       </Section>
 
-      <Section id="ben-thu-ba" title="5. Đối tác xử lý dữ liệu">
-        <LegalParagraph>
-          Vexim Trade sử dụng các nhà cung cấp dịch vụ (sub-processor) sau, mỗi đối tác chỉ truy
-          cập dữ liệu ở mức tối thiểu cần thiết:
-        </LegalParagraph>
-        <LegalDefinitionList
-          items={[
-            { term: "Supabase", definition: "Cơ sở dữ liệu PostgreSQL + Authentication + Realtime. Khu vực: tuỳ chọn của Vexim Trade. Mọi truy vấn đều đi qua Row Level Security (RLS)." },
-            { term: "Vercel", definition: "Hosting Next.js (App Router), Vercel Blob private storage cho tài liệu, Vercel AI Gateway cho LLM, Vercel Cron cho job định kỳ, Vercel Analytics ẩn danh." },
-            { term: "Resend", definition: "Gửi email giao dịch (mời, hóa đơn, nhắc nhở)." },
-            { term: "Apollo", definition: "Làm giàu dữ liệu lead (B2B firmographic). Dữ liệu trả về được lưu trong cột enriched_data." },
-            { term: "Vercel AI Gateway providers", definition: "Các mô hình LLM (OpenAI, Anthropic, Google) được gọi không lưu trữ — chúng tôi không cho phép sử dụng dữ liệu của bạn để huấn luyện mô hình của họ." },
-          ]}
-        />
-        <LegalParagraph>
-          Chúng tôi không bán, cho thuê, hay trao đổi dữ liệu cá nhân của bạn cho bên thứ ba ngoài
-          các sub-processor cần thiết để cung cấp Dịch vụ.
-        </LegalParagraph>
-      </Section>
-
-      <Section id="luu-tru-mai-hoa" title="6. Lưu trữ & mã hoá">
+      <Section id="luu-tru-mai-hoa" title="4. Lưu trữ & mã hoá">
         <LegalList
           items={[
             <><strong>Trên đường truyền:</strong> TLS 1.2+ cho mọi kết nối tới website, API và database.</>,
@@ -213,7 +179,7 @@ export default function PrivacyPolicyPage() {
         />
       </Section>
 
-      <Section id="thoi-gian-luu" title="7. Thời gian lưu trữ">
+      <Section id="thoi-gian-luu" title="5. Thời gian lưu trữ">
         <LegalDefinitionList
           items={[
             { term: "Tài khoản & profile", definition: "Lưu trong suốt thời gian hợp đồng + 12 tháng sau khi chấm dứt (cho mục đích pháp lý)." },
@@ -226,7 +192,7 @@ export default function PrivacyPolicyPage() {
         />
       </Section>
 
-      <Section id="chuyen-du-lieu-quoc-te" title="8. Chuyển dữ liệu quốc tế">
+      <Section id="chuyen-du-lieu-quoc-te" title="6. Chuyển dữ liệu quốc tế">
         <LegalParagraph>
           Vì bản chất nghiệp vụ là xuất khẩu Việt – Mỹ, dữ liệu của bạn sẽ được xử lý qua các trung
           tâm dữ liệu của Supabase, Vercel và các sub-processor đặt tại Hoa Kỳ và châu Âu. Chúng
@@ -235,7 +201,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="an-toan" title="9. Biện pháp an toàn">
+      <Section id="an-toan" title="7. Biện pháp an toàn">
         <LegalList
           items={[
             "Phân quyền tối thiểu (least privilege) — capability matrix 7 vai trò.",
@@ -250,7 +216,7 @@ export default function PrivacyPolicyPage() {
         />
       </Section>
 
-      <Section id="quyen-cua-ban" title="10. Quyền của bạn">
+      <Section id="quyen-cua-ban" title="8. Quyền của bạn">
         <LegalParagraph>Tuỳ thuộc vào pháp luật áp dụng, bạn có các quyền sau:</LegalParagraph>
         <LegalList
           items={[
@@ -269,7 +235,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="tre-em" title="11. Dữ liệu trẻ em">
+      <Section id="tre-em" title="9. Dữ liệu trẻ em">
         <LegalParagraph>
           Dịch vụ dành cho doanh nghiệp B2B. Chúng tôi không cố ý thu thập dữ liệu của người dưới
           16 tuổi. Nếu bạn cho rằng chúng tôi đã thu thập nhầm dữ liệu trẻ em, vui lòng liên hệ để
@@ -277,7 +243,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="tai-khoan-bi-xam-pham" title="12. Sự cố bảo mật">
+      <Section id="tai-khoan-bi-xam-pham" title="10. Sự cố bảo mật">
         <LegalParagraph>
           Trong trường hợp xảy ra sự cố bảo mật làm lộ dữ liệu cá nhân của bạn, chúng tôi sẽ thông
           báo qua email trong vòng <strong>72 giờ</strong> kể từ khi phát hiện, kèm mô tả phạm vi
@@ -289,7 +255,7 @@ export default function PrivacyPolicyPage() {
         </LegalCallout>
       </Section>
 
-      <Section id="thay-doi-chinh-sach" title="13. Thay đổi chính sách">
+      <Section id="thay-doi-chinh-sach" title="11. Thay đổi chính sách">
         <LegalParagraph>
           Chúng tôi có thể cập nhật Chính sách này theo thời gian. Phiên bản hiện hành được công
           bố tại URL này với ngày &quot;hiệu lực từ&quot; ở đầu trang. Thay đổi quan trọng được
@@ -297,7 +263,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="lien-he" title="14. Liên hệ DPO">
+      <Section id="lien-he" title="12. Liên hệ DPO">
         <LegalParagraph>
           {siteConfig.legalName}
           <br />

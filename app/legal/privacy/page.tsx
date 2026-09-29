@@ -19,6 +19,7 @@ const EFFECTIVE_DATE = "2026-04-26"
 const SECTIONS: LegalSection[] = [
   { id: "tong-quan", title: "Tổng quan" },
   { id: "du-lieu-thu-thap", title: "Dữ liệu chúng tôi thu thập" },
+  { id: "muc-dich", title: "Mục đích sử dụng" },
   { id: "co-so-phap-ly", title: "Cơ sở pháp lý" },
   { id: "luu-tru-mai-hoa", title: "Lưu trữ & mã hoá" },
   { id: "thoi-gian-luu", title: "Thời gian lưu trữ" },
@@ -45,10 +46,10 @@ export const metadata: Metadata = {
     "privacy policy",
     "bảo vệ dữ liệu cá nhân",
     "GDPR xuất khẩu Việt Mỹ",
-    "RLS Supabase bảo mật",
+    "phân quyền bảo mật dữ liệu",
     "mã hoá dữ liệu FDA",
     "Row Level Security",
-    "Vercel Blob private storage",
+    "bảo vệ dữ liệu doanh nghiệp",
     ...siteConfig.keywords,
   ],
   alternates: {
@@ -116,10 +117,10 @@ export default function PrivacyPolicyPage() {
         <LegalSubheading>2.1 Bạn cung cấp trực tiếp</LegalSubheading>
         <LegalList
           items={[
-            "Thông tin tài khoản: email, họ tên, số điện thoại, mật khẩu băm bcrypt (do Supabase Auth quản lý).",
+            "Thông tin tài khoản: email, họ tên, số điện thoại và thông tin xác thực được bảo vệ.",
             "Thông tin doanh nghiệp: tên công ty, địa chỉ, ngành nghề, ngôn ngữ ưu tiên (vi/en).",
             "Hồ sơ FDA: Registration Number, ngày đăng ký, ngày hết hạn — được lưu trong bảng profiles.",
-            "Tài liệu tuân thủ: chứng nhận FDA, COA, video xưởng, ảnh xưởng, bảng giá sàn — lưu trên Vercel Blob private storage.",
+            "Tài liệu tuân thủ: chứng nhận FDA, COA, video xưởng, ảnh xưởng, bảng giá sàn và các tài liệu khách hàng cung cấp.",
             "Thông tin sản phẩm: tên, danh mục, công suất, giá vốn, giá bán đề xuất.",
             "Hợp đồng tài chính: setup fee, retainer, success fee %, tỉ lệ retainer credit.",
           ]}
@@ -127,8 +128,8 @@ export default function PrivacyPolicyPage() {
         <LegalSubheading>2.2 Sinh ra trong quá trình sử dụng</LegalSubheading>
         <LegalList
           items={[
-            "Lead/buyer mà Vexim Trade nghiên cứu thay mặt bạn (có thể được làm giàu bằng Apollo).",
-            "Email outreach do AI (Vercel AI Gateway) tạo, được bạn hoặc Vexim Trade phê duyệt trước khi gửi qua Resend.",
+            "Thông tin lead/buyer do Vexim Trade nghiên cứu và quản lý để hỗ trợ khách hàng.",
+            "Nội dung email tiếp cận buyer có thể được AI hỗ trợ soạn và được nhân sự Vexim Trade xem xét trước khi gửi.",
             "Phản hồi của buyer được phân loại tự động (intent: price_request, sample_request, objection, closing_signal, general).",
             "Hóa đơn (setup_fee, retainer, success_fee, manual) cùng tài liệu PO, SWIFT, B/L.",
             "Lịch sử pipeline (stage_transitions) — append-only audit log.",
@@ -139,9 +140,9 @@ export default function PrivacyPolicyPage() {
         <LegalSubheading>2.3 Dữ liệu kỹ thuật tự động</LegalSubheading>
         <LegalList
           items={[
-            "Cookie phiên làm việc do Supabase Auth phát hành để duy trì session SSR.",
+            "Cookie phiên làm việc giúp duy trì trạng thái đăng nhập và bảo vệ phiên truy cập.",
             "Địa chỉ IP, user agent, timestamp request — phục vụ phát hiện gian lận và debug.",
-            "Số liệu sử dụng ẩn danh từ Vercel Analytics (chỉ chạy ở môi trường production).",
+            "Số liệu truy cập tổng hợp, được sử dụng để theo dõi và cải thiện hoạt động của nền tảng.",
           ]}
         />
         <LegalCallout>
@@ -151,7 +152,20 @@ export default function PrivacyPolicyPage() {
         </LegalCallout>
       </Section>
 
-      <Section id="co-so-phap-ly" title="3. Cơ sở pháp lý">
+      <Section id="muc-dich" title="3. Mục đích sử dụng">
+        <LegalDefinitionList
+          items={[
+            { term: "Cung cấp dịch vụ", definition: "Vexim Trade sử dụng thông tin để tiếp nhận yêu cầu, quản lý hồ sơ khách hàng và hỗ trợ hoạt động phát triển xuất khẩu." },
+            { term: "Xử lý hồ sơ sản phẩm", definition: "Tiếp nhận, xem xét và quản lý thông tin sản phẩm do khách hàng cung cấp. Hồ sơ không tự động được công khai; trước khi chia sẻ với buyer/đối tác, Vexim Trade sẽ xin chấp thuận của khách hàng." },
+            { term: "Hỗ trợ giao tiếp", definition: "Soạn và quản lý nội dung trao đổi với khách hàng hoặc buyer; công cụ AI có thể hỗ trợ một số bước, còn nội dung gửi đi được nhân sự Vexim Trade xem xét." },
+            { term: "Bảo mật và vận hành", definition: "Phân quyền truy cập, phát hiện hoạt động bất thường, duy trì nhật ký kiểm tra và bảo vệ tài khoản/hồ sơ." },
+            { term: "Tuân thủ pháp luật", definition: "Lưu trữ hồ sơ kế toán, hợp đồng và tài liệu giao dịch trong thời hạn pháp luật yêu cầu." },
+            { term: "Thông báo dịch vụ", definition: "Gửi thông tin liên quan đến tài khoản, hồ sơ, yêu cầu hỗ trợ và các cập nhật dịch vụ cần thiết." },
+          ]}
+        />
+      </Section>
+
+      <Section id="co-so-phap-ly" title="4. Cơ sở pháp lý">
         <LegalParagraph>
           Chúng tôi xử lý dữ liệu cá nhân dựa trên các cơ sở pháp lý sau (tham chiếu khái niệm
           GDPR/PDPA cho khách hàng EU/SEA):
@@ -166,20 +180,20 @@ export default function PrivacyPolicyPage() {
         />
       </Section>
 
-      <Section id="luu-tru-mai-hoa" title="4. Lưu trữ & mã hoá">
+      <Section id="luu-tru-mai-hoa" title="5. Lưu trữ & mã hoá">
         <LegalList
           items={[
-            <><strong>Trên đường truyền:</strong> TLS 1.2+ cho mọi kết nối tới website, API và database.</>,
-            <><strong>Tại nghỉ:</strong> Supabase mã hoá database AES-256; Vercel Blob mã hoá object tại nghỉ.</>,
-            <><strong>Phân quyền cấp hàng (RLS):</strong> mọi bảng nhạy cảm đều có policy RLS — admin client (service role) chỉ dùng cho server actions có kiểm soát.</>,
-            <><strong>Mật khẩu:</strong> không bao giờ lưu plain-text. Supabase Auth dùng bcrypt với salt riêng từng user.</>,
+            <><strong>Trên đường truyền:</strong> áp dụng kết nối mã hoá để bảo vệ dữ liệu khi truyền giữa người dùng và hệ thống.</>,
+            <><strong>Khi lưu trữ:</strong> áp dụng biện pháp mã hoá và kiểm soát truy cập phù hợp để bảo vệ dữ liệu.</>,
+            <><strong>Phân quyền truy cập:</strong> Vexim Trade giới hạn quyền theo vai trò và chỉ cấp quyền cần thiết cho công việc được giao.</>,
+            <><strong>Mật khẩu:</strong> không lưu dưới dạng văn bản thuần; thông tin xác thực được bảo vệ bằng cơ chế băm.</>,
             <><strong>Token public link (hóa đơn, share doc, unsubscribe):</strong> sinh bằng crypto-random, single-purpose, có thể revoke.</>,
             <><strong>Buyer PII mask:</strong> vai trò lead_researcher chỉ thấy email/phone đã che (mask) — áp dụng ở tầng UI và một phần ở DB.</>,
           ]}
         />
       </Section>
 
-      <Section id="thoi-gian-luu" title="5. Thời gian lưu trữ">
+      <Section id="thoi-gian-luu" title="6. Thời gian lưu trữ">
         <LegalDefinitionList
           items={[
             { term: "Tài khoản & profile", definition: "Lưu trong suốt thời gian hợp đồng + 12 tháng sau khi chấm dứt (cho mục đích pháp lý)." },
@@ -187,36 +201,36 @@ export default function PrivacyPolicyPage() {
             { term: "SWIFT, PO, B/L", definition: "Lưu tối thiểu 10 năm." },
             { term: "Activity log & stage transitions", definition: "Lưu tối thiểu 5 năm để phục vụ kiểm toán và phân tích." },
             { term: "Email log (notification_email_log)", definition: "Lưu 24 tháng để xử lý khiếu nại không nhận được email." },
-            { term: "Dữ liệu Vercel Analytics", definition: "Ẩn danh, lưu theo chính sách của Vercel." },
+            { term: "Số liệu truy cập tổng hợp", definition: "Được lưu trong thời gian cần thiết cho việc theo dõi và cải thiện nền tảng." },
           ]}
         />
       </Section>
 
-      <Section id="chuyen-du-lieu-quoc-te" title="6. Chuyển dữ liệu quốc tế">
+      <Section id="chuyen-du-lieu-quoc-te" title="7. Chuyển dữ liệu quốc tế">
         <LegalParagraph>
-          Vì bản chất nghiệp vụ là xuất khẩu Việt – Mỹ, dữ liệu của bạn sẽ được xử lý qua các trung
-          tâm dữ liệu của Supabase, Vercel và các sub-processor đặt tại Hoa Kỳ và châu Âu. Chúng
-          tôi áp dụng Standard Contractual Clauses (SCCs) hoặc cơ chế tương đương khi pháp luật
-          yêu cầu.
+          Do hoạt động hỗ trợ xuất khẩu quốc tế, dữ liệu của bạn có thể được Vexim Trade xử lý tại
+          Việt Nam hoặc một số quốc gia khác khi cần thiết cho việc cung cấp dịch vụ. Khi có hoạt
+          động chuyển dữ liệu xuyên biên giới, Vexim Trade áp dụng các biện pháp phù hợp theo
+          pháp luật hiện hành.
         </LegalParagraph>
       </Section>
 
-      <Section id="an-toan" title="7. Biện pháp an toàn">
+      <Section id="an-toan" title="8. Biện pháp an toàn">
         <LegalList
           items={[
             "Phân quyền tối thiểu (least privilege) — capability matrix 7 vai trò.",
             "Tách biệt trách nhiệm (Segregation of Duties) — SWIFT verifier ≠ uploader, AE không sửa cost_price.",
             "Compliance gate — opportunity không thể vượt sample_requested nếu FDA hết hạn.",
             "Audit log append-only cho mọi thay đổi quan trọng (stage transitions, role changes).",
-            "Cron job có Vercel Cron secret xác thực (CRON_SECRET).",
+            "Các tác vụ tự động của Vexim Trade được xác thực và giới hạn quyền truy cập.",
             "Email mời và token public link đều single-use hoặc có thể revoke.",
-            "Service role key chỉ dùng phía server, không bao giờ lộ ra client.",
-            "Backup tự động của Supabase + khả năng restore point-in-time.",
+            "Thông tin xác thực có quyền cao chỉ được sử dụng trong môi trường máy chủ được kiểm soát.",
+            "Dữ liệu được sao lưu định kỳ và có quy trình hỗ trợ khôi phục khi cần.",
           ]}
         />
       </Section>
 
-      <Section id="quyen-cua-ban" title="8. Quyền của bạn">
+      <Section id="quyen-cua-ban" title="9. Quyền của bạn">
         <LegalParagraph>Tuỳ thuộc vào pháp luật áp dụng, bạn có các quyền sau:</LegalParagraph>
         <LegalList
           items={[
@@ -235,7 +249,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="tre-em" title="9. Dữ liệu trẻ em">
+      <Section id="tre-em" title="10. Dữ liệu trẻ em">
         <LegalParagraph>
           Dịch vụ dành cho doanh nghiệp B2B. Chúng tôi không cố ý thu thập dữ liệu của người dưới
           16 tuổi. Nếu bạn cho rằng chúng tôi đã thu thập nhầm dữ liệu trẻ em, vui lòng liên hệ để
@@ -243,7 +257,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="tai-khoan-bi-xam-pham" title="10. Sự cố bảo mật">
+      <Section id="tai-khoan-bi-xam-pham" title="11. Sự cố bảo mật">
         <LegalParagraph>
           Trong trường hợp xảy ra sự cố bảo mật làm lộ dữ liệu cá nhân của bạn, chúng tôi sẽ thông
           báo qua email trong vòng <strong>72 giờ</strong> kể từ khi phát hiện, kèm mô tả phạm vi
@@ -255,7 +269,7 @@ export default function PrivacyPolicyPage() {
         </LegalCallout>
       </Section>
 
-      <Section id="thay-doi-chinh-sach" title="11. Thay đổi chính sách">
+      <Section id="thay-doi-chinh-sach" title="12. Thay đổi chính sách">
         <LegalParagraph>
           Chúng tôi có thể cập nhật Chính sách này theo thời gian. Phiên bản hiện hành được công
           bố tại URL này với ngày &quot;hiệu lực từ&quot; ở đầu trang. Thay đổi quan trọng được
@@ -263,7 +277,7 @@ export default function PrivacyPolicyPage() {
         </LegalParagraph>
       </Section>
 
-      <Section id="lien-he" title="12. Liên hệ DPO">
+      <Section id="lien-he" title="13. Liên hệ DPO">
         <LegalParagraph>
           {siteConfig.legalName}
           <br />

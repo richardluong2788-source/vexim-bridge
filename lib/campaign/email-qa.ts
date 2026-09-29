@@ -65,6 +65,9 @@ function normalizeForMatch(value: string): string {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase()
+    // Accommodate the common one-letter typo in the standard legal suffix;
+    // do not reject the correctly spelled Corporation in copy when CRM has Corportation.
+    .replace(/\bcorportation\b/g, "corporation")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ")
@@ -89,6 +92,16 @@ function signatureStartIndex(body: string): number {
 
 function proseWithoutSignature(body: string): string {
   return body.slice(0, signatureStartIndex(body)).trimEnd()
+}
+
+/** Compare buyer-facing prose only; shared opt-out/legal signature must not
+ * inflate duplicate similarity between otherwise different emails. */
+function comparisonBody(body: string): string {
+  return proseWithoutSignature(body)
+    .replace(/If you'd rather not hear from me, just reply ['’]no thanks['’] and I won't contact you again\.?/i, "")
+.replace(/^\s*(?:hi|hello|dear)\b[^\n]*\r?\n+/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function hasValidSenderSignature(body: string): boolean {
@@ -179,7 +192,8 @@ export function runEmailQA(params: {
   if (isInitialEmail) {
     const company = knownValue(ctx.buyer.company_name)
     const product = knownValue(ctx.import_data.main_products)
-    const normalizedProse = normalizeForMatch(proseBeforeSignature)
+    const proseAfterGreeting = proseBeforeSignature.replace(/^\s*(?:hi|hello|dear)\b[^\n]*\r?\n+/i, "")
+    const normalizedProse = normalizeForMatch(proseAfterGreeting)
     if (company && !normalizedProse.includes(normalizeForMatch(company))) {
       issues.push({ check: "personalization_missing_company", severity: "HIGH", message: `Email 1 must mention the known buyer company name: ${company}.` })
     }
@@ -255,7 +269,8 @@ export function runEmailQA(params: {
     if (sameSubject) {
       issues.push({ check: "duplicate_subject", severity: "HIGH", message: "Subject identical to a previous email." })
     }
-    const tooSimilar = prev.some((p) => trigramSimilarity(p.content, body) > 0.72)
+    const currentProseForComparison = comparisonBody(body)
+    const tooSimilar = prev.some((p) => trigramSimilarity(comparisonBody(p.content), currentProseForComparison) > 0.72)
     if (tooSimilar) {
       issues.push({ check: "duplicate_body", severity: "HIGH", message: "Body too similar to a previously sent email (anti-repeat violated)." })
     }

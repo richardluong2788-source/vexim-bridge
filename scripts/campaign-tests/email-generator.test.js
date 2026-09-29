@@ -28,6 +28,8 @@ async function main() {
   assert.match(prompt, /Acme Foods/)
   assert.match(prompt, /frozen mango/)
   assert.match(prompt, /exactly ONE low-pressure question/i)
+  assert.match(prompt, /135-145/)
+  assert.match(prompt, /EMAIL 1 SELF-CHECK BEFORE RETURNING/i)
   assert.match(prompt, /CAMPAIGN_BANNED|hope this email finds you well|verified suppliers/i)
   assert.match(prompt, /never reveal that source type|never tell the buyer you reviewed/i)
   assert.match(generated.contentEn, /Are you currently looking for additional supply of frozen mango\?/)

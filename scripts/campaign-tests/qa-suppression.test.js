@@ -45,6 +45,15 @@ t('follow-up thiếu exact opt-out line → HIGH', () => {
   const r = qa.runEmailQA({ email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nJust checking in about Vietnam sourcing opportunities.\n\nBest regards,\nVexim' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'opt_out_line'))
 })
+t('shared opt-out and legal signature do not create a false duplicate-body alert', () => {
+  const optOut = "If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again."
+  const sig = 'Alex Sender\\nVexim Trade, VEXIM GLOBAL CO., LTD\\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam'
+  const prior = `Hi John,\\n\\nWe can look at a new product's specifications and available manufacturer information before you decide whether to continue.\\n\\n${optOut}\\n\\n${sig}`
+  const current = `Hello John,\\n\\nI am checking whether extra sourcing support for a different category is worth considering. The buyer decides if any introduction makes sense.\\n\\n${optOut}\\n\\n${sig}`
+  const duplicateContext = ctx({ crm: { ...ctx().crm, previous_emails: [{ step: 1, sent_at: '2026-09-01', subject: 'Earlier note', content: prior }] } })
+  const r = qa.runEmailQA({ email: { subjectEn: 'A different sourcing note', contentEn: current }, recipient: 'j@acme.com', ctx: duplicateContext, optOutRequired: true })
+  assert.ok(!r.issues.some(i => i.check === 'duplicate_body'), JSON.stringify(r.issues))
+})
 t('email > 200 từ → MEDIUM length', () => {
   const words = Array(250).fill('word').join(' ')
   const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: words }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
@@ -173,6 +182,17 @@ t('known company omission is HIGH and blocks Email 1', () => {
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'personalization_missing_company' && i.severity === 'HIGH'), JSON.stringify(r.issues))
   assert.strictEqual(r.passed, false)
+})
+t('corrected Corporation spelling satisfies a misspelled BuyerContext company value and source opener', () => {
+  const firstCtx = ctx({
+    buyer: { ...ctx().buyer, company_name: 'Atalanta Corportation', source_of_personalization: 'import records' },
+    crm: { ...ctx().crm, campaign_step: 1 },
+  })
+  const copy = firstEmailBody
+    .replace(/Acme Foods/g, 'Atalanta Corporation')
+    .replace('I understand Atalanta Corporation works with frozen mango.', 'I came across Atalanta Corporation while looking into companies in the Food & Beverage space.')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(!r.issues.some(i => i.check === 'personalization_missing_company' || i.check === 'personalization_source_missing'), JSON.stringify(r.issues))
 })
 t('direct disclosure of import records is blocked even when provenance exists', () => {
   const firstCtx = ctx({

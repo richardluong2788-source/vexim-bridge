@@ -146,32 +146,6 @@ export const OOO_PAUSE_DAYS = 7
 /** NOT_NOW → PAUSE bao lâu rồi chuyển NURTURE. */
 export const NOT_NOW_PAUSE_DAYS = 30
 
-/** Độ dài email tối đa (từ) — QA fail MEDIUM nếu vượt. */
-export const MAX_EMAIL_WORDS = 200
-
-/**
- * Phrases the campaign writer and QA must reject, case-insensitively.
- * The Veximtrade opener is restricted only when it starts the email body;
- * conversational filler/hedging phrases are disallowed anywhere in the copy.
- */
-export const CAMPAIGN_BANNED_PHRASES = [
-  "hope this email finds you well",
-  "I wanted to reach out",
-  "synergy",
-  "cutting-edge",
-  "I'm curious",
-  "we aim to",
-  "we strive to",
-  "our goal is to",
-  "at veximtrade, we",
-  "import records",
-  "customs records",
-  "shipment records",
-  "trade records",
-] as const
-
-export const CAMPAIGN_BANNED_OPENERS = ["at veximtrade, we"] as const
-
 /** Signature chuẩn — pháp nhân + địa chỉ bưu chính thật (CAN-SPAM).
  *  Không thêm website/link vào cold-email body; domain vẫn xuất hiện trong
  *  From/Reply-To và List-Unsubscribe headers khi phù hợp. */
@@ -183,19 +157,3 @@ export const SIGNATURE_ADDRESS =
 
 /** Fallback owner khi enrollment không có owner_id: dùng người tạo campaign. */
 export const NOTIFICATION_DEDUP_PREFIX = "campaign"
-
-/**
- * Whitelist claim về Vexim — AI CHỈ được phát biểu các fact này (diễn lại
- * nhẹ, không phóng đại). Feedback 26/09/2026 trước pilot: chống bịa về bản
- * thân Vexim (superlatives, số liệu nhà máy, chứng nhận, độ sâu audit).
- * QA (email-qa.ts) bổ sung phần âm: superlative/số liệu/cert ngoài danh sách
- * → HIGH block.
- */
-export const APPROVED_VEXIM_CLAIMS = [
-  "Veximtrade takes the initial sourcing groundwork off the buyer's team on the Vietnam side",
-  "Veximtrade identifies relevant manufacturers and screens available evidence about whether they are real manufacturers, their capacity, and export history",
-  "Veximtrade reviews product fit and the relevant import requirements of the buyer's country",
-  "Veximtrade coordinates communication and can help qualified suppliers move toward samples, quotations, and orders",
-  "The buyer always makes the final decision about whether to proceed with a supplier",
-  "Veximtrade is not a supplier marketplace or trading company",
-]

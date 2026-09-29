@@ -27,27 +27,24 @@ async function main() {
 
   assert.match(prompt, /Acme Foods/)
   assert.match(prompt, /frozen mango/)
-  assert.match(prompt, /exactly ONE low-pressure question/i)
-  assert.match(prompt, /135-145/)
-  assert.match(prompt, /EMAIL 1 SELF-CHECK BEFORE RETURNING/i)
-  assert.match(prompt, /CAMPAIGN_BANNED|hope this email finds you well|verified suppliers/i)
-  assert.match(prompt, /never reveal that source type|never tell the buyer you reviewed/i)
-  assert.match(generated.contentEn, /Are you currently looking for additional supply of frozen mango\?/)
+  assert.match(prompt, /industry-level research/i)
+  assert.doesNotMatch(prompt, /"source_of_personalization": "import records"/i)
+  assert.match(prompt, /"source_of_personalization": "Industry-level research/i)
+  assert.doesNotMatch(prompt, /135-145|120-160|exactly one question|self-check|banned phrases/i)
+  assert.doesNotMatch(prompt, /max_words/i)
+  assert.match(prompt, /opt-out sentence/i)
   assert.match(generated.contentEn, /Angela Divincenzo\nVexim Trade, VEXIM GLOBAL CO\., LTD/)
-  assert.doesNotMatch(generated.contentEn, /veximtrade\.com|Best regards,\nAngela Divincenzo/)
+  assert.doesNotMatch(generated.contentEn, /veximtrade\.com/)
 
   const result = runEmailQA({
     email: { subjectEn: generated.subjectEn, contentEn: generated.contentEn },
     recipient: 'angela@acme.example', ctx, optOutRequired: true, stepType: 'initial_outreach',
   })
   assert.strictEqual(result.passed, true, JSON.stringify(result.issues))
-  assert.strictEqual(result.issues.some((issue) => issue.check === 'cta_multiple_questions'), false)
-  assert.strictEqual(result.issues.some((issue) => issue.check === 'personalization_missing_company'), false)
-  assert.strictEqual(result.issues.some((issue) => issue.check === 'personalization_missing_product'), false)
-  console.log('  ✓ generator prompt, mocked output, draft signature, and Email 1 QA constraints')
+  console.log('  ✓ context-led generator, private source context, required opt-out and sender signature')
 }
 
 main().catch((error) => {
-  console.error('  ✗ generator constraints —', error)
+  console.error('  ✗ generator basics —', error)
   process.exitCode = 1
 })

@@ -146,7 +146,6 @@ export interface BuyerContext {
     replies: Array<{ received_at: string; content: string; intent: string | null }>
   }
   business_rules: {
-    max_words: number
     no_links: boolean
     no_attachments: boolean
     opt_out_line_required: boolean

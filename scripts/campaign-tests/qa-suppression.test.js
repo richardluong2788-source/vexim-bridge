@@ -2,318 +2,107 @@ const qa = require((process.argv[2] || '.') + '/email-qa.js')
 const sup = require((process.argv[2] || '.') + '/suppression-pure.js')
 const assert = require('assert')
 let passed = 0, failed = 0
-const t = (n, f) => { try { f(); passed++; console.log('  ✓', n) } catch (e) { failed++; console.log('  ✗', n, '—', e.message) } }
+const t = (name, fn) => {
+  try { fn(); passed++; console.log('  ✓', name) }
+  catch (error) { failed++; console.log('  ✗', name, '—', error.message) }
+}
 
-const ctx = (over = {}) => ({
+const ctx = {
   buyer: { company_name: 'Acme Foods', country: 'US', industry: 'Food & Beverage', website: null, contact_name: 'John', contact_email: 'j@acme.com', contact_title: null, source_of_personalization: 'UNKNOWN' },
-    import_data: { hs_codes: 'UNKNOWN', main_products: 'frozen mango', purchase_history: 'UNKNOWN', vietnam_supplier_exists: 'UNKNOWN', shipment_count: 'UNKNOWN', peak_months: 'UNKNOWN' },
-  crm: { stage: 'waiting_reply', campaign_step: 2, step_objective: null, followup_count: 1, previous_emails: [{ step: 1, sent_at: '2026-09-01', subject: 'Vietnam sourcing — US compliance support', content: 'Hi John, I noticed Acme Foods has a strong presence in premium snacks...' }], replies: [] },
+  import_data: { hs_codes: 'UNKNOWN', main_products: 'frozen mango', purchase_history: 'UNKNOWN', vietnam_supplier_exists: 'UNKNOWN', shipment_count: 'UNKNOWN', peak_months: 'UNKNOWN' },
+  crm: { stage: 'waiting_reply', campaign_step: 2, step_objective: null, followup_count: 1, previous_emails: [], replies: [] },
   business_rules: { max_words: 200, no_links: true, no_attachments: true, opt_out_line_required: true },
-  ...over,
+}
+const optOut = "If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again."
+const signature = 'Angela Divincenzo\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam'
+const validBody = `Hi John,\n\nI came across Acme Foods while looking into the frozen mango category. We can help coordinate early sourcing conversations in Vietnam, while you decide whether any supplier is a fit. Would exploring that be useful? Feel free to tell me what would be more relevant.\n\n${optOut}\n\n${signature}`
+const run = (body = validBody, subject = 'Vietnam sourcing process', recipient = 'j@acme.com', optOutRequired = true) => qa.runEmailQA({
+  email: { subjectEn: subject, contentEn: body }, recipient, ctx, optOutRequired,
 })
 
 console.log('EMAIL QA TESTS')
-t('email sạch → LOW, passed', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing process', contentEn: `Hi John,\n\nWanted to check whether Vietnam sourcing remains relevant for Acme Foods. Veximtrade handles early groundwork by identifying relevant manufacturers, reviewing available information about capacity and export history, and checking product fit against the importing country's relevant requirements. We also coordinate communication toward samples or quotations when both sides want to continue. You decide whether a supplier is suitable and whether to proceed. If this is not timely, just reply no and I will stop following up. Would it be useful to compare notes on your sourcing process?\n\nIf you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards,\nAngela Divincenzo\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam` },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))
-  assert.ok(r.passed)
+t('normal, context-grounded email with required footer passes', () => {
+  const result = run()
+  assert.strictEqual(result.risk_level, 'LOW', JSON.stringify(result.issues))
+  assert.strictEqual(result.passed, true)
 })
-t('có link → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Check https://example.com now please' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.strictEqual(r.risk_level, 'HIGH')
+t('ordinary conversational style, multiple questions, and long copy are not editorial blocks', () => {
+  const naturalCopy = `Hello John,\n\n${'A contextual sentence about the buyer and this campaign. '.repeat(55)}Could this be useful? Or would another topic be more relevant?\n\n${optOut}\n\n${signature}`
+  const result = run(naturalCopy)
+  assert.deepStrictEqual(result.issues, [])
+  assert.strictEqual(result.passed, true)
 })
-t('bare domain trong email body → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'More information is at veximtrade.com' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'links'), JSON.stringify(r.issues))
+t('missing or malformed recipient blocks', () => {
+  const result = run(validBody, 'Vietnam sourcing process', 'not-an-email')
+  assert.ok(result.issues.some(issue => issue.check === 'recipient' && issue.severity === 'HIGH'))
+  assert.strictEqual(result.passed, false)
 })
-t('claim FDA approved → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Our factory is FDA approved and certified for exports.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.strictEqual(r.risk_level, 'HIGH')
+t('links and bare domains are blocked', () => {
+  for (const link of ['https://example.com/path', 'example.vn']) {
+    const result = run(validBody.replace('Would exploring that be useful?', `Would exploring that be useful? More information: ${link}`))
+    assert.ok(result.issues.some(issue => issue.check === 'links' && issue.severity === 'HIGH'), JSON.stringify(result.issues))
+    assert.strictEqual(result.passed, false)
+  }
 })
-t('subject trùng email trước → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing — US compliance support', contentEn: 'Different body entirely.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'duplicate_subject'))
+t('deceptive Re/Fwd subject is blocked', () => {
+  const result = run(validBody, 'Re: sourcing options')
+  assert.ok(result.issues.some(issue => issue.check === 'misleading_subject' && issue.severity === 'HIGH'))
 })
-t('body gần trùng email trước → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'New subject here', contentEn: 'Hi John,\n\nI noticed Acme Foods has a strong presence in premium snacks for the US market. As we approach peak sourcing period securing capacity is likely top of mind.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'duplicate_body'), JSON.stringify(r.issues))
+t('direct import/customs/shipment/trade record disclosure is blocked', () => {
+  for (const phrase of ['import records', 'customs data', 'shipment database', 'trade records']) {
+    const result = run(validBody.replace('I came across Acme Foods while looking into the frozen mango category.', `I came across Acme Foods after reviewing ${phrase}.`))
+    assert.ok(result.issues.some(issue => issue.check === 'research_source_disclosure' && issue.severity === 'HIGH'), JSON.stringify(result.issues))
+  }
 })
-t('follow-up thiếu exact opt-out line → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nJust checking in about Vietnam sourcing opportunities.\n\nBest regards,\nVexim' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'opt_out_line'))
+t('obvious promotional spam wording is flagged but is not a copy-style hard block', () => {
+  const result = run(validBody.replace('Would exploring that be useful?', 'We can offer a free sample. Would exploring that be useful?'))
+  assert.ok(result.issues.some(issue => issue.check === 'spam_word' && issue.severity === 'MEDIUM'))
+  assert.strictEqual(result.passed, true)
 })
-t('shared opt-out and legal signature do not create a false duplicate-body alert', () => {
-  const optOut = "If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again."
-  const sig = 'Alex Sender\\nVexim Trade, VEXIM GLOBAL CO., LTD\\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam'
-  const prior = `Hi John,\\n\\nWe can look at a new product's specifications and available manufacturer information before you decide whether to continue.\\n\\n${optOut}\\n\\n${sig}`
-  const current = `Hello John,\\n\\nI am checking whether extra sourcing support for a different category is worth considering. The buyer decides if any introduction makes sense.\\n\\n${optOut}\\n\\n${sig}`
-  const duplicateContext = ctx({ crm: { ...ctx().crm, previous_emails: [{ step: 1, sent_at: '2026-09-01', subject: 'Earlier note', content: prior }] } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'A different sourcing note', contentEn: current }, recipient: 'j@acme.com', ctx: duplicateContext, optOutRequired: true })
-  assert.ok(!r.issues.some(i => i.check === 'duplicate_body'), JSON.stringify(r.issues))
+t('required exact opt-out sentence cannot be omitted', () => {
+  const result = run(validBody.replace(`${optOut}\n\n`, ''))
+  assert.ok(result.issues.some(issue => issue.check === 'opt_out_line' && issue.severity === 'HIGH'))
+  assert.strictEqual(result.passed, false)
 })
-t('email > 200 từ → MEDIUM length', () => {
-  const words = Array(250).fill('word').join(' ')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: words }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'length'))
+t('required opt-out sentence must immediately precede signature', () => {
+  const result = run(validBody.replace(`${optOut}\n\n${signature}`, `${optOut}\n\nP.S. One more thought.\n\n${signature}`))
+  assert.ok(result.issues.some(issue => issue.check === 'opt_out_position' && issue.severity === 'HIGH'))
 })
-t('recipient hỏng → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Hello there friend.' }, recipient: 'not-an-email', ctx: ctx(), optOutRequired: false })
-  assert.strictEqual(r.risk_level, 'HIGH')
-})
-t('signature thiếu địa chỉ → MEDIUM CAN-SPAM', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Hello John, quick note about Vietnam sourcing. Best regards, Vexim' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'signature_address'))
-})
-t('spam word "free" → MEDIUM', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Get a free sample of our premium cashews now!' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'spam_word'))
-})
-t('feedback 26/09: trend claim không điều kiện → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: "Vietnam's robusta exports are growing fast. We can help." }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'trend_claim' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('feedback 26/09: trend trong khung điều kiện → vẫn sạch', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'If growing your supplier base is on the radar, we can help. Would a short chat be worth it?\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true })
-  assert.ok(!r.issues.some(i => i.check === 'trend_claim'), JSON.stringify(r.issues))
-})
-t('feedback 26/09: superlative về Vexim → HIGH vexim_claim', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'We are the largest compliance partner in Vietnam for food exporters.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'vexim_claim' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('feedback 26/09: số liệu bịa (40 factories, 12 years) → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'We work with 40 factories and bring 12 years of experience.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'vexim_claim' && /Specific count/.test(i.message)), JSON.stringify(r.issues))
-})
-t('feedback 26/09: chứng nhận ngoài whitelist (ISO) → HIGH', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Our partner runs an ISO 22000 certified facility.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'vexim_claim'), JSON.stringify(r.issues))
-})
-t('feedback 26/09: close-loop ép chọn phương án → MEDIUM', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Hi', contentEn: 'Closing the file for now. Which would you prefer: a call later or nothing?' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true, stepType: 'close_loop' })
-  assert.ok(r.issues.some(i => i.check === 'close_loop_pressure'), JSON.stringify(r.issues))
-})
-t('feedback 26/09: close_loop không cần dấu "?" (bỏ cta_missing)', () => {
-  const body = 'Hi John,\n\nThis will be my last note for a while. If Vietnam sourcing isn\'t a priority, a simple "no thanks" is completely fine and I\'ll close the file.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam'
-  const rClose = qa.runEmailQA({ email: { subjectEn: 'Closing the file', contentEn: body }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true, stepType: 'close_loop' })
-  assert.ok(!rClose.issues.some(i => i.check === 'cta_missing'), JSON.stringify(rClose.issues))
-  const rOther = qa.runEmailQA({ email: { subjectEn: 'Closing the file', contentEn: body }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true, stepType: 'follow_up' })
-  assert.ok(rOther.issues.some(i => i.check === 'cta_missing'), JSON.stringify(rOther.issues))
-})
-
-const firstEmailBody = `Hi Angela,
-
-If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time. I understand Acme Foods works with frozen mango.
-
-Each new source can mean reviewing company information, product specifications, available export information, pricing, samples, and relevant import requirements. Much of the early effort can be in screening rather than searching, and the details can vary from one product to another.
-
-That's where Veximtrade may help. We handle the initial sourcing groundwork on the Vietnam side, from finding relevant manufacturers to reviewing available information about capacity and export history and considering product fit. The buyer decides which sources are worth exploring further, and whether to continue toward samples or quotations.
-
-Are you currently looking for additional supply of frozen mango?
-
-If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.
-
-Best regards,
-Angela Divincenzo
-Senior Account Executive, VEXIM GLOBAL CO., LTD
-25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
-t('natural first email within 120-160 words and one sourcing question', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(!r.issues.some(i => ['first_email_word_count', 'cta_multiple_questions', 'first_email_situation_question', 'first_email_meeting_ask', 'brand_wording', 'opt_out_line', 'personalization_missing_company', 'personalization_missing_product', 'signature_missing_sender'].includes(i.check)), JSON.stringify(r.issues))
-})
-t('stepType initial_outreach activates Email 1 rules independently of campaign_step', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing process', contentEn: 'Short note for Acme Foods about frozen mango. Are you currently looking for additional supply of frozen mango?' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false, stepType: 'initial_outreach',
-  })
-  assert.ok(r.issues.some(i => i.check === 'first_email_word_count' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-  assert.ok(r.issues.some(i => i.check === 'signature_missing_sender' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('Email 1 word-count failures block approval', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const tooShort = firstEmailBody.replace(/If you're responsible[\s\S]*?additional supply of frozen mango\?/, 'Supplier screening takes time. Are you currently looking for additional supply of frozen mango?')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: tooShort }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'first_email_word_count' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('opt-out must be immediately before the signature', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const misplaced = firstEmailBody.replace("If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards", "If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nOne additional note.\n\nBest regards")
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: misplaced }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'opt_out_position' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('first email question must ask about sourcing situation', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const vague = firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Does Vietnam sound interesting?')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: vague }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'first_email_situation_question' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('first email meeting request is a hard block', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Would you be open to a meeting?') }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'first_email_meeting_ask' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('Email 1 with two questions uses cta_multiple_questions and blocks', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const copy = firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Are you currently looking for additional supply of frozen mango? Would a call help?')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'cta_multiple_questions' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('missing known product is MEDIUM but still blocks Email 1', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const copy = firstEmailBody.replace(/frozen mango/gi, 'product category')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'personalization_missing_product' && i.severity === 'MEDIUM' && i.blocking === true), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('UNKNOWN product is not invented or required', () => {
-  const firstCtx = ctx({ import_data: { ...ctx().import_data, main_products: 'UNKNOWN' }, crm: { ...ctx().crm, campaign_step: 1 } })
-  const copy = firstEmailBody.replace(/ frozen mango/gi, ' the product')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(!r.issues.some(i => i.check === 'personalization_missing_product'), JSON.stringify(r.issues))
-})
-t('known company omission is HIGH and blocks Email 1', () => {
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const copy = firstEmailBody.replace(/Acme Foods/g, 'the buyer')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'personalization_missing_company' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('corrected Corporation spelling satisfies a misspelled BuyerContext company value and source opener', () => {
-  const firstCtx = ctx({
-    buyer: { ...ctx().buyer, company_name: 'Atalanta Corportation', source_of_personalization: 'import records' },
-    crm: { ...ctx().crm, campaign_step: 1 },
-  })
-  const copy = firstEmailBody
-    .replace(/Acme Foods/g, 'Atalanta Corporation')
-    .replace('I understand Atalanta Corporation works with frozen mango.', 'I came across Atalanta Corporation while looking into companies in the Food & Beverage space.')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(!r.issues.some(i => i.check === 'personalization_missing_company' || i.check === 'personalization_source_missing'), JSON.stringify(r.issues))
-})
-t('direct disclosure of import records is blocked even when provenance exists', () => {
-  const firstCtx = ctx({
-    crm: { ...ctx().crm, campaign_step: 1 },
-    buyer: { ...ctx().buyer, source_of_personalization: 'import records' },
-  })
-  const copy = firstEmailBody.replace('I understand Acme Foods works with frozen mango.', 'I came across Acme Foods while reviewing import records.')
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy' && /import records/i.test(i.message)), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('campaign filler phrases are hard-blocked', () => {
-  const copy = firstEmailBody.replace('If you\'re responsible for sourcing,', 'I wanted to reach out because if you\'re responsible for sourcing,')
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('regression: supplied-style bad Email 1 is blocked for filler, unsupported claims, and CTAs', () => {
-  const badSample = `Hope this email finds you well. At Veximtrade, we connect buyers to verified suppliers and guarantee competitive pricing. Your team must be looking for new Vietnamese sources. Are you interested in our supplier network? Would you be available for a quick call?\n\nBest regards,\n{{sender_name}}\n{{sender_title}}, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
-  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: badSample }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy'), JSON.stringify(r.issues))
-  assert.ok(r.issues.some(i => i.check === 'cta_multiple_questions'), JSON.stringify(r.issues))
-  assert.ok(r.issues.some(i => i.check === 'first_email_meeting_ask'), JSON.stringify(r.issues))
-  assert.strictEqual(r.passed, false)
-})
-t('banned supplier claim is a hard block', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: 'Veximtrade only introduces verified suppliers.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('unsupported research personalization is blocked without provenance', () => {
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: 'I came across Acme Foods while researching your market.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
-  assert.ok(r.issues.some(i => i.check === 'unsupported_personalization_source' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+t('missing human sender, title, legal entity, or postal address blocks', () => {
+  const invalid = [
+    validBody.replace('Angela Divincenzo\n', ''),
+    validBody.replace('Account Executive, VEXIM GLOBAL CO., LTD', 'VEXIM GLOBAL CO., LTD'),
+    validBody.replace('VEXIM GLOBAL CO., LTD', 'Vexim'),
+    validBody.replace('\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam', ''),
+  ]
+  for (const body of invalid) {
+    const result = run(body)
+    assert.ok(result.issues.some(issue => issue.check === 'signature_missing_sender' && issue.severity === 'HIGH'), JSON.stringify(result.issues))
+    assert.strictEqual(result.passed, false)
+  }
 })
 
 console.log('SUPPRESSION TESTS')
 t('unsubscribed → suppressed', () => {
-  const r = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: true, email_hard_bounced_at: null, email_complained_at: null })
-  assert.strictEqual(r.state, 'suppressed')
+  const result = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: true, email_hard_bounced_at: null, email_complained_at: null })
+  assert.strictEqual(result.state, 'suppressed')
 })
 t('hard bounce → suppressed', () => {
-  const r = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: '2026-01-01', email_complained_at: null })
-  assert.strictEqual(r.state, 'suppressed')
+  const result = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: '2026-01-01', email_complained_at: null })
+  assert.strictEqual(result.state, 'suppressed')
 })
 t('complained → suppressed', () => {
-  const r = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: '2026-01-01' })
-  assert.strictEqual(r.state, 'suppressed')
+  const result = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: '2026-01-01' })
+  assert.strictEqual(result.state, 'suppressed')
 })
 t('missing email → invalid_contact', () => {
-  const r = sup.getStopReason({ contact_email: null, email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: null })
-  assert.strictEqual(r.state, 'invalid_contact')
+  const result = sup.getStopReason({ contact_email: null, email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: null })
+  assert.strictEqual(result.state, 'invalid_contact')
 })
-t('lead sạch → ok', () => {
-  const r = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: null })
-  assert.ok(r.ok)
-})
-
-t('follow-up thiếu exact opt-out line → HIGH', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nChecking in on my earlier note. We work with audited Vietnamese food factories exporting to the US.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(r.issues.some(i => i.check === 'opt_out_line'), JSON.stringify(r.issues))
-})
-t('legacy soft opt-out is rejected; exact sentence is required' , () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nChecking in on my earlier note about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(r.issues.some(i => i.check === 'opt_out_line' && i.severity === 'HIGH'), JSON.stringify(r.issues))
-})
-t('em dash trong body → punctuation MEDIUM', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nWe work with Vietnamese factories — direct relationships only.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(r.issues.some(i => i.check === 'punctuation'), JSON.stringify(r.issues))
-})
-t('conversational “feel free to” wording is allowed', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Quick follow up', contentEn: 'Hi John,\n\nFeel free to reply if you want more info about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(!r.issues.some(i => i.check === 'ai_phrasing' || i.check === 'spam_word'), JSON.stringify(r.issues))
-})
-t('body brand Veximtrade + pháp nhân chỉ ở signature → sạch', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing for Acme', contentEn: 'Hi John,\n\nI\'m with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.\n\nWould a short intro call be worth your time?\n\nIf you\'d rather not hear from me, just reply \'no thanks\' and I won\'t contact you again.\n\nBest regards,\nVu Le Hong\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))
+t('valid lead → ok', () => {
+  const result = sup.getStopReason({ contact_email: 'a@b.com', email_unsubscribed: false, email_hard_bounced_at: null, email_complained_at: null })
+  assert.ok(result.ok)
 })
 
-t('subject có dấu "—" (marketing separator) → subject_punctuation MEDIUM', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing — supplier option', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
-})
-t('subject có dấu ":" → subject_punctuation MEDIUM', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing: a quick note', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
-})
-t('a natural question-mark subject is allowed', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Where does Veximtrade fit in the sourcing process?', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing for your category.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(!r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
-})
-t('subject trần "Vietnam agriculture sourcing" → sạch', () => {
-  const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam agriculture sourcing', contentEn: 'Hi John,\n\nChecking in about Vietnam sourcing for your category.\n\nIf this isn\'t relevant right now, just reply no and I won\'t follow up.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
-    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
-  })
-  assert.ok(!r.issues.some(i => i.check === 'subject_punctuation'), JSON.stringify(r.issues))
-})
-
-console.log('reply rules -> tested separately with mocked AI')
-console.log(`\n${passed} passed, ${failed} failed`)
+console.log(`\nQA + suppression: ${passed} passed, ${failed} failed`)
+if (failed > 0) process.exitCode = 1

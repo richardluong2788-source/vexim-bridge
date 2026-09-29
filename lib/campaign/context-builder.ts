@@ -6,7 +6,6 @@
 
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MAX_EMAIL_WORDS } from "./constants"
 import { loadInboundReplies, loadOutboundEmails } from "./interactions"
 import type { BuyerContext, CampaignEnrollmentRow, CampaignStepRow } from "./types"
 
@@ -169,7 +168,6 @@ export async function buildBuyerContext(
       })),
     },
     business_rules: {
-      max_words: MAX_EMAIL_WORDS,
       no_links: true,
       no_attachments: true,
       opt_out_line_required: true,

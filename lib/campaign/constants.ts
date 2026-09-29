@@ -164,6 +164,10 @@ export const CAMPAIGN_BANNED_PHRASES = [
   "we strive to",
   "our goal is to",
   "at veximtrade, we",
+  "import records",
+  "customs records",
+  "shipment records",
+  "trade records",
 ] as const
 
 export const CAMPAIGN_BANNED_OPENERS = ["at veximtrade, we"] as const
@@ -172,6 +176,8 @@ export const CAMPAIGN_BANNED_OPENERS = ["at veximtrade, we"] as const
  *  Không thêm website/link vào cold-email body; domain vẫn xuất hiện trong
  *  From/Reply-To và List-Unsubscribe headers khi phù hợp. */
 export const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
+/** User-approved display label when no verified AE job title is stored. */
+export const SIGNATURE_SENDER_TITLE = "Vexim Trade"
 export const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
 

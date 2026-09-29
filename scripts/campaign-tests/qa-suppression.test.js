@@ -174,6 +174,16 @@ t('known company omission is HIGH and blocks Email 1', () => {
   assert.ok(r.issues.some(i => i.check === 'personalization_missing_company' && i.severity === 'HIGH'), JSON.stringify(r.issues))
   assert.strictEqual(r.passed, false)
 })
+t('direct disclosure of import records is blocked even when provenance exists', () => {
+  const firstCtx = ctx({
+    crm: { ...ctx().crm, campaign_step: 1 },
+    buyer: { ...ctx().buyer, source_of_personalization: 'import records' },
+  })
+  const copy = firstEmailBody.replace('I understand Acme Foods works with frozen mango.', 'I came across Acme Foods while reviewing import records.')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy' && /import records/i.test(i.message)), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
+})
 t('campaign filler phrases are hard-blocked', () => {
   const copy = firstEmailBody.replace('If you\'re responsible for sourcing,', 'I wanted to reach out because if you\'re responsible for sourcing,')
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })

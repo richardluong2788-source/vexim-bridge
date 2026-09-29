@@ -8,7 +8,7 @@ const ctx = {
   buyer: {
     company_name: 'Acme Foods', country: 'US', industry: 'Food & Beverage', website: null,
     contact_name: 'Angela', contact_email: 'angela@acme.example', contact_title: null,
-    source_of_personalization: 'UNKNOWN',
+    source_of_personalization: 'import records',
   },
   import_data: {
     hs_codes: 'UNKNOWN', main_products: 'frozen mango', purchase_history: 'UNKNOWN',
@@ -29,8 +29,9 @@ async function main() {
   assert.match(prompt, /frozen mango/)
   assert.match(prompt, /exactly ONE low-pressure question/i)
   assert.match(prompt, /CAMPAIGN_BANNED|hope this email finds you well|verified suppliers/i)
+  assert.match(prompt, /never reveal that source type|never tell the buyer you reviewed/i)
   assert.match(generated.contentEn, /Are you currently looking for additional supply of frozen mango\?/)
-  assert.match(generated.contentEn, /Angela Divincenzo\n\{\{sender_title\}\}, VEXIM GLOBAL CO\., LTD/)
+  assert.match(generated.contentEn, /Angela Divincenzo\nVexim Trade, VEXIM GLOBAL CO\., LTD/)
   assert.doesNotMatch(generated.contentEn, /veximtrade\.com|Best regards,\nAngela Divincenzo/)
 
   const result = runEmailQA({

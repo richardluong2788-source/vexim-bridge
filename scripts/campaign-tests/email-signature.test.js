@@ -21,10 +21,17 @@ const oldCopy = [
   'veximtrade.com',
 ].join('\n')
 
-test('draft signature uses sender name/title placeholders and legal address', () => {
+test('draft signature keeps the name placeholder and uses Vexim Trade as the title', () => {
   const result = withCampaignSignature(oldCopy, null, { mode: 'draft' })
-  assert.match(result, /\n\n\{\{sender_name\}\}\n\{\{sender_title\}\}, VEXIM GLOBAL CO\., LTD\n25\/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam$/)
+  assert.match(result, /\n\n\{\{sender_name\}\}\nVexim Trade, VEXIM GLOBAL CO\., LTD\n25\/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam$/)
   assert.doesNotMatch(result, /Best regards,\nVeximtrade\n/)
+})
+
+test('decodes escaped ampersands for plain-text email bodies', () => {
+  const escaped = oldCopy.replace('A short relevant message.', 'Food &amp; Beverage sourcing for your team.')
+  const result = withCampaignSignature(escaped, null, { mode: 'draft' })
+  assert.match(result, /Food & Beverage sourcing/)
+  assert.doesNotMatch(result, /&amp;/i)
 })
 
 test('removes the website from the signature/body', () => {
@@ -42,7 +49,7 @@ test('send mode resolves the real authenticated sender and reviewed title', () =
 test('never invents Veximtrade as a human sender when identity is unavailable', () => {
   const result = withCampaignSignature(oldCopy, null, { mode: 'draft' })
   assert.match(result, /\{\{sender_name\}\}/)
-  assert.match(result, /\{\{sender_title\}\}/)
+  assert.match(result, /Vexim Trade, VEXIM GLOBAL CO\., LTD/)
   assert.doesNotMatch(result, /Veximtrade/i)
   assert.doesNotMatch(result, /veximtrade\.com/i)
 })
@@ -53,6 +60,6 @@ test('normalizes a model signature even when it omits its closing line', () => {
     null,
     { mode: 'draft' },
   )
-  assert.match(result, /\{\{sender_name\}\}\n\{\{sender_title\}\}, VEXIM GLOBAL CO\., LTD/)
+  assert.match(result, /\{\{sender_name\}\}\nVexim Trade, VEXIM GLOBAL CO\., LTD/)
   assert.doesNotMatch(result, /veximtrade\.com/i)
 })

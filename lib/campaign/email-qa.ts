@@ -305,7 +305,7 @@ export function runEmailQA(params: {
   }
 
   if (!hasValidSenderSignature(body)) {
-    issues.push({ check: "signature_missing_sender", severity: "HIGH", message: "Signature must include {{sender_name}} (or the real sender name), {{sender_title}} (or the reviewed title), the legal entity, and the postal address." })
+    issues.push({ check: "signature_missing_sender", severity: "HIGH", message: "Signature must include {{sender_name}} (or the real sender name), Vexim Trade (or a verified AE title), the legal entity, and the postal address." })
   }
 
   // Consistent brand wording belongs in the body; the legal entity is in the signature.

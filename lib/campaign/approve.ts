@@ -147,7 +147,7 @@ export async function approveAndSendCampaignDraft(
     return {
       ok: false,
       error: "signature_incomplete",
-      message: "Fill in the real sender name and title in the signature before sending.",
+      message: "Fill in the real sender name in the signature before sending."
     }
   }
 

@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   FileCheck2,
   Loader2,
+  Languages,
   Plus,
   Star,
   Trash2,
@@ -153,6 +154,9 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [submittedTranslationStatus, setSubmittedTranslationStatus] = useState<
+    "translated" | "not_needed" | "failed"
+  >("not_needed")
 
   const [form, setForm] = useState<FormState>({
     companyName: initial.company_name ?? "",
@@ -372,6 +376,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         setError(translateError(result.error ?? "unknown"))
         return
       }
+      setSubmittedTranslationStatus(result.translationStatus ?? "not_needed")
       setSubmitted(true)
     })
   }
@@ -389,6 +394,16 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
           <p className="max-w-md text-sm text-muted-foreground">
             {initial.ae_full_name ?? "Nhân viên kinh doanh"} sẽ xem xét thông
             tin bạn cung cấp và liên hệ lại trong thời gian sớm nhất.
+            {submittedTranslationStatus === "translated" && (
+              <span className="mt-2 block">
+                Các phần mô tả đã được AI dịch sang tiếng Anh để AE kiểm tra trước khi duyệt.
+              </span>
+            )}
+            {submittedTranslationStatus === "failed" && (
+              <span className="mt-2 block">
+                AI chưa dịch được nội dung lần này; hồ sơ vẫn đã được gửi và AE sẽ xử lý bản dịch khi xem xét.
+              </span>
+            )}
           </p>
         </CardContent>
       </Card>
@@ -415,6 +430,13 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
               khi hồ sơ được duyệt.
             </span>
           )}
+        </p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-100">
+        <Languages className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+        <p>
+          <strong>Bạn có thể điền bằng tiếng Việt.</strong> Khi gửi, AI sẽ tự động dịch các phần mô tả doanh nghiệp và sản phẩm sang tiếng Anh. AE sẽ kiểm tra, chỉnh sửa nếu cần trước khi duyệt; tên doanh nghiệp, thông tin liên hệ, mã định danh và các lựa chọn dạng danh mục được giữ nguyên.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck, Languages } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -251,7 +251,11 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
 
       const res = await submitProductIntakeAction(token, payload)
       if (res.success) {
-        toast.success(`Đã gửi "${payload.product_name}" thành công!`)
+        if (res.translationStatus === 'failed') {
+          toast.success(`Đã nhận "${payload.product_name}". AI chưa dịch được; AE sẽ xử lý trước khi công khai.`)
+        } else {
+          toast.success(`Đã gửi "${payload.product_name}" thành công! Nội dung mô tả đã được chuẩn bị bằng tiếng Anh.`)
+        }
         setSubmitted((prev) => [
           ...prev,
           { name: payload.product_name, code: formData.product_code, at: Date.now() },
@@ -319,6 +323,13 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
         <p className="text-sm text-muted-foreground">
           Một link dùng được cho nhiều sản phẩm trong 30 ngày. Mỗi lần bấm &ldquo;Gửi sản phẩm&rdquo;
           sẽ gửi đúng <strong>một</strong> sản phẩm.
+        </p>
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-100">
+        <Languages className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+        <p className="text-sm">
+          <strong>Bạn có thể điền bằng tiếng Việt.</strong> Khi gửi, AI sẽ tự động dịch tên và nội dung mô tả sản phẩm sang tiếng Anh. AE sẽ kiểm tra trước khi bật sản phẩm; mã SKU, mã HS, giá, Incoterm và các lựa chọn dạng mã được giữ nguyên.
         </p>
       </div>
 

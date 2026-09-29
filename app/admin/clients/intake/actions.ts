@@ -320,6 +320,7 @@ export async function approveIntakeSubmission(
       slug,
       display_name: fields.company_name,
       tagline: fields.tagline || null,
+      description: fields.company_description || null,
       logo_url: fields.logo_url || null,
       cover_image_url: fields.cover_image_url || null,
       video_url: fields.video_url || null,
@@ -344,7 +345,7 @@ export async function approveIntakeSubmission(
   try {
     const complianceDocsToInsert: Array<{
       owner_id: string
-      kind: string
+      kind: "fda_certificate" | "other"
       title: string | null
       url: string
       mime_type: string | null

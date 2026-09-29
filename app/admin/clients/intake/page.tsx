@@ -16,7 +16,7 @@ export default async function ClientIntakeQueuePage() {
   let q = admin
     .from("client_intake_submissions")
     .select(
-      "id, status, company_name, contact_name, email, phone, industries, submitted_at, created_at, expires_at, ae_id, rejection_reason, profiles!client_intake_submissions_ae_id_fkey(full_name, email)",
+      "id, status, company_name, contact_name, email, phone, industries, submitted_at, created_at, expires_at, ae_id, rejection_reason, translation_status, profiles!client_intake_submissions_ae_id_fkey(full_name, email)",
     )
     .order("submitted_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })

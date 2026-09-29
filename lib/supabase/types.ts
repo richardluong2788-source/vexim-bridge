@@ -165,6 +165,7 @@ export type Database = {
           fda_registration_number: string | null
           fda_registered_at: string | null
           fda_expires_at: string | null
+          fda_status: string | null
           fda_renewal_notified_at: string | null
           avatar_url: string | null
           preferred_language: PreferredLanguage
@@ -198,6 +199,7 @@ export type Database = {
           fda_registration_number?: string | null
           fda_registered_at?: string | null
           fda_expires_at?: string | null
+          fda_status?: string | null
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
@@ -223,6 +225,7 @@ export type Database = {
           fda_registration_number?: string | null
           fda_registered_at?: string | null
           fda_expires_at?: string | null
+          fda_status?: string | null
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
@@ -1065,12 +1068,13 @@ export type Database = {
           slug: string
           display_name: string | null
           tagline: string | null
+          description: string | null
           cover_image_url: string | null
           logo_url: string | null
           factory_image_urls: string[]
           video_url: string | null
           video_thumbnail_url: string | null
-          usp_points: Record<string, unknown>[]
+          usp_points: USPPoint[]
           production_capacity: string | null
           moq: string | null
           lead_time_days: string | null
@@ -1093,12 +1097,13 @@ export type Database = {
           slug: string
           display_name?: string | null
           tagline?: string | null
+          description?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
           factory_image_urls?: string[]
           video_url?: string | null
           video_thumbnail_url?: string | null
-          usp_points?: Record<string, unknown>[]
+          usp_points?: USPPoint[]
           production_capacity?: string | null
           moq?: string | null
           lead_time_days?: string | null
@@ -1121,12 +1126,13 @@ export type Database = {
           slug?: string
           display_name?: string | null
           tagline?: string | null
+          description?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
           factory_image_urls?: string[]
           video_url?: string | null
           video_thumbnail_url?: string | null
-          usp_points?: Record<string, unknown>[]
+          usp_points?: USPPoint[]
           production_capacity?: string | null
           moq?: string | null
           lead_time_days?: string | null
@@ -1152,11 +1158,207 @@ export type Database = {
           }
         ]
       }
+      product_intake_links: {
+        Row: {
+          id: string
+          token: string
+          client_id: string
+          created_by: string | null
+          expires_at: string
+          used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          token: string
+          client_id: string
+          created_by?: string | null
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          token?: string
+          client_id?: string
+          created_by?: string | null
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      client_products: {
+        Row: {
+          id: string
+          client_id: string
+          product_name: string
+          product_code: string | null
+          category: string | null
+          subcategory: string | null
+          description: string | null
+          hs_code: string | null
+          unit_of_measure: string
+          min_unit_price: number | null
+          max_unit_price: number | null
+          currency: string
+          monthly_capacity_units: number | null
+          status: "active" | "inactive" | "suspended"
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          image_urls: string[]
+          compliance_badges: string[]
+          source_submission_id: string | null
+          price_confirmed: boolean
+          price_attested_at: string | null
+          price_attested_by: string | null
+          price_attestation_text: string | null
+          price_unit: string | null
+          incoterm: string | null
+          incoterm_place: string | null
+          payment_terms: string | null
+          country_of_origin: string | null
+          key_specifications: string | null
+          usp: string | null
+          moq_value: number | null
+          moq_unit: string | null
+          lead_time: string | null
+          sample_available: boolean
+          sample_notes: string | null
+          packing: string | null
+          package_size: string | null
+          shelf_life: string | null
+          storage_conditions: string | null
+          private_label_available: boolean
+          private_label_notes: string | null
+          product_intake_link_id: string | null
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          product_name: string
+          product_code?: string | null
+          category?: string | null
+          subcategory?: string | null
+          description?: string | null
+          hs_code?: string | null
+          unit_of_measure?: string
+          min_unit_price?: number | null
+          max_unit_price?: number | null
+          currency?: string
+          monthly_capacity_units?: number | null
+          status?: "active" | "inactive" | "suspended"
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          image_urls?: string[]
+          compliance_badges?: string[]
+          source_submission_id?: string | null
+          price_confirmed?: boolean
+          price_attested_at?: string | null
+          price_attested_by?: string | null
+          price_attestation_text?: string | null
+          price_unit?: string | null
+          incoterm?: string | null
+          incoterm_place?: string | null
+          payment_terms?: string | null
+          country_of_origin?: string | null
+          key_specifications?: string | null
+          usp?: string | null
+          moq_value?: number | null
+          moq_unit?: string | null
+          lead_time?: string | null
+          sample_available?: boolean
+          sample_notes?: string | null
+          packing?: string | null
+          package_size?: string | null
+          shelf_life?: string | null
+          storage_conditions?: string | null
+          private_label_available?: boolean
+          private_label_notes?: string | null
+          product_intake_link_id?: string | null
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          product_name?: string
+          product_code?: string | null
+          category?: string | null
+          subcategory?: string | null
+          description?: string | null
+          hs_code?: string | null
+          unit_of_measure?: string
+          min_unit_price?: number | null
+          max_unit_price?: number | null
+          currency?: string
+          monthly_capacity_units?: number | null
+          status?: "active" | "inactive" | "suspended"
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          image_urls?: string[]
+          compliance_badges?: string[]
+          source_submission_id?: string | null
+          price_confirmed?: boolean
+          price_attested_at?: string | null
+          price_attested_by?: string | null
+          price_attestation_text?: string | null
+          price_unit?: string | null
+          incoterm?: string | null
+          incoterm_place?: string | null
+          payment_terms?: string | null
+          country_of_origin?: string | null
+          key_specifications?: string | null
+          usp?: string | null
+          moq_value?: number | null
+          moq_unit?: string | null
+          lead_time?: string | null
+          sample_available?: boolean
+          sample_notes?: string | null
+          packing?: string | null
+          package_size?: string | null
+          shelf_life?: string | null
+          storage_conditions?: string | null
+          private_label_available?: boolean
+          private_label_notes?: string | null
+          product_intake_link_id?: string | null
+        }
+        Relationships: []
+      }
+      client_product_intake_sources: {
+        Row: {
+          product_id: string
+          client_id: string
+          source_texts: Record<string, string>
+          source_language: string | null
+          translation_status: "not_needed" | "translated" | "failed"
+          created_at: string
+        }
+        Insert: {
+          product_id: string
+          client_id: string
+          source_texts?: Record<string, string>
+          source_language?: string | null
+          translation_status?: "not_needed" | "translated" | "failed"
+          created_at?: string
+        }
+        Update: {
+          product_id?: string
+          client_id?: string
+          source_texts?: Record<string, string>
+          source_language?: string | null
+          translation_status?: "not_needed" | "translated" | "failed"
+          created_at?: string
+        }
+        Relationships: []
+      }
       client_intake_submissions: {
         Row: {
           id: string
           token: string
           ae_id: string
+          client_id: string | null
           status: "pending" | "submitted" | "approved" | "rejected"
           expires_at: string
           contact_name: string | null
@@ -1181,6 +1383,7 @@ export type Database = {
           video_url: string | null
           certifications: string[]
           certifications_other: string | null
+          certification_image_urls: string[]
           quality_systems: string[]
           quality_systems_other: string | null
           oem_odm: string[]
@@ -1192,6 +1395,7 @@ export type Database = {
           fda_status: string | null
           fda_number: string | null
           fda_expires_at: string | null
+          fda_certificate_url: string | null
           staff_engineers_count: number | null
           staff_workers_count: number | null
           work_hours_start: string | null
@@ -1215,6 +1419,9 @@ export type Database = {
           pricing_decision_maker: string | null
           commitments: string[]
           project_priority: string | null
+          source_texts: Record<string, string>
+          source_language: string | null
+          translation_status: "not_needed" | "translated" | "failed"
           reviewed_by: string | null
           reviewed_at: string | null
           review_notes: string | null
@@ -1228,6 +1435,7 @@ export type Database = {
           id?: string
           token: string
           ae_id: string
+          client_id?: string | null
           status?: "pending" | "submitted" | "approved" | "rejected"
           expires_at?: string
           contact_name?: string | null
@@ -1252,6 +1460,7 @@ export type Database = {
           video_url?: string | null
           certifications?: string[]
           certifications_other?: string | null
+          certification_image_urls?: string[]
           quality_systems?: string[]
           quality_systems_other?: string | null
           oem_odm?: string[]
@@ -1263,6 +1472,84 @@ export type Database = {
           fda_status?: string | null
           fda_number?: string | null
           fda_expires_at?: string | null
+          fda_certificate_url?: string | null
+          staff_engineers_count?: number | null
+          staff_workers_count?: number | null
+          work_hours_start?: string | null
+          work_hours_end?: string | null
+          work_days_per_week?: number | null
+          food_safety_training_regular?: boolean | null
+          equipment_calibration_regular?: boolean | null
+          water_source?: string[]
+          water_source_other?: string | null
+          water_testing?: boolean | null
+          near_pollution_source?: boolean | null
+          pollution_source_note?: string | null
+          audit_readiness?: string[]
+          audit_owner?: string | null
+          incoterms?: string[]
+          payment_policy?: string | null
+          oem_policy?: string | null
+          odm_policy?: string | null
+          has_export_dept?: boolean | null
+          has_english_staff?: boolean | null
+          pricing_decision_maker?: string | null
+          commitments?: string[]
+          project_priority?: string | null
+          source_texts?: Record<string, string>
+          source_language?: string | null
+          translation_status?: "not_needed" | "translated" | "failed"
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_notes?: string | null
+          rejection_reason?: string | null
+          created_client_id?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          token?: string
+          ae_id?: string
+          client_id?: string | null
+          status?: "pending" | "submitted" | "approved" | "rejected"
+          expires_at?: string
+          contact_name?: string | null
+          email?: string | null
+          phone?: string | null
+          company_name?: string | null
+          industries?: string[]
+          country?: string | null
+          address?: string | null
+          website?: string | null
+          tax_code?: string | null
+          tagline?: string | null
+          company_description?: string | null
+          main_products?: string | null
+          production_capacity?: string | null
+          moq?: string | null
+          lead_time_days?: string | null
+          usp_points?: Record<string, unknown>[]
+          logo_url?: string | null
+          cover_image_url?: string | null
+          factory_image_urls?: string[]
+          video_url?: string | null
+          certifications?: string[]
+          certifications_other?: string | null
+          certification_image_urls?: string[]
+          quality_systems?: string[]
+          quality_systems_other?: string | null
+          oem_odm?: string[]
+          company_scale?: string | null
+          export_since_year?: number | null
+          export_markets?: string[]
+          export_markets_other?: string | null
+          traceability?: string[]
+          fda_status?: string | null
+          fda_number?: string | null
+          fda_expires_at?: string | null
+          fda_certificate_url?: string | null
           staff_engineers_count?: number | null
           staff_workers_count?: number | null
           work_hours_start?: string | null
@@ -1294,43 +1581,9 @@ export type Database = {
           submitted_at?: string | null
           created_at?: string
           updated_at?: string
-        }
-        Update: {
-          id?: string
-          token?: string
-          ae_id?: string
-          status?: "pending" | "submitted" | "approved" | "rejected"
-          expires_at?: string
-          contact_name?: string | null
-          email?: string | null
-          phone?: string | null
-          company_name?: string | null
-          industries?: string[]
-          country?: string | null
-          address?: string | null
-          website?: string | null
-          tax_code?: string | null
-          tagline?: string | null
-          company_description?: string | null
-          main_products?: string | null
-          production_capacity?: string | null
-          moq?: string | null
-          lead_time_days?: string | null
-          usp_points?: Record<string, unknown>[]
-          logo_url?: string | null
-          cover_image_url?: string | null
-          factory_image_urls?: string[]
-          video_url?: string | null
-          certifications?: string[]
-          certifications_other?: string | null
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          review_notes?: string | null
-          rejection_reason?: string | null
-          created_client_id?: string | null
-          submitted_at?: string | null
-          created_at?: string
-          updated_at?: string
+          source_texts?: Record<string, string>
+          source_language?: string | null
+          translation_status?: "not_needed" | "translated" | "failed"
         }
         Relationships: [
           {

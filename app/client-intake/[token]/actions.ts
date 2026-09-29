@@ -1,7 +1,9 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
+import { translateSupplierTextFields } from "@/lib/ai/supplier-content-translation"
 import { notifyAeOfIntakeSubmission } from "@/lib/notifications/intake-submitted-email"
 
 export interface ClientIntakePayload {
@@ -56,6 +58,7 @@ export interface ClientIntakePayload {
 export interface SubmitClientIntakeResult {
   ok: boolean
   error?: string
+  translationStatus?: "translated" | "not_needed" | "failed"
 }
 
 /**
@@ -87,8 +90,54 @@ export async function submitClientIntake(
   )
   if (industries.length === 0) return { ok: false, error: "industry_invalid" }
 
-  const supabase = await createClient()
+  // Reject invalid/replayed links before making a billable AI request. The RPC
+  // below remains the final authority (it atomically checks status + expiry).
+  const admin = createAdminClient()
+  const { data: pendingSubmission, error: preflightError } = await admin
+    .from("client_intake_submissions")
+    .select("id, translation_status")
+    .eq("token", token)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle()
 
+  if (preflightError) {
+    console.error("[client intake] token preflight failed:", preflightError.message)
+    return { ok: false, error: "submit_failed" }
+  }
+  if (!pendingSubmission) return { ok: false, error: "link_expired" }
+
+  // Only descriptive/business text is sent for translation. Legal company and
+  // contact names, email, phone, tax IDs, documents, and selected enum values
+  // are intentionally kept as entered.
+  const textFields: Record<string, string | undefined> = {
+    tagline: data.tagline,
+    company_description: data.company_description,
+    main_products: data.main_products,
+    production_capacity: data.production_capacity,
+    moq: data.moq,
+    lead_time_days: data.lead_time_days,
+    certifications_other: data.certifications_other,
+    quality_systems_other: data.quality_systems_other,
+    company_scale: data.company_scale,
+    export_markets_other: data.export_markets_other,
+    payment_policy: data.payment_policy,
+    oem_policy: data.oem_policy,
+    odm_policy: data.odm_policy,
+  }
+  for (const [index, point] of (data.usp_points ?? []).entries()) {
+    textFields[`usp_points.${index}.title`] = point.title
+  }
+
+  const translation = await translateSupplierTextFields(textFields)
+  const translatedValue = (key: string, value?: string) =>
+    translation.translatedTexts[key] ?? value?.trim() ?? null
+  const uspPoints = (data.usp_points ?? []).map((point, index) => ({
+    ...point,
+    title: translation.translatedTexts[`usp_points.${index}.title`] ?? point.title.trim(),
+  }))
+
+  const supabase = await createClient()
   const { data: success, error } = await supabase.rpc("submit_client_intake", {
     p_token: token,
     p_payload: {
@@ -101,27 +150,27 @@ export async function submitClientIntake(
       address: data.address?.trim() || null,
       website: data.website?.trim() || null,
       tax_code: data.tax_code?.trim() || null,
-      tagline: data.tagline?.trim() || null,
-      company_description: data.company_description?.trim() || null,
-      main_products: data.main_products?.trim() || null,
-      production_capacity: data.production_capacity?.trim() || null,
-      moq: data.moq?.trim() || null,
-      lead_time_days: data.lead_time_days?.trim() || null,
-      usp_points: data.usp_points ?? [],
+      tagline: translatedValue("tagline", data.tagline),
+      company_description: translatedValue("company_description", data.company_description),
+      main_products: translatedValue("main_products", data.main_products),
+      production_capacity: translatedValue("production_capacity", data.production_capacity),
+      moq: translatedValue("moq", data.moq),
+      lead_time_days: translatedValue("lead_time_days", data.lead_time_days),
+      usp_points: uspPoints,
       logo_url: data.logo_url?.trim() || null,
       cover_image_url: data.cover_image_url?.trim() || null,
       factory_image_urls: data.factory_image_urls ?? [],
       video_url: data.video_url?.trim() || null,
       certifications: data.certifications ?? [],
-      certifications_other: data.certifications_other?.trim() || null,
+      certifications_other: translatedValue("certifications_other", data.certifications_other),
       certification_image_urls: data.certification_image_urls ?? [],
       quality_systems: data.quality_systems ?? [],
-      quality_systems_other: data.quality_systems_other?.trim() || null,
+      quality_systems_other: translatedValue("quality_systems_other", data.quality_systems_other),
       oem_odm: data.oem_odm ?? [],
-      company_scale: data.company_scale?.trim() || null,
+      company_scale: translatedValue("company_scale", data.company_scale),
       export_since_year: data.export_since_year?.trim() || null,
       export_markets: data.export_markets ?? [],
-      export_markets_other: data.export_markets_other?.trim() || null,
+      export_markets_other: translatedValue("export_markets_other", data.export_markets_other),
       traceability: data.traceability ?? [],
       fda_status: data.fda_status?.trim() || null,
       fda_number: data.fda_number?.trim() || null,
@@ -130,14 +179,17 @@ export async function submitClientIntake(
       audit_readiness: data.audit_readiness ?? [],
       audit_owner: data.audit_owner?.trim() || null,
       incoterms: data.incoterms ?? [],
-      payment_policy: data.payment_policy?.trim() || null,
-      oem_policy: data.oem_policy?.trim() || null,
-      odm_policy: data.odm_policy?.trim() || null,
+      payment_policy: translatedValue("payment_policy", data.payment_policy),
+      oem_policy: translatedValue("oem_policy", data.oem_policy),
+      odm_policy: translatedValue("odm_policy", data.odm_policy),
       has_export_dept: data.has_export_dept ?? null,
       has_english_staff: data.has_english_staff ?? null,
       pricing_decision_maker: data.pricing_decision_maker?.trim() || null,
       commitments: data.commitments ?? [],
       project_priority: data.project_priority?.trim() || null,
+      source_texts: translation.sourceTexts,
+      source_language: translation.sourceLanguage,
+      translation_status: translation.status,
     },
   })
 
@@ -155,5 +207,5 @@ export async function submitClientIntake(
     console.error("[v0] notifyAeOfIntakeSubmission unexpected error:", err)
   })
 
-  return { ok: true }
+  return { ok: true, translationStatus: translation.status }
 }

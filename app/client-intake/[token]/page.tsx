@@ -4,6 +4,9 @@ import { ClientIntakeForm } from "@/components/client-intake/client-intake-form"
 import { siteConfig } from "@/lib/site-config"
 import type { Industry } from "@/lib/constants/industries"
 
+// The submit Server Action may call the AI translation service before saving.
+export const maxDuration = 60
+
 interface IntakeSubmissionRow {
   id: string
   status: string

@@ -1,5 +1,6 @@
 const sm = require((process.argv[2] || '.') + '/state-machine.js')
 const constants = require((process.argv[2] || '.') + '/constants.js')
+const { addBusinessDays } = require((process.argv[2] || '.') + '/scheduling-utils.js')
 const assert = require('assert')
 
 let passed = 0, failed = 0
@@ -36,6 +37,25 @@ t('grace elapsed → waiting_reply + followup_due', () => {
   assert.strictEqual(r.to, 'waiting_reply')
   assert.strictEqual(r.nextActionType, 'followup_due')
   assert.ok(r.nextActionAt > new Date())
+})
+t('4 business-day interval skips weekend', () => {
+  const friday = new Date(2026, 8, 25, 10, 0, 0)
+  const due = addBusinessDays(friday, 4)
+  assert.strictEqual(due.getDay(), 4)
+  assert.strictEqual(due.getDate(), 1)
+  assert.strictEqual(due.getMonth(), 9)
+})
+t('follow-up grace can schedule in business days', () => {
+  const friday = new Date(2026, 8, 25, 10, 0, 0)
+  const r = sm.onContactedGraceElapsed('contacted', 4, friday, true)
+  assert.strictEqual(r.nextActionAt.getDay(), 4)
+  assert.strictEqual(r.nextActionAt.getDate(), 1)
+})
+t('follow-up sends also schedule next step in business days', () => {
+  const friday = new Date(2026, 8, 25, 10, 0, 0)
+  const r = sm.onFollowupEmailSent('followup_1', 2, 5, friday, true)
+  assert.strictEqual(r.nextActionAt.getDay(), 5)
+  assert.strictEqual(r.nextActionAt.getDate(), 2)
 })
 t('followup sent step2 → followup_1, count+1', () => {
   const r = sm.onFollowupEmailSent('waiting_reply', 2, 7)
@@ -107,6 +127,12 @@ t('review resolved resume → clear flag + action now', () => {
   assert.strictEqual(r.clearHumanReview, true)
   assert.strictEqual(r.to, 'waiting_reply')
   assert.ok(r.nextActionAt)
+})
+t('first-step human review resume → enrolled/step1_due', () => {
+  const r = sm.onReviewResolved('contact_pending', 'resume', new Date('2026-09-28T10:00:00Z'), { neverContacted: true })
+  assert.strictEqual(r.to, 'enrolled')
+  assert.strictEqual(r.nextActionType, 'step1_due')
+  assert.strictEqual(r.clearHumanReview, true)
 })
 t('review resolved stop → stopped terminal', () => {
   assert.strictEqual(sm.onReviewResolved('waiting_reply', 'stop').to, 'stopped')

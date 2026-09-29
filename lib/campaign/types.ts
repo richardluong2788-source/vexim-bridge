@@ -12,6 +12,7 @@ export interface CampaignRow {
   name: string
   description: string | null
   target_segment: string | null
+  target_country: string | null
   product_category: string | null
   status: "draft" | "active" | "paused" | "completed" | "archived"
   start_date: string | null
@@ -28,6 +29,8 @@ export interface CampaignStepRow {
   step_number: number
   step_type: "initial_outreach" | "follow_up" | "close_loop" | "nurture"
   delay_days: number
+  /** Optional weekday interval for sequences that require business-day timing. */
+  delay_business_days?: number | null
   objective: string | null
   ai_prompt_guidance: string | null
   max_attempts: number
@@ -102,6 +105,8 @@ export interface BuyerContext {
     contact_name: string | null
     contact_email: string | null
     contact_title: string | null
+    /** Provenance string for personalization, or UNKNOWN if no explicit source exists. */
+    source_of_personalization: string | "UNKNOWN"
   }
   import_data: {
     // Mọi trường không có dữ liệu phải là "UNKNOWN" — KHÔNG được điền bừa.
@@ -117,6 +122,7 @@ export interface BuyerContext {
     name: string
     description: string | null
     target_segment: string | null
+    target_country: string | null
     product_category: string | null
   }
   // Research data (migration 079) — INTERNAL REASONING ONLY. Email generator
@@ -140,7 +146,6 @@ export interface BuyerContext {
     replies: Array<{ received_at: string; content: string; intent: string | null }>
   }
   business_rules: {
-    max_words: number
     no_links: boolean
     no_attachments: boolean
     opt_out_line_required: boolean

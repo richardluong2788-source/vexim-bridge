@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, TrendingUp, Eye, EyeOff, CheckCircle2 } from "lucide-react"
+import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { useTranslation } from "@/components/i18n/language-provider"
 import { LanguageSwitcher } from "@/components/i18n/language-switcher"
 
@@ -76,9 +77,7 @@ export default function LoginPage() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-primary text-primary-foreground">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
-            <TrendingUp className="h-5 w-5 text-accent-foreground" />
-          </div>
+          <BrandLogo size={36} onDark />
           <span className="text-lg font-semibold tracking-tight">{t.auth.login.brandBadge}</span>
         </div>
         <div className="flex flex-col gap-6">
@@ -112,9 +111,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <TrendingUp className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <BrandLogo size={36} />
             <span className="text-lg font-semibold">{t.app.name}</span>
           </div>
 

@@ -92,9 +92,28 @@ export async function listProductIntakeLinks(clientId: string) {
 
   if (error) return { ok: false, error: error.message, data: [] as any[] }
 
+  // How many products each link actually produced. Requires migration 089
+  // (client_products.product_intake_link_id); without it every link falls back
+  // to the old used_at flag, which stays safe - it just cannot show a count.
+  const linkIds = (data || []).map((r: any) => r.id)
+  let counts: Record<string, number> = {}
+  if (linkIds.length > 0) {
+    const { data: products, error: pErr } = await admin
+      .from("client_products")
+      .select("product_intake_link_id")
+      .in("product_intake_link_id", linkIds)
+    if (!pErr && products) {
+      for (const p of products as any[]) {
+        if (!p.product_intake_link_id) continue
+        counts[p.product_intake_link_id] = (counts[p.product_intake_link_id] || 0) + 1
+      }
+    }
+  }
+
   const siteUrl = siteConfig.url
   const mapped = (data || []).map((r: any) => ({
     ...r,
+    product_count: counts[r.id] ?? 0,
     url: `${siteUrl}/product-intake/${r.token}`,
   }))
 

@@ -5,7 +5,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Check, Loader2, X } from "lucide-react"
+import { AlertTriangle, Check, Loader2, RefreshCw, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { approveCampaignDraftAction, rejectCampaignDraftAction } from "@/app/admin/campaigns/actions"
+import { approveCampaignDraftAction, regenerateCampaignDraftAction, rejectCampaignDraftAction } from "@/app/admin/campaigns/actions"
 
 export interface ApprovalDraft {
   id: string
@@ -32,6 +32,7 @@ export interface ApprovalDraft {
   generated_content_en: string | null
   translated_content_vi: string | null
   recipient_email: string | null
+  error_message?: string | null
   created_at: string
   enrollment: {
     id: string
@@ -59,6 +60,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
       router.refresh()
     } else {
       toast.error(res.message ?? `Lỗi: ${res.error}`)
+      if (res.error === "not_eligible") router.refresh()
     }
   }
 
@@ -74,6 +76,24 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
       router.refresh()
     } else {
       toast.error(res.message ?? "Không từ chối được")
+    }
+  }
+
+  async function regenerate(draft: ApprovalDraft) {
+    if (!window.confirm("Tạo lại email theo prompt hiện tại? Bản đang xem sẽ được thay thế, nhưng không tính là AI bị từ chối và không gửi email.")) return
+    setBusyId(draft.id)
+    const res = await regenerateCampaignDraftAction(draft.id)
+    setBusyId(null)
+    if (res.ok) {
+      if (res.qaBlocked) {
+        toast.error(`Đã tạo bản mới nhưng QA chặn gửi. ${res.qaMessage ?? ""}`)
+      } else {
+        toast.success(`Đã tạo lại draft (${res.riskLevel}), vẫn chờ AE duyệt.`)
+      }
+      router.refresh()
+    } else {
+      toast.error(res.message ?? "Không tạo lại được draft")
+      if (res.error === "not_eligible") router.refresh()
     }
   }
 
@@ -96,6 +116,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
           draft={d}
           busy={busyId === d.id}
           onApprove={() => approve(d)}
+          onRegenerate={() => regenerate(d)}
           onReject={() => {
             setRejecting(d)
             setRejectReason("")
@@ -103,7 +124,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
         />
       ))}
       {blocked.map((d) => (
-        <DraftCard key={d.id} draft={d} busy={busyId === d.id} blocked />
+        <DraftCard key={d.id} draft={d} busy={busyId === d.id} blocked onRegenerate={() => regenerate(d)} />
       ))}
 
       <Dialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)}>
@@ -145,12 +166,14 @@ function DraftCard({
   busy,
   blocked,
   onApprove,
+  onRegenerate,
   onReject,
 }: {
   draft: ApprovalDraft
   busy?: boolean
   blocked?: boolean
   onApprove?: () => void
+  onRegenerate?: () => void
   onReject?: () => void
 }) {
   const router = useRouter()
@@ -160,20 +183,21 @@ function DraftCard({
 
   const lead = draft.enrollment?.lead
   const wordCount = content.split(/\s+/).filter(Boolean).length
+  const countryMismatch = draft.error_message?.startsWith("not_eligible_country:") ?? false
 
   return (
-    <Card className={blocked ? "border-red-300 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20" : ""}>
+    <Card className={blocked ? (countryMismatch ? "border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20" : "border-red-300 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20") : ""}>
       <CardContent className="space-y-3 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm">
             <span className="font-medium">{lead?.company_name ?? "(không rõ công ty)"}</span>
-            <span className="text-muted-foreground"> · {lead?.contact_name ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt;</span>
+            <span className="text-muted-foreground"> · {lead?.contact_person ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt;</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <Badge variant="outline">Step {draft.campaign_step_number ?? "?"}</Badge>
             {blocked ? (
-              <Badge variant="outline" className="border-red-400 text-red-600">
-                <AlertTriangle className="mr-1 h-3 w-3" /> QA chặn — KHÔNG gửi
+              <Badge variant="outline" className={countryMismatch ? "border-amber-400 text-amber-700" : "border-red-400 text-red-600"}>
+                <AlertTriangle className="mr-1 h-3 w-3" /> {countryMismatch ? "Sai quốc gia campaign — KHÔNG gửi" : "QA chặn — KHÔNG gửi"}
               </Badge>
             ) : (
               <Badge variant="outline" className="border-emerald-400 text-emerald-600">Chờ duyệt</Badge>
@@ -181,6 +205,12 @@ function DraftCard({
             <Badge variant="outline">{wordCount} từ</Badge>
           </div>
         </div>
+        {blocked && draft.error_message && (
+          <p className={countryMismatch ? "text-xs text-amber-800 dark:text-amber-300" : "text-xs text-red-700 dark:text-red-300"}>
+            {draft.error_message.replace(/^not_eligible_country:\s*/, "")}
+            {countryMismatch && " Buyer đã bị loại khỏi campaign vì quốc gia hồ sơ không khớp quốc gia mục tiêu."}
+          </p>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor={`subject-${draft.id}`}>Subject</Label>
@@ -208,6 +238,13 @@ function DraftCard({
           )}
         </div>
 
+        {blocked && onRegenerate && (
+          <Button size="sm" variant="outline" onClick={onRegenerate} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Tạo lại bằng AI
+          </Button>
+        )}
+
         {!blocked && (
           <div className="flex items-center gap-2">
             <Button
@@ -221,6 +258,12 @@ function DraftCard({
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Duyệt &amp; gửi
             </Button>
+            {onRegenerate && (
+              <Button size="sm" variant="outline" onClick={onRegenerate} disabled={busy}>
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Tạo lại bằng AI
+              </Button>
+            )}
             {onReject && (
               <Button size="sm" variant="outline" onClick={onReject} disabled={busy}>
                 <X className="mr-2 h-4 w-4" /> Từ chối

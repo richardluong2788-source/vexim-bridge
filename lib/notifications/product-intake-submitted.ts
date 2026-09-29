@@ -9,7 +9,11 @@ import { dispatchNotification } from "@/lib/notifications/dispatcher"
  * - Best-effort, never blocks product insert
  */
 
-export async function notifyAeAndSrOfProductIntake(token: string, productName: string) {
+export async function notifyAeAndSrOfProductIntake(
+  token: string,
+  productName: string,
+  productId?: string,
+) {
   try {
     const admin = createAdminClient()
 
@@ -47,7 +51,13 @@ export async function notifyAeAndSrOfProductIntake(token: string, productName: s
           category: "new_assignment",
           opportunityId: null,
           linkPath: `/admin/clients/${clientId}?tab=products`,
-          dedupKey: `product_intake:${link.id}:${productName}:${userId}:${Date.now()}`,
+          // Idempotency key for notification_email_log (unique user_id+dedup_key).
+          // It must be stable per (product, recipient) so a retried dispatch is
+          // delivered at most once - but it must also differ per product, or a
+          // supplier submitting a whole catalogue would fire one email per
+          // product at every AE. The product row id gives both: unique per
+          // product, identical across retries. Date.now() gave us neither.
+          dedupKey: `product_intake:${productId ?? `${link.id}:${productName}`}:${userId}`,
           title: {
             vi: `Sản phẩm mới — ${productName}`,
             en: `New product — ${productName}`,

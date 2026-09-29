@@ -12,6 +12,7 @@
 //   - CONTACTED là grace window 24h sau email 1 (đợi mail server, tránh xử lý
 //     reply cùng ngày) → WAITING_REPLY mở follow-up countdown.
 
+import { addBusinessDays } from "./scheduling-utils"
 import {
   type EnrollmentState,
   CONTACTED_GRACE_HOURS,
@@ -87,11 +88,14 @@ export function onContactedGraceElapsed(
   state: EnrollmentState,
   followupDelayDays: number,
   now: Date = new Date(),
+  useBusinessDays = false,
 ): StateTransition {
   if (state !== "contacted") return { to: null, note: "not_contacted" }
   return {
     to: "waiting_reply",
-    nextActionAt: daysFromNow(Math.max(followupDelayDays, 1), now),
+    nextActionAt: useBusinessDays
+      ? addBusinessDays(now, Math.max(followupDelayDays, 1))
+      : daysFromNow(Math.max(followupDelayDays, 1), now),
     nextActionType: "followup_due",
     note: "grace_elapsed",
   }
@@ -108,6 +112,7 @@ export function onFollowupEmailSent(
   sentStepNumber: number,
   nextStepDelayDays: number | null,
   now: Date = new Date(),
+  useBusinessDays = false,
 ): StateTransition {
   if (state !== "waiting_reply" && state !== "followup_1" && state !== "followup_2") {
     return { to: null, note: "unexpected_state_for_followup_send" }
@@ -120,7 +125,9 @@ export function onFollowupEmailSent(
     lastContactNow: true,
     nextActionAt:
       nextStepDelayDays !== null
-        ? daysFromNow(Math.max(nextStepDelayDays, 1), now)
+        ? useBusinessDays
+          ? addBusinessDays(now, Math.max(nextStepDelayDays, 1))
+          : daysFromNow(Math.max(nextStepDelayDays, 1), now)
         : daysFromNow(14, now),
     nextActionType: nextStepDelayDays !== null ? "followup_due" : "nurture_due",
     note: `followup_${sentStepNumber}_sent`,
@@ -309,14 +316,10 @@ export function onReviewResolved(
       note: "review_stopped",
     }
   }
-  // Bugfix 27/09/2026: resume từ paused KHÔNG được giả định "đã gửi email 1".
-  // Pause có thể xảy ra từ state 'enrolled' (chưa liên hệ) — resume khi đó
-  // phải quay về 'enrolled'/step1_due, không phải waiting_reply/followup_due
-  // (lỗi cũ: buyer chưa từng được gửi email nhưng bị đẩy vào hàng follow-up
-  // → gate skip vì previous_emails rỗng → cascade qua sequence → nurture mà
-  // không ai từng liên hệ).
+  // A first-step country hold or pause can occur before any email was sent.
+  // Resume must return to step1_due, not followup_due (which would skip step 1).
   const neverContacted = opts?.neverContacted ?? false
-  if (state === "paused" && neverContacted) {
+  if ((state === "paused" || state === "enrolled" || state === "contact_pending") && neverContacted) {
     return {
       to: "enrolled",
       clearHumanReview: true,

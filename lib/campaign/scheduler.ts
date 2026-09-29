@@ -33,12 +33,15 @@ import {
   onSuppression,
   onInvalidContact,
   onResumeAfterPause,
+  onManualStop,
 } from "./state-machine"
 import { applyTransition, countAllCampaignEmailsSentToday, countCampaignEmailsSentToday, getCampaign, getCampaignSteps } from "./enrollments"
 import { buildBuyerContext } from "./context-builder"
 import { assessFollowupJustification, applyFollowupGateDecision } from "./followup-gate"
 import { generateCampaignEmail } from "./email-generator"
 import { runEmailQA } from "./email-qa"
+import { getCampaignCountryMismatch } from "./country-validation"
+import { addBusinessDays } from "./scheduling-utils"
 import { checkLeadStop } from "./suppression"
 import { resolveEnrollmentTimezone, checkSendingWindow } from "./sending-window"
 import { appendInteraction, logSystemEvent } from "./interactions"
@@ -139,6 +142,24 @@ const DRAFT_TYPE_BY_STEP: Record<string, "introduction" | "follow_up" | "custom"
   nurture: "custom",
 }
 
+async function stopForCountryMismatch(
+  enrollment: { id: string; lead_id: string; campaign_id: string; state: EnrollmentState },
+  stepNumber: number,
+  reason: string,
+): Promise<void> {
+  await resolveFiring(enrollment.id, stepNumber, "skipped", { error: `country_mismatch:${reason}` })
+  await applyTransition(enrollment as never, onManualStop(enrollment.state, `campaign_country_mismatch:${reason}`))
+  await logSystemEvent({
+    buyerId: enrollment.lead_id,
+    campaignId: enrollment.campaign_id,
+    enrollmentId: enrollment.id,
+    step: stepNumber,
+    event: "campaign_country_mismatch",
+    detail: { reason },
+    description: `[Campaign] Enrollment stopped because buyer country does not match the selected campaign country: ${reason}`,
+  })
+}
+
 async function queueDraftForEnrollment(
   enrollment: { id: string; lead_id: string; campaign_id: string; state: EnrollmentState; current_step_number: number; followup_count: number },
   step: { step_number: number; step_type: string; objective: string | null; ai_prompt_guidance: string | null },
@@ -171,23 +192,29 @@ async function queueDraftForEnrollment(
       .select("full_name")
       .eq("id", ownerId)
       .single()
-    senderName = (ownerProfile as { full_name?: string } | null)?.full_name ?? null
+    senderName = (ownerProfile as { full_name?: string | null } | null)?.full_name ?? null
   }
 
   try {
     const ctx = prebuiltCtx ?? (await buildBuyerContext(enrollment as never, step as never))
+    const countryMismatch = getCampaignCountryMismatch(ctx)
+    if (countryMismatch) {
+      await stopForCountryMismatch(enrollment, step.step_number, countryMismatch)
+      return { ok: false, error: "country_mismatch" }
+    }
+
     const generated = await generateCampaignEmail(ctx, step.step_type, step.ai_prompt_guidance, senderName)
 
     const qa = runEmailQA({
       email: { subjectEn: generated.subjectEn, contentEn: generated.contentEn },
       recipient: contactEmail,
       ctx,
-      optOutRequired: step.step_number >= 2,
+      optOutRequired: true,
       stepType: step.step_type,
     })
 
-    if (qa.risk_level === "HIGH") {
-      // QA HIGH → không tạo draft gửi được. Vẫn tạo draft để AE xem lỗi
+    if (!qa.passed) {
+      // Any blocking QA issue (including mandatory MEDIUM issues) keeps this out of the approval/send path. Vẫn tạo draft để AE xem lỗi
       // (status 'draft', KHÔNG 'pending_approval') + ghi issue.
       const { data: blockedDraft, error: dErr } = await (admin.from("email_drafts") as any)
         .insert({
@@ -232,11 +259,11 @@ async function queueDraftForEnrollment(
         },
         {
           actionType: "campaign_email_qa_blocked",
-          description: `[Campaign] QA HIGH chặn draft step ${step.step_number} cho lead ${enrollment.lead_id}: ${qa.issues.map((i) => i.message).join(" | ")}`,
+          description: `[Campaign] QA chặn draft step ${step.step_number} cho lead ${enrollment.lead_id}: ${qa.issues.map((i) => i.message).join(" | ")}`,
         },
       )
 
-      await resolveFiring(enrollment.id, step.step_number, "failed", { error: "qa_high_risk" })
+      await resolveFiring(enrollment.id, step.step_number, "failed", { error: "qa_blocked" })
       await applyTransition(enrollment, onDraftGenerationFailed(enrollment.state))
       if (ownerId) {
         await dispatchNotification({
@@ -247,13 +274,13 @@ async function queueDraftForEnrollment(
           dedupKey: `campaign_qa_blocked:${enrollment.id}:${step.step_number}`,
           title: { vi: "Campaign: draft bị QA chặn", en: "Campaign: draft blocked by QA" },
           body: {
-            vi: `Draft step ${step.step_number} rủi ro HIGH — cần AE viết tay hoặc bỏ qua. Lý do: ${qa.issues.map((i) => i.message).join("; ")}`,
-            en: `Step ${step.step_number} draft is HIGH risk — write manually or skip. Issues: ${qa.issues.map((i) => i.message).join("; ")}`,
+            vi: `Draft step ${step.step_number} bị QA chặn — cần AE chỉnh sửa hoặc bỏ qua. Lý do: ${qa.issues.map((i) => i.message).join("; ")}`,
+            en: `Step ${step.step_number} draft is blocked by QA — edit it or skip. Issues: ${qa.issues.map((i) => i.message).join("; ")}`,
           },
           ctaLabel: { vi: "Mở campaign", en: "Open campaign" },
         })
       }
-      return { ok: false, error: "qa_high_risk" }
+      return { ok: false, error: "qa_blocked" }
     }
 
     // QA pass (LOW/MEDIUM) → draft chờ duyệt.
@@ -491,8 +518,11 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                 result.resumed += 1
                 if (e.last_contact_at) {
                   const nextStep = steps.find((s) => s.step_number === e.current_step_number + 1)
-                  const delayDays = nextStep?.delay_days ?? 14
-                  const nextAt = new Date(new Date(e.last_contact_at).getTime() + Math.max(delayDays, 1) * 86400000)
+                  const delayDays = nextStep?.delay_business_days ?? nextStep?.delay_days ?? 14
+                  const lastContact = new Date(e.last_contact_at)
+                  const nextAt = nextStep?.delay_business_days != null
+                    ? addBusinessDays(lastContact, Math.max(delayDays, 1))
+                    : new Date(lastContact.getTime() + Math.max(delayDays, 1) * 86400000)
                   await (admin.from("campaign_enrollments") as any)
                     .update({ next_action_at: nextAt.toISOString(), next_action_type: nextStep ? "followup_due" : "nurture_due" })
                     .eq("id", e.id)
@@ -569,7 +599,8 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
           case "contacted": {
             if (e.next_action_type === "contacted_grace") {
               const step2 = steps.find((s) => s.step_number === e.current_step_number + 1)
-              const t = onContactedGraceElapsed(e.state, step2?.delay_days ?? 4, now)
+              const followupDelay = step2?.delay_business_days ?? step2?.delay_days ?? 4
+              const t = onContactedGraceElapsed(e.state, followupDelay, now, step2?.delay_business_days != null)
               if (await applyTransition(e, t)) result.graceAdvanced += 1
             }
             break
@@ -656,6 +687,12 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
               // hợp lý để liên hệ tiếp không. Không có lý do → KHÔNG gửi.
               if (nextStep.step_number >= 2) {
                 const gateCtx = await buildBuyerContext(e as never, nextStep as never)
+                const countryMismatch = getCampaignCountryMismatch(gateCtx)
+                if (countryMismatch) {
+                  await stopForCountryMismatch(e, nextStep.step_number, countryMismatch)
+                  result.draftFailures += 1
+                  break
+                }
                 const daysSinceLastContact = e.last_contact_at
                   ? Math.floor((now.getTime() - new Date(e.last_contact_at).getTime()) / 86400000)
                   : null
@@ -705,7 +742,9 @@ export async function runCampaignSchedulerTick(): Promise<TickResult> {
                     // đếm followup_count vì chưa gửi gì). Hết bảng → NURTURE.
                     const after = steps.find((s) => s.step_number === nextStep.step_number + 1)
                     if (after) {
-                      const nextAt = new Date(now.getTime() + Math.max(after.delay_days, 1) * 86400000)
+                      const nextAt = after.delay_business_days != null
+                        ? addBusinessDays(now, Math.max(after.delay_business_days, 1))
+                        : new Date(now.getTime() + Math.max(after.delay_days, 1) * 86400000)
                       await (admin.from("campaign_enrollments") as any)
                         .update({
                           current_step_number: nextStep.step_number,

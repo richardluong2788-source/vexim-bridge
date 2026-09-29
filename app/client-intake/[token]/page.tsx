@@ -1,4 +1,4 @@
-import { TrendingUp } from "lucide-react"
+import { BrandLogo } from "@/components/brand-logo"
 import { createClient } from "@/lib/supabase/server"
 import { ClientIntakeForm } from "@/components/client-intake/client-intake-form"
 import { siteConfig } from "@/lib/site-config"
@@ -72,9 +72,7 @@ export default async function ClientIntakePage({
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-6 py-5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary">
-            <TrendingUp className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <BrandLogo size={36} />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold text-foreground">
               {siteConfig.name}

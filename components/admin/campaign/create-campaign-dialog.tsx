@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createCampaignAction } from "@/app/admin/campaigns/actions"
+import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 
 /**
  * Dialog tạo campaign (admin/super_admin — server action kiểm tra lại).
@@ -32,6 +33,7 @@ export function CreateCampaignDialog({ canCreate }: { canCreate: boolean }) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [segment, setSegment] = useState("")
+  const [targetCountry, setTargetCountry] = useState("")
   const [category, setCategory] = useState("")
   const [limit, setLimit] = useState("20")
 
@@ -42,11 +44,16 @@ export function CreateCampaignDialog({ canCreate }: { canCreate: boolean }) {
       toast.error("Nhập tên campaign")
       return
     }
+    if (!targetCountry) {
+      toast.error("Chọn quốc gia mục tiêu")
+      return
+    }
     setBusy(true)
     const res = await createCampaignAction({
       name,
       description,
       targetSegment: segment,
+      targetCountry,
       productCategory: category,
       dailySendLimit: Number(limit) || 20,
     })
@@ -56,6 +63,9 @@ export function CreateCampaignDialog({ canCreate }: { canCreate: boolean }) {
       setOpen(false)
       setName("")
       setDescription("")
+      setSegment("")
+      setTargetCountry("")
+      setCategory("")
       router.push(`/admin/campaigns/${res.campaignId}`)
     } else {
       toast.error(res.message ?? "Không tạo được campaign")
@@ -73,8 +83,8 @@ export function CreateCampaignDialog({ canCreate }: { canCreate: boolean }) {
         <DialogHeader>
           <DialogTitle>Tạo campaign mới</DialogTitle>
           <DialogDescription>
-            Campaign ở trạng thái nháp. Sau khi tạo, thêm sequence steps rồi mới bật
-            &ldquo;Đang chạy&rdquo;.
+            Chọn quốc gia mục tiêu trước khi tạo. Campaign được tạo ở trạng thái nháp
+            với sequence mặc định 4 email; AE duyệt từng email trước khi gửi.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -90,6 +100,22 @@ export function CreateCampaignDialog({ canCreate }: { canCreate: boolean }) {
           <div className="space-y-1.5">
             <Label htmlFor="campaign-desc">Mô tả</Label>
             <Textarea id="campaign-desc" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="campaign-target-country">Quốc gia mục tiêu *</Label>
+            <select
+              id="campaign-target-country"
+              required
+              value={targetCountry}
+              onChange={(e) => setTargetCountry(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Chọn quốc gia</option>
+              {COUNTRY_SUGGESTIONS.map((country) => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Chỉ buyer có trường “Quốc gia” trùng với lựa chọn này mới đủ điều kiện enroll.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

@@ -146,31 +146,14 @@ export const OOO_PAUSE_DAYS = 7
 /** NOT_NOW → PAUSE bao lâu rồi chuyển NURTURE. */
 export const NOT_NOW_PAUSE_DAYS = 30
 
-/** Độ dài email tối đa (từ) — QA fail MEDIUM nếu vượt. */
-export const MAX_EMAIL_WORDS = 200
-
-/** Signature chuẩn — địa chỉ thật theo CAN-SPAM, khớp lib/ai/requirement-email.ts.
- *  Domain: MỘT domain duy nhất veximtrade.com (quyết định 26/09/2026) — website
- *  trong signature, From/Reply-To và List-Unsubscribe đều dùng domain này. */
+/** Signature chuẩn — pháp nhân + địa chỉ bưu chính thật (CAN-SPAM).
+ *  Không thêm website/link vào cold-email body; domain vẫn xuất hiện trong
+ *  From/Reply-To và List-Unsubscribe headers khi phù hợp. */
 export const SIGNATURE_COMPANY = "VEXIM GLOBAL CO., LTD"
+/** User-approved display label when no verified AE job title is stored. */
+export const SIGNATURE_SENDER_TITLE = "Vexim Trade"
 export const SIGNATURE_ADDRESS =
   "25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam"
-export const SIGNATURE_WEBSITE = "veximtrade.com"
 
 /** Fallback owner khi enrollment không có owner_id: dùng người tạo campaign. */
 export const NOTIFICATION_DEDUP_PREFIX = "campaign"
-
-/**
- * Whitelist claim về Vexim — AI CHỈ được phát biểu các fact này (diễn lại
- * nhẹ, không phóng đại). Feedback 26/09/2026 trước pilot: chống bịa về bản
- * thân Vexim (superlatives, số liệu nhà máy, chứng nhận, độ sâu audit).
- * QA (email-qa.ts) bổ sung phần âm: superlative/số liệu/cert ngoài danh sách
- * → HIGH block.
- */
-export const APPROVED_VEXIM_CLAIMS = [
-  "Veximtrade works with Vietnamese manufacturers on U.S. regulatory compliance and sourcing",
-  "Veximtrade is not a marketplace and not a trading company, direct factory relationships",
-  "Factories are audited/verified before being introduced to a buyer",
-  "Vexim helps factories prepare FDA registration, HACCP and traceability documentation",
-  "Buyers can send a product spec and Vexim will check whether a factory matches it",
-]

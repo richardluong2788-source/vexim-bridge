@@ -1,24 +1,43 @@
-// Cold-outreach EmailAgent (spec §11, §12) cho campaign engine.
-//
-// Điểm khác với email-generator.ts hiện có (pipeline opportunity):
-//   - Input là BuyerContext chuẩn (context-builder) + objective của step.
-//   - Prompt chống bịa TUYỆT ĐỐI (spec §20): UNKNOWN không được điền.
-//   - KHÔNG lặp nội dung email trước (anti-repeat từ previous_emails).
-//   - Follow-up theo chiến lược §12: reinforce → reduce friction → close-loop.
-//
-// Shadow mode: output của hàm này KHÔNG BAO GIỜ tự gửi — caller (scheduler)
-// chỉ tạo email_drafts 'pending_approval'. Việc gửi chỉ qua AE duyệt
-// (lib/campaign/approve.ts → sendEmailDraft hiện có).
+// Campaign EmailAgent. BuyerContext and campaign guidance inform the copy;
+// the model chooses natural wording while deterministic code enforces only
+// deliverability, privacy, factuality, legal footer, and human approval.
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY, SIGNATURE_WEBSITE } from "./constants"
+import {
+  SIGNATURE_ADDRESS,
+  SIGNATURE_COMPANY,
+  SIGNATURE_SENDER_TITLE,
+} from "./constants"
 import type { BuyerContext } from "./types"
+
 const outputSchema = z.object({
-  subject_en: z.string().describe("Email subject, plain content only, like a person typing quickly: 3-7 words, sentence case, under 50 characters. Punctuation limited to at most a comma or period; never dashes, colons, semicolons, quotes or parentheses. No Re:/Fwd:, no ALL CAPS, no promo words (option, offer, deal, exclusive)."),
-  content_en: z.string().describe("Full email body in English, plain text: greeting + 2-3 uneven natural paragraphs (related sentences grouped, paragraphs may run a few lines, lengths need not match) + opt-out line where required + signature block. Not one idea per paragraph."),
+  subject_en: z.string().describe("A truthful, relevant email subject. Use natural wording; avoid deceptive Re/Fwd or promotional claims."),
+  content_en: z.string().describe("Natural English email copy guided by this step's writing reference and grounded in BuyerContext. Include the required opt-out line and end with the provided signature template."),
   content_vi: z.string().describe("Vietnamese translation of the email body for internal AE review."),
 })
+
+/**
+ * Narrative references distilled from the four user-provided emails.
+ * They teach the underlying reasoning and pacing; they are not templates,
+ * required paragraph counts, fixed copy, or QA rules.
+ */
+const STEP_WRITING_REFERENCES: Record<number, string> = {
+  1: `Email 1 — the buyer is doing too much filtering themselves.
+Narrative: start from the familiar experience of receiving many supplier approaches; reframe the difficulty as deciding which ones deserve the team's time, rather than simply finding names. Develop why that effort accumulates with a naturally paced explanation of the work around a new source (company/product details, specifications, export information, quotations, samples, and import requirements). Then pivot to Veximtrade's initial Vietnam-side sourcing work, connect it to a supported reason for knowing this buyer, and end with a low-pressure possibility of reducing that workload if Vietnam is relevant.
+Rhythm and depth: a conversational opening, a fuller explanatory middle, a brief transition into Vexim's role, then a personal, light close. Let paragraphs and sentence lengths vary naturally; don't reproduce the sample's wording or turn this into a fixed sequence.`,
+  2: `Email 2 — explain what Veximtrade actually does.
+Narrative: continue like a person following up, then clarify the service by contrasting hands-on sourcing groundwork with a directory that leaves all the filtering to the buyer. Walk through the work in plain language—finding relevant manufacturers, reviewing available information and fit, considering relevant requirements, and coordinating next conversations—then explain how this lets the buyer focus on a smaller set of worthwhile possibilities. Close with a practical, optional invitation to share a product need so its fit with Vietnam sourcing can be explored.
+Rhythm and depth: warm and brief at the start, followed by the clearest operational explanation in the sequence, then a useful, low-pressure close. Keep the flow conversational rather than making a checklist or copying the reference's phrases.`,
+  3: `Email 3 — sourcing effort is also a cost, beyond the supplier's quoted price.
+Narrative: let the reader feel the chain of work involved in starting with a new product—searching, exchanges, checking information, quotations, samples, and requirements—then reason from repeated effort to the time and cost it can add to product development. Transition to how Veximtrade may take on some of the initial Vietnam-side groundwork. Keep the buyer in control of supplier decisions and finish with a gentle, concrete opening to explore a product need.
+Rhythm and depth: the reference's reasoning builds from a compact cascade of tasks to a broader business implication, then returns to a concise explanation of Vexim's role and a human close. Preserve that explanatory arc, not its wording or exact sentence order.`,
+  4: `Email 4 — close without pressure and leave a useful door open.
+Narrative: acknowledge plainly that Vietnam sourcing may not be a current priority and reassure the buyer that follow-ups will stop. Briefly describe how Vexim could help if an additional source becomes relevant later, give the buyer an easy way to restart the conversation, and finish warmly.
+Rhythm and depth: more compact and personal than the earlier explanatory notes; move from a considerate close to a future option and a warm sign-off without sounding like a sales ultimatum. The reference is inspiration, not fixed wording or a mandatory closing formula.`,
+}
+
+const NURTURE_WRITING_REFERENCE = `For a nurture message, borrow the considerate, future-facing sensibility of Email 4 while making a relevant check-in only when supported by the conversation. Keep the reference's human, low-pressure feel; do not turn it into a close-loop or a fixed template.`
 
 export type GeneratedCampaignEmail = {
   subjectEn: string
@@ -27,114 +46,135 @@ export type GeneratedCampaignEmail = {
   model: string
 }
 
-const STEP_TYPE_GUIDANCE: Record<string, string> = {
-  initial_outreach: `EMAIL 1 — Introduction + relevance. DO NOT pitch any specific supplier yet (offering to send ONE option for review is fine; naming or pitching a factory is not).
-CONTENT ORDER: greeting by first name, then these ideas in this order (P1..P5), then the opt-out line.
-P1: I'm {sender_name} with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.
-P2: We're currently working with a small number of verified suppliers in Vietnam for U.S. {broad_category} buyers. We check product fit and U.S. import requirements before introducing a supplier.
-P3: I came across {buyer_company} while researching U.S. buyers in {category}.
-P4: If you're currently considering Vietnam as a source for {product_or_category}, I can send you a relevant supplier option for a quick look.
-P5: If purchasing isn't the right inbox on your side, I'd appreciate a quick forward, or just point me to the right contact.
-Opt-out: If this isn't relevant right now, just reply no and I won't follow up.
-Purpose: earn a reply, nothing more. Test signals: right buyer, right contact, real relevance.
-PARAGRAPHING (important): write like a real AE typing a one-to-one email, not a copywriter laying out blocks. Do NOT put every sentence on its own line and do NOT give each idea its own paragraph. Group related sentences into 2-3 uneven body paragraphs; a paragraph can be 2-4 sentences and run a few lines, and lengths should NOT be uniform. Perfect intro-to-company-to-offer symmetry looks AI-written. Sentences may run long, joined naturally with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy.`,
-  follow_up: `FOLLOW-UP — continue the conversation, never pressure.
-Step 2 goal (reinforce relevance): position Vexim as a low-effort way to add US-compliant Vietnamese manufacturers alongside existing sources — phrased CONDITIONALLY ("if adding a Vietnamese origin is on your radar"), never as a claim about the buyer's plans or the market.
-Step 3 goal (reduce friction): do NOT ask "Do you want suppliers?". Instead: "If you're currently reviewing any products or specifications, just send them over and I can check whether we have a suitable manufacturer."
-MUST be noticeably SHORTER than the previous email and MUST NOT repeat its content, subject, or opening line.`,
-  close_loop: `CLOSE-LOOP — final email of the sequence. Give the buyer an easy, dignified way to say no.
-Example spirit: "I don't want to keep landing in your inbox. If Vietnam sourcing isn't a priority right now, a simple 'no thanks' is completely fine and I'll close the file."
-It must actually CLOSE the loop: state clearly that this is the last email for now and that no reply is needed. Do NOT end with a question and do NOT force a choice ("which would you prefer?", "let me know either way") — that hands the buyer an admin task instead of closing politely. Leave the door open in one sentence, then stop.
-Keep it warm, 3-5 sentences total, no question mark.`,
-  nurture: `NURTURE — long-interval check-in. Same rules as close_loop minus the explicit ask to say no.`,
+function knownContextValue(value: string | null | undefined): string | null {
+  const normalized = value?.trim()
+  return normalized && normalized.toUpperCase() !== "UNKNOWN" ? normalized : null
 }
 
 function formatContextBlock(ctx: BuyerContext): string {
-  return JSON.stringify(ctx, null, 2)
+  const source = ctx.buyer.source_of_personalization
+  const safeSource = source && /\b(?:import|customs|shipment|trade)\s+(?:records?|data|database)\b/i.test(source)
+    ? "Industry-level research (keep the underlying data source private)"
+    : source
+  const safeContext = {
+    ...ctx,
+    buyer: { ...ctx.buyer, source_of_personalization: safeSource },
+    crm: { ...ctx.crm, step_objective: null },
+    // Drop stale fields supplied by older callers without exposing a length rule.
+    business_rules: Object.fromEntries(
+      Object.entries(ctx.business_rules).filter(([key]) => key !== "max_words"),
+    ),
+  }
+  return JSON.stringify(safeContext, null, 2)
 }
 
-/**
- * Signature chuẩn Gmail/CAN-SPAM: tên người thật (khớp From header — AE owner
- * qua buildPersonalizedSender) + công ty + ĐỊA CHỈ THẬT (bắt buộc CAN-SPAM).
- */
-function buildSignature(senderName?: string | null): string {
-  return [
-    "",
-    "Best regards,",
-    senderName?.trim() || "Veximtrade",
-    SIGNATURE_COMPANY,
-    SIGNATURE_ADDRESS,
-    SIGNATURE_WEBSITE,
-  ].join("\n")
+function writingReferenceFor(ctx: BuyerContext, stepType: string): string {
+  const stepNumber = ctx.crm.campaign_step
+  if (stepNumber >= 1 && stepNumber <= 4) {
+    return STEP_WRITING_REFERENCES[stepNumber]
+  }
+  if (stepType === "initial_outreach") return STEP_WRITING_REFERENCES[1]
+  if (stepType === "close_loop") return STEP_WRITING_REFERENCES[4]
+  if (stepType === "nurture") return NURTURE_WRITING_REFERENCE
+  return STEP_WRITING_REFERENCES[2]
 }
 
-/**
- * Sinh email cho một bước của enrollment. Ném Error khi AI fail — caller
- * (scheduler) đánh dấu firing 'failed' để retry.
- */
+export interface CampaignSignatureOptions {
+  mode?: "draft" | "send"
+  senderTitle?: string | null
+}
+
+function cleanSignatureValue(value?: string | null): string | null {
+  const cleaned = value?.replace(/[\r\n]+/g, " ").trim()
+  return cleaned && !/^\{\{sender_(?:name|title)\}\}$/i.test(cleaned) ? cleaned : null
+}
+
+function findSignatureStart(content: string): number {
+  const markers = [
+    ...[...content.matchAll(/(?:^|\n)[ \t]*(?:\{\{sender_name\}\}|best regards|kind regards|regards|sincerely|best|thanks),?[ \t]*(?=\n|$)/gim)]
+      .map((match) => match.index ?? -1),
+  ].filter((index) => index >= 0)
+  if (markers.length > 0) return Math.max(...markers)
+
+  const companyIndex = content.toLowerCase().lastIndexOf(SIGNATURE_COMPANY.toLowerCase())
+  if (companyIndex < 0) return content.length
+  const separator = content.lastIndexOf("\n\n", companyIndex)
+  return separator >= 0 ? separator + 2 : Math.max(0, content.lastIndexOf("\n", companyIndex - 1) + 1)
+}
+
+function signatureTitleFromContent(content: string): string | null {
+  const suffix = `, ${SIGNATURE_COMPANY}`.toLowerCase()
+  const titleLine = content
+    .split(/\r?\n/)
+    .reverse()
+    .find((line) => line.trim().toLowerCase().endsWith(suffix))
+  return cleanSignatureValue(titleLine?.trim().slice(0, -suffix.length))
+}
+
+/** Normalize the model/reviewer copy to the real sender's legal signature. */
+export function withCampaignSignature(
+  content: string,
+  senderName?: string | null,
+  options: CampaignSignatureOptions = {},
+): string {
+  const mode = options.mode ?? "send"
+  const signatureStart = findSignatureStart(content)
+  const body = content.slice(0, signatureStart)
+    .replace(/\n[ \t]*(?:https?:\/\/)?(?:www\.)?veximtrade\.com\/?[ \t]*$/i, "")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+$/, "")
+  const name = cleanSignatureValue(senderName) ?? "{{sender_name}}"
+  const title = cleanSignatureValue(options.senderTitle)
+    ?? (mode === "draft" ? null : signatureTitleFromContent(content))
+    ?? SIGNATURE_SENDER_TITLE
+  const prefix = body ? `${body}\n\n` : ""
+  return `${prefix}${name}\n${title}, ${SIGNATURE_COMPANY}\n${SIGNATURE_ADDRESS}`
+}
+
+/** Generate a draft only; the scheduler always routes it through AE approval. */
 export async function generateCampaignEmail(
   ctx: BuyerContext,
   stepType: string,
   stepGuidance: string | null,
   senderName?: string | null,
 ): Promise<GeneratedCampaignEmail> {
+  const knownCompany = knownContextValue(ctx.buyer.company_name)
+  const knownProduct = knownContextValue(ctx.import_data.main_products)
+  const knownIndustry = knownContextValue(ctx.buyer.industry)
+
+  // Keep this argument for existing scheduler/caller compatibility. Stored
+  // campaign guidance may contain obsolete copy rules; the supplied writing
+  // references, rather than that guidance, control narrative and pacing.
+  void stepGuidance
+
+  const campaignFacts = {
+    target_country: ctx.campaign.target_country,
+    product_category: ctx.campaign.product_category,
+  }
+  const selectedReference = writingReferenceFor(ctx, stepType)
+
   const system = [
-    "You are Veximtrade's B2B sales assistant writing cold outreach emails to US import buyers for Veximtrade, the Vietnam-based regulatory & sourcing platform run by VEXIM GLOBAL CO., LTD.",
-    "Veximtrade works with Vietnamese manufacturers on U.S. regulatory compliance and sourcing — not a marketplace, not a trading company.",
-    "",
-    "NORTH STAR: the email works because it is genuinely relevant — a real angle grounded in THIS buyer's context and the campaign's positioning — not because it tricks a spam filter. Never optimize for 'sounding human'; optimize for being worth a reply. Every sentence must be explainable by something in the context or an approved fact.",
-    "",
-    "ABSOLUTE PROHIBITIONS (spec §20) — you must NOT invent:",
-    "- product requirements, certifications, FDA status, prices, MOQs, supplier capabilities, buyer intentions, shipment data, relationships, or previous conversations",
-    "- If a context field is \"UNKNOWN\" it stays unknown: write around it or omit it entirely. NEVER fill in a plausible-sounding value.",
-    "- NEVER expose raw import data: no HS codes, no shipment counts, no supplier names from customs records, no exact peak months. Use soft category-level language only.",
-    "- NEVER assert a market/category trend (growing, increasing, expanding, rising, surging, booming, 'more and more', 'rapidly'). The context contains no verified trend data. Use neutral statements or conditional framing instead (\"if adding a Vietnamese origin is on your roadmap...\").",
-    "- The research section (buyer_analysis/buyer_strategy) is INTERNAL REASONING ONLY — use it to pick an angle, never to state facts in the email.",
-    "- Tailor the angle to THIS campaign: respect its target_segment, product_category and positioning (campaign block in context). Do not drift into a generic pitch.",
-    "",
-    "FACTS ABOUT VEXIM (whitelist — state ONLY these, lightly paraphrased, never embellished):",
-    ...APPROVED_VEXIM_CLAIMS.map((c) => `- ${c}`),
-    "- Nothing else about Vexim: no superlatives (leading, best, largest, premier...), no counts (X factories, X years, X buyers), no certifications beyond the services above (no ISO/BRC/SQF claims), no audit depth beyond 'audited before introduction'.",
-    "IDENTITY: in the body, call the company \"Veximtrade\" (matches the veximtrade.com sender domain). The legal entity \"VEXIM GLOBAL CO., LTD\" appears ONLY in the signature block. Never write \"Vexim\" or \"Vexim Global\" in the body.",
-    "",
-    "DELIVERABILITY RULES (spec §22):",
-    "- Plain text only. No links, no images, no attachments, no HTML, no emoji.",
-    "- No spam trigger words (free, guarantee, discount, act now, risk-free, congratulations).",
-    "- PUNCTUATION: no em dashes (—) or en dashes (–) anywhere in the email body. Use periods and commas. An em dash in prose is a strong AI-generated tell.",
-    "- AVOID AI-STYLE PHRASING: never write 'no hard feelings', 'I'd be delighted to', 'I'd love to', 'feel free to', 'I hope this email finds you well'. Plain, human, direct.",
-    "- NATURAL PARAGRAPHING: write like a real AE typing a one-to-one email. Do NOT put every sentence on its own line; group related sentences into 2-3 uneven paragraphs (a paragraph can be 2-4 sentences, a few lines long; lengths need not match). Perfect symmetric structure (intro, company, why you, offer, CTA) reads as AI copywriting. Sentences may flow long with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. A cold email only needs enough context to start the conversation.",
-    "- SUBJECT (deliverability-critical): plain content only, like a person typing quickly. 3-7 words naming the category or the buyer's world (e.g. 'Vietnam agriculture sourcing', 'Rice supply question'). Punctuation limited to at most a comma or period; NEVER em/en dashes, colons, semicolons, quotes, parentheses or question marks. No Title Case, no Re:/Fwd:, no promo words (option, offer, deal, exclusive, verified suppliers).",
-    "- IDENTITY: the From header is a real person (the account executive who owns this buyer). End the email EXACTLY with this signature block, verbatim:\n" +
-    "Best regards,\n" +
-    (senderName?.trim() || "Veximtrade") + "\n" +
-    SIGNATURE_COMPANY + "\n" +
-    SIGNATURE_ADDRESS + "\n" +
-    SIGNATURE_WEBSITE + "\n" +
-    "- Do NOT invent any other human name, title, phone number, or office address.",
-    `- Under ${ctx.business_rules.max_words} words excluding signature.`,
-    "",
-    "ANTI-REPEAT: the previous_emails array is everything this buyer already received. Your email must be recognizably different in opening line, angle, and subject.",
+    "You write one-to-one B2B emails as a thoughtful account executive.",
+    "The selected step writing reference is the creative guide: follow its narrative logic, reasoning, explanatory depth, and paragraph rhythm. Use it as a writing reference, not as a fixed structure, checklist, or wording to copy. Write fresh sentences in your own natural language.",
+    "Use BuyerContext only to choose or adjust factual substance and personalization (for example, a known buyer, product, market, or prior interaction). It must not change the reference's central narrative, reasoning, explanatory depth, or natural rhythm. Prior emails are context for continuity, not copy to reuse. Ignore stored step objectives or legacy copy guidance that could override the selected reference.",
+    "Use known facts accurately. Never invent buyer intentions, previous conversations, supplier actions/results, credentials, capacity, prices, or regulations. Treat UNKNOWN as unknown. Describe Veximtrade's service accurately and modestly.",
+    "Protect research privacy: never expose raw import/customs/shipment records, supplier names from records, or imply that a current supplier list was inspected. When useful, refer to broad industry-level research without naming the underlying data source.",
+    "Keep standard deliverability and legal safeguards: plain text; truthful, non-deceptive subject; no fake Re/Fwd, suspicious links/domains, or obvious promotional/urgency language. Ordinary conversational language is welcome.",
+    "Include this exact opt-out sentence immediately before the signature: If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.",
+    `End with this signature shape, using the real sender name supplied by the application or {{sender_name}} if unavailable:
+{{sender_name}}
+${SIGNATURE_SENDER_TITLE}, ${SIGNATURE_COMPANY}
+${SIGNATURE_ADDRESS}
+Never use the company name as the human sender name.`,
+    `Known context anchors (use only when relevant): company=${JSON.stringify(knownCompany ?? "UNKNOWN")}; product=${JSON.stringify(knownProduct ?? "UNKNOWN")}; industry=${JSON.stringify(knownIndustry ?? "UNKNOWN")}.`,
   ].join("\n")
 
-  const stepBlock = [
-    `STEP TYPE: ${stepType}`,
-    STEP_TYPE_GUIDANCE[stepType] ?? STEP_TYPE_GUIDANCE.follow_up,
-    stepGuidance ? `ADDITIONAL STEP GUIDANCE: ${stepGuidance}` : "",
-    ctx.crm.step_objective ? `STEP OBJECTIVE: ${ctx.crm.step_objective}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n")
-
   const prompt = [
-    "CAMPAIGN POSITIONING (this outreach belongs to a specific campaign — follow it):",
-    JSON.stringify(ctx.campaign, null, 2),
-    "",
-    "BUYER CONTEXT (backend-curated; treat unknowns as unknowns):",
-    formatContextBlock(ctx),
-    "",
-    stepBlock,
-    "",
-    "Write the email now. Return subject_en, content_en (end with the EXACT signature block from the system instructions), content_vi.",
+    `CAMPAIGN FACTS (context only): ${JSON.stringify(campaignFacts, null, 2)}`,
+    `BUYER CONTEXT (facts and personalization only): ${formatContextBlock(ctx)}`,
+    `CURRENT STEP: ${ctx.crm.campaign_step} (${stepType})`,
+    `STEP-SPECIFIC WRITING REFERENCE:\n${selectedReference}`,
+    "Write fresh English copy and its Vietnamese translation. Let the selected reference guide the narrative; use context only for factual substance and personalization. Return subject_en, content_en, and content_vi.",
   ].join("\n\n")
 
   const model = "openai/gpt-4o-mini"
@@ -147,11 +187,7 @@ export async function generateCampaignEmail(
   })
 
   if (!output) throw new Error("generateCampaignEmail: empty AI output")
-
-  // Đảm bảo signature tồn tại (model thi thoảng bỏ) — deterministic append.
-  const contentEn = output.content_en.includes(SIGNATURE_COMPANY)
-    ? output.content_en
-    : output.content_en + buildSignature(senderName)
+  const contentEn = withCampaignSignature(output.content_en, senderName, { mode: "draft" })
 
   return {
     subjectEn: output.subject_en.trim().slice(0, 120),

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Loader2, X, ImageIcon } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,65 @@ const DEFAULT_CATEGORIES = [
   { value: 'Other', label: 'Khác' },
 ]
 
+/**
+ * Fields describing ONE product. Cleared after every successful submission so
+ * the next product is typed from scratch.
+ *
+ * Getting this list wrong is not cosmetic. A supplier who submits product #2
+ * with product #1's HS code still gets a green success toast, and the wrong
+ * code then travels to US customs. Everything here must vary per product.
+ */
+const PRODUCT_FIELDS = [
+  'product_name', 'product_code', 'category', 'subcategory', 'description',
+  'hs_code', 'key_specifications', 'usp',
+  'monthly_capacity_units', 'min_unit_price', 'max_unit_price', 'price_unit',
+  'moq_value', 'moq_unit', 'lead_time',
+  'packing', 'package_size', 'shelf_life', 'storage_conditions',
+] as const
+
+/**
+ * Fields describing the SUPPLIER, not the product. Every product from this
+ * factory shares them, so they survive a submission - that is the point of
+ * keeping them, and none of them can contaminate a different product.
+ */
+const SUPPLIER_FIELDS = [
+  'country_of_origin', 'unit_of_measure', 'currency',
+  'incoterm', 'incoterm_place', 'payment_terms',
+] as const
+
+/** Labels for the "kept" note, so the copy follows SUPPLIER_FIELDS. */
+const SUPPLIER_FIELD_LABELS: Record<(typeof SUPPLIER_FIELDS)[number], string> = {
+  country_of_origin: 'xuất xứ',
+  unit_of_measure: 'đơn vị tính',
+  currency: 'tiền tệ',
+  incoterm: 'Incoterm',
+  incoterm_place: 'cảng giao hàng',
+  payment_terms: 'điều khoản thanh toán',
+}
+
+/** Receipt of everything sent during this visit, so nothing gets sent twice. */
+function SubmittedList({ items }: { items: { name: string; code: string; at: number }[] }) {
+  if (items.length === 0) return null
+  return (
+    <ol className="space-y-1.5">
+      {items.map((item, i) => (
+        <li key={`${item.at}-${i}`} className="flex items-start gap-2 text-sm">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium text-foreground">{item.name}</span>
+            {item.code && (
+              <span className="ml-2 text-xs text-muted-foreground">SKU: {item.code}</span>
+            )}
+            <span className="ml-2 text-xs text-muted-foreground">
+              {new Date(item.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 export function ProductIntakeForm({ token, clientId, companyName }: Props) {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -44,6 +103,12 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [showCustomCategory, setShowCustomCategory] = useState(false)
   const [customCategory, setCustomCategory] = useState('')
+  // Products submitted during this visit. Drives the "sản phẩm thứ N" counter
+  // and the receipt list, so a supplier can see what already went through
+  // instead of re-submitting the same item because they lost track.
+  const [submitted, setSubmitted] = useState<{ name: string; code: string; at: number }[]>([])
+  const [finished, setFinished] = useState(false)
+  const summaryRef = useRef<HTMLDivElement>(null)
   const [formData, setFormData] = useState({
     product_name: '',
     product_code: '',
@@ -186,24 +251,26 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
 
       const res = await submitProductIntakeAction(token, payload)
       if (res.success) {
-        toast.success('Đã gửi sản phẩm thành công! Bạn có thể tiếp tục thêm sản phẩm khác.')
-        setFormData((prev) => ({
+        toast.success(`Đã gửi "${payload.product_name}" thành công!`)
+        setSubmitted((prev) => [
           ...prev,
-          product_name: '',
-          product_code: '',
-          description: '',
-          min_unit_price: '',
-          max_unit_price: '',
-          key_specifications: '',
-          usp: '',
-          packing: '',
-          package_size: '',
-        }))
+          { name: payload.product_name, code: formData.product_code, at: Date.now() },
+        ])
+        // Clear the per-product fields only. Supplier-level fields (origin,
+        // currency, unit, incoterm, payment terms) deliberately survive.
+        setFormData((prev) => {
+          const next = { ...prev }
+          for (const field of PRODUCT_FIELDS) next[field] = ''
+          return next
+        })
         setFiles([])
         setImageUrls([])
         setPriceConfirmed(false)
         setCustomCategory('')
         setShowCustomCategory(false)
+        // The form is ~5 screens tall; without this the confirmation lands
+        // off-screen and the supplier thinks nothing happened.
+        summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       } else {
         toast.error(res.error || 'Gửi thất bại')
       }
@@ -216,11 +283,103 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
     }
   }
 
+  if (finished) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+          <h1 className="mt-4 text-xl font-semibold">Đã gửi {submitted.length} sản phẩm</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Cảm ơn bạn. AE của Vexim sẽ kiểm tra và kích hoạt từng sản phẩm trước khi đưa lên catalog.
+            Bạn có thể đóng trang này, hoặc thêm sản phẩm nữa nếu còn.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button type="button" variant="outline" onClick={() => setFinished(false)}>
+              Thêm sản phẩm nữa
+            </Button>
+            <Button type="button" onClick={() => window.print()}>
+              In hoặc lưu biên nhận
+            </Button>
+          </div>
+        </div>
+        <SubmittedList items={submitted} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
+      <div className="space-y-2" ref={summaryRef}>
+        {companyName.trim() && companyName !== 'Supplier' && (
+          <p className="text-sm text-muted-foreground">
+            Biểu mẫu dành cho <strong className="text-foreground">{companyName}</strong>
+          </p>
+        )}
         <h1 className="text-2xl font-semibold">Điền thông tin sản phẩm</h1>
+        <p className="text-sm text-muted-foreground">
+          Một link dùng được cho nhiều sản phẩm trong 30 ngày. Mỗi lần bấm &ldquo;Gửi sản phẩm&rdquo;
+          sẽ gửi đúng <strong>một</strong> sản phẩm.
+        </p>
       </div>
+
+      <div className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+        <div className="space-y-1 text-sm">
+          <p className="font-semibold text-emerald-950 dark:text-emerald-100">Cam kết bảo mật thông tin</p>
+          <p className="text-emerald-950/80 dark:text-emerald-100/80">
+            Thông tin bạn gửi không tự động được công khai. Veximtrade dùng thông tin để tiếp nhận và hỗ trợ hồ sơ sản phẩm;
+            nếu cần chia sẻ hồ sơ với buyer/đối tác, chúng tôi sẽ xin chấp thuận của bạn trước.
+          </p>
+          <a href="/legal/privacy" className="inline-block font-medium text-emerald-800 underline underline-offset-2 dark:text-emerald-300">
+            Xem Chính sách bảo mật
+          </a>
+        </div>
+      </div>
+
+      {submitted.length > 0 && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                  Đã gửi thành công {submitted.length} sản phẩm
+                </p>
+                <p className="text-xs text-emerald-800/90 dark:text-emerald-200/80">
+                  Những sản phẩm dưới đây đã được gửi và không cần gửi lại.
+                </p>
+              </div>
+              <SubmittedList items={submitted} />
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setFinished(true)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                >
+                  Tôi đã gửi xong
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {submitted.length > 0 && (
+        <p className="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm">
+          Bạn đang điền <strong>sản phẩm thứ {submitted.length + 1}</strong>. Các mục thuộc sản phẩm
+          đã được xóa sạch; những mục chung cho nhà cung cấp (
+          {SUPPLIER_FIELDS.map((f, i) => (
+            <span key={f}>
+              {i > 0 && ', '}
+              {SUPPLIER_FIELD_LABELS[f]}
+            </span>
+          ))}
+          ) được giữ lại để bạn khỏi nhập lại.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8 rounded-lg border bg-card p-6">
         {/* 1. Thông tin cơ bản */}

@@ -1296,7 +1296,7 @@ function BuyerInfoCard({
                   }
                 />
               </Field>
-              <Field label={locale === "vi" ? "Quốc gia" : "Country"}>
+              <Field label={locale === "vi" ? "Quốc gia công ty" : "Company country"}>
                 <Input
                   value={form.country}
                   onChange={(e) =>
@@ -1382,7 +1382,7 @@ function BuyerInfoCard({
                     contact_email: buyer.contact_email ?? "",
                     contact_phone: buyer.contact_phone ?? "",
                     country: buyer.country ?? "",
-                    industry: buyer.industry ?? "",
+                                    industry: buyer.industry ?? "",
                     website: buyer.website ?? "",
                     linkedin_url: buyer.linkedin_url ?? "",
                     notes: buyer.notes ?? "",

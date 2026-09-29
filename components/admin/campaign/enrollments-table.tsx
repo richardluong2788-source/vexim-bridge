@@ -118,6 +118,11 @@ export function CampaignEnrollmentsTable({
                           <UserCheck className="mr-1 h-3 w-3" /> Review
                         </Badge>
                       )}
+                      {e.needs_human_review && e.human_review_reason && (
+                        <div className="mt-1 max-w-xs text-[11px] text-amber-700">
+                          {e.human_review_reason}
+                        </div>
+                      )}
                       {e.stopped_reason && (
                         <div className="mt-0.5 text-[11px] text-muted-foreground">{e.stopped_reason}</div>
                       )}

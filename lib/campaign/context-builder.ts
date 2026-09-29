@@ -6,7 +6,6 @@
 
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MAX_EMAIL_WORDS } from "./constants"
 import { loadInboundReplies, loadOutboundEmails } from "./interactions"
 import type { BuyerContext, CampaignEnrollmentRow, CampaignStepRow } from "./types"
 
@@ -19,6 +18,9 @@ interface LeadFields {
   country: string | null
   industry: string | null
   website: string | null
+  source: string | null
+  source_ref: string | null
+  product_keywords: string[] | null
   hs_code: string | null
   hs_codes: string[] | null
   purchase_history: string | null
@@ -33,6 +35,19 @@ interface LeadFields {
 function unknownIfEmpty(value: string | null | undefined): string | "UNKNOWN" {
   const v = value?.trim()
   return v ? v : "UNKNOWN"
+}
+
+function personalizationSource(lead: LeadFields): string | "UNKNOWN" {
+  if (lead.source?.toLowerCase() !== "importyeti" || !lead.source_ref?.trim()) return "UNKNOWN"
+  try {
+    const url = new URL(lead.source_ref)
+    if (url.protocol === "https:" && /(^|\.)importyeti\.com$/i.test(url.hostname)) {
+      return "ImportYeti public customs/import records"
+    }
+  } catch {
+    // Missing/malformed source reference is not evidence of provenance.
+  }
+  return "UNKNOWN"
 }
 
 /** VN supplier detection từ top_suppliers JSONB (ImportYeti) — FACT only. */
@@ -59,14 +74,12 @@ export async function buildBuyerContext(
 ): Promise<BuyerContext> {
   const admin = createAdminClient()
 
-  const { data: lead, error } = await admin
-    .from("leads")
-    .select(
-      `id, company_name, contact_person, contact_email, contact_title, country, industry,
-       website, hs_code, hs_codes, purchase_history, top_suppliers,
-       customs_shipment_count, peak_months, buyer_analysis, buyer_strategy,
-       buyer_analysis_at`,
-    )
+  const leadColumns = `id, company_name, contact_person, contact_email, contact_title, country, industry,
+       website, source, source_ref, product_keywords, hs_code, hs_codes,
+       purchase_history, top_suppliers, customs_shipment_count, peak_months,
+       buyer_analysis, buyer_strategy, buyer_analysis_at`
+  const { data: lead, error } = await (admin.from("leads") as any)
+    .select(leadColumns)
     .eq("id", enrollment.lead_id)
     .single()
 
@@ -80,13 +93,13 @@ export async function buildBuyerContext(
     loadOutboundEmails(enrollment.id),
     loadInboundReplies(enrollment.id),
     (admin.from("campaigns") as any)
-      .select("name, description, target_segment, product_category")
+      .select("name, description, target_segment, target_country, product_category")
       .eq("id", enrollment.campaign_id)
       .single(),
   ])
   const campaign = (campaignRes.data ?? {}) as {
     name?: string; description?: string | null
-    target_segment?: string | null; product_category?: string | null
+    target_segment?: string | null; target_country?: string | null; product_category?: string | null
   }
 
   const hsCodes = Array.isArray(l.hs_codes) && l.hs_codes.length > 0
@@ -109,10 +122,13 @@ export async function buildBuyerContext(
       contact_name: l.contact_person,
       contact_email: l.contact_email,
       contact_title: l.contact_title,
+      source_of_personalization: personalizationSource(l),
     },
     import_data: {
       hs_codes: hsCodes === "UNKNOWN" ? ("UNKNOWN" as const) : hsCodes,
-      main_products: unknownIfEmpty(l.industry),
+      main_products: Array.isArray(l.product_keywords) && l.product_keywords.length > 0
+        ? l.product_keywords.map((x) => x.trim()).filter(Boolean).join(", ") || unknownIfEmpty(l.industry)
+        : unknownIfEmpty(l.industry),
       purchase_history: unknownIfEmpty(l.purchase_history),
       vietnam_supplier_exists: detectVietnamSupplier(l.top_suppliers),
       shipment_count: typeof l.customs_shipment_count === "number" ? l.customs_shipment_count : "UNKNOWN",
@@ -122,6 +138,7 @@ export async function buildBuyerContext(
       name: campaign.name ?? "unknown",
       description: campaign.description ?? null,
       target_segment: campaign.target_segment ?? null,
+      target_country: campaign.target_country ?? null,
       product_category: campaign.product_category ?? null,
     },
     research: {
@@ -151,10 +168,9 @@ export async function buildBuyerContext(
       })),
     },
     business_rules: {
-      max_words: MAX_EMAIL_WORDS,
       no_links: true,
       no_attachments: true,
-      opt_out_line_required: step.step_number >= 2,
+      opt_out_line_required: true,
     },
   }
 }

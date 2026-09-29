@@ -16,15 +16,19 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { sendEmailDraft } from "@/lib/ai/email-sender"
 import { getCampaignSteps, getEnrollment, applyTransition } from "./enrollments"
-import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent } from "./state-machine"
+import { buildBuyerContext } from "./context-builder"
+import { getCampaignCountryMismatch } from "./country-validation"
+import { onDraftRejected, onFirstEmailSent, onFollowupEmailSent, onManualStop } from "./state-machine"
 import { appendInteraction } from "./interactions"
 import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
 import { isAutoSendEnabled } from "./constants"
+import { withCampaignSignature } from "./email-generator"
+import { runEmailQA } from "./email-qa"
 import { siteConfig } from "@/lib/site-config"
 
 export type ApproveResult =
   | { ok: true; state: "sent" }
-  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "qa_blocked" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
+  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "not_eligible" | "qa_blocked" | "signature_incomplete" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
 
 async function assertStaff(): Promise<{ ok: true; userId: string; role: string } | { ok: false; error: "unauthorized" | "forbidden" }> {
   const current = await getCurrentRole()
@@ -68,6 +72,33 @@ export async function approveAndSendCampaignDraft(
   const sentStep = steps.find((s) => s.step_number === sentStepNumber)
   const nextStep = steps.find((s) => s.step_number === sentStepNumber + 1)
 
+  if (!sentStep) {
+    return { ok: false, error: "serverError", message: "Không xác minh được campaign step; email chưa được gửi." }
+  }
+
+  // Recheck eligibility at the last boundary. A buyer whose LR country no
+  // longer matches the campaign is stopped, not placed in a country-review lane.
+  let approvalContext: Awaited<ReturnType<typeof buildBuyerContext>>
+  try {
+    approvalContext = await buildBuyerContext(enrollment, sentStep)
+    const mismatch = getCampaignCountryMismatch(approvalContext)
+    if (mismatch) {
+      const { data: blockedDraft, error: blockError } = await (supabase.from("email_drafts") as any)
+        .update({ status: "draft", error_message: `not_eligible_country: ${mismatch}` })
+        .eq("id", draftId)
+        .eq("status", "pending_approval")
+        .select("id")
+        .maybeSingle()
+      if (blockError) return { ok: false, error: "serverError", message: blockError.message }
+      if (!blockedDraft) return { ok: false, error: "not_pending" }
+      await applyTransition(enrollment, onManualStop(enrollment.state, `campaign_country_mismatch:${mismatch}`))
+      return { ok: false, error: "not_eligible", message: mismatch }
+    }
+  } catch (err) {
+    console.error("[campaign] country eligibility check failed before approval:", err)
+    return { ok: false, error: "serverError", message: "Không xác minh được quốc gia buyer; email chưa được gửi." }
+  }
+
   // ── SENDING WINDOW (backend policy — AI không quyết định giờ gửi) ──
   // CAMPAIGN_AUTO_SEND=true → chặn CỨNG nếu ngoài window hoặc timezone không
   // đủ tin cậy. Shadow mode → không chặn (AE là người quyết) nhưng ghi flag
@@ -99,12 +130,61 @@ export async function approveAndSendCampaignDraft(
     extraHeaders["List-Unsubscribe"] = `<https://${siteConfig.domain}/unsubscribe/${leadUnsub.unsubscribe_token}>`
   }
 
+  // The From header is built from the authenticated approver's profile in
+  // sendEmailDraft. Match the visible signature to that same real sender.
+  const { data: sendingProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", auth.userId)
+    .maybeSingle()
+  const senderProfile = sendingProfile as { full_name?: string | null } | null
+  const senderName = senderProfile?.full_name?.trim() || null
+  const contentToSend = withCampaignSignature(
+    edit?.content?.trim() || d.generated_content_en || "",
+    senderName,
+  )
+  if (/\{\{sender_(?:name|title)\}\}/i.test(contentToSend)) {
+    return {
+      ok: false,
+      error: "signature_incomplete",
+      message: "Fill in the real sender name in the signature before sending."
+    }
+  }
+
+  // Re-run deterministic QA on the exact edited, send-ready copy. This prevents
+  // stale drafts or AE edits from bypassing mandatory MEDIUM Email 1 blockers.
+  const approvalQa = runEmailQA({
+    email: {
+      subjectEn: edit?.subject?.trim() || d.generated_subject || "",
+      contentEn: contentToSend,
+    },
+    recipient: d.recipient_email ?? approvalContext.buyer.contact_email,
+    ctx: approvalContext,
+    optOutRequired: true,
+    stepType: sentStep.step_type,
+  })
+  if (!approvalQa.passed) {
+    const issues = approvalQa.issues
+      .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
+      .map((issue) => `${issue.severity}:${issue.check}`)
+    const { error } = await (supabase.from("email_drafts") as any)
+      .update({ status: "draft", error_message: `QA blocked: ${issues.join(", ")}` })
+      .eq("id", draftId)
+      .eq("status", "pending_approval")
+    if (error) return { ok: false, error: "serverError", message: error.message }
+    return {
+      ok: false,
+      error: "qa_blocked",
+      message: approvalQa.issues.map((issue) => issue.message).join(" "),
+    }
+  }
+
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).
   let sendResult
   try {
     sendResult = await sendEmailDraft(draftId, {
       overrideSubject: edit?.subject,
-      overrideContent: edit?.content,
+      overrideContent: contentToSend,
       extraHeaders,
       // recipient đã set lúc tạo draft; không override.
     })
@@ -117,11 +197,11 @@ export async function approveAndSendCampaignDraft(
 
   const sentAt = new Date()
   const finalSubject = edit?.subject?.trim() || d.generated_subject || ""
-  const finalContent = edit?.content?.trim() || d.generated_content_en || ""
-  // Human-edit-rate metric (yêu cầu 25/09/2026): so bản gửi với bản AI gốc.
+  const finalContent = contentToSend
+  // Human-edit-rate counts only explicit AE edits, not deterministic signature sync.
   const wasEdited =
-    (edit?.subject?.trim() ?? "") !== (d.generated_subject ?? "").trim() ||
-    (edit?.content?.trim() ?? "") !== (d.generated_content_en ?? "").trim()
+    (!!edit?.subject?.trim() && edit.subject.trim() !== (d.generated_subject ?? "").trim()) ||
+    (!!edit?.content?.trim() && edit.content.trim() !== (d.generated_content_en ?? "").trim())
 
   // Firing → sent.
   await (supabase.from("campaign_step_firings") as any)
@@ -136,8 +216,9 @@ export async function approveAndSendCampaignDraft(
     : onFollowupEmailSent(
         enrollment.state,
         sentStepNumber,
-        nextStep ? nextStep.delay_days : null,
+        nextStep ? (nextStep.delay_business_days ?? nextStep.delay_days) : null,
         sentAt,
+        nextStep?.delay_business_days != null,
       )
   if (transition.to !== null) {
     await applyTransition(enrollment, transition, { performedBy: auth.userId })

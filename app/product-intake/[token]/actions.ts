@@ -85,30 +85,17 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     price_attestation_text:
       "Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.",
     created_by: link.client_id,
+    // Lets the admin UI show "N sản phẩm" per link instead of a vague
+    // "đã dùng" flag. Migration 089; stripped below if not applied yet.
+    product_intake_link_id: link.id,
   }
 
-  const { error: insertErr } = await admin.from("client_products").insert([basePayload])
-
-  if (insertErr) {
-    // Fallback for missing columns (if migration 088 not yet applied)
-    const missingCol = insertErr.message.includes("column") || insertErr.message.includes("does not exist") || insertErr.message.includes("price_confirmed") || insertErr.message.includes("image_urls")
-    if (missingCol) {
-      const fallback: any = { ...basePayload }
-      // strip new columns one by one if needed
-      const tryCols = ["price_confirmed","price_attested_at","price_attestation_text","packing","package_size","shelf_life","storage_conditions","usp","payment_terms","incoterm_place","monthly_capacity_units","price_unit","subcategory"]
-      for (const col of tryCols) {
-        if (insertErr.message.includes(col)) delete fallback[col]
-      }
-      const { error: retryErr } = await admin.from("client_products").insert([fallback])
-      if (retryErr) {
-        console.error("[v0] product intake retry failed:", retryErr.message)
-        return { success: false, error: retryErr.message }
-      }
-    } else {
-      console.error("[v0] product intake insert failed:", insertErr.message)
-      return { success: false, error: insertErr.message }
-    }
-  }
+  // Returns the new row's id, or an error the supplier can act on.
+  // `.select("id")` is required so the notification dedup key can name this
+  // exact row; a timestamp would make every key unique and defeat dedup.
+  const result = await insertProduct(admin, basePayload, data.product_code)
+  if (result.error) return { success: false, error: result.error }
+  const productId = result.id
 
   await admin.from("product_intake_links").update({ used_at: new Date().toISOString() }).eq("id", link.id)
 
@@ -121,9 +108,78 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
   } catch {}
 
   // Best-effort notify AE/SR via system + email to registration email
-  notifyAeAndSrOfProductIntake(token, data.product_name).catch((err) => {
+  notifyAeAndSrOfProductIntake(token, data.product_name, productId).catch((err) => {
     console.error("[product intake] notify failed", err)
   })
 
-  return { success: true }
+  return { success: true, productId }
+}
+
+/**
+ * Insert one product, returning its id.
+ *
+ * `client_products` carries UNIQUE(client_id, product_code) - one SKU per
+ * client. Submitting several products is the whole point of this form, so a
+ * supplier reusing a code is an expected path, not an edge case. Supabase
+ * hands back the raw Postgres text ("duplicate key value violates unique
+ * constraint ..."), which must never reach a supplier-facing toast, so it is
+ * translated here.
+ */
+async function insertProduct(
+  admin: ReturnType<typeof createAdminClient>,
+  payload: any,
+  productCode?: string,
+): Promise<{ id?: string; error?: string }> {
+  const { data, error } = await admin
+    .from("client_products")
+    .insert([payload])
+    .select("id")
+    .single()
+
+  if (!error) return { id: (data as { id: string }).id }
+
+  // 23505 = unique_violation.
+  if (error.code === "23505" || /duplicate key|already exists/i.test(error.message)) {
+    console.warn("[product intake] duplicate SKU rejected:", productCode, "-", error.message)
+    return {
+      error: productCode
+        ? `Mã SKU "${productCode}" đã được dùng cho một sản phẩm khác của công ty. Vui lòng để trống hoặc dùng mã khác.`
+        : "Sản phẩm này đã tồn tại trong danh mục. Vui lòng kiểm tra lại thông tin.",
+    }
+  }
+
+  // Fallback for missing columns (if migration 088/089 not yet applied).
+  const missingCol =
+    error.message.includes("column") ||
+    error.message.includes("does not exist") ||
+    error.message.includes("product_intake_link_id")
+  if (missingCol) {
+    const fallback: any = { ...payload }
+    const tryCols = [
+      "product_intake_link_id",
+      "price_confirmed",
+      "price_attested_at",
+      "price_attestation_text",
+      "packing",
+      "package_size",
+      "shelf_life",
+      "storage_conditions",
+      "usp",
+      "payment_terms",
+      "incoterm_place",
+      "monthly_capacity_units",
+      "price_unit",
+      "subcategory",
+    ]
+    for (const col of tryCols) {
+      if (error.message.includes(col)) delete fallback[col]
+    }
+    const retry = await admin.from("client_products").insert([fallback]).select("id").single()
+    if (!retry.error) return { id: (retry.data as { id: string }).id }
+    console.error("[v0] product intake retry failed:", retry.error.message)
+    return { error: "Gửi thất bại. Vui lòng thử lại." }
+  }
+
+  console.error("[v0] product intake insert failed:", error.message)
+  return { error: "Gửi thất bại. Vui lòng thử lại." }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Loader2, X, ImageIcon, CheckCircle2 } from 'lucide-react'
+import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -310,11 +310,31 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
   return (
     <div className="space-y-6">
       <div className="space-y-2" ref={summaryRef}>
+        {companyName.trim() && companyName !== 'Supplier' && (
+          <p className="text-sm text-muted-foreground">
+            Biểu mẫu dành cho <strong className="text-foreground">{companyName}</strong>
+          </p>
+        )}
         <h1 className="text-2xl font-semibold">Điền thông tin sản phẩm</h1>
         <p className="text-sm text-muted-foreground">
           Một link dùng được cho nhiều sản phẩm trong 30 ngày. Mỗi lần bấm &ldquo;Gửi sản phẩm&rdquo;
           sẽ gửi đúng <strong>một</strong> sản phẩm.
         </p>
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+        <div className="space-y-1 text-sm">
+          <p className="font-semibold text-emerald-950 dark:text-emerald-100">Cam kết bảo mật thông tin</p>
+          <p className="text-emerald-950/80 dark:text-emerald-100/80">
+            Thông tin bạn gửi không tự động được công khai. Veximtrade dùng thông tin để tiếp nhận và hỗ trợ hồ sơ sản phẩm;
+            nếu cần chia sẻ hồ sơ với buyer/đối tác, chúng tôi sẽ xin chấp thuận của bạn trước. Một số dữ liệu có thể được xử lý
+            bởi nhà cung cấp hạ tầng cần thiết để vận hành dịch vụ.
+          </p>
+          <a href="/legal/privacy" className="inline-block font-medium text-emerald-800 underline underline-offset-2 dark:text-emerald-300">
+            Xem Chính sách bảo mật
+          </a>
+        </div>
       </div>
 
       {submitted.length > 0 && (

@@ -213,8 +213,8 @@ async function queueDraftForEnrollment(
       stepType: step.step_type,
     })
 
-    if (qa.risk_level === "HIGH") {
-      // QA HIGH → không tạo draft gửi được. Vẫn tạo draft để AE xem lỗi
+    if (!qa.passed) {
+      // Any blocking QA issue (including mandatory MEDIUM issues) keeps this out of the approval/send path. Vẫn tạo draft để AE xem lỗi
       // (status 'draft', KHÔNG 'pending_approval') + ghi issue.
       const { data: blockedDraft, error: dErr } = await (admin.from("email_drafts") as any)
         .insert({
@@ -259,11 +259,11 @@ async function queueDraftForEnrollment(
         },
         {
           actionType: "campaign_email_qa_blocked",
-          description: `[Campaign] QA HIGH chặn draft step ${step.step_number} cho lead ${enrollment.lead_id}: ${qa.issues.map((i) => i.message).join(" | ")}`,
+          description: `[Campaign] QA chặn draft step ${step.step_number} cho lead ${enrollment.lead_id}: ${qa.issues.map((i) => i.message).join(" | ")}`,
         },
       )
 
-      await resolveFiring(enrollment.id, step.step_number, "failed", { error: "qa_high_risk" })
+      await resolveFiring(enrollment.id, step.step_number, "failed", { error: "qa_blocked" })
       await applyTransition(enrollment, onDraftGenerationFailed(enrollment.state))
       if (ownerId) {
         await dispatchNotification({
@@ -274,13 +274,13 @@ async function queueDraftForEnrollment(
           dedupKey: `campaign_qa_blocked:${enrollment.id}:${step.step_number}`,
           title: { vi: "Campaign: draft bị QA chặn", en: "Campaign: draft blocked by QA" },
           body: {
-            vi: `Draft step ${step.step_number} rủi ro HIGH — cần AE viết tay hoặc bỏ qua. Lý do: ${qa.issues.map((i) => i.message).join("; ")}`,
-            en: `Step ${step.step_number} draft is HIGH risk — write manually or skip. Issues: ${qa.issues.map((i) => i.message).join("; ")}`,
+            vi: `Draft step ${step.step_number} bị QA chặn — cần AE chỉnh sửa hoặc bỏ qua. Lý do: ${qa.issues.map((i) => i.message).join("; ")}`,
+            en: `Step ${step.step_number} draft is blocked by QA — edit it or skip. Issues: ${qa.issues.map((i) => i.message).join("; ")}`,
           },
           ctaLabel: { vi: "Mở campaign", en: "Open campaign" },
         })
       }
-      return { ok: false, error: "qa_high_risk" }
+      return { ok: false, error: "qa_blocked" }
     }
 
     // QA pass (LOW/MEDIUM) → draft chờ duyệt.

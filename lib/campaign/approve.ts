@@ -23,11 +23,12 @@ import { appendInteraction } from "./interactions"
 import { resolveEnrollmentTimezone, checkSendingWindow, checkAutoSendWindow } from "./sending-window"
 import { isAutoSendEnabled } from "./constants"
 import { withCampaignSignature } from "./email-generator"
+import { runEmailQA } from "./email-qa"
 import { siteConfig } from "@/lib/site-config"
 
 export type ApproveResult =
   | { ok: true; state: "sent" }
-  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "not_eligible" | "qa_blocked" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
+  | { ok: false; error: "unauthorized" | "forbidden" | "not_found" | "not_pending" | "not_eligible" | "qa_blocked" | "signature_incomplete" | "send_failed" | "outside_sending_window" | "serverError"; message?: string }
 
 async function assertStaff(): Promise<{ ok: true; userId: string; role: string } | { ok: false; error: "unauthorized" | "forbidden" }> {
   const current = await getCurrentRole()
@@ -77,9 +78,10 @@ export async function approveAndSendCampaignDraft(
 
   // Recheck eligibility at the last boundary. A buyer whose LR country no
   // longer matches the campaign is stopped, not placed in a country-review lane.
+  let approvalContext: Awaited<ReturnType<typeof buildBuyerContext>>
   try {
-    const context = await buildBuyerContext(enrollment, sentStep)
-    const mismatch = getCampaignCountryMismatch(context)
+    approvalContext = await buildBuyerContext(enrollment, sentStep)
+    const mismatch = getCampaignCountryMismatch(approvalContext)
     if (mismatch) {
       const { data: blockedDraft, error: blockError } = await (supabase.from("email_drafts") as any)
         .update({ status: "draft", error_message: `not_eligible_country: ${mismatch}` })
@@ -141,6 +143,41 @@ export async function approveAndSendCampaignDraft(
     edit?.content?.trim() || d.generated_content_en || "",
     senderName,
   )
+  if (/\{\{sender_(?:name|title)\}\}/i.test(contentToSend)) {
+    return {
+      ok: false,
+      error: "signature_incomplete",
+      message: "Fill in the real sender name and title in the signature before sending.",
+    }
+  }
+
+  // Re-run deterministic QA on the exact edited, send-ready copy. This prevents
+  // stale drafts or AE edits from bypassing mandatory MEDIUM Email 1 blockers.
+  const approvalQa = runEmailQA({
+    email: {
+      subjectEn: edit?.subject?.trim() || d.generated_subject || "",
+      contentEn: contentToSend,
+    },
+    recipient: d.recipient_email ?? approvalContext.buyer.contact_email,
+    ctx: approvalContext,
+    optOutRequired: true,
+    stepType: sentStep.step_type,
+  })
+  if (!approvalQa.passed) {
+    const issues = approvalQa.issues
+      .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
+      .map((issue) => `${issue.severity}:${issue.check}`)
+    const { error } = await (supabase.from("email_drafts") as any)
+      .update({ status: "draft", error_message: `QA blocked: ${issues.join(", ")}` })
+      .eq("id", draftId)
+      .eq("status", "pending_approval")
+    if (error) return { ok: false, error: "serverError", message: error.message }
+    return {
+      ok: false,
+      error: "qa_blocked",
+      message: approvalQa.issues.map((issue) => issue.message).join(" "),
+    }
+  }
 
   // Gửi qua đường ống hiện có (đã chặn suppression + tracking).
   let sendResult

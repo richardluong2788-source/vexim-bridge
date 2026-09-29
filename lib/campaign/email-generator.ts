@@ -12,11 +12,17 @@
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { APPROVED_VEXIM_CLAIMS, SIGNATURE_ADDRESS, SIGNATURE_COMPANY } from "./constants"
+import {
+  APPROVED_VEXIM_CLAIMS,
+  CAMPAIGN_BANNED_OPENERS,
+  CAMPAIGN_BANNED_PHRASES,
+  SIGNATURE_ADDRESS,
+  SIGNATURE_COMPANY,
+} from "./constants"
 import type { BuyerContext } from "./types"
 const outputSchema = z.object({
   subject_en: z.string().describe("Email subject in plain sentence case, 3-9 words and under 60 characters. A simple question mark is allowed when natural. Avoid dashes, colons, semicolons, quotes, parentheses, ALL CAPS, Re:/Fwd:, and promo words (option, offer, deal, exclusive)."),
-  content_en: z.string().describe("Full email body in English, plain text: greeting + 2-3 uneven conversational paragraphs + exact opt-out line + sender signature. Email 1's prose is 120-160 words, excluding the opt-out and signature."),
+  content_en: z.string().describe("Full email body in English, plain text: greeting + 2-3 uneven conversational paragraphs + exact opt-out line + signature template. The signature must end with {{sender_name}} then {{sender_title}}, VEXIM GLOBAL CO., LTD then the exact Hanoi postal address. Email 1's prose is 120-160 words, excluding the opt-out and signature."),
   content_vi: z.string().describe("Vietnamese translation of the email body for internal AE review."),
 })
 
@@ -28,11 +34,9 @@ export type GeneratedCampaignEmail = {
 }
 
 const STEP_TYPE_GUIDANCE: Record<string, string> = {
-  initial_outreach: `EMAIL 1 — BODY: 120-160 prose words, excluding signature and required opt-out. Write like a thoughtful AE explaining a real work problem, not polished ad copy. Open with a hedged, conversational observation such as: "If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time." Explain naturally that each new source can involve reviewing company and product information, specifications, available export information, pricing, samples and relevant import requirements; much of the effort can be in screening rather than searching. Then say how Veximtrade handles the initial Vietnam-side groundwork before introductions. Describe capacity/export-history work only as reviewing available evidence, never as a guarantee or a specific verified result. Make clear the buyer decides. End with EXACTLY ONE low-pressure question about the buyer's current sourcing or additional-supply situation. No call, meeting, chat, referral, or forward request.
-PERSONALIZATION: Use contact/company/product/category only when present in Buyer Context. The personalization source is ctx.buyer.source_of_personalization. Use an "I came across [company] while..." line only when that field names a real source; otherwise use a neutral, supported statement. If product is UNKNOWN, use category. Never invent a product, title, name, buyer need, or source. Never say the buyer/team is in Vietnam.
-COUNTRY: use the selected campaign target_country and buyer country already validated by backend. Refer generically to relevant import requirements; no unconfirmed U.S./FDA-specific claims. Vietnam is an additional source, never a replacement. Include the exact required opt-out line.`,
+  initial_outreach: `EMAIL 1 — BODY: 120-160 prose words, excluding signature and required opt-out. Write like a thoughtful AE explaining a real work problem, not polished ad copy. Open with a hedged, conversational observation such as: "If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time." Explain naturally that each new source can involve reviewing company and product information, specifications, available export information, pricing, samples and relevant import requirements; much of the effort can be in screening rather than searching. Then say how Veximtrade handles the initial Vietnam-side groundwork before introductions. Describe capacity/export-history work only as reviewing available evidence, never as a guarantee or a specific verified result. Make clear the buyer decides. End with EXACTLY ONE low-pressure question. It must ask only whether the buyer is currently looking for additional sourcing/supply for the exact product named in BuyerContext. Never combine two questions with "and", "or", or similar, and do not ask anything else. No call, meeting, chat, referral, or forward request.\nPERSONALIZATION: If BuyerContext has known company and product values, the body MUST reference both by name. Never replace a known product with a generic category phrase. If source_of_personalization is populated, open with "I came across [company] while..." and continue only with wording supported by that source. If no source exists, use the neutral fallback "I understand [company] works with [product]." If product is UNKNOWN, do not invent one; use a supported category only where appropriate. Never invent a title, name, buyer need, or source. Never say the buyer/team is in Vietnam.\nCOUNTRY: use the selected campaign target_country and buyer country already validated by backend. Refer generically to relevant import requirements; no unconfirmed U.S./FDA-specific claims. Vietnam is an additional source, never a replacement. Include the exact required opt-out line.`,
   follow_up: `FOLLOW-UP — use a conversational transition that fits the actual prior email, for example "Just wanted to clarify my last email a little" or "Hope you're having a good day" (optional, brief, and do not repeat as a template). Use a NEW angle; do not repeat the previous subject, opening, or main point. Email 2: explain in plain language that Veximtrade is not a directory buyers must filter themselves. Describe Vietnam-side groundwork: identify relevant manufacturers, review available evidence about capacity/export history, consider product fit and relevant importing-country requirements, and coordinate communication toward samples or quotations. Never promise a supplier or outcome. A natural invitation such as "If you currently have a specific product in mind, feel free to send the details and I'll take a look" is allowed when low-pressure; do not ask for a call or meeting unless explicitly required. Email 3: explain conversationally that when each new product starts from the beginning, that repeated work can become a significant burden in product development and add sourcing cost or delay a launch; keep it conditional, and the buyer retains the final decision. Include the exact opt-out line.
-PERSONALIZATION: only use real Buyer Context values. "I came across..." requires a populated source_of_personalization. No placeholders, UNKNOWN, raw customs details, invented facts, or claims that the buyer/team is in Vietnam. Keep the wording plain and specific, not generic marketing copy.`,
+PERSONALIZATION: only use real Buyer Context values. "I came across..." requires a populated source_of_personalization. No placeholders or UNKNOWN values in the prose (the required sender-name/title signature tokens are the only exception), raw customs details, invented facts, or claims that the buyer/team is in Vietnam. Keep the wording plain and specific, not generic marketing copy.`,
   close_loop: `EMAIL 4 — No pressure; sound considerate and direct, as in "I won't keep following up if Vietnam sourcing isn't in your plans right now." Say this is the last note for now, leave the door open if Vietnam becomes a relevant additional source later, and make clear no reply is needed. A brief warm closing is okay; avoid exaggerated generic praise. Do not force a choice, ask a question, request a meeting, or suggest replacing current suppliers. Use only facts and personalization sources present in Buyer Context. Include the exact required opt-out line.`,
   nurture: `NURTURE — follow the campaign-specific guidance. Keep the check-in conversational, low-pressure and factual; personalize only from known Buyer Context and do not imply a prior conversation that is not in context. Include the exact opt-out line.`,
 }
@@ -41,33 +45,61 @@ function formatContextBlock(ctx: BuyerContext): string {
   return JSON.stringify(ctx, null, 2)
 }
 
-/** Human sender identity + legal entity + postal address. No brand-name fallback or website link. */
-function buildSignature(senderName?: string | null): string {
-  const name = senderName?.replace(/[\r\n]+/g, " ").trim()
-  return [
-    "",
-    "Best regards,",
-    ...(name ? [name] : []),
-    SIGNATURE_COMPANY,
-    SIGNATURE_ADDRESS,
-  ].join("\n")
+/** Signature template is left unresolved in the draft; send-time code resolves the real AE name. */
+export interface CampaignSignatureOptions {
+  mode?: "draft" | "send"
+  senderTitle?: string | null
+}
+
+function cleanSignatureValue(value?: string | null): string | null {
+  const cleaned = value?.replace(/[\r\n]+/g, " ").trim()
+  return cleaned && !/^\{\{sender_(?:name|title)\}\}$/i.test(cleaned) ? cleaned : null
+}
+
+function findSignatureStart(content: string): number {
+  const markers = [
+    ...[...content.matchAll(/(?:^|\n)[ \t]*(?:\{\{sender_name\}\}|best regards|kind regards|regards|sincerely|best|thanks),?[ \t]*(?=\n|$)/gim)]
+      .map((match) => match.index ?? -1),
+  ].filter((index) => index >= 0)
+  if (markers.length > 0) return Math.max(...markers)
+
+  const companyIndex = content.toLowerCase().lastIndexOf(SIGNATURE_COMPANY.toLowerCase())
+  if (companyIndex < 0) return content.length
+  const separator = content.lastIndexOf("\n\n", companyIndex)
+  return separator >= 0 ? separator + 2 : Math.max(0, content.lastIndexOf("\n", companyIndex - 1) + 1)
+}
+
+function signatureTitleFromContent(content: string): string | null {
+  const suffix = `, ${SIGNATURE_COMPANY}`.toLowerCase()
+  const titleLine = content
+    .split(/\r?\n/)
+    .reverse()
+    .find((line) => line.trim().toLowerCase().endsWith(suffix))
+  return cleanSignatureValue(titleLine?.trim().slice(0, -suffix.length))
 }
 
 /**
- * Replace any model-written sign-off with the deterministic signature. Also
- * used at send time so the printed name matches the authenticated sender in
- * the From header, even if a different AE/admin approves the draft.
+ * Normalize a model-written or AE-edited signature to the approved template.
+ * Draft mode uses known sender details and retains placeholders for missing
+ * values. Send mode inserts the authenticated sender name and preserves an
+ * AE-entered title; unresolved tokens are returned for approval to block.
  */
-export function withCampaignSignature(content: string, senderName?: string | null): string {
-  const lower = content.toLowerCase()
-  const signoffs = [...content.matchAll(/(?:^|\n)[ \t]*(?:best regards|kind regards|regards|sincerely|best|thanks),?[ \t]*(?=\n|$)/gim)]
-  const signoffIndex = signoffs.length > 0
-    ? signoffs[signoffs.length - 1].index ?? 0
-    : lower.lastIndexOf(SIGNATURE_COMPANY.toLowerCase())
-  const body = (signoffIndex >= 0 ? content.slice(0, signoffIndex) : content)
+export function withCampaignSignature(
+  content: string,
+  senderName?: string | null,
+  options: CampaignSignatureOptions = {},
+): string {
+  const mode = options.mode ?? "send"
+  const signatureStart = findSignatureStart(content)
+  const body = content.slice(0, signatureStart)
     .replace(/\n[ \t]*(?:https?:\/\/)?(?:www\.)?veximtrade\.com\/?[ \t]*$/i, "")
     .replace(/\s+$/, "")
-  return `${body}${buildSignature(senderName)}`
+  const name = cleanSignatureValue(senderName) ?? "{{sender_name}}"
+  const title = mode === "draft"
+    ? cleanSignatureValue(options.senderTitle) ?? "{{sender_title}}"
+    : cleanSignatureValue(options.senderTitle) ?? signatureTitleFromContent(content) ?? "{{sender_title}}"
+  const prefix = body ? `${body}\n\n` : ""
+  return `${prefix}${name}\n${title}, ${SIGNATURE_COMPANY}\n${SIGNATURE_ADDRESS}`
 }
 
 /**
@@ -80,7 +112,16 @@ export async function generateCampaignEmail(
   stepGuidance: string | null,
   senderName?: string | null,
 ): Promise<GeneratedCampaignEmail> {
+  const knownContextValue = (value: string | null | undefined): string | null => {
+    const normalized = value?.trim()
+    return normalized && normalized.toUpperCase() !== "UNKNOWN" ? normalized : null
+  }
+  const knownCompany = knownContextValue(ctx.buyer.company_name)
+  const knownProduct = knownContextValue(ctx.import_data.main_products)
+  const knownSource = knownContextValue(ctx.buyer.source_of_personalization)
+
   const system = [
+    `EMAIL 1 INPUT VALUES — company: ${JSON.stringify(knownCompany ?? "UNKNOWN")}; product: ${JSON.stringify(knownProduct ?? "UNKNOWN")}; personalization source: ${JSON.stringify(knownSource ?? "UNKNOWN")}. Use the exact known company and product strings in the body.`,
     "You are Veximtrade's B2B outreach assistant. Write only to a buyer whose existing country matches the campaign's selected target_country in BuyerContext.",
     "Veximtrade provides Vietnam-side sourcing groundwork, including review of relevant importing-country requirements — not a marketplace or trading company.",
     "",
@@ -94,9 +135,10 @@ export async function generateCampaignEmail(
     "- The research section (buyer_analysis/buyer_strategy) is INTERNAL REASONING ONLY — use it to pick an angle, never to state facts in the email.",
     "- Tailor the angle to THIS campaign: respect its target_country, target_segment, product_category and positioning (campaign block in context). Do not drift into a generic pitch.",
     "- BUYER PAIN: state modestly with usually/often/can/may. Never say buyers are overwhelmed/frustrated, that sourcing is always difficult, or that time is enormous. Never invent statistics or customer results.",
-    "- BANNED COPY: never use 'verified suppliers', 'leading', 'trusted', 'world-class', 'one-stop', 'game-changer', 'hope this email finds you well', 'I wanted to reach out', 'synergy', or 'cutting-edge'. Do not write a self-contradicting opener such as 'finding suppliers is easy/simple but challenging'. Avoid consultant jargon such as 'aligning product fit and compliance needs'.",
+    `- BANNED COPY (case-insensitive): never use ${CAMPAIGN_BANNED_PHRASES.map((phrase) => `\"${phrase}\"`).join(", ")}, or these unsupported claims: 'verified suppliers', 'leading', 'trusted', 'world-class', 'one-stop', or 'game-changer'. The opener must not begin 'At Veximtrade, we'. Do not use hedge-verb openers such as 'we aim to', 'we strive to', or 'our goal is to', or filler such as 'I'm curious'. State actions directly, e.g. 'Veximtrade takes that groundwork off your team's plate'. Do not write a self-contradicting opener such as 'finding suppliers is easy/simple but challenging'. Avoid consultant jargon such as 'aligning product fit and compliance needs'.`,
     "- Never describe the buyer or their team as being in Vietnam. Vietnam is an additional source, never a replacement for an existing source.",
-    "- EMAIL 1: one concrete operational pain first, then Veximtrade's service, suppliers only in the context of that service, buyer's final decision, and exactly ONE question about their current supply need. Never ask for a call, meeting, or chat in email 1.",
+    "- EMAIL 1: one concrete operational pain first, then Veximtrade's service, suppliers only in the context of that service, buyer's final decision, and exactly ONE question. The only question must ask whether the buyer is currently looking for additional sourcing/supply for the exact known product; never join two questions with 'and' or similar. Never ask for a call, meeting, or chat in email 1.",
+    `- EMAIL 1 PERSONALIZATION: known company = ${JSON.stringify(knownCompany ?? "UNKNOWN")}; known product = ${JSON.stringify(knownProduct ?? "UNKNOWN")}. If either is known, mention it verbatim in the email body. If source = ${JSON.stringify(knownSource ?? "UNKNOWN")}, begin with "I came across ${knownCompany ?? "[company]"} while..." and use only a factual continuation supported by that source. If there is no source, use "I understand ${knownCompany ?? "[company]"} works with ${knownProduct ?? "[product]"}." Never substitute a known product with a generic category.`,
     "- PERSONALIZATION: ctx.buyer.source_of_personalization is the only provenance for a research/personalization claim. Use 'I came across...' only when it is a real, populated source. If UNKNOWN, use a neutral statement grounded in the buyer/company/product fields. If product is UNKNOWN, use category. Never infer a title, name, product, sourcing need, or source.",
     "- COUNTRY: the campaign's selected target_country is matched against the buyer's existing country field before enrollment. Do not infer a separate import destination or claim destination-specific requirements. Refer to 'relevant import requirements' generically; no FDA/FSVP/CFIA-specific obligation unless the context explicitly confirms it.",
     "- Every email, including email 1, must end with this exact opt-out line immediately before the signature: If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.",
@@ -113,12 +155,7 @@ export async function generateCampaignEmail(
     "- AVOID EMPTY OR OVERUSED OPENERS such as 'I hope this email finds you well' and exaggerated phrases such as 'I'd be delighted to'. Ordinary conversational wording such as 'just wanted to clarify' or 'feel free to send the details' is allowed when it fits the sentence; do not repeat stock phrases mechanically.",
     "- NATURAL PARAGRAPHING: write like a real AE typing a one-to-one email. Do NOT put every sentence on its own line; group related sentences into 2-3 uneven paragraphs (a paragraph can be 2-4 sentences, a few lines long; lengths need not match). Perfect symmetric structure (intro, company, why you, offer, CTA) reads as AI copywriting. Sentences may flow long with 'and / but / so / while'. Optimize for naturalness and relevance, not polished copy. A cold email only needs enough context to start the conversation.",
     "- SUBJECT: plain sentence case, 3-9 words and under 60 characters, naming the buyer's world or asking a simple relevant question (e.g. 'Sourcing from Vietnam', 'Where does Veximtrade fit in the sourcing process?'). A question mark is allowed when natural. Avoid em/en dashes, colons, semicolons, quotes, parentheses, Re:/Fwd:, ALL CAPS and promo words.",
-    "- SIGNATURE: never use a brand name such as Veximtrade as the sender's name. Use the real sender name supplied below when available; never invent a name or title. No title is configured, so omit it. Include the legal entity and postal address, but NO website, bare domain, or hyperlink. The application will replace the model's sign-off deterministically. Expected signature:\n" +
-    "Best regards,\n" +
-    (senderName?.trim() ? `${senderName.trim()}\n` : "") +
-    SIGNATURE_COMPANY + "\n" +
-    SIGNATURE_ADDRESS + "\n" +
-    "- Do NOT invent any other human name, title, phone number, or office address.",
+    "- SIGNATURE: preserve this exact draft template at the end of the email, with no closing phrase before it and no website/domain: \"{{sender_name}}\\n{{sender_title}}, VEXIM GLOBAL CO., LTD\\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam\". Do not invent a name or title and do not omit either template line. Use a real sender name supplied by the application when available; otherwise retain {{sender_name}}. The reviewer must fill any remaining placeholder, including the unavailable title, before sending; send-time code resolves the name to the authenticated AE.",
     `- Under ${ctx.business_rules.max_words} words excluding signature.`,
     "",
     "ANTI-REPEAT: the previous_emails array is everything this buyer already received. Your email must be recognizably different in opening line, angle, and subject.",
@@ -156,9 +193,9 @@ export async function generateCampaignEmail(
 
   if (!output) throw new Error("generateCampaignEmail: empty AI output")
 
-  // Always replace the model-written sign-off with the deterministic human-name
-  // signature; this prevents generic "Veximtrade" and website links from leaking.
-  const contentEn = withCampaignSignature(output.content_en, senderName)
+  // Normalize the generated copy to the required review-time signature template.
+  // The authenticated sender name and AE-entered title are resolved at approval.
+  const contentEn = withCampaignSignature(output.content_en, senderName, { mode: "draft" })
 
   return {
     subjectEn: output.subject_en.trim().slice(0, 120),

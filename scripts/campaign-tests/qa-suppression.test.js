@@ -6,7 +6,7 @@ const t = (n, f) => { try { f(); passed++; console.log('  ✓', n) } catch (e) {
 
 const ctx = (over = {}) => ({
   buyer: { company_name: 'Acme Foods', country: 'US', industry: 'Food & Beverage', website: null, contact_name: 'John', contact_email: 'j@acme.com', contact_title: null, source_of_personalization: 'UNKNOWN' },
-  import_data: { hs_codes: 'UNKNOWN', main_products: 'food', purchase_history: 'UNKNOWN', vietnam_supplier_exists: 'UNKNOWN', shipment_count: 'UNKNOWN', peak_months: 'UNKNOWN' },
+    import_data: { hs_codes: 'UNKNOWN', main_products: 'frozen mango', purchase_history: 'UNKNOWN', vietnam_supplier_exists: 'UNKNOWN', shipment_count: 'UNKNOWN', peak_months: 'UNKNOWN' },
   crm: { stage: 'waiting_reply', campaign_step: 2, step_objective: null, followup_count: 1, previous_emails: [{ step: 1, sent_at: '2026-09-01', subject: 'Vietnam sourcing — US compliance support', content: 'Hi John, I noticed Acme Foods has a strong presence in premium snacks...' }], replies: [] },
   business_rules: { max_words: 200, no_links: true, no_attachments: true, opt_out_line_required: true },
   ...over,
@@ -15,7 +15,7 @@ const ctx = (over = {}) => ({
 console.log('EMAIL QA TESTS')
 t('email sạch → LOW, passed', () => {
   const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing process', contentEn: `Hi John,\n\nWanted to check whether Vietnam sourcing remains relevant for Acme Foods. Veximtrade handles early groundwork by identifying relevant manufacturers, reviewing available information about capacity and export history, and checking product fit against the importing country's relevant requirements. We also coordinate communication toward samples or quotations when both sides want to continue. You decide whether a supplier is suitable and whether to proceed. If this is not timely, just reply no and I will stop following up.\n\nIf you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards,\nAngela Divincenzo\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam` },
+    email: { subjectEn: 'Vietnam sourcing process', contentEn: `Hi John,\n\nWanted to check whether Vietnam sourcing remains relevant for Acme Foods. Veximtrade handles early groundwork by identifying relevant manufacturers, reviewing available information about capacity and export history, and checking product fit against the importing country's relevant requirements. We also coordinate communication toward samples or quotations when both sides want to continue. You decide whether a supplier is suitable and whether to proceed. If this is not timely, just reply no and I will stop following up. Would it be useful to compare notes on your sourcing process?\n\nIf you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards,\nAngela Divincenzo\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam` },
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
   assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))
@@ -96,28 +96,37 @@ t('feedback 26/09: close_loop không cần dấu "?" (bỏ cta_missing)', () => 
 
 const firstEmailBody = `Hi Angela,
 
-If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time.
+If you're responsible for sourcing, you're probably used to hearing from new suppliers. The difficult part is often deciding which ones are worth your team's time. I understand Acme Foods works with frozen mango.
 
-Each new source can mean reviewing company information, products and specifications, looking at available export information, discussing pricing, requesting samples, and checking relevant import requirements. Much of the early effort can be in screening rather than searching.
+Each new source can mean reviewing company information, product specifications, available export information, pricing, samples, and relevant import requirements. Much of the early effort can be in screening rather than searching, and the details can vary from one product to another.
 
-That's where Veximtrade may help. We handle the initial sourcing groundwork on the Vietnam side, from finding relevant manufacturers to reviewing available information about capacity and export history and considering product fit. The buyer decides which sources are worth exploring further.
+That's where Veximtrade may help. We handle the initial sourcing groundwork on the Vietnam side, from finding relevant manufacturers to reviewing available information about capacity and export history and considering product fit. The buyer decides which sources are worth exploring further, and whether to continue toward samples or quotations.
 
-If Vietnam is a market you're considering for additional supply, is there a product area you're currently reviewing?
+Are you currently looking for additional supply of frozen mango?
 
 If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.
 
 Best regards,
 Angela Divincenzo
-VEXIM GLOBAL CO., LTD
+Senior Account Executive, VEXIM GLOBAL CO., LTD
 25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
 t('natural first email within 120-160 words and one sourcing question', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
-  assert.ok(!r.issues.some(i => ['first_email_word_count', 'first_email_question_count', 'first_email_situation_question', 'first_email_meeting_ask', 'brand_wording', 'opt_out_line'].includes(i.check)), JSON.stringify(r.issues))
+  assert.ok(!r.issues.some(i => ['first_email_word_count', 'cta_multiple_questions', 'first_email_situation_question', 'first_email_meeting_ask', 'brand_wording', 'opt_out_line', 'personalization_missing_company', 'personalization_missing_product', 'signature_missing_sender'].includes(i.check)), JSON.stringify(r.issues))
 })
-t('first email below 120 words is blocked', () => {
+t('stepType initial_outreach activates Email 1 rules independently of campaign_step', () => {
+  const r = qa.runEmailQA({
+    email: { subjectEn: 'Vietnam sourcing process', contentEn: 'Short note for Acme Foods about frozen mango. Are you currently looking for additional supply of frozen mango?' },
+    recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false, stepType: 'initial_outreach',
+  })
+  assert.ok(r.issues.some(i => i.check === 'first_email_word_count' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+  assert.ok(r.issues.some(i => i.check === 'signature_missing_sender' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
+})
+t('Email 1 word-count failures block approval', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const tooShort = firstEmailBody.replace(/If you're responsible[\s\S]*?currently reviewing\?/, 'Supplier screening takes time. Is Vietnam an additional source for this product category?')
+  const tooShort = firstEmailBody.replace(/If you're responsible[\s\S]*?additional supply of frozen mango\?/, 'Supplier screening takes time. Are you currently looking for additional supply of frozen mango?')
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: tooShort }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'first_email_word_count' && i.severity === 'HIGH'), JSON.stringify(r.issues))
 })
@@ -129,14 +138,56 @@ t('opt-out must be immediately before the signature', () => {
 })
 t('first email question must ask about sourcing situation', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const vague = firstEmailBody.replace('Is Vietnam an additional source you are currently considering for this product category?', 'Does Vietnam sound interesting?')
+  const vague = firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Does Vietnam sound interesting?')
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: vague }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'first_email_situation_question' && i.severity === 'HIGH'), JSON.stringify(r.issues))
 })
 t('first email meeting request is a hard block', () => {
   const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
-  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody.replace('Is Vietnam an additional source you are currently considering for this product category?', 'Would you be open to a meeting?') }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Would you be open to a meeting?') }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
   assert.ok(r.issues.some(i => i.check === 'first_email_meeting_ask' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+})
+t('Email 1 with two questions uses cta_multiple_questions and blocks', () => {
+  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
+  const copy = firstEmailBody.replace('Are you currently looking for additional supply of frozen mango?', 'Are you currently looking for additional supply of frozen mango? Would a call help?')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(r.issues.some(i => i.check === 'cta_multiple_questions' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
+})
+t('missing known product is MEDIUM but still blocks Email 1', () => {
+  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
+  const copy = firstEmailBody.replace(/frozen mango/gi, 'product category')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(r.issues.some(i => i.check === 'personalization_missing_product' && i.severity === 'MEDIUM' && i.blocking === true), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
+})
+t('UNKNOWN product is not invented or required', () => {
+  const firstCtx = ctx({ import_data: { ...ctx().import_data, main_products: 'UNKNOWN' }, crm: { ...ctx().crm, campaign_step: 1 } })
+  const copy = firstEmailBody.replace(/ frozen mango/gi, ' the product')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(!r.issues.some(i => i.check === 'personalization_missing_product'), JSON.stringify(r.issues))
+})
+t('known company omission is HIGH and blocks Email 1', () => {
+  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
+  const copy = firstEmailBody.replace(/Acme Foods/g, 'the buyer')
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(r.issues.some(i => i.check === 'personalization_missing_company' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
+})
+t('campaign filler phrases are hard-blocked', () => {
+  const copy = firstEmailBody.replace('If you\'re responsible for sourcing,', 'I wanted to reach out because if you\'re responsible for sourcing,')
+  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: copy }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: true })
+  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy' && i.severity === 'HIGH'), JSON.stringify(r.issues))
+})
+t('regression: supplied-style bad Email 1 is blocked for filler, unsupported claims, and CTAs', () => {
+  const badSample = `Hope this email finds you well. At Veximtrade, we connect buyers to verified suppliers and guarantee competitive pricing. Your team must be looking for new Vietnamese sources. Are you interested in our supplier network? Would you be available for a quick call?\n\nBest regards,\n{{sender_name}}\n{{sender_title}}, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`
+  const firstCtx = ctx({ crm: { ...ctx().crm, campaign_step: 1 } })
+  const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: badSample }, recipient: 'j@acme.com', ctx: firstCtx, optOutRequired: false })
+  assert.ok(r.issues.some(i => i.check === 'campaign_banned_copy'), JSON.stringify(r.issues))
+  assert.ok(r.issues.some(i => i.check === 'cta_multiple_questions'), JSON.stringify(r.issues))
+  assert.ok(r.issues.some(i => i.check === 'first_email_meeting_ask'), JSON.stringify(r.issues))
+  assert.strictEqual(r.passed, false)
 })
 t('banned supplier claim is a hard block', () => {
   const r = qa.runEmailQA({ email: { subjectEn: 'Vietnam sourcing process', contentEn: 'Veximtrade only introduces verified suppliers.' }, recipient: 'j@acme.com', ctx: ctx(), optOutRequired: false })
@@ -199,7 +250,7 @@ t('conversational “feel free to” wording is allowed', () => {
 })
 t('body brand Veximtrade + pháp nhân chỉ ở signature → sạch', () => {
   const r = qa.runEmailQA({
-    email: { subjectEn: 'Vietnam sourcing for Acme', contentEn: 'Hi John,\n\nI\'m with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.\n\nWould a short intro call be worth your time?\n\nIf you\'d rather not hear from me, just reply \'no thanks\' and I won\'t contact you again.\n\nBest regards,\nVu Le Hong\nVEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
+    email: { subjectEn: 'Vietnam sourcing for Acme', contentEn: 'Hi John,\n\nI\'m with Veximtrade in Vietnam. We work with Vietnamese manufacturers on U.S. regulatory compliance and sourcing.\n\nWould a short intro call be worth your time?\n\nIf you\'d rather not hear from me, just reply \'no thanks\' and I won\'t contact you again.\n\nBest regards,\nVu Le Hong\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam' },
     recipient: 'j@acme.com', ctx: ctx(), optOutRequired: true,
   })
   assert.strictEqual(r.risk_level, 'LOW', JSON.stringify(r.issues))

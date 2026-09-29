@@ -149,6 +149,25 @@ export const NOT_NOW_PAUSE_DAYS = 30
 /** Độ dài email tối đa (từ) — QA fail MEDIUM nếu vượt. */
 export const MAX_EMAIL_WORDS = 200
 
+/**
+ * Phrases the campaign writer and QA must reject, case-insensitively.
+ * The Veximtrade opener is restricted only when it starts the email body;
+ * conversational filler/hedging phrases are disallowed anywhere in the copy.
+ */
+export const CAMPAIGN_BANNED_PHRASES = [
+  "hope this email finds you well",
+  "I wanted to reach out",
+  "synergy",
+  "cutting-edge",
+  "I'm curious",
+  "we aim to",
+  "we strive to",
+  "our goal is to",
+  "at veximtrade, we",
+] as const
+
+export const CAMPAIGN_BANNED_OPENERS = ["at veximtrade, we"] as const
+
 /** Signature chuẩn — pháp nhân + địa chỉ bưu chính thật (CAN-SPAM).
  *  Không thêm website/link vào cold-email body; domain vẫn xuất hiện trong
  *  From/Reply-To và List-Unsubscribe headers khi phù hợp. */

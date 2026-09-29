@@ -21,37 +21,38 @@ const oldCopy = [
   'veximtrade.com',
 ].join('\n')
 
-test('replaces generic brand sign-off with actual sender', () => {
-  const result = withCampaignSignature(oldCopy, 'Angela Divincenzo')
-  assert.match(result, /Best regards,\nAngela Divincenzo\nVEXIM GLOBAL CO\., LTD/)
+test('draft signature uses sender name/title placeholders and legal address', () => {
+  const result = withCampaignSignature(oldCopy, null, { mode: 'draft' })
+  assert.match(result, /\n\n\{\{sender_name\}\}\n\{\{sender_title\}\}, VEXIM GLOBAL CO\., LTD\n25\/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam$/)
   assert.doesNotMatch(result, /Best regards,\nVeximtrade\n/)
 })
 
 test('removes the website from the signature/body', () => {
-  const result = withCampaignSignature(oldCopy, 'Angela Divincenzo')
+  const result = withCampaignSignature(oldCopy, null, { mode: 'draft' })
   assert.doesNotMatch(result, /veximtrade\.com/i)
   assert.doesNotMatch(result, /https?:\/\//i)
 })
 
-test('uses the authenticated sender name and no website at send time', () => {
-  const result = withCampaignSignature(oldCopy, 'Admin Person')
-  assert.match(result, /Best regards,\nAdmin Person\n/)
-  assert.doesNotMatch(result, /Angela Divincenzo|Veximtrade|veximtrade\.com/)
+test('send mode resolves the real authenticated sender and reviewed title', () => {
+  const result = withCampaignSignature(oldCopy, 'Admin Person', { mode: 'send', senderTitle: 'Account Executive' })
+  assert.match(result, /\n\nAdmin Person\nAccount Executive, VEXIM GLOBAL CO\., LTD/)
+  assert.doesNotMatch(result, /Angela Divincenzo|Veximtrade|veximtrade\.com|\{\{sender_/)
 })
 
-test('never invents Veximtrade as a name when sender is unavailable', () => {
-  const result = withCampaignSignature(oldCopy, null)
+test('never invents Veximtrade as a human sender when identity is unavailable', () => {
+  const result = withCampaignSignature(oldCopy, null, { mode: 'draft' })
+  assert.match(result, /\{\{sender_name\}\}/)
+  assert.match(result, /\{\{sender_title\}\}/)
   assert.doesNotMatch(result, /Veximtrade/i)
   assert.doesNotMatch(result, /veximtrade\.com/i)
-  assert.match(result, /Best regards,\nVEXIM GLOBAL CO\., LTD/)
 })
 
 test('normalizes a model signature even when it omits its closing line', () => {
   const result = withCampaignSignature(
     'Hi buyer.\n\nVEXIM GLOBAL CO., LTD\nveximtrade.com',
-    'Angela Divincenzo',
+    null,
+    { mode: 'draft' },
   )
-  assert.strictEqual((result.match(/Best regards,/g) || []).length, 1)
-  assert.match(result, /Best regards,\nAngela Divincenzo/)
+  assert.match(result, /\{\{sender_name\}\}\n\{\{sender_title\}\}, VEXIM GLOBAL CO\., LTD/)
   assert.doesNotMatch(result, /veximtrade\.com/i)
 })

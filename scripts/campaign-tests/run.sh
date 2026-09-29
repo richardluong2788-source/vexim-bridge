@@ -43,9 +43,19 @@ mkdir -p "$OUT/node_modules/ai"
 cat > "$OUT/node_modules/ai/package.json" <<PKG
 {"name":"ai","version":"0.0.0","main":"index.js"}
 PKG
-cat > "$OUT/node_modules/ai/index.js" <<STUB
+cat > "$OUT/node_modules/ai/index.js" <<'STUB'
 exports.Output = { object: ({ schema }) => schema }
-exports.generateText = async () => ({ experimental_output: { intent: "UNKNOWN", confidence: 0, reasoning: "stub" } })
+exports.generateText = async (args) => {
+  if (process.env.CAMPAIGN_TEST_GENERATOR === "1") {
+    global.__campaignGenerationPrompt = `${args.system || ''}\n${args.prompt || ''}`
+    return { experimental_output: {
+      subject_en: "Vietnam sourcing for frozen mango",
+      content_en: `Hi Angela,\n\nI understand Acme Foods works with frozen mango. If you handle sourcing, you may already know that looking at a new source involves more than finding a manufacturer. Product specifications, available company information, export records, samples, quotations, and relevant import requirements all need consideration. The early work is often in screening, so the buyer can decide which conversations are worth pursuing.\n\nVeximtrade handles initial sourcing groundwork on the Vietnam side. We identify relevant manufacturers, review available evidence about capacity and export history, and consider product fit against relevant import requirements. We can also coordinate communication if both sides want to explore samples or quotations. The buyer stays in control of whether to continue, and no supplier is treated as a fit before review.\n\nAre you currently looking for additional supply of frozen mango?\n\nIf you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.\n\nBest regards,\nAngela Divincenzo\nAccount Executive, VEXIM GLOBAL CO., LTD\n25/6, Lane 51, Ngoa Long Street, Tay Tuu Ward, Hanoi, Vietnam`,
+      content_vi: "Bản dịch tiếng Việt dùng để AE duyệt.",
+    } }
+  }
+  return { experimental_output: { intent: "UNKNOWN", confidence: 0, reasoning: "stub" } }
+}
 STUB
 ln -sfn "$(pwd)/node_modules/zod" "$OUT/node_modules/zod"
 
@@ -62,6 +72,7 @@ sed -i '/require("server-only")/d; /require("@\/lib\/supabase\/admin")/d' "$OUT/
 
 fail=0
 node scripts/campaign-tests/email-signature.test.js "$OUT/signature" || fail=1
+node scripts/campaign-tests/email-generator.test.js "$OUT" || fail=1
 node scripts/campaign-tests/country-validation.test.js "$OUT" || fail=1
 node -e "
 const sm = require('$OUT/state-machine.js'); const assert = require('assert');

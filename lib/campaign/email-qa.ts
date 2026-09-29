@@ -1,17 +1,25 @@
 // Email Quality Checker (spec §21) — deterministic rules first, chạy TRƯỚC khi
-// draft vào approval queue. risk_level = HIGH → chặn gửi ở UI approve.
+// draft vào approval queue. qa.passed=false → chặn approval/send, kể cả mandatory MEDIUM.
 //
 // B1 dùng rule thuần (nhanh, miễn phí, đoán được lý do) — kiểm "no invented
 // facts" bằng cách quét các claim rủi ro (cert/FDA/price/MOQ…) không có nguồn
 // trong BuyerContext: nếu context ghi UNKNOWN mà email nhắc tới → issue.
 
-import { MAX_EMAIL_WORDS } from "./constants"
+import {
+  CAMPAIGN_BANNED_OPENERS,
+  CAMPAIGN_BANNED_PHRASES,
+  MAX_EMAIL_WORDS,
+  SIGNATURE_ADDRESS,
+  SIGNATURE_COMPANY,
+} from "./constants"
 import type { BuyerContext } from "./types"
 
 export interface QAIssue {
   check: string
   severity: "HIGH" | "MEDIUM" | "LOW"
   message: string
+  /** Mandatory sequence requirements can block even when severity is MEDIUM. */
+  blocking?: boolean
 }
 
 export interface QAResult {
@@ -45,6 +53,58 @@ const UNSUPPORTED_CLAIM_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length
+}
+
+function knownValue(value: string | null | undefined): string | null {
+  const normalized = value?.trim()
+  return normalized && normalized.toUpperCase() !== "UNKNOWN" ? normalized : null
+}
+
+function normalizeForMatch(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
+/** Find the deterministic signature or a model/legacy sign-off boundary. */
+function signatureStartIndex(body: string): number {
+  const markers: number[] = []
+  const nameToken = body.lastIndexOf("{{sender_name}}")
+  if (nameToken >= 0) markers.push(nameToken)
+
+  const signoffs = [...body.matchAll(/(?:^|\n)[ \t]*(?:best regards|kind regards|regards|sincerely|best|thanks),?[ \t]*(?=\n|$)/gim)]
+  if (signoffs.length > 0) markers.push(signoffs[signoffs.length - 1].index ?? body.length)
+
+  const companyIndex = body.toLowerCase().lastIndexOf(SIGNATURE_COMPANY.toLowerCase())
+  if (companyIndex >= 0) {
+    const separator = body.lastIndexOf("\n\n", companyIndex)
+    if (separator >= 0) markers.push(separator + 2)
+  }
+  return markers.length > 0 ? Math.min(...markers) : body.length
+}
+
+function proseWithoutSignature(body: string): string {
+  return body.slice(0, signatureStartIndex(body)).trimEnd()
+}
+
+function hasValidSenderSignature(body: string): boolean {
+  const lines = body.trim().split(/\r?\n/).map((line) => line.trim())
+  const addressIndex = lines.findIndex((line) => line.toLowerCase() === SIGNATURE_ADDRESS.toLowerCase())
+  if (addressIndex < 2) return false
+
+  const senderName = lines[addressIndex - 2]
+  const titleLine = lines[addressIndex - 1]
+  const titleSuffix = `, ${SIGNATURE_COMPANY}`
+  if (!titleLine.toLowerCase().endsWith(titleSuffix.toLowerCase())) return false
+  const senderTitle = titleLine.slice(0, -titleSuffix.length).trim()
+  const invalidSenderName = /^(?:best regards|kind regards|regards|sincerely|best|thanks|veximtrade|vexim|vexim global|vexim global co\., ltd)$/i.test(senderName)
+  const validName = senderName === "{{sender_name}}" || (!!senderName && !invalidSenderName)
+  const validTitle = senderTitle === "{{sender_title}}" || (!!senderTitle && !/^veximtrade$/i.test(senderTitle))
+  return validName && validTitle
 }
 
 /** Trigram similarity 0..1 — chống duplicate wording giữa các email. */
@@ -82,16 +142,24 @@ export function runEmailQA(params: {
   const { email, recipient, ctx, optOutRequired, stepType } = params
   const body = email.contentEn
   const words = countWords(body)
-  const proseBeforeSignature = body.split(/\n\s*Best regards,/i)[0]
+  const proseBeforeSignature = proseWithoutSignature(body)
+  const isInitialEmail = stepType === "initial_outreach" || ctx.crm.campaign_step === 1
 
   if (/^\s*(?:[-*•]|\d+[.)])\s+/m.test(proseBeforeSignature)) {
     issues.push({ check: "body_bullets", severity: "HIGH", message: "Campaign email bodies must use plain prose, not bullet lists." })
   }
 
   // Pilot-specific hard language guardrails: these should never reach approval.
-  const bannedCopy = body.match(/\bverified suppliers?\b|\baudited\b|\bleading\b|\btrusted\b|\bbest\b(?!\s+regards)|\bworld[- ]class\b|\bone[- ]stop\b|\bgame[- ]changer\b|hope this email finds you well|I wanted to reach out|\bsynergy\b|\bcutting[- ]edge\b/i)
-  if (bannedCopy) {
-    issues.push({ check: "campaign_banned_copy", severity: "HIGH", message: `Banned campaign wording: "${bannedCopy[0]}".` })
+  const bannedCopy = body.match(/\bverified suppliers?\b|\baudited\b|\bleading\b|\btrusted\b|\bbest\b(?!\s+regards)|\bworld[- ]class\b|\bone[- ]stop\b|\bgame[- ]changer\b/i)
+  const bannedPhrase = CAMPAIGN_BANNED_PHRASES
+    .filter((phrase) => !(CAMPAIGN_BANNED_OPENERS as readonly string[]).includes(phrase))
+    .find((phrase) => body.toLocaleLowerCase().includes(phrase.toLocaleLowerCase()))
+  const openingLines = proseBeforeSignature.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  const firstBodyLine = /^(?:hi|hello|dear)\b/i.test(openingLines[0] ?? "") ? openingLines[1] ?? "" : openingLines[0] ?? ""
+  const bannedOpener = CAMPAIGN_BANNED_OPENERS.find((phrase) => firstBodyLine.toLocaleLowerCase().startsWith(phrase.toLocaleLowerCase()))
+  const bannedText = bannedCopy?.[0] ?? bannedPhrase ?? bannedOpener
+  if (bannedText) {
+    issues.push({ check: "campaign_banned_copy", severity: "HIGH", message: `Banned campaign wording: "${bannedText}".` })
   }
   if (/\b(?:your|the buyer'?s|your team's) team in Vietnam\b|\bteam in Vietnam\b/i.test(body)) {
     issues.push({ check: "buyer_location", severity: "HIGH", message: "Do not describe the buyer or buyer team as being in Vietnam." })
@@ -108,26 +176,44 @@ export function runEmailQA(params: {
   if (/\b(?:replace|replacing|switch from|move away from) your current (?:supplier|source|country)/i.test(body)) {
     issues.push({ check: "replace_current_source", severity: "HIGH", message: "Position Vietnam only as an additional source, never as a replacement." })
   }
-  if (ctx.crm.campaign_step === 1) {
+  if (isInitialEmail) {
+    const company = knownValue(ctx.buyer.company_name)
+    const product = knownValue(ctx.import_data.main_products)
+    const normalizedProse = normalizeForMatch(proseBeforeSignature)
+    if (company && !normalizedProse.includes(normalizeForMatch(company))) {
+      issues.push({ check: "personalization_missing_company", severity: "HIGH", message: `Email 1 must mention the known buyer company name: ${company}.` })
+    }
+    if (product && !normalizedProse.includes(normalizeForMatch(product))) {
+      issues.push({ check: "personalization_missing_product", severity: "MEDIUM", blocking: true, message: `Email 1 must mention the known buyer product: ${product}.` })
+    }
+    const source = knownValue(ctx.buyer.source_of_personalization)
+    if (source && company && !normalizedProse.includes(normalizeForMatch(`I came across ${company} while`))) {
+      issues.push({ check: "personalization_source_missing", severity: "HIGH", message: "When BuyerContext includes a personalization source, use the supported 'I came across [company] while...' opener." })
+    }
     if (/\b(?:finding|sourcing) (?:the )?(?:right )?suppliers?\b.{0,100}\b(?:easy|straightforward|simple)\b.{0,100}\b(?:challenging|difficult|complicated)\b/i.test(body)) {
       issues.push({ check: "contradictory_opener", severity: "HIGH", message: "Self-contradicting first-touch opener." })
     }
     if (/\b(?:quick )?(?:call|meeting|chat)\b|schedule a call|book a call|set up a meeting/i.test(body)) {
       issues.push({ check: "first_email_meeting_ask", severity: "HIGH", message: "Email 1 must ask about current sourcing needs, not request a call or meeting." })
     }
-    const prose = body.split(/\n\s*Best regards,/i)[0]
+    const prose = proseBeforeSignature
       .replace(/If you'd rather not hear from me, just reply ['’]no thanks['’] and I won't contact you again\.?/i, "")
     const proseWords = countWords(prose)
     if (proseWords < 120 || proseWords > 160) {
       issues.push({ check: "first_email_word_count", severity: "HIGH", message: `Email 1 body is ${proseWords} words; required range is 120-160 excluding opt-out/signature.` })
     }
-    const questions = (body.match(/\?/g) ?? []).length
+    const questions = (proseBeforeSignature.match(/\?/g) ?? []).length
     if (questions !== 1) {
-      issues.push({ check: "first_email_question_count", severity: "HIGH", message: `Email 1 must contain exactly one question; found ${questions}.` })
+      issues.push({ check: "cta_multiple_questions", severity: "HIGH", message: `Email 1 must contain exactly one CTA question; found ${questions}.` })
     } else {
-      const finalQuestion = body.slice(0, body.lastIndexOf("?")).split(/[.!?\n]/).pop()?.trim() ?? ""
-      if (!/\b(?:sourc|supply|product|category|manufacturer|purchase|import|need|currently|current|looking|buy|procure)\b/i.test(finalQuestion)) {
-        issues.push({ check: "first_email_situation_question", severity: "HIGH", message: "Email 1's one question must ask about the buyer's current sourcing or supply situation." })
+      const finalQuestion = proseBeforeSignature.slice(0, proseBeforeSignature.lastIndexOf("?")).split(/[.!?\n]/).pop()?.trim() ?? ""
+      const asksCurrentNeed = /\b(?:currently|right now|at present)\b/i.test(finalQuestion)
+      const asksIntent = /\b(?:looking|seeking|need|interested|considering|exploring|open to)\b/i.test(finalQuestion)
+      const asksAdditionalSupply = /\b(?:additional|another|extra)\b/i.test(finalQuestion)
+        && /\b(?:sourc\w*|suppl\w*|supplier|manufacturer)\b/i.test(finalQuestion)
+      const asksKnownProduct = !product || normalizeForMatch(finalQuestion).includes(normalizeForMatch(product))
+      if (!asksCurrentNeed || !asksIntent || !asksAdditionalSupply || !asksKnownProduct) {
+        issues.push({ check: "first_email_situation_question", severity: "HIGH", message: "Email 1's sole question must ask whether the buyer is currently looking for additional supply/sourcing of the known product." })
       }
     }
   }
@@ -218,8 +304,12 @@ export function runEmailQA(params: {
     issues.push({ check: "opt_out_position", severity: "HIGH", message: "Place the exact opt-out sentence immediately before the signature." })
   }
 
+  if (!hasValidSenderSignature(body)) {
+    issues.push({ check: "signature_missing_sender", severity: "HIGH", message: "Signature must include {{sender_name}} (or the real sender name), {{sender_title}} (or the reviewed title), the legal entity, and the postal address." })
+  }
+
   // Consistent brand wording belongs in the body; the legal entity is in the signature.
-  const bodyWithoutSignature = body.split(/\n\s*Best regards,/i)[0]
+  const bodyWithoutSignature = proseBeforeSignature
   if (!/\bVeximtrade\b/i.test(bodyWithoutSignature)) {
     issues.push({ check: "brand_wording", severity: "HIGH", message: "Use the consistent brand name Veximtrade in the email body." })
   }
@@ -304,7 +394,7 @@ export function runEmailQA(params: {
       : "LOW"
 
   return {
-    passed: risk_level !== "HIGH",
+    passed: !issues.some((issue) => issue.severity === "HIGH" || issue.blocking === true),
     risk_level,
     issues,
     word_count: words,

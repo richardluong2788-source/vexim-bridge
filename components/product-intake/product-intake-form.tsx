@@ -328,8 +328,7 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
           <p className="font-semibold text-emerald-950 dark:text-emerald-100">Cam kết bảo mật thông tin</p>
           <p className="text-emerald-950/80 dark:text-emerald-100/80">
             Thông tin bạn gửi không tự động được công khai. Veximtrade dùng thông tin để tiếp nhận và hỗ trợ hồ sơ sản phẩm;
-            nếu cần chia sẻ hồ sơ với buyer/đối tác, chúng tôi sẽ xin chấp thuận của bạn trước. Một số dữ liệu có thể được xử lý
-            bởi nhà cung cấp hạ tầng cần thiết để vận hành dịch vụ.
+            nếu cần chia sẻ hồ sơ với buyer/đối tác, chúng tôi sẽ xin chấp thuận của bạn trước.
           </p>
           <a href="/legal/privacy" className="inline-block font-medium text-emerald-800 underline underline-offset-2 dark:text-emerald-300">
             Xem Chính sách bảo mật

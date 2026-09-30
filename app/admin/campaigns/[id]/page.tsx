@@ -40,6 +40,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const isAdmin = current.role === "admin" || current.role === "super_admin"
   const isAE = current.role === "account_executive"
 
+  const { data: viewerProfile } = await (admin.from("profiles") as any)
+    .select("full_name")
+    .eq("id", current.userId)
+    .maybeSingle()
+  const senderName = (viewerProfile as { full_name?: string | null } | null)?.full_name?.trim() || null
+
   const { data: campaign } = await (admin.from("campaigns") as any).select("*").eq("id", id).single()
   if (!campaign) notFound()
   const c = campaign as {
@@ -241,7 +247,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       </Card>
 
       {/* Approval queue */}
-      <ApprovalQueue drafts={draftRows} />
+      <ApprovalQueue drafts={draftRows} senderName={senderName} />
 
       {/* Enrollments */}
       <CampaignEnrollmentsTable

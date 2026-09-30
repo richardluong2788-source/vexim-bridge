@@ -3,7 +3,7 @@
 // Approval queue (shadow mode) — nơi AE xem/chỉnh/duyệt hoặc từ chối draft AI.
 // QA result hiển thị trực tiếp; draft bị QA chặn (status 'draft') không cho gửi.
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Check, Loader2, RefreshCw, X } from "lucide-react"
 import { toast } from "sonner"
@@ -42,7 +42,14 @@ export interface ApprovalDraft {
   } | null
 }
 
-export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
+export function ApprovalQueue({
+  drafts,
+  senderName,
+}: {
+  drafts: ApprovalDraft[]
+  /** Current viewer; approval sends with the authenticated approver's identity. */
+  senderName: string | null
+}) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<ApprovalDraft | null>(null)
@@ -114,6 +121,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
         <DraftCard
           key={d.id}
           draft={d}
+          senderName={senderName}
           busy={busyId === d.id}
           onApprove={() => approve(d)}
           onRegenerate={() => regenerate(d)}
@@ -124,7 +132,14 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
         />
       ))}
       {blocked.map((d) => (
-        <DraftCard key={d.id} draft={d} busy={busyId === d.id} blocked onRegenerate={() => regenerate(d)} />
+        <DraftCard
+          key={d.id}
+          draft={d}
+          senderName={senderName}
+          busy={busyId === d.id}
+          blocked
+          onRegenerate={() => regenerate(d)}
+        />
       ))}
 
       <Dialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)}>
@@ -163,6 +178,7 @@ export function ApprovalQueue({ drafts }: { drafts: ApprovalDraft[] }) {
 
 function DraftCard({
   draft,
+  senderName,
   busy,
   blocked,
   onApprove,
@@ -170,6 +186,7 @@ function DraftCard({
   onReject,
 }: {
   draft: ApprovalDraft
+  senderName: string | null
   busy?: boolean
   blocked?: boolean
   onApprove?: () => void
@@ -177,9 +194,14 @@ function DraftCard({
   onReject?: () => void
 }) {
   const router = useRouter()
+  const previewContent = previewSenderName(draft.generated_content_en, senderName)
   const [subject, setSubject] = useState(draft.generated_subject ?? "")
-  const [content, setContent] = useState(draft.generated_content_en ?? "")
+  const [content, setContent] = useState(previewContent)
   const [showVi, setShowVi] = useState(false)
+
+  // A draft may be regenerated in place; refresh the textarea while preserving
+  // the viewer-specific sender-name preview.
+  useEffect(() => setContent(previewContent), [previewContent])
 
   const lead = draft.enrollment?.lead
   const wordCount = content.split(/\s+/).filter(Boolean).length
@@ -233,6 +255,11 @@ function DraftCard({
             onChange={(e) => setContent(e.target.value)}
             disabled={blocked}
           />
+          <p className={senderName ? "text-xs text-muted-foreground" : "text-xs text-amber-700 dark:text-amber-300"}>
+            {senderName
+              ? `Bản xem trước dùng tên ${senderName}; khi gửi, chữ ký sẽ khớp với hồ sơ của người bấm “Duyệt & gửi”.`
+              : "Chưa có họ tên trong hồ sơ người gửi nên chữ ký vẫn hiện {{sender_name}}. Hãy cập nhật hồ sơ trước khi gửi."}
+          </p>
           {showVi && draft.translated_content_vi && (
             <Textarea rows={8} className="font-mono text-xs" value={draft.translated_content_vi} readOnly />
           )}
@@ -251,7 +278,7 @@ function DraftCard({
               size="sm"
               onClick={() => {
                 // Edit được gửi kèm (approve action chấp nhận override).
-                approveWithEdit(draft, subject, content, router)
+                approveWithEdit(draft, subject, content, previewContent, router)
               }}
               disabled={busy}
             >
@@ -276,9 +303,21 @@ function DraftCard({
   )
 }
 
-async function approveWithEdit(draft: ApprovalDraft, subject: string, content: string, router: ReturnType<typeof useRouter>) {
+function previewSenderName(content: string | null, senderName: string | null): string {
+  const source = content ?? ""
+  const name = senderName?.trim()
+  return name ? source.replace(/\{\{sender_name\}\}/gi, () => name) : source
+}
+
+async function approveWithEdit(
+  draft: ApprovalDraft,
+  subject: string,
+  content: string,
+  previewContent: string,
+  router: ReturnType<typeof useRouter>,
+) {
   const edited =
-    subject !== (draft.generated_subject ?? "") || content !== (draft.generated_content_en ?? "")
+    subject !== (draft.generated_subject ?? "") || content !== previewContent
       ? { subject, content }
       : undefined
   const res = await approveCampaignDraftAction(draft.id, edited)

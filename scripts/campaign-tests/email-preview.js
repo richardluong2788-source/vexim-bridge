@@ -154,7 +154,11 @@ const coffeeCampaign = {
   description:
     "Pilot: US green-coffee importers & roasters with sourcing signals from Vietnam; angle = audit-ready robusta for espresso blends.",
   target_segment: "US green-coffee importers and specialty roasters",
+  target_country: "US",
+  target_product_name: "robusta",
   product_category: "coffee",
+  target_industries: [],
+  target_hs_codes: ["090111"],
 }
 
 function coffeeCtx(overrides = {}) {
@@ -177,6 +181,11 @@ function coffeeCtx(overrides = {}) {
       peak_months: "UNKNOWN",
     },
     campaign: coffeeCampaign,
+    campaign_match: {
+      level: "product", confidence: 99, reason: "LR product keywords match robusta.",
+      evidence: ["LR product_keywords: Green coffee — arabica and robusta", "HS 0901.11 supports the match"],
+      requires_human_review: false,
+    },
     research: {
       buyer_analysis: { summary: "Values consistency and documentation quality; responsive to category-level notes, unlikely to engage with volume pitches." },
       buyer_strategy: { angle: "compliance-readiness, low-friction comparison", tone: "peer-to-peer, no pressure" },
@@ -200,7 +209,11 @@ const seafoodCampaign = {
   name: "Northeast Seafood Importers — Vietnam Pangasius & Shrimp",
   description: "Pilot: Northeast US seafood importers; angle = audit-ready factories with documentation handled.",
   target_segment: "US Northeast seafood importers & distributors",
+  target_country: "US",
+  target_product_name: "pangasius",
   product_category: "seafood",
+  target_industries: [],
+  target_hs_codes: [],
 }
 
 const seafoodCtx = {
@@ -222,6 +235,11 @@ const seafoodCtx = {
     peak_months: "UNKNOWN",
   },
   campaign: seafoodCampaign,
+  campaign_match: {
+    level: "product", confidence: 96, reason: "LR product data includes pangasius.",
+    evidence: ["LR product_keywords: Frozen seafood — shrimp and pangasius programs"],
+    requires_human_review: false,
+  },
   research: { buyer_analysis: "UNKNOWN", buyer_strategy: "UNKNOWN", analysis_age_days: "UNKNOWN" },
   crm: {
     stage: "contact_pending",

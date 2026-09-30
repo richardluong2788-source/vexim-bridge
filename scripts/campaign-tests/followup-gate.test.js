@@ -17,6 +17,8 @@ const t = (n, f) => { tests.push([n, f]) }
 const ctx = (over = {}) => ({
   buyer: { company_name: 'Acme', country: 'US', industry: 'Food', website: null, contact_name: 'John', contact_email: 'j@acme.com', contact_title: null },
   import_data: { hs_codes: 'UNKNOWN', main_products: 'food', purchase_history: 'UNKNOWN', vietnam_supplier_exists: 'UNKNOWN', shipment_count: 'UNKNOWN', peak_months: 'UNKNOWN' },
+  campaign: { name: 'Food discovery', description: null, target_segment: null, target_country: 'US', target_product_name: null, product_category: null, target_industries: ['Food & Beverage'], target_hs_codes: [] },
+  campaign_match: { level: 'industry', confidence: 45, reason: 'industry-only', evidence: ['LR industry: Food'], requires_human_review: true },
   research: { buyer_analysis: 'UNKNOWN', buyer_strategy: 'UNKNOWN', analysis_age_days: 'UNKNOWN' },
   crm: { stage: 'waiting_reply', campaign_step: 2, step_objective: null, followup_count: 0, previous_emails: [{ step: 1, sent_at: '2026-09-20', subject: 'Intro', content: 'Hello...' }], replies: over.replies ?? [] },
   business_rules: { max_words: 200, no_links: true, no_attachments: true, opt_out_line_required: true },

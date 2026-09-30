@@ -3,7 +3,7 @@
  *   - Stats + sequence steps
  *   - Approval queue: draft AI chờ duyệt (shadow mode) — xem QA, sửa, gửi / từ chối
  *   - Enrollments: bảng trạng thái + hành động pause/resume/stop/resolve review
- *   - Enroll dialog: chọn lead theo bộ lọc pilot (50–100 buyer có tín hiệu rõ)
+ *   - Enroll dialog: chọn buyer theo product/category/industry match đã được recheck ở server
  *   - Controls (admin): activate/pause campaign, chạy scheduler ngay
  */
 
@@ -50,7 +50,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   if (!campaign) notFound()
   const c = campaign as {
     id: string; name: string; description: string | null; status: string
-    target_segment: string | null; target_country: string | null; product_category: string | null
+    target_segment: string | null; target_country: string | null; target_product_name: string | null
+    product_category: string | null; target_industries: string[] | null; target_hs_codes: string[] | null
     daily_send_limit: number; start_date: string | null; end_date: string | null
   }
 
@@ -199,6 +200,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <Badge variant="secondary">Campaign target country: {c.target_country ?? "not set"}</Badge>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{c.description ?? "—"}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {c.target_product_name && <Badge variant="outline">Product: {c.target_product_name}</Badge>}
+            {c.product_category && <Badge variant="outline">Category: {c.product_category}</Badge>}
+            {(c.target_industries ?? []).map((industry) => <Badge key={industry} variant="outline">Industry: {industry}</Badge>)}
+            {(c.target_hs_codes ?? []).map((code) => <Badge key={code} variant="outline">HS support: {code}</Badge>)}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!steps?.length && isAdmin && (

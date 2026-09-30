@@ -37,6 +37,11 @@ export interface EnrollmentRowView {
   last_reply_at: string | null
   needs_human_review: boolean
   human_review_reason: string | null
+  match_level: "product" | "category" | "industry" | null
+  match_confidence: number | null
+  match_reason: string | null
+  match_evidence: string[] | null
+  match_requires_human_review: boolean
   handoff_engagement_id: string | null
   stopped_reason: string | null
   owner_id: string | null
@@ -90,6 +95,7 @@ export function CampaignEnrollmentsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Công ty</TableHead>
+                <TableHead>Match</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Step</TableHead>
                 <TableHead>Next action</TableHead>
@@ -108,6 +114,27 @@ export function CampaignEnrollmentsTable({
                       <div className="text-xs text-muted-foreground">
                         {e.lead?.contact_person ?? "—"} · {e.lead?.country ?? "—"}
                       </div>
+                    </TableCell>
+                    <TableCell className="min-w-52">
+                      {e.match_level ? (
+                        <>
+                          <Badge variant="outline" className={e.match_level === "product" ? "border-emerald-500/40 text-emerald-700" : e.match_level === "category" ? "border-blue-500/40 text-blue-700" : "border-amber-500/40 text-amber-700"}>
+                            {e.match_level === "product" ? "Product" : e.match_level === "category" ? "Category" : "Industry review"}
+                          </Badge>
+                          {e.match_confidence !== null && e.match_confidence !== undefined && (
+                            <span className="ml-1 text-xs text-muted-foreground">{e.match_confidence}/100</span>
+                          )}
+                          {e.match_requires_human_review && e.match_level !== "industry" && (
+                            <div className="mt-1 text-[11px] font-medium text-amber-700">Classifier caution · AE review</div>
+                          )}
+                          {e.match_reason && <div className="mt-1 max-w-sm text-xs leading-snug text-muted-foreground">{e.match_reason}</div>}
+                        </>
+                      ) : (
+                        <div>
+                          <span className="text-xs text-muted-foreground">Legacy enrollment · no match snapshot</span>
+                          {e.match_requires_human_review && <div className="mt-1 text-[11px] font-medium text-amber-700">Discovery-only · product fit not verified</div>}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={isTerminal ? "text-muted-foreground" : ""}>

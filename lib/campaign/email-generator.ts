@@ -10,6 +10,7 @@ import {
   SIGNATURE_SENDER_TITLE,
 } from "./constants"
 import type { BuyerContext } from "./types"
+import { campaignSafeAIContext } from "./ai-context-safety"
 
 const outputSchema = z.object({
   subject_en: z.string().describe("A truthful, relevant email subject. Use natural wording; avoid deceptive Re/Fwd or promotional claims."),
@@ -52,14 +53,15 @@ function knownContextValue(value: string | null | undefined): string | null {
 }
 
 function formatContextBlock(ctx: BuyerContext): string {
-  const source = ctx.buyer.source_of_personalization
+  const safeMatchContext = campaignSafeAIContext(ctx)
+  const source = safeMatchContext.buyer.source_of_personalization
   const safeSource = source && /\b(?:import|customs|shipment|trade)\s+(?:records?|data|database)\b/i.test(source)
     ? "Industry-level research (keep the underlying data source private)"
     : source
   const safeContext = {
-    ...ctx,
-    buyer: { ...ctx.buyer, source_of_personalization: safeSource },
-    crm: { ...ctx.crm, step_objective: null },
+    ...safeMatchContext,
+    buyer: { ...safeMatchContext.buyer, source_of_personalization: safeSource },
+    crm: { ...safeMatchContext.crm, step_objective: null },
     // Drop stale fields supplied by older callers without exposing a length rule.
     business_rules: Object.fromEntries(
       Object.entries(ctx.business_rules).filter(([key]) => key !== "max_words"),
@@ -138,9 +140,10 @@ export async function generateCampaignEmail(
   stepGuidance: string | null,
   senderName?: string | null,
 ): Promise<GeneratedCampaignEmail> {
-  const knownCompany = knownContextValue(ctx.buyer.company_name)
-  const knownProduct = knownContextValue(ctx.import_data.main_products)
-  const knownIndustry = knownContextValue(ctx.buyer.industry)
+  const safeCtx = campaignSafeAIContext(ctx)
+  const knownCompany = knownContextValue(safeCtx.buyer.company_name)
+  const knownProduct = knownContextValue(safeCtx.import_data.main_products)
+  const knownIndustry = knownContextValue(safeCtx.buyer.industry)
 
   // Keep this argument for existing scheduler/caller compatibility. Stored
   // campaign guidance may contain obsolete copy rules; the supplied writing
@@ -148,16 +151,20 @@ export async function generateCampaignEmail(
   void stepGuidance
 
   const campaignFacts = {
-    target_country: ctx.campaign.target_country,
-    product_category: ctx.campaign.product_category,
+    target_country: safeCtx.campaign.target_country,
+    target_product_name: safeCtx.campaign.target_product_name,
+    product_category: safeCtx.campaign.product_category,
+    match_level: safeCtx.campaign_match.level ?? "unclassified",
+    discovery_only: safeCtx.campaign_match.level === "industry" || safeCtx.campaign_match.requires_human_review || safeCtx.campaign_match.level === null,
   }
-  const selectedReference = writingReferenceFor(ctx, stepType)
+  const selectedReference = writingReferenceFor(safeCtx, stepType)
 
   const system = [
     "You write one-to-one B2B emails as a thoughtful account executive.",
     "The selected step writing reference is the creative guide: follow its narrative logic, reasoning, explanatory depth, and paragraph rhythm. Use it as a writing reference, not as a fixed structure, checklist, or wording to copy. Write fresh sentences in your own natural language.",
     "Use BuyerContext only to choose or adjust factual substance and personalization (for example, a known buyer, product, market, or prior interaction). It must not change the reference's central narrative, reasoning, explanatory depth, or natural rhythm. Prior emails are context for continuity, not copy to reuse. Ignore stored step objectives or legacy copy guidance that could override the selected reference.",
     "Use known facts accurately. Never invent buyer intentions, previous conversations, supplier actions/results, credentials, capacity, prices, or regulations. Treat UNKNOWN as unknown. Describe Veximtrade's service accurately and modestly.",
+    "The deterministic campaign_match level is a hard claim boundary: product + no review caution may support a specific product reference grounded in the recorded LR descriptor; category may mention only the broad category and must not claim a specific buyer product; industry, unclassified, or any unresolved review caution is discovery-only. In discovery-only copy, do not state or imply the buyer buys, imports, or needs the campaign product; ask a broad, low-pressure question instead. Industry and HS codes never prove product demand, and HS codes must never appear in buyer-facing copy.",
     "Protect research privacy: never expose raw import/customs/shipment records, supplier names from records, or imply that a current supplier list was inspected. When useful, refer to broad industry-level research without naming the underlying data source.",
     "Keep standard deliverability and legal safeguards: plain text; truthful, non-deceptive subject; no fake Re/Fwd, suspicious links/domains, or obvious promotional/urgency language. Ordinary conversational language is welcome.",
     "Include this exact opt-out sentence immediately before the signature: If you'd rather not hear from me, just reply 'no thanks' and I won't contact you again.",
@@ -171,8 +178,8 @@ Never use the company name as the human sender name.`,
 
   const prompt = [
     `CAMPAIGN FACTS (context only): ${JSON.stringify(campaignFacts, null, 2)}`,
-    `BUYER CONTEXT (facts and personalization only): ${formatContextBlock(ctx)}`,
-    `CURRENT STEP: ${ctx.crm.campaign_step} (${stepType})`,
+    `BUYER CONTEXT (facts and personalization only): ${formatContextBlock(safeCtx)}`,
+    `CURRENT STEP: ${safeCtx.crm.campaign_step} (${stepType})`,
     `STEP-SPECIFIC WRITING REFERENCE:\n${selectedReference}`,
     "Write fresh English copy and its Vietnamese translation. Let the selected reference guide the narrative; use context only for factual substance and personalization. Return subject_en, content_en, and content_vi.",
   ].join("\n\n")

@@ -93,7 +93,6 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     product_name: productName,
     subcategory: data.subcategory,
     description: data.description,
-    country_of_origin: data.country_of_origin,
     price_unit: data.price_unit,
     moq_unit: data.moq_unit,
     lead_time: data.lead_time,
@@ -118,7 +117,8 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     category: translatedValue("category", category) ?? category,
     subcategory: translatedValue("subcategory", data.subcategory),
     description: translatedValue("description", data.description),
-    country_of_origin: translatedValue("country_of_origin", data.country_of_origin) || "Vietnam",
+    // Country of origin is structured location data; preserve it exactly as entered.
+    country_of_origin: data.country_of_origin?.trim() || "Vietnam",
     unit_of_measure: data.unit_of_measure || "kg",
     currency: data.currency || "USD",
     min_unit_price: data.min_unit_price || null,

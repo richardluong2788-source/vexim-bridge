@@ -90,7 +90,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     ? await (admin.from("email_drafts") as any)
         .select(
           `*, enrollment:campaign_enrollments(id, lead_id, owner_id, state, current_step_number,
-             lead:leads(id, company_name, contact_person, contact_email))`,
+             lead:leads(id, company_name, contact_person, contact_email, country))`,
         )
         .in("campaign_enrollment_id", enrollmentIds)
         .in("status", ["pending_approval", "draft"])
@@ -111,6 +111,25 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         .select("id", { count: "exact", head: true })
         .in("campaign_enrollment_id", enrollmentIds)
         .eq("status", "rejected")
+    : { count: 0 }
+  const { count: draftsPendingApproval } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "pending_approval")
+    : { count: 0 }
+  const { count: draftsBlocked } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "draft")
+    : { count: 0 }
+  const { count: countryMismatchDrafts } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "draft")
+        .like("error_message", "not_eligible_country:%")
     : { count: 0 }
   const { count: draftsSent } = enrollmentIds.length
     ? await (admin.from("email_drafts") as any)
@@ -146,8 +165,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     handoff: enrollmentRows.filter((r) => r.state === "replied_handoff").length,
     stopped: enrollmentRows.filter((r) => ["stopped", "suppressed", "invalid_contact", "nurture"].includes(r.state)).length,
     review: enrollmentRows.filter((r) => r.needs_human_review).length,
-    pendingApproval: draftRows.filter((d) => d.status === "pending_approval").length,
-    qaBlocked: draftRows.filter((d) => d.status === "draft").length,
+    pendingApproval: draftsPendingApproval ?? 0,
+    qaBlocked: Math.max((draftsBlocked ?? 0) - (countryMismatchDrafts ?? 0), 0),
+    countryMismatch: countryMismatchDrafts ?? 0,
   }
   const replyRate = stats.contacted > 0 ? Math.round((stats.replied / stats.contacted) * 100) : 0
 
@@ -176,7 +196,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">{c.name}</h1>
             <Badge variant="outline" className={STATUS_TONE[c.status]}>{c.status}</Badge>
-            <Badge variant="secondary">Buyer country: {c.target_country ?? "not set"}</Badge>
+            <Badge variant="secondary">Campaign target country: {c.target_country ?? "not set"}</Badge>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{c.description ?? "—"}</p>
         </div>
@@ -199,6 +219,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           { label: "Handoff AE", value: stats.handoff },
           { label: "Chờ duyệt", value: stats.pendingApproval },
           { label: "QA chặn", value: stats.qaBlocked },
+          { label: "Sai quốc gia", value: stats.countryMismatch },
           { label: "Cần review", value: stats.review },
         ].map((s) => (
           <Card key={s.label}>

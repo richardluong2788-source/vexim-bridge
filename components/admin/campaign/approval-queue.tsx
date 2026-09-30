@@ -38,7 +38,7 @@ export interface ApprovalDraft {
     id: string
     state: string
     current_step_number: number
-    lead: { company_name: string | null; contact_person: string | null; contact_email: string | null } | null
+    lead: { company_name: string | null; contact_person: string | null; contact_email: string | null; country?: string | null } | null
   } | null
 }
 
@@ -234,7 +234,7 @@ function DraftCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm">
             <span className="font-medium">{lead?.company_name ?? "(không rõ công ty)"}</span>
-            <span className="text-muted-foreground"> · {lead?.contact_person ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt;</span>
+            <span className="text-muted-foreground"> · {lead?.contact_person ?? "—"} &lt;{lead?.contact_email ?? draft.recipient_email ?? "?"}&gt; · Buyer country: {lead?.country ?? "—"}</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <Badge variant="outline">Step {draft.campaign_step_number ?? "?"}</Badge>

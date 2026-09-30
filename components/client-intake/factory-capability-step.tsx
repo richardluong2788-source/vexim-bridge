@@ -24,6 +24,8 @@ interface FactoryCapabilityStepProps {
   values: FactoryCapabilityAnswers
   onChange: (patch: Partial<FactoryCapabilityAnswers>) => void
   token?: string
+  /** FDA review is buyer-, product-, and facility-specific, so onboarding hides it. */
+  showFda?: boolean
 }
 
 function YesNo({
@@ -49,6 +51,7 @@ export function FactoryCapabilityStep({
   values: v,
   onChange,
   token,
+  showFda = false,
 }: FactoryCapabilityStepProps) {
   const showFdaDetails = v.fda_status === "valid" || v.fda_status === "expired" || v.fda_status === "in_progress" || v.fda_status === "pending_supplement"
   const requireFdaFields = v.fda_status === "valid"
@@ -170,7 +173,8 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 5: Dang ky FDA - with in_progress + certificate upload */}
+      {/* FDA is collected later only when relevant to a buyer/product/facility. */}
+      {showFda && (
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">5. Đăng ký FDA</h3>
         <RadioGroup
@@ -245,10 +249,11 @@ export function FactoryCapabilityStep({
           </div>
         )}
       </section>
+      )}
 
-      {/* 6: Buyer Audit */}
+      {/* Buyer Audit */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">6. Khả năng tiếp đón Buyer Audit</h3>
+        <h3 className="text-sm font-semibold text-foreground">{showFda ? "6" : "5"}. Khả năng tiếp đón Buyer Audit</h3>
         <div className="flex flex-col gap-2">
           {AUDIT_READINESS.map((a) => (
             <label key={a} className="flex items-center gap-2 text-sm">
@@ -275,9 +280,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 7: Nang luc thuong mai */}
+      {/* Commercial capability */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">7. Năng lực thương mại</h3>
+        <h3 className="text-sm font-semibold text-foreground">{showFda ? "7" : "6"}. Năng lực thương mại</h3>
         <div className="flex flex-wrap gap-4">
           {INCOTERMS.map((i) => (
             <label key={i} className="flex items-center gap-2 text-sm">
@@ -322,9 +327,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 8: Nhan su phu trach du an */}
+      {/* Project contacts */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">8. Nhân sự phụ trách dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">{showFda ? "8" : "7"}. Nhân sự phụ trách dự án</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label>Có bộ phận xuất khẩu</Label>
@@ -349,9 +354,9 @@ export function FactoryCapabilityStep({
         </div>
       </section>
 
-      {/* 9: Cam ket trien khai du an */}
+      {/* Project commitments */}
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">9. Cam kết triển khai dự án</h3>
+        <h3 className="text-sm font-semibold text-foreground">{showFda ? "9" : "8"}. Cam kết triển khai dự án</h3>
         <div className="flex flex-col gap-2">
           {COMMITMENTS.map((c) => (
             <label key={c} className="flex items-start gap-2 text-sm">

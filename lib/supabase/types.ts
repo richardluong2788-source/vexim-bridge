@@ -176,6 +176,14 @@ export type Database = {
           // Supplier Researcher who sourced/onboarded this client (074).
           // Drives SR's billing-proposal + collections scope.
           sourced_by: string | null
+          supplier_entity_type: string
+          source_verification_status: string
+          source_verification_consent: boolean
+          source_change_acknowledged: boolean
+          us_sales_channel_status: string
+          us_sales_channel_notes: string | null
+          vexim_support_needs: string[]
+          vexim_support_other: string | null
           /** Personal buyer-facing sender address (migration 053). */
           work_email: string | null
           /** Staff login username (migration 076); null for clients and legacy staff. */
@@ -205,6 +213,14 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          supplier_entity_type?: string
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           work_email?: string | null
           username?: string | null
           created_at?: string
@@ -231,6 +247,14 @@ export type Database = {
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          supplier_entity_type?: string
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           work_email?: string | null
           username?: string | null
           created_at?: string
@@ -1392,6 +1416,15 @@ export type Database = {
           pricing_decision_maker: string | null
           commitments: string[]
           project_priority: string | null
+          supplier_entity_type: string | null
+          manufacturing_sources: Record<string, unknown>[]
+          source_verification_status: string
+          source_verification_consent: boolean
+          source_change_acknowledged: boolean
+          us_sales_channel_status: string | null
+          us_sales_channel_notes: string | null
+          vexim_support_needs: string[]
+          vexim_support_other: string | null
           reviewed_by: string | null
           reviewed_at: string | null
           review_notes: string | null
@@ -1466,6 +1499,15 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
+          supplier_entity_type?: string | null
+          manufacturing_sources?: Record<string, unknown>[]
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string | null
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           reviewed_by?: string | null
           reviewed_at?: string | null
           review_notes?: string | null
@@ -1540,6 +1582,15 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
+          supplier_entity_type?: string | null
+          manufacturing_sources?: Record<string, unknown>[]
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string | null
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           reviewed_by?: string | null
           reviewed_at?: string | null
           review_notes?: string | null
@@ -1569,6 +1620,81 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      }
+      client_manufacturing_sources: {
+        Row: {
+          id: string
+          client_id: string
+          intake_submission_id: string | null
+          source_index: number | null
+          facility_name: string | null
+          facility_address: string | null
+          product_names: string[]
+          relationship_type: string | null
+          relationship_notes: string | null
+          verification_contact_name: string | null
+          verification_contact_email: string | null
+          verification_contact_phone: string | null
+          evidence_note: string | null
+          verification_status: string
+          verification_notes: string | null
+          verification_consent: boolean
+          source_change_acknowledged: boolean
+          verified_by: string | null
+          verified_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          intake_submission_id?: string | null
+          source_index?: number | null
+          facility_name?: string | null
+          facility_address?: string | null
+          product_names?: string[]
+          relationship_type?: string | null
+          relationship_notes?: string | null
+          verification_contact_name?: string | null
+          verification_contact_email?: string | null
+          verification_contact_phone?: string | null
+          evidence_note?: string | null
+          verification_status?: string
+          verification_notes?: string | null
+          verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          intake_submission_id?: string | null
+          source_index?: number | null
+          facility_name?: string | null
+          facility_address?: string | null
+          product_names?: string[]
+          relationship_type?: string | null
+          relationship_notes?: string | null
+          verification_contact_name?: string | null
+          verification_contact_email?: string | null
+          verification_contact_phone?: string | null
+          evidence_note?: string | null
+          verification_status?: string
+          verification_notes?: string | null
+          verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       client_factory_assessments: {
         Row: {

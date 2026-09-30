@@ -23,6 +23,13 @@ import {
 } from "@/lib/constants/industries"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
 import { createClientAccount, createSupplementLinkForClient } from "@/app/admin/clients/new/actions"
+import {
+  PROFILE_SOURCE_STATUSES,
+  SUPPLIER_ENTITY_TYPES,
+  isInitialProfileSourceStatus,
+  type ProfileSourceStatus,
+  type SupplierEntityType,
+} from "@/lib/client-intake/sourcing"
 
 type Locale = "vi" | "en"
 
@@ -47,9 +54,9 @@ export function NewClientForm({ locale }: NewClientFormProps) {
   const [selectedIndustries, setSelectedIndustries] = useState<Industry[]>([])
   const [phone, setPhone] = useState("")
   const [country, setCountry] = useState("")
-  const [fdaMode, setFdaMode] = useState<"has_number" | "pending_supplement" | "none">("has_number")
-  const [fdaNumber, setFdaNumber] = useState("")
-  const [fdaExpiresAt, setFdaExpiresAt] = useState("")
+  const [supplierEntityType, setSupplierEntityType] = useState<SupplierEntityType>("unknown")
+  const [sourceVerificationStatus, setSourceVerificationStatus] =
+    useState<ProfileSourceStatus>("awaiting_details")
   const [supplementLink, setSupplementLink] = useState<{ url: string; expiresAt?: string } | null>(null)
   const [isLinkPending, startLinkTransition] = useTransition()
   const [copied, setCopied] = useState(false)
@@ -89,8 +96,6 @@ export function NewClientForm({ locale }: NewClientFormProps) {
           "Bạn không có quyền tạo khách hàng mới.",
           "You are not allowed to create new clients.",
         )
-      case "fda_expires_at_invalid":
-        return tr("Ngày hết hạn FDA không hợp lệ", "FDA expiry date is invalid")
       default:
         return code
     }
@@ -127,9 +132,8 @@ export function NewClientForm({ locale }: NewClientFormProps) {
         industries: selectedIndustries,
         phone: phone || null,
         country: country || null,
-        fda_registration_number: fdaMode === "pending_supplement" ? "PENDING" : fdaNumber || null,
-        fda_expires_at: fdaMode === "pending_supplement" ? null : fdaExpiresAt || null,
-        fda_status: fdaMode === "pending_supplement" ? "pending_supplement" : fdaNumber ? "valid" : "missing",
+        supplier_entity_type: supplierEntityType,
+        source_verification_status: sourceVerificationStatus,
       })
 
       if (!result.ok) {
@@ -143,9 +147,8 @@ export function NewClientForm({ locale }: NewClientFormProps) {
       setSelectedIndustries([])
       setPhone("")
       setCountry("")
-      setFdaMode("has_number")
-      setFdaNumber("")
-      setFdaExpiresAt("")
+      setSupplierEntityType("unknown")
+      setSourceVerificationStatus("awaiting_details")
       router.refresh()
     })
   }
@@ -399,94 +402,50 @@ export function NewClientForm({ locale }: NewClientFormProps) {
             </p>
           </div>
 
-          {/* FDA section */}
-          <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4">
-            <div>
-              <Label className="text-sm font-medium">
-                {tr("Tình trạng chứng chỉ FDA", "FDA Registration Status")}
+          {/* Internal supplier sourcing classification */}
+          <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="supplierEntityType">
+                {tr("Loại đối tác", "Supplier relationship type")}
               </Label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {tr(
-                  "Nhà cung cấp ở trạng thái 'Đang bổ sung' vẫn đủ điều kiện để AI gợi ý và giới thiệu cho Buyer (sẽ hoàn tất trước khi xuất hàng).",
-                  "Suppliers with 'In Progress' status are eligible for AI suggestions and Buyer introductions (will complete before shipping).",
-                )}
-              </p>
+              <select
+                id="supplierEntityType"
+                value={supplierEntityType}
+                onChange={(event) => setSupplierEntityType(event.target.value as SupplierEntityType)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {SUPPLIER_ENTITY_TYPES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {locale === "vi" ? option.labelVi : option.labelEn}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setFdaMode("has_number")}
-                className={cn(
-                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
-                  fdaMode === "has_number"
-                    ? "border-primary bg-primary/10 text-primary font-semibold"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
-                )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="sourceVerificationStatus">
+                {tr("Tình trạng nguồn sản xuất", "Manufacturing source status")}
+              </Label>
+              <select
+                id="sourceVerificationStatus"
+                value={sourceVerificationStatus}
+                onChange={(event) =>
+                  setSourceVerificationStatus(event.target.value as ProfileSourceStatus)
+                }
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                {tr("✓ Đã có mã số FDA", "✓ Valid FDA Number")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFdaMode("pending_supplement")}
-                className={cn(
-                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
-                  fdaMode === "pending_supplement"
-                    ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
-                )}
-              >
-                {tr("⏳ Đang bổ sung FDA", "⏳ In Progress")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFdaMode("none")}
-                className={cn(
-                  "flex items-center justify-center rounded-md border p-2.5 text-xs font-medium transition-colors",
-                  fdaMode === "none"
-                    ? "border-muted-foreground bg-muted text-foreground font-semibold"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted/50",
-                )}
-              >
-                {tr("✕ Chưa có FDA", "✕ No FDA")}
-              </button>
+                {PROFILE_SOURCE_STATUSES.filter((option) => isInitialProfileSourceStatus(option.value)).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {locale === "vi" ? option.labelVi : option.labelEn}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {fdaMode === "has_number" && (
-              <div className="grid gap-4 md:grid-cols-2 pt-2 border-t border-border/50">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="fdaNumber" className="text-xs">
-                    {tr("Số đăng ký FDA", "FDA Registration Number")}
-                  </Label>
-                  <Input
-                    id="fdaNumber"
-                    value={fdaNumber}
-                    onChange={(e) => setFdaNumber(e.target.value)}
-                    placeholder="12345678901"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="fdaExpires" className="text-xs">
-                    {tr("Ngày hết hạn", "Expiry Date")}
-                  </Label>
-                  <Input
-                    id="fdaExpires"
-                    type="date"
-                    value={fdaExpiresAt}
-                    onChange={(e) => setFdaExpiresAt(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-
-            {fdaMode === "pending_supplement" && (
-              <div className="rounded-md border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-800 dark:text-blue-300">
-                {tr(
-                  "Nhà cung cấp đã cam kết hoàn thành đăng ký FDA khi chốt đơn hàng với Buyer. Hệ thống sẽ cho phép giới thiệu nhà cung cấp này trong danh sách Shortlist.",
-                  "Supplier committed to completing FDA registration upon deal confirmation. The system will allow shortlisting and introducing this supplier to buyers.",
-                )}
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              {tr(
+                "Thông tin này chỉ dùng nội bộ. Có thể tạo tài khoản và gửi link bổ sung dù chưa biết nhà máy; khi nhận thông tin từ nhà cung cấp, hồ sơ vẫn chờ Vexim xác minh.",
+                "Internal only. You can create the account and send the supplement link before the factory is known; supplier-provided source details remain pending Vexim verification.",
+              )}
+            </p>
           </div>
 
           {/* Error */}
@@ -535,7 +494,7 @@ export function NewClientForm({ locale }: NewClientFormProps) {
 
               <div className="rounded-md bg-background border p-3 flex flex-col gap-2">
                 <p className="text-xs font-medium text-foreground">
-                  {tr("Bước tiếp theo: gửi link bổ sung hồ sơ (Giới thiệu doanh nghiệp · Năng lực & Chứng nhận · Đánh giá nhà máy — bỏ Liên hệ & Đăng ký). Link này sinh lại được bất cứ lúc nào ở tab Hồ sơ của trang client.", "Next: send the supplement link (Company intro · Capability & Certifications · Factory assessment — excludes Contact & Registration). You can regenerate it anytime from the client page, Profile tab.")}
+                  {tr("Bước tiếp theo: gửi link bổ sung hồ sơ (Giới thiệu doanh nghiệp · Nguồn nhà máy & thị trường Mỹ · Năng lực & Chứng nhận · Đánh giá nhà máy — bỏ Liên hệ & Đăng ký). Link này sinh lại được bất cứ lúc nào ở tab Hồ sơ của trang client.", "Next: send the supplement link (Company intro · Manufacturing sources & U.S. channel · Capability & Certifications · Factory assessment — excludes Contact & Registration). You can regenerate it anytime from the client page, Profile tab.")}
                 </p>
                 {!supplementLink ? (
                   <Button
@@ -576,7 +535,7 @@ export function NewClientForm({ locale }: NewClientFormProps) {
                       </Button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      {tr("Link này chỉ dùng để bổ sung Giới thiệu doanh nghiệp, Năng lực & Chứng nhận, Đánh giá nhà máy – không bao gồm Liên hệ & Đăng ký vì tài khoản đã tạo.", "This link is for supplementing Company intro, Capability & Factory assessment – excludes Contact & Registration because account already exists.")}
+                      {tr("Link này bổ sung Giới thiệu doanh nghiệp, Nguồn nhà máy & thị trường Mỹ, Năng lực & Chứng nhận, Đánh giá nhà máy – không bao gồm Liên hệ & Đăng ký vì tài khoản đã tạo.", "This link covers Company intro, Manufacturing sources & U.S. channel, Capability & Factory assessment – excludes Contact & Registration because account already exists.")}
                     </p>
                   </div>
                 )}

@@ -5,6 +5,16 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 import { translateSupplierTextFields } from "@/lib/ai/supplier-content-translation"
 import { notifyAeOfIntakeSubmission } from "@/lib/notifications/intake-submitted-email"
+import {
+  isSupplierEntityType,
+  isUsSalesChannelStatus,
+  normalizeManufacturingSources,
+  normalizeSupportNeeds,
+  type ManufacturingSourceEntry,
+  type SupplierEntityType,
+  type UsSalesChannelStatus,
+  type VeximSupportNeed,
+} from "@/lib/client-intake/sourcing"
 
 export interface ClientIntakePayload {
   contact_name: string
@@ -38,10 +48,14 @@ export interface ClientIntakePayload {
   export_markets?: string[]
   export_markets_other?: string
   traceability?: string[]
-  fda_status?: string
-  fda_number?: string
-  fda_expires_at?: string
-  fda_certificate_url?: string
+  supplier_entity_type?: SupplierEntityType
+  manufacturing_sources?: ManufacturingSourceEntry[]
+  source_verification_consent?: boolean
+  source_change_acknowledged?: boolean
+  us_sales_channel_status?: UsSalesChannelStatus
+  us_sales_channel_notes?: string
+  vexim_support_needs?: VeximSupportNeed[]
+  vexim_support_other?: string
   audit_readiness?: string[]
   audit_owner?: string
   incoterms?: string[]
@@ -88,6 +102,24 @@ export async function submitClientIntake(
     (INDUSTRIES as readonly string[]).includes(ind),
   )
   if (industries.length === 0) return { ok: false, error: "industry_invalid" }
+  if (data.source_verification_consent !== true || data.source_change_acknowledged !== true) {
+    return { ok: false, error: "source_confirmation_required" }
+  }
+
+  const supplierEntityType = isSupplierEntityType(data.supplier_entity_type)
+    ? data.supplier_entity_type
+    : "unknown"
+  const usSalesChannelStatus = isUsSalesChannelStatus(data.us_sales_channel_status)
+    ? data.us_sales_channel_status
+    : "unknown"
+  const manufacturingSources = normalizeManufacturingSources(data.manufacturing_sources)
+  const supportNeeds = normalizeSupportNeeds(data.vexim_support_needs)
+  const certifications = (Array.isArray(data.certifications) ? data.certifications : []).filter(
+    (value): value is string =>
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      value.trim().toLowerCase() !== "fda registration",
+  )
 
   // Reject invalid/replayed links before making a billable AI request. The RPC
   // below remains the final authority (it atomically checks status + expiry).
@@ -123,9 +155,16 @@ export async function submitClientIntake(
     payment_policy: data.payment_policy,
     oem_policy: data.oem_policy,
     odm_policy: data.odm_policy,
+    us_sales_channel_notes: data.us_sales_channel_notes,
+    vexim_support_other: data.vexim_support_other,
   }
   for (const [index, point] of (data.usp_points ?? []).entries()) {
     textFields[`usp_points.${index}.title`] = point.title
+  }
+  for (const [index, source] of manufacturingSources.entries()) {
+    textFields[`manufacturing_sources.${index}.products`] = source.product_names.join("\n")
+    textFields[`manufacturing_sources.${index}.relationship_notes`] = source.relationship_notes
+    textFields[`manufacturing_sources.${index}.evidence_note`] = source.evidence_note
   }
 
   const translation = await translateSupplierTextFields(textFields)
@@ -138,6 +177,31 @@ export async function submitClientIntake(
   const uspPoints = (data.usp_points ?? []).map((point, index) => ({
     ...point,
     title: translation.translatedTexts[`usp_points.${index}.title`] ?? point.title.trim(),
+  }))
+  const splitTranslatedProducts = (value: string) =>
+    value
+      .split(/\r?\n|;/)
+      .map((item) => item.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
+      .filter(Boolean)
+      .slice(0, 20)
+  const translatedSources = manufacturingSources.map((source, index) => ({
+    ...source,
+    product_names: splitTranslatedProducts(
+      translatedValue(
+        `manufacturing_sources.${index}.products`,
+        source.product_names.join("\n"),
+      ) ?? "",
+    ),
+    relationship_notes:
+      translatedValue(
+        `manufacturing_sources.${index}.relationship_notes`,
+        source.relationship_notes,
+      ) ?? "",
+    evidence_note:
+      translatedValue(
+        `manufacturing_sources.${index}.evidence_note`,
+        source.evidence_note,
+      ) ?? "",
   }))
 
   const supabase = await createClient()
@@ -164,7 +228,7 @@ export async function submitClientIntake(
       cover_image_url: data.cover_image_url?.trim() || null,
       factory_image_urls: data.factory_image_urls ?? [],
       video_url: data.video_url?.trim() || null,
-      certifications: data.certifications ?? [],
+      certifications,
       certifications_other: translatedValue("certifications_other", data.certifications_other),
       certification_image_urls: data.certification_image_urls ?? [],
       quality_systems: data.quality_systems ?? [],
@@ -175,10 +239,17 @@ export async function submitClientIntake(
       export_markets: data.export_markets ?? [],
       export_markets_other: translatedValue("export_markets_other", data.export_markets_other),
       traceability: data.traceability ?? [],
-      fda_status: data.fda_status?.trim() || null,
-      fda_number: data.fda_number?.trim() || null,
-      fda_expires_at: data.fda_expires_at?.trim() || null,
-      fda_certificate_url: data.fda_certificate_url?.trim() || null,
+      supplier_entity_type: supplierEntityType,
+      manufacturing_sources: translatedSources,
+      source_verification_consent: true,
+      source_change_acknowledged: true,
+      us_sales_channel_status: usSalesChannelStatus,
+      us_sales_channel_notes: translatedValue(
+        "us_sales_channel_notes",
+        data.us_sales_channel_notes,
+      ),
+      vexim_support_needs: supportNeeds,
+      vexim_support_other: translatedValue("vexim_support_other", data.vexim_support_other),
       audit_readiness: data.audit_readiness ?? [],
       audit_owner: data.audit_owner?.trim() || null,
       incoterms: data.incoterms ?? [],

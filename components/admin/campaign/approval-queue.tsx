@@ -58,16 +58,22 @@ export function ApprovalQueue({
   const pending = drafts.filter((d) => d.status === "pending_approval")
   const blocked = drafts.filter((d) => d.status !== "pending_approval")
 
-  async function approve(draft: ApprovalDraft) {
+  async function approve(draft: ApprovalDraft, edit?: { subject?: string; content?: string }) {
     setBusyId(draft.id)
-    const res = await approveCampaignDraftAction(draft.id)
-    setBusyId(null)
-    if (res.ok) {
-      toast.success("Đã gửi email")
-      router.refresh()
-    } else {
-      toast.error(res.message ?? `Lỗi: ${res.error}`)
-      if (res.error === "not_eligible") router.refresh()
+    try {
+      const res = await approveCampaignDraftAction(draft.id, edit)
+      if (res.ok) {
+        toast.success(edit ? "Đã gửi (bản AE đã sửa)" : "Đã gửi email")
+        router.refresh()
+      } else {
+        toast.error(res.message ?? `Lỗi: ${res.error}`)
+        if (res.error === "not_eligible") router.refresh()
+      }
+    } catch (error) {
+      console.error("[campaign] approve draft:", error)
+      toast.error(error instanceof Error ? `Không gửi được: ${error.message}` : "Không gửi được email. Vui lòng thử lại.")
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -123,7 +129,7 @@ export function ApprovalQueue({
           draft={d}
           senderName={senderName}
           busy={busyId === d.id}
-          onApprove={() => approve(d)}
+          onApprove={(edit) => approve(d, edit)}
           onRegenerate={() => regenerate(d)}
           onReject={() => {
             setRejecting(d)
@@ -189,15 +195,15 @@ function DraftCard({
   senderName: string | null
   busy?: boolean
   blocked?: boolean
-  onApprove?: () => void
+  onApprove?: (edit?: { subject?: string; content?: string }) => Promise<void>
   onRegenerate?: () => void
   onReject?: () => void
 }) {
-  const router = useRouter()
   const previewContent = previewSenderName(draft.generated_content_en, senderName)
   const [subject, setSubject] = useState(draft.generated_subject ?? "")
   const [content, setContent] = useState(previewContent)
   const [showVi, setShowVi] = useState(false)
+  const [approving, setApproving] = useState(false)
 
   // A draft may be regenerated in place; refresh the textarea while preserving
   // the viewer-specific sender-name preview.
@@ -206,6 +212,21 @@ function DraftCard({
   const lead = draft.enrollment?.lead
   const wordCount = content.split(/\s+/).filter(Boolean).length
   const countryMismatch = draft.error_message?.startsWith("not_eligible_country:") ?? false
+  const actionBusy = Boolean(busy || approving)
+
+  async function handleApprove() {
+    if (!onApprove || actionBusy) return
+    const edited =
+      subject !== (draft.generated_subject ?? "") || content !== previewContent
+        ? { subject, content }
+        : undefined
+    setApproving(true)
+    try {
+      await onApprove(edited)
+    } finally {
+      setApproving(false)
+    }
+  }
 
   return (
     <Card className={blocked ? (countryMismatch ? "border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20" : "border-red-300 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20") : ""}>
@@ -236,7 +257,7 @@ function DraftCard({
 
         <div className="space-y-1.5">
           <Label htmlFor={`subject-${draft.id}`}>Subject</Label>
-          <Input id={`subject-${draft.id}`} value={subject} onChange={(e) => setSubject(e.target.value)} disabled={blocked} />
+          <Input id={`subject-${draft.id}`} value={subject} onChange={(e) => setSubject(e.target.value)} disabled={blocked || actionBusy} />
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -253,7 +274,7 @@ function DraftCard({
             className="font-mono text-xs"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            disabled={blocked}
+            disabled={blocked || actionBusy}
           />
           <p className={senderName ? "text-xs text-muted-foreground" : "text-xs text-amber-700 dark:text-amber-300"}>
             {senderName
@@ -276,23 +297,21 @@ function DraftCard({
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              onClick={() => {
-                // Edit được gửi kèm (approve action chấp nhận override).
-                approveWithEdit(draft, subject, content, previewContent, router)
-              }}
-              disabled={busy}
+              onClick={() => void handleApprove()}
+              disabled={actionBusy || !onApprove}
+              aria-busy={actionBusy}
             >
-              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Duyệt &amp; gửi
+              {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              {approving ? "Đang gửi..." : busy ? "Đang xử lý..." : "Duyệt & gửi"}
             </Button>
             {onRegenerate && (
-              <Button size="sm" variant="outline" onClick={onRegenerate} disabled={busy}>
+              <Button size="sm" variant="outline" onClick={onRegenerate} disabled={actionBusy}>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Tạo lại bằng AI
               </Button>
             )}
             {onReject && (
-              <Button size="sm" variant="outline" onClick={onReject} disabled={busy}>
+              <Button size="sm" variant="outline" onClick={onReject} disabled={actionBusy}>
                 <X className="mr-2 h-4 w-4" /> Từ chối
               </Button>
             )}
@@ -307,24 +326,4 @@ function previewSenderName(content: string | null, senderName: string | null): s
   const source = content ?? ""
   const name = senderName?.trim()
   return name ? source.replace(/\{\{sender_name\}\}/gi, () => name) : source
-}
-
-async function approveWithEdit(
-  draft: ApprovalDraft,
-  subject: string,
-  content: string,
-  previewContent: string,
-  router: ReturnType<typeof useRouter>,
-) {
-  const edited =
-    subject !== (draft.generated_subject ?? "") || content !== previewContent
-      ? { subject, content }
-      : undefined
-  const res = await approveCampaignDraftAction(draft.id, edited)
-  if (res.ok) {
-    toast.success(edited ? "Đã gửi (bản AE đã sửa)" : "Đã gửi")
-    router.refresh()
-  } else {
-    toast.error(res.message ?? `Lỗi: ${res.error}`)
-  }
 }

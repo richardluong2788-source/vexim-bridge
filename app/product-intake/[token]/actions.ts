@@ -75,17 +75,6 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     return { success: false, error: "Vui lòng điền tên sản phẩm và danh mục." }
   }
 
-  // Make sure the private provenance table is installed before a submission can
-  // be translated; otherwise a successful RPC could lose the source text.
-  const { error: provenanceCheckError } = await admin
-    .from("client_product_intake_sources")
-    .select("product_id")
-    .limit(0)
-  if (provenanceCheckError) {
-    console.error("[product intake] provenance migration is unavailable:", provenanceCheckError.message)
-    return { success: false, error: "Hệ thống đang được cập nhật. Vui lòng thử lại sau hoặc liên hệ AE." }
-  }
-
   // Canonical category values are codes and must not be rewritten. A supplier-
   // entered custom category is free text, so translate it with the descriptions.
   const isStandardCategory = STANDARD_CATEGORY_VALUES.has(category)
@@ -96,7 +85,6 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     price_unit: data.price_unit,
     moq_unit: data.moq_unit,
     lead_time: data.lead_time,
-    incoterm_place: data.incoterm_place,
     key_specifications: data.key_specifications,
     usp: data.usp,
     packing: data.packing,
@@ -107,8 +95,15 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
   if (!isStandardCategory) textFields.category = category
 
   const translation = await translateSupplierTextFields(textFields)
-  const translatedValue = (key: string, value?: string) =>
-    translation.translatedTexts[key] ?? value?.trim() ?? null
+  if (translation.status === "failed") {
+    return { success: false, error: "translation_failed" }
+  }
+
+  const translatedValue = (key: string, value?: string) => {
+    const translated = translation.translatedTexts[key]
+    const trimmed = value?.trim()
+    return translated ?? (trimmed || null)
+  }
   const translatedProductName = translatedValue("product_name", productName) ?? productName
   const basePayload: any = {
     client_id: clientId,
@@ -128,7 +123,8 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     moq_unit: translatedValue("moq_unit", data.moq_unit),
     lead_time: translatedValue("lead_time", data.lead_time),
     incoterm: data.incoterm || null,
-    incoterm_place: translatedValue("incoterm_place", data.incoterm_place),
+    // Keep shipping-place/location data exactly as supplied.
+    incoterm_place: data.incoterm_place?.trim() || null,
     payment_terms: data.payment_terms || null,
     hs_code: data.hs_code?.trim() || null,
     key_specifications: translatedValue("key_specifications", data.key_specifications),
@@ -159,28 +155,6 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
   if (!result.id) return { success: false, error: "Gửi thất bại. Vui lòng thử lại." }
   const productId = result.id
 
-  // Keep originals in a private table: client_products is readable by public
-  // catalog visitors when active, and must contain only the English version.
-  const { error: sourceError } = await admin
-    .from("client_product_intake_sources")
-    .insert({
-      product_id: productId,
-      client_id: clientId,
-      source_texts: translation.sourceTexts,
-      source_language: translation.sourceLanguage,
-      translation_status: translation.status,
-    })
-  if (sourceError) {
-    // Roll back the product so the supplier can retry without hitting the unique
-    // SKU constraint; never report success if the source text was not retained.
-    console.error("[product intake] original text metadata save failed:", sourceError.message)
-    const { error: rollbackError } = await admin.from("client_products").delete().eq("id", productId)
-    if (rollbackError) {
-      console.error("[product intake] product rollback after provenance failure failed:", rollbackError.message)
-    }
-    return { success: false, error: "Không lưu được nội dung gốc. Vui lòng thử gửi lại hoặc liên hệ AE." }
-  }
-
   await admin.from("product_intake_links").update({ used_at: new Date().toISOString() }).eq("id", intakeLinkId)
 
   try {
@@ -196,7 +170,7 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     console.error("[product intake] notify failed", err)
   })
 
-  return { success: true, productId, translationStatus: translation.status }
+  return { success: true, productId }
 }
 
 /**

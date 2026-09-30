@@ -1,42 +1,29 @@
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { PublicCapability } from "@/lib/assessment/actions"
 
-// Nhan hien thi cho danh sach "Nang luc da xac minh" tren trang profile cong khai.
-// Chi lay tu quality_systems, traceability va cac tin hieu an toan thuc pham/thiet bi/nguon nuoc.
-const QUALITY_SYSTEM_LABELS: Record<string, string> = {
-  HACCP: "Đạt chứng nhận HACCP",
-  GMP: "Đạt chứng nhận GMP",
-  ISO22000: "Đạt chứng nhận ISO 22000",
-  SOP: "Có quy trình vận hành nội bộ (SOP)",
-  QC: "Có quy trình kiểm soát chất lượng (QC)",
-}
-
-const TRACEABILITY_LABELS: Record<string, string> = {
-  lot: "Truy xuất nguồn gốc theo lô (Lot)",
-  input: "Ghi nhận nguyên liệu đầu vào",
-  finished: "Ghi nhận thành phẩm đầu ra",
-  recall: "Có quy trình thu hồi sản phẩm",
-  "batch-lot": "Mã hóa theo Batch/Lot",
-}
-
 /**
- * Xay danh sach checklist "Nang luc da xac minh" tu du lieu nang luc cong khai.
- * Chi bao gom cac tin hieu AN TOAN, khong bao gom diem so/nhan su.
+ * Build the verified-capability checklist using the active profile language.
+ * Only safety, quality-system and traceability signals are included; internal
+ * scores and staffing details are never exposed on the public profile.
  */
 export function buildVerifiedCapabilityChecklist(
-  capability: PublicCapability | null | undefined
+  capability: PublicCapability | null | undefined,
+  locale: Locale = "vi",
 ): string[] {
   if (!capability) return []
 
+  const labels = getProfileCopy(locale).capabilityLabels
   const items: string[] = []
 
   for (const value of capability.quality_systems ?? []) {
-    const label = QUALITY_SYSTEM_LABELS[value]
+    const label = labels.qualitySystems[value]
     if (label) items.push(label)
   }
 
   for (const value of capability.traceability ?? []) {
     if (value === "none") continue
-    const label = TRACEABILITY_LABELS[value]
+    const label = labels.traceability[value]
     if (label) items.push(label)
   }
 

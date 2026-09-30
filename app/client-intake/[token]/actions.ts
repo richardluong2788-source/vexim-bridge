@@ -58,7 +58,6 @@ export interface ClientIntakePayload {
 export interface SubmitClientIntakeResult {
   ok: boolean
   error?: string
-  translationStatus?: "translated" | "not_needed" | "failed"
 }
 
 /**
@@ -95,7 +94,7 @@ export async function submitClientIntake(
   const admin = createAdminClient()
   const { data: pendingSubmission, error: preflightError } = await admin
     .from("client_intake_submissions")
-    .select("id, translation_status")
+    .select("id")
     .eq("token", token)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
@@ -130,6 +129,10 @@ export async function submitClientIntake(
   }
 
   const translation = await translateSupplierTextFields(textFields)
+  if (translation.status === "failed") {
+    return { ok: false, error: "translation_failed" }
+  }
+
   const translatedValue = (key: string, value?: string) =>
     translation.translatedTexts[key] ?? value?.trim() ?? null
   const uspPoints = (data.usp_points ?? []).map((point, index) => ({
@@ -187,9 +190,6 @@ export async function submitClientIntake(
       pricing_decision_maker: data.pricing_decision_maker?.trim() || null,
       commitments: data.commitments ?? [],
       project_priority: data.project_priority?.trim() || null,
-      source_texts: translation.sourceTexts,
-      source_language: translation.sourceLanguage,
-      translation_status: translation.status,
     },
   })
 
@@ -207,5 +207,5 @@ export async function submitClientIntake(
     console.error("[v0] notifyAeOfIntakeSubmission unexpected error:", err)
   })
 
-  return { ok: true, translationStatus: translation.status }
+  return { ok: true }
 }

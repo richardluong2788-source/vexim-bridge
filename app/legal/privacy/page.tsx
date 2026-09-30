@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
           items={[
             "Thông tin lead/buyer do Vexim Trade nghiên cứu và quản lý để hỗ trợ khách hàng.",
             "Nội dung email tiếp cận buyer có thể được AI hỗ trợ soạn và được nhân sự Vexim Trade xem xét trước khi gửi.",
-            "Một số trường mô tả doanh nghiệp/sản phẩm do supplier nhập có thể được xử lý qua Vercel AI Gateway để dịch sang tiếng Anh. Tên doanh nghiệp, tên người liên hệ, thông tin đăng nhập, email, số điện thoại, mã số thuế và mã sản phẩm không được gửi để dịch; nội dung gốc được giữ lại cho nhân sự Vexim đối chiếu và bản dịch được kiểm tra trước khi công khai.",
+            "Một số trường mô tả doanh nghiệp/sản phẩm do supplier nhập được xử lý qua Vercel AI Gateway để dịch sang tiếng Anh. Tên doanh nghiệp, tên người liên hệ, thông tin đăng nhập, email, số điện thoại, mã số thuế, quốc gia, địa chỉ và mã sản phẩm không được gửi để dịch. Nội dung gốc không được lưu lại trong hồ sơ sau khi dịch.",
             "Phản hồi của buyer được phân loại tự động (intent: price_request, sample_request, objection, closing_signal, general).",
             "Hóa đơn (setup_fee, retainer, success_fee, manual) cùng tài liệu PO, SWIFT, B/L.",
             "Lịch sử pipeline (stage_transitions) — append-only audit log.",
@@ -158,7 +158,7 @@ export default function PrivacyPolicyPage() {
           items={[
             { term: "Cung cấp dịch vụ", definition: "Vexim Trade sử dụng thông tin để tiếp nhận yêu cầu, quản lý hồ sơ khách hàng và hỗ trợ hoạt động phát triển xuất khẩu." },
             { term: "Xử lý hồ sơ sản phẩm", definition: "Tiếp nhận, xem xét và quản lý thông tin sản phẩm do khách hàng cung cấp. Hồ sơ không tự động được công khai; trước khi chia sẻ với buyer/đối tác, Vexim Trade sẽ xin chấp thuận của khách hàng." },
-            { term: "Dịch hồ sơ intake", definition: "Một số trường mô tả tự do được dịch sang tiếng Anh bằng AI để buyer quốc tế dễ đọc. Nội dung gốc được giữ lại; nhân sự Vexim kiểm tra bản dịch trước khi phê duyệt hoặc công khai." },
+            { term: "Dịch hồ sơ intake", definition: "Một số trường mô tả tự do được AI dịch sang tiếng Anh ngay sau khi supplier gửi để thống nhất ngôn ngữ làm việc. Nội dung gốc không được lưu lại trong hồ sơ. Vexim vẫn xem xét và phê duyệt hồ sơ theo quy trình thông thường; nhân sự không cần dịch hoặc rà soát riêng bản dịch." },
             { term: "Hỗ trợ giao tiếp", definition: "Soạn và quản lý nội dung trao đổi với khách hàng hoặc buyer; công cụ AI có thể hỗ trợ một số bước, còn nội dung gửi đi được nhân sự Vexim Trade xem xét." },
             { term: "Bảo mật và vận hành", definition: "Phân quyền truy cập, phát hiện hoạt động bất thường, duy trì nhật ký kiểm tra và bảo vệ tài khoản/hồ sơ." },
             { term: "Tuân thủ pháp luật", definition: "Lưu trữ hồ sơ kế toán, hợp đồng và tài liệu giao dịch trong thời hạn pháp luật yêu cầu." },

@@ -113,11 +113,6 @@ export interface ClientProduct {
   price_attested_at?: string | null;
   price_attested_by?: string | null;
   price_attestation_text?: string | null;
-  intake_translation?: {
-    source_texts: Record<string, string>
-    source_language: string | null
-    translation_status: "not_needed" | "translated" | "failed"
-  } | null;
 }
 
 // Add a new client product
@@ -478,40 +473,7 @@ export async function listClientProductsAction(
     return { success: false, error: error.message, data: [] };
   }
 
-  const products = (data ?? []) as unknown as ClientProduct[]
-  const sourceByProductId = new Map<
-    string,
-    NonNullable<ClientProduct["intake_translation"]>
-  >()
-
-  if (products.length > 0) {
-    const { data: sourceRows, error: sourceError } = await admin
-      .from("client_product_intake_sources")
-      .select("product_id, source_texts, source_language, translation_status")
-      .in("product_id", products.map((product) => product.id))
-
-    if (sourceError) {
-      // Product listings still work if the optional provenance migration has
-      // not been applied yet; install it before enabling translation in prod.
-      console.error("[client products] intake translation metadata query failed:", sourceError.message)
-    } else {
-      for (const source of sourceRows ?? []) {
-        sourceByProductId.set(source.product_id, {
-          source_texts: (source.source_texts ?? {}) as Record<string, string>,
-          source_language: source.source_language ?? null,
-          translation_status: source.translation_status,
-        })
-      }
-    }
-  }
-
-  return {
-    success: true,
-    data: products.map((product) => ({
-      ...product,
-      intake_translation: sourceByProductId.get(product.id) ?? null,
-    })),
-  }
+  return { success: true, data: (data ?? []) as unknown as ClientProduct[] }
 }
 
 // Search products across all clients (for admin)

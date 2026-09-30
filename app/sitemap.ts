@@ -90,14 +90,14 @@ async function collectCatalogEntries(): Promise<Entry[]> {
   if (productError) console.error("[sitemap] product urls skipped:", productError.message)
 
   return [
-    ...profiles.map((profile) =>
-      page(
-        publicUrl(`/profile/${profile.slug}`),
-        profile.updated_at ? new Date(profile.updated_at) : now,
-        0.7,
-        "weekly",
-      ),
-    ),
+    ...profiles.flatMap((profile) => {
+      const profilePath = `/profile/${profile.slug}`
+      const updatedAt = profile.updated_at ? new Date(profile.updated_at) : now
+      return [
+        page(publicUrl(profilePath), updatedAt, 0.7, "weekly"),
+        page(publicUrl(localizePath(profilePath, "vi")), updatedAt, 0.65, "weekly"),
+      ]
+    }),
     ...products.map((product) =>
       page(
         publicUrl(`/products/${product.id}`),

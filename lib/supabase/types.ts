@@ -1326,33 +1326,6 @@ export type Database = {
         }
         Relationships: []
       }
-      client_product_intake_sources: {
-        Row: {
-          product_id: string
-          client_id: string
-          source_texts: Record<string, string>
-          source_language: string | null
-          translation_status: "not_needed" | "translated" | "failed"
-          created_at: string
-        }
-        Insert: {
-          product_id: string
-          client_id: string
-          source_texts?: Record<string, string>
-          source_language?: string | null
-          translation_status?: "not_needed" | "translated" | "failed"
-          created_at?: string
-        }
-        Update: {
-          product_id?: string
-          client_id?: string
-          source_texts?: Record<string, string>
-          source_language?: string | null
-          translation_status?: "not_needed" | "translated" | "failed"
-          created_at?: string
-        }
-        Relationships: []
-      }
       client_intake_submissions: {
         Row: {
           id: string
@@ -1419,9 +1392,6 @@ export type Database = {
           pricing_decision_maker: string | null
           commitments: string[]
           project_priority: string | null
-          source_texts: Record<string, string>
-          source_language: string | null
-          translation_status: "not_needed" | "translated" | "failed"
           reviewed_by: string | null
           reviewed_at: string | null
           review_notes: string | null
@@ -1496,9 +1466,6 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
-          source_texts?: Record<string, string>
-          source_language?: string | null
-          translation_status?: "not_needed" | "translated" | "failed"
           reviewed_by?: string | null
           reviewed_at?: string | null
           review_notes?: string | null
@@ -1581,9 +1548,6 @@ export type Database = {
           submitted_at?: string | null
           created_at?: string
           updated_at?: string
-          source_texts?: Record<string, string>
-          source_language?: string | null
-          translation_status?: "not_needed" | "translated" | "failed"
         }
         Relationships: [
           {

@@ -16,24 +16,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { submitQuoteRequest } from "@/lib/profile/actions"
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { ClientProfileWithRelations, ClientProduct } from "@/lib/supabase/types"
 
 interface ProfileRequestQuoteDialogProps {
   profile: ClientProfileWithRelations
   open: boolean
   onOpenChange: (open: boolean) => void
+  locale: Locale
 }
 
 export function ProfileRequestQuoteDialog({
   profile,
   open,
   onOpenChange,
+  locale,
 }: ProfileRequestQuoteDialogProps) {
   const [isPending, startTransition] = useTransition()
   const [isSuccess, setIsSuccess] = useState(false)
-  const [reference, setReference] = useState<string>("")
+  const [reference, setReference] = useState("")
 
-  // Form state
   const [companyName, setCompanyName] = useState("")
   const [contactName, setContactName] = useState("")
   const [email, setEmail] = useState("")
@@ -43,13 +46,15 @@ export function ProfileRequestQuoteDialog({
   const [quantity, setQuantity] = useState("")
   const [notes, setNotes] = useState("")
 
+  const copy = getProfileCopy(locale)
+  const text = copy.quote
   const products = profile.products || []
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
 
     if (!companyName || !contactName || !email) {
-      toast.error("Please fill in all required fields")
+      toast.error(text.requiredFields)
       return
     }
 
@@ -70,13 +75,12 @@ export function ProfileRequestQuoteDialog({
         setIsSuccess(true)
         setReference(result.reference || "")
       } else {
-        toast.error(result.error || "Failed to submit request")
+        toast.error(locale === "vi" ? text.submitFailed : result.error || text.submitFailed)
       }
     })
   }
 
   const handleClose = () => {
-    // Reset form on close
     if (isSuccess) {
       setIsSuccess(false)
       setReference("")
@@ -84,6 +88,7 @@ export function ProfileRequestQuoteDialog({
       setContactName("")
       setEmail("")
       setPhone("")
+      setCountry("")
       setSelectedProducts([])
       setQuantity("")
       setNotes("")
@@ -92,10 +97,10 @@ export function ProfileRequestQuoteDialog({
   }
 
   const toggleProduct = (productName: string) => {
-    setSelectedProducts((prev) =>
-      prev.includes(productName)
-        ? prev.filter((p) => p !== productName)
-        : [...prev, productName]
+    setSelectedProducts((previous) =>
+      previous.includes(productName)
+        ? previous.filter((product) => product !== productName)
+        : [...previous, productName],
     )
   }
 
@@ -107,101 +112,87 @@ export function ProfileRequestQuoteDialog({
             <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-accent" />
             </div>
-            <DialogTitle className="text-xl mb-2">
-              Quote Request Submitted
-            </DialogTitle>
-            <DialogDescription className="mb-4">
-              Thank you for your interest! Our team will review your request and
-              get back to you within 24-48 hours.
-            </DialogDescription>
+            <DialogTitle className="text-xl mb-2">{text.successTitle}</DialogTitle>
+            <DialogDescription className="mb-4">{text.successDescription}</DialogDescription>
             {reference && (
               <p className="text-sm text-muted-foreground mb-6">
-                Reference: <span className="font-mono font-medium">{reference}</span>
+                {text.reference} <span className="font-mono font-medium">{reference}</span>
               </p>
             )}
-            <Button onClick={handleClose}>Close</Button>
+            <Button onClick={handleClose}>{text.close}</Button>
           </div>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Request a Quote</DialogTitle>
-              <DialogDescription>
-                Fill out the form below and we&apos;ll get back to you with pricing
-                information.
-              </DialogDescription>
+              <DialogTitle>{text.title}</DialogTitle>
+              <DialogDescription>{text.description}</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              {/* Company Name */}
               <div className="space-y-2">
                 <Label htmlFor="companyName">
-                  Company Name <span className="text-destructive">*</span>
+                  {text.companyName} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="companyName"
                   value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Your company name"
+                  onChange={(event) => setCompanyName(event.target.value)}
+                  placeholder={text.companyNamePlaceholder}
                   required
                 />
               </div>
 
-              {/* Contact Name */}
               <div className="space-y-2">
                 <Label htmlFor="contactName">
-                  Contact Name <span className="text-destructive">*</span>
+                  {text.contactName} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="contactName"
                   value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Your name"
+                  onChange={(event) => setContactName(event.target.value)}
+                  placeholder={text.contactNamePlaceholder}
                   required
                 />
               </div>
 
-              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email">
-                  Email <span className="text-destructive">*</span>
+                  {text.email} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={text.emailPlaceholder}
                   required
                 />
               </div>
 
-              {/* Phone */}
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">{text.phone}</Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder={text.phonePlaceholder}
                 />
               </div>
 
-              {/* Country */}
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">{text.country}</Label>
                 <Input
                   id="country"
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  placeholder="e.g., United States"
+                  onChange={(event) => setCountry(event.target.value)}
+                  placeholder={text.countryPlaceholder}
                 />
               </div>
 
-              {/* Products Interested */}
               {products.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Products Interested</Label>
+                  <Label>{text.productsInterested}</Label>
                   <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 border rounded-md bg-muted/30">
                     {products.map((product: ClientProduct) => (
                       <div key={product.id} className="flex items-center gap-2">
@@ -222,30 +213,27 @@ export function ProfileRequestQuoteDialog({
                 </div>
               )}
 
-              {/* Quantity/Volume */}
               <div className="space-y-2">
-                <Label htmlFor="quantity">Estimated Quantity/Volume</Label>
+                <Label htmlFor="quantity">{text.quantity}</Label>
                 <Input
                   id="quantity"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="e.g., 1 container, 5000 kg"
+                  onChange={(event) => setQuantity(event.target.value)}
+                  placeholder={text.quantityPlaceholder}
                 />
               </div>
 
-              {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="notes">Additional Notes</Label>
+                <Label htmlFor="notes">{text.notes}</Label>
                 <Textarea
                   id="notes"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Any specific requirements or questions..."
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder={text.notesPlaceholder}
                   rows={3}
                 />
               </div>
 
-              {/* Submit */}
               <div className="flex justify-end gap-3 pt-4">
                 <Button
                   type="button"
@@ -253,18 +241,18 @@ export function ProfileRequestQuoteDialog({
                   onClick={handleClose}
                   disabled={isPending}
                 >
-                  Cancel
+                  {text.cancel}
                 </Button>
                 <Button type="submit" disabled={isPending}>
                   {isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Submitting...
+                      {text.submitting}
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Submit Request
+                      {text.submit}
                     </>
                   )}
                 </Button>

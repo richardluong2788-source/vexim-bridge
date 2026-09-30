@@ -154,9 +154,6 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const [submittedTranslationStatus, setSubmittedTranslationStatus] = useState<
-    "translated" | "not_needed" | "failed"
-  >("not_needed")
 
   const [form, setForm] = useState<FormState>({
     companyName: initial.company_name ?? "",
@@ -293,6 +290,8 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         return "Vui lòng nhập số điện thoại."
       case "industry_invalid":
         return "Vui lòng chọn ít nhất một ngành nghề."
+      case "translation_failed":
+        return "Chưa thể dịch nội dung sang tiếng Anh nên hồ sơ chưa được gửi. Thông tin vẫn còn nguyên; vui lòng thử lại sau ít phút hoặc rút gọn nội dung mô tả."
       case "link_expired":
         return "Liên kết đã hết hạn hoặc đã được gửi trước đó."
       default:
@@ -376,7 +375,6 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
         setError(translateError(result.error ?? "unknown"))
         return
       }
-      setSubmittedTranslationStatus(result.translationStatus ?? "not_needed")
       setSubmitted(true)
     })
   }
@@ -392,18 +390,10 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
             Cảm ơn bạn đã gửi hồ sơ!
           </h2>
           <p className="max-w-md text-sm text-muted-foreground">
-            {initial.ae_full_name ?? "Nhân viên kinh doanh"} sẽ xem xét thông
-            tin bạn cung cấp và liên hệ lại trong thời gian sớm nhất.
-            {submittedTranslationStatus === "translated" && (
-              <span className="mt-2 block">
-                Các phần mô tả đã được AI dịch sang tiếng Anh để AE kiểm tra trước khi duyệt.
-              </span>
-            )}
-            {submittedTranslationStatus === "failed" && (
-              <span className="mt-2 block">
-                AI chưa dịch được nội dung lần này; hồ sơ vẫn đã được gửi và AE sẽ xử lý bản dịch khi xem xét.
-              </span>
-            )}
+            Hồ sơ đã được gửi và đang chờ xét duyệt.
+            {initial.ae_full_name
+              ? ` ${initial.ae_full_name} sẽ liên hệ lại với bạn trong thời gian sớm nhất.`
+              : " Nhân viên phụ trách sẽ liên hệ lại với bạn trong thời gian sớm nhất."}
           </p>
         </CardContent>
       </Card>
@@ -436,7 +426,7 @@ export function ClientIntakeForm({ token, initial }: ClientIntakeFormProps) {
       <div className="flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-100">
         <Languages className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <p>
-          <strong>Bạn có thể điền bằng tiếng Việt.</strong> Khi gửi, AI sẽ tự động dịch các phần mô tả doanh nghiệp và sản phẩm sang tiếng Anh. AE sẽ kiểm tra, chỉnh sửa nếu cần trước khi duyệt; tên doanh nghiệp, thông tin liên hệ, mã định danh và các lựa chọn dạng danh mục được giữ nguyên.
+          <strong>Bạn có thể điền bằng tiếng Việt hoặc ngôn ngữ thuận tiện nhất.</strong> Ngay sau khi gửi, AI sẽ tự động dịch các phần mô tả doanh nghiệp và sản phẩm sang tiếng Anh. Hồ sơ vẫn được xét duyệt theo quy trình thông thường; tên doanh nghiệp, thông tin liên hệ, quốc gia, địa chỉ, mã định danh và các lựa chọn dạng danh mục được giữ nguyên.
         </p>
       </div>
 

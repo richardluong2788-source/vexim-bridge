@@ -19,13 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { buildVerifiedCapabilityChecklist } from "@/lib/profile/capability-checklist"
+import { getProfileCopy } from "@/lib/profile/translations"
 import { ProfileMediaGallery } from "./profile-media-gallery"
+import type { Locale } from "@/lib/i18n/config"
 import type { PublicCapability } from "@/lib/assessment/actions"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileHeaderCardProps {
   profile: ClientProfileWithRelations
   capability: PublicCapability | null
+  locale: Locale
 }
 
 const CHECKLIST_PREVIEW_COUNT = 5
@@ -34,10 +37,11 @@ const CHECKLIST_PREVIEW_COUNT = 5
  * Card ho so cong ty (ten, badge Verified, meta, checklist nang luc, CTA)
  * chong len phia duoi anh cover, theo layout dang cac trang B2B marketplace.
  */
-export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProps) {
+export function ProfileHeaderCard({ profile, capability, locale }: ProfileHeaderCardProps) {
+  const copy = getProfileCopy(locale)
   const [showAllChecklist, setShowAllChecklist] = useState(false)
 
-  const displayName = profile.display_name || profile.profiles.company_name || "Company"
+  const displayName = profile.display_name || profile.profiles.company_name || copy.common.companyFallback
   const logoUrl = profile.logo_url
   const isVerified = Boolean(profile.profiles.is_verified)
   const location = profile.profiles.country
@@ -53,13 +57,13 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
   const mainProducts = (() => {
     const products = profile.products || []
     const categories = Array.from(
-      new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c)))
-    )
+      new Set(products.map((product) => product.category).filter((category): category is string => Boolean(category))),
+    ).map((category) => copy.products.categories[category] ?? category)
     if (categories.length > 0) return categories.slice(0, 3)
     return products.slice(0, 3).map((p) => p.product_name)
   })()
 
-  const checklist = buildVerifiedCapabilityChecklist(capability)
+  const checklist = buildVerifiedCapabilityChecklist(capability, locale)
   const previewChecklist = checklist.slice(0, CHECKLIST_PREVIEW_COUNT)
   const hasMoreChecklist = checklist.length > CHECKLIST_PREVIEW_COUNT
 
@@ -78,7 +82,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                   {logoUrl ? (
                     <SmartImage
                       src={logoUrl}
-                      alt={`${displayName} logo`}
+                      alt={`${displayName} ${copy.common.logo}`}
                       fill
                       className="object-contain p-1.5"
                     />
@@ -98,7 +102,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                     {isVerified && (
                       <Badge className="bg-accent text-accent-foreground border-0 gap-1 shrink-0">
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        Verified by Vexim
+                        {copy.header.verifiedByVexim}
                       </Badge>
                     )}
                   </div>
@@ -119,8 +123,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                     {exportExperienceYears && (
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="w-4 h-4" />
-                        {exportExperienceYears}{" "}
-                        {exportExperienceYears === 1 ? "year" : "years"} of export experience
+                        {copy.header.exportExperience(exportExperienceYears)}
                       </span>
                     )}
                     {companyScale && (
@@ -142,7 +145,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
               {/* Checklist */}
               {checklist.length > 0 && (
                 <div className="mt-6 pt-6 border-t border-border">
-                  <p className="text-sm font-semibold text-foreground mb-3">Verified Capabilities</p>
+                  <p className="text-sm font-semibold text-foreground mb-3">{copy.header.verifiedCapabilities}</p>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                     {previewChecklist.map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm text-foreground">
@@ -157,7 +160,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
                       onClick={() => setShowAllChecklist(true)}
                       className="mt-3 text-sm font-medium text-accent hover:underline"
                     >
-                      View all verified capabilities ({checklist.length})
+                      {copy.header.viewAllCapabilities(checklist.length)}
                     </button>
                   )}
                 </div>
@@ -167,7 +170,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
             {/* Right: factory video / photo gallery */}
             {hasMedia && (
               <div className="lg:pt-1">
-                <ProfileMediaGallery profile={profile} isVerified={isVerified} />
+                <ProfileMediaGallery profile={profile} isVerified={isVerified} locale={locale} />
               </div>
             )}
           </div>
@@ -177,7 +180,7 @@ export function ProfileHeaderCard({ profile, capability }: ProfileHeaderCardProp
       <Dialog open={showAllChecklist} onOpenChange={setShowAllChecklist}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Verified Capabilities</DialogTitle>
+            <DialogTitle>{copy.header.verifiedCapabilities}</DialogTitle>
           </DialogHeader>
           <ul className="space-y-2.5 mt-2">
             {checklist.map((item) => (

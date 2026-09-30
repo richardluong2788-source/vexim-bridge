@@ -4,11 +4,14 @@ import { useState } from "react"
 import { SmartImage } from "@/components/ui/smart-image"
 import { ChevronLeft, ChevronRight, Factory, Play, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileMediaGalleryProps {
   profile: ClientProfileWithRelations
   isVerified?: boolean
+  locale: Locale
 }
 
 type MediaItem =
@@ -37,7 +40,8 @@ function getYouTubeId(url: string): string | null {
  * viewer on top, thumbnail strip below to switch between the factory
  * video and photos. Meant to sit next to the header info card.
  */
-export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGalleryProps) {
+export function ProfileMediaGallery({ profile, isVerified, locale }: ProfileMediaGalleryProps) {
+  const copy = getProfileCopy(locale)
   const factoryImages = profile.factory_image_urls || []
   const hasVideo = Boolean(profile.video_url)
 
@@ -83,19 +87,19 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
           }
         }}
         className={`relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-muted border border-border text-left ${!isPlaying ? "cursor-zoom-in" : ""}`}
-        aria-label="Open factory media full screen"
+        aria-label={copy.media.openFullscreen}
       >
         {isVerified && (
           <div className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-md bg-foreground/85 px-2 py-1 text-xs font-medium text-background">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Verified
+            {copy.media.verified}
           </div>
         )}
 
         {active.type === "image" ? (
           <SmartImage
             src={active.url || "/placeholder.svg"}
-            alt="Factory"
+            alt={copy.media.factory}
             fill
             className="object-cover"
             sizes="(max-width: 1024px) 100vw, 900px"
@@ -104,7 +108,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
           youtubeId ? (
             <iframe
               src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
-              title="Factory Video"
+              title={copy.media.factoryVideo}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               className="absolute inset-0 w-full h-full"
@@ -122,7 +126,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
             {active.thumbnail ? (
               <img
                 src={active.thumbnail || "/placeholder.svg"}
-                alt="Video thumbnail"
+                alt={copy.media.videoThumbnail}
                 className="absolute inset-0 w-full h-full object-cover"
               />
             ) : (
@@ -135,7 +139,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
               type="button"
               onClick={() => setIsPlaying(true)}
               className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors group cursor-pointer"
-              aria-label="Play factory video"
+              aria-label={copy.media.playFactoryVideo}
             >
               <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
                 <Play className="w-6 h-6 text-primary ml-0.5" fill="currentColor" />
@@ -156,7 +160,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
               className={`relative aspect-square rounded-md overflow-hidden border-2 transition-colors ${
                 index === activeIndex ? "border-accent" : "border-transparent hover:border-border"
               }`}
-              aria-label={item.type === "video" ? "Show factory video" : `Show factory photo ${index + 1}`}
+              aria-label={item.type === "video" ? copy.media.showFactoryVideo : copy.media.showFactoryPhoto(index + 1)}
             >
               <img
                 src={(item.type === "video" ? item.thumbnail : item.url) || "/placeholder.svg"}
@@ -175,12 +179,12 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
 
       <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
         <DialogContent className="max-w-6xl border-border bg-background p-3 sm:p-5">
-          <DialogTitle className="sr-only">Factory media preview</DialogTitle>
+          <DialogTitle className="sr-only">{copy.media.previewTitle}</DialogTitle>
           <div className="relative flex min-h-[50vh] items-center justify-center rounded-lg bg-muted/30">
             {active.type === "image" ? (
               <SmartImage
                 src={active.url || "/placeholder.svg"}
-                alt="Factory"
+                alt={copy.media.factory}
                 width={1600}
                 height={1200}
                 className="max-h-[75vh] w-auto max-w-full object-contain"
@@ -188,7 +192,7 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
             ) : youtubeId ? (
               <iframe
                 src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
-                title="Factory Video"
+                title={copy.media.factoryVideo}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="aspect-video w-full"
@@ -198,10 +202,10 @@ export function ProfileMediaGallery({ profile, isVerified }: ProfileMediaGallery
             )}
             {items.length > 1 && (
               <>
-                <button type="button" onClick={showPrevious} aria-label="Previous factory media" className="absolute left-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
+                <button type="button" onClick={showPrevious} aria-label={copy.media.previous} className="absolute left-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <button type="button" onClick={showNext} aria-label="Next factory media" className="absolute right-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
+                <button type="button" onClick={showNext} aria-label={copy.media.next} className="absolute right-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </>

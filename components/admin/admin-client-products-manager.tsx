@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Loader2, Languages, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,24 +42,6 @@ const STATUS_LABELS: Record<string, string> = {
   active: 'Đang hoạt động',
   inactive: 'Ngừng hoạt động',
   suspended: 'Tạm ngưng',
-};
-
-const SOURCE_FIELD_LABELS: Record<string, string> = {
-  product_name: 'Tên sản phẩm',
-  category: 'Danh mục',
-  subcategory: 'Danh mục phụ',
-  description: 'Mô tả sản phẩm',
-  country_of_origin: 'Xuất xứ',
-  price_unit: 'Đơn vị giá',
-  moq_unit: 'Đơn vị MOQ',
-  lead_time: 'Thời gian giao hàng',
-  incoterm_place: 'Cảng / địa điểm giao hàng',
-  key_specifications: 'Thông số kỹ thuật',
-  usp: 'Điểm bán hàng nổi bật',
-  packing: 'Quy cách đóng gói',
-  package_size: 'Kích thước đóng gói',
-  shelf_life: 'Hạn sử dụng',
-  storage_conditions: 'Điều kiện bảo quản',
 };
 
 export function AdminClientProductsManager({
@@ -205,10 +187,6 @@ export function AdminClientProductsManager({
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {markdownToPlainText(product.description)}
                   </p>
-                )}
-
-                {product.intake_translation && (
-                  <IntakeTranslationNote translation={product.intake_translation} />
                 )}
 
                 <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
@@ -379,53 +357,4 @@ export function AdminClientProductsManager({
       </AlertDialog>
     </div>
   );
-}
-
-function IntakeTranslationNote({
-  translation,
-}: {
-  translation: NonNullable<ClientProduct["intake_translation"]>
-}) {
-  if (translation.translation_status === "not_needed") return null
-
-  const failed = translation.translation_status === "failed"
-  const sourceEntries = Object.entries(translation.source_texts ?? {})
-
-  return (
-    <div
-      className={
-        failed
-          ? "rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100"
-          : "rounded-md border border-sky-200 bg-sky-50/70 p-3 text-sky-950 dark:border-sky-900 dark:bg-sky-950/20 dark:text-sky-100"
-      }
-    >
-      <div className="flex items-start gap-2 text-xs">
-        {failed ? (
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        ) : (
-          <Languages className="mt-0.5 h-4 w-4 shrink-0" />
-        )}
-        <p>
-          {failed
-            ? "AI chưa dịch được nội dung. Hãy kiểm tra và dịch thủ công trước khi bật sản phẩm."
-            : `AI đã dịch nội dung sang tiếng Anh${translation.source_language ? ` từ ${translation.source_language}` : ""}. Vui lòng kiểm tra lại trước khi công khai.`}
-        </p>
-      </div>
-      {sourceEntries.length > 0 && (
-        <details className="mt-2 border-t border-current/10 pt-2 text-xs">
-          <summary className="cursor-pointer font-medium underline underline-offset-2">
-            Xem nội dung gốc của supplier
-          </summary>
-          <dl className="mt-2 space-y-2">
-            {sourceEntries.map(([key, value]) => (
-              <div key={key}>
-                <dt className="font-medium">{SOURCE_FIELD_LABELS[key] ?? key}</dt>
-                <dd className="whitespace-pre-wrap opacity-90">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </details>
-      )}
-    </div>
-  )
 }

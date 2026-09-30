@@ -27,7 +27,6 @@ export interface IntakeSubmissionRow {
   expires_at: string
   ae_id: string
   rejection_reason: string | null
-  translation_status?: "not_needed" | "translated" | "failed"
   profiles: { full_name: string | null; email: string | null } | null
 }
 
@@ -129,11 +128,6 @@ function IntakeRow({ row, locale }: { row: IntakeSubmissionRow; locale: Locale }
             {row.company_name || (locale === "vi" ? "(Chưa điền tên)" : "(No name yet)")}
           </span>
           <StatusBadge status={row.status} locale={locale} />
-          {row.translation_status === "failed" && (
-            <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">
-              {locale === "vi" ? "AI chưa dịch" : "Translation needs review"}
-            </Badge>
-          )}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {row.contact_name && <span>{row.contact_name}</span>}

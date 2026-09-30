@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   Loader2,
-  Languages,
   Star,
   Trash2,
   Plus,
@@ -120,9 +119,6 @@ export interface IntakeSubmissionDetail {
   pricing_decision_maker?: string | null
   commitments?: string[] | null
   project_priority?: string | null
-  source_texts?: Record<string, string> | null
-  source_language?: string | null
-  translation_status?: "not_needed" | "translated" | "failed"
   profiles: { full_name: string | null; email: string | null } | null
 }
 
@@ -134,22 +130,6 @@ const REQUIRED_FIELD_KEYS = [
   "phone",
   "industries",
 ] as const
-
-const SOURCE_TEXT_LABELS: Record<string, { vi: string; en: string }> = {
-  tagline: { vi: "Slogan", en: "Tagline" },
-  company_description: { vi: "Mô tả doanh nghiệp", en: "Company description" },
-  main_products: { vi: "Sản phẩm chính", en: "Main products" },
-  production_capacity: { vi: "Công suất sản xuất", en: "Production capacity" },
-  moq: { vi: "MOQ", en: "MOQ" },
-  lead_time_days: { vi: "Thời gian giao hàng", en: "Lead time" },
-  certifications_other: { vi: "Chứng nhận khác", en: "Other certifications" },
-  quality_systems_other: { vi: "Hệ thống chất lượng khác", en: "Other quality systems" },
-  company_scale: { vi: "Quy mô doanh nghiệp", en: "Company scale" },
-  export_markets_other: { vi: "Thị trường xuất khẩu khác", en: "Other export markets" },
-  payment_policy: { vi: "Chính sách thanh toán", en: "Payment policy" },
-  oem_policy: { vi: "Chính sách OEM", en: "OEM policy" },
-  odm_policy: { vi: "Chính sách ODM", en: "ODM policy" },
-}
 
 export function IntakeReviewDetail({
   submission,
@@ -414,7 +394,6 @@ export function IntakeReviewDetail({
   }
 
   const primary = form.industries[0]
-  const sourceEntries = Object.entries(submission.source_texts ?? {})
 
   return (
     <>
@@ -461,58 +440,6 @@ export function IntakeReviewDetail({
               <p className="text-sm text-foreground">
                 {tr("Hồ sơ này đã bị từ chối.", "This profile was rejected.")}
               </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {submission.translation_status && submission.translation_status !== "not_needed" && (
-          <Card
-            className={
-              submission.translation_status === "failed"
-                ? "border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20"
-                : "border-sky-200 bg-sky-50/70 dark:border-sky-900 dark:bg-sky-950/20"
-            }
-          >
-            <CardContent className="flex flex-col gap-3 py-4">
-              <div className="flex items-start gap-2 text-sm">
-                {submission.translation_status === "failed" ? (
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
-                ) : (
-                  <Languages className="mt-0.5 h-4 w-4 shrink-0 text-sky-700 dark:text-sky-300" />
-                )}
-                <p>
-                  {submission.translation_status === "failed"
-                    ? tr(
-                        "AI chưa dịch được. Các trường mô tả hiện có thể vẫn bằng ngôn ngữ gốc; vui lòng dịch/chỉnh sửa thủ công trước khi duyệt.",
-                        "AI translation failed. Description fields may still be in the source language; translate or edit them before approval.",
-                      )
-                    : tr(
-                        `AI đã dịch các trường mô tả sang tiếng Anh${submission.source_language ? ` từ ${submission.source_language}` : ""}. Hãy đối chiếu nội dung gốc và kiểm tra số liệu trước khi duyệt.`,
-                        `AI translated the description fields into English${submission.source_language ? ` from ${submission.source_language}` : ""}. Compare the source text and verify figures before approval.`,
-                      )}
-                </p>
-              </div>
-              {sourceEntries.length > 0 && (
-                <details className="border-t border-current/10 pt-2 text-sm">
-                  <summary className="cursor-pointer font-medium underline underline-offset-2">
-                    {tr("Xem nội dung supplier đã nhập", "View supplier's original text")}
-                  </summary>
-                  <dl className="mt-3 space-y-3">
-                    {sourceEntries.map(([key, value]) => {
-                      const uspIndex = key.match(/^usp_points\.(\d+)\.title$/)?.[1]
-                      const label = uspIndex != null
-                        ? `USP ${Number(uspIndex) + 1}`
-                        : SOURCE_TEXT_LABELS[key]?.[locale] ?? key
-                      return (
-                        <div key={key}>
-                          <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
-                          <dd className="whitespace-pre-wrap text-sm">{value}</dd>
-                        </div>
-                      )
-                    })}
-                  </dl>
-                </details>
-              )}
             </CardContent>
           </Card>
         )}

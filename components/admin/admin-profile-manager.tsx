@@ -88,6 +88,7 @@ export function AdminProfileManager({
   const [slug, setSlug] = useState(existingProfile?.slug || generateSlug(clientName))
   const [displayName, setDisplayName] = useState(existingProfile?.display_name || clientName)
   const [tagline, setTagline] = useState(existingProfile?.tagline || "")
+  const [description, setDescription] = useState(existingProfile?.description ?? "")
   const [coverImageUrl, setCoverImageUrl] = useState(existingProfile?.cover_image_url || "")
   const [logoUrl, setLogoUrl] = useState(existingProfile?.logo_url || "")
   const [factoryImageUrls, setFactoryImageUrls] = useState<string[]>(
@@ -183,6 +184,7 @@ export function AdminProfileManager({
         slug,
         display_name: displayName || undefined,
         tagline: tagline || undefined,
+        description: description.trim() || null,
         cover_image_url: coverImageUrl || undefined,
         logo_url: logoUrl || undefined,
         factory_image_urls: factoryImageUrls,
@@ -356,6 +358,26 @@ export function AdminProfileManager({
               placeholder={trans?.basicInfo?.taglinePlaceholder || "Your company's value proposition..."}
               maxLength={500}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyOverview">
+              {trans?.basicInfo?.description || "Company Overview"}
+            </Label>
+            <Textarea
+              id="companyOverview"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={
+                trans?.basicInfo?.descriptionPlaceholder ||
+                "Tell buyers about your company, history, mission, and values..."
+              }
+              rows={6}
+            />
+            <p className="text-xs text-muted-foreground">
+              {trans?.basicInfo?.descriptionHint ||
+                "This content appears in the Overview section of the public profile."}
+            </p>
           </div>
         </CardContent>
       </Card>

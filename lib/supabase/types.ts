@@ -2585,7 +2585,7 @@ export type CreateClientProfileInput = {
   slug: string
   display_name?: string
   tagline?: string
-  description?: string
+  description?: string | null
   cover_image_url?: string
   logo_url?: string
   factory_image_urls?: string[]

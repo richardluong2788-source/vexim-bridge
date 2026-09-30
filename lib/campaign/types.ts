@@ -23,6 +23,14 @@ export interface CampaignRow {
   updated_at: string
 }
 
+export interface CampaignEnrollmentSummary {
+  campaignId: string
+  campaignName: string
+  campaignStatus: CampaignRow["status"]
+  state: EnrollmentState
+  currentStepNumber: number
+}
+
 export interface CampaignStepRow {
   id: string
   campaign_id: string

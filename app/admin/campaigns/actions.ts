@@ -11,6 +11,7 @@
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import { enrollLeads } from "@/lib/campaign/enrollments"
+import { NON_TERMINAL_ENROLLMENT_STATES } from "@/lib/campaign/constants"
 import { approveAndSendCampaignDraft, rejectCampaignDraft } from "@/lib/campaign/approve"
 import { runCampaignSchedulerTick } from "@/lib/campaign/scheduler"
 import { buildBuyerContext } from "@/lib/campaign/context-builder"
@@ -337,7 +338,20 @@ export async function previewPilotCandidatesAction(campaignId: string): Promise<
         .in("lead_id", candidates.map((c) => c.leadId))
         .not("stage", "in", '("converted","dropped")')
       const busyLeadIds = new Set(((busyEng ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id))
-      const filtered = candidates.filter((c) => !busyLeadIds.has(c.leadId))
+
+      // Buyers already in any non-terminal campaign enrollment are omitted too.
+      // The database's unique active-enrollment index remains the final guard,
+      // but the preview should not invite an AE to select buyers that will skip.
+      const { data: enrolledRows, error: enrolledError } = await (guard.admin.from("campaign_enrollments") as any)
+        .select("lead_id")
+        .in("lead_id", candidates.map((c) => c.leadId))
+        .in("state", NON_TERMINAL_ENROLLMENT_STATES as readonly string[])
+      if (enrolledError) {
+        return { ok: false, error: "serverError", message: "Không kiểm tra được enrollment campaign hiện tại; vui lòng thử lại." }
+      }
+      const enrolledLeadIds = new Set(((enrolledRows ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id))
+
+      const filtered = candidates.filter((c) => !busyLeadIds.has(c.leadId) && !enrolledLeadIds.has(c.leadId))
       return { ok: true, candidates: filtered }
     }
 

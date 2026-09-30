@@ -120,6 +120,7 @@ export function EnrollDialog({
           <DialogDescription>
             Quốc gia buyer phải khớp campaign ({targetCountry ?? "chưa chọn"}); bộ lọc còn lại:
             food importer + có tín hiệu sourcing từ Vietnam + contact hợp lệ, chưa suppress.
+            Buyer đang có enrollment campaign chưa kết thúc hoặc engagement mở sẽ bị lọc khỏi danh sách để tránh enroll/gửi trùng.
             Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần. Bỏ chọn AE →
             fallback là người tạo campaign khi handoff.
             {disabled && " — Campaign phải ở trạng thái draft/active."}
@@ -175,7 +176,7 @@ export function EnrollDialog({
 
         <DialogFooter>
           <Label className="mr-auto text-xs text-muted-foreground">
-            Enrollment trùng sẽ tự bỏ qua (unique constraint).
+            Buyer đã có enrollment chưa kết thúc sẽ bị lọc; database vẫn chặn enroll trùng.
           </Label>
           <Button onClick={enroll} disabled={enrolling || loading || selected.size === 0 || disabled}>
             {enrolling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Enroll {selected.size} buyer

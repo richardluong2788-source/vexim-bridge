@@ -8,6 +8,8 @@ import { ownershipScopeFor } from "@/lib/auth/scope"
 import { Button } from "@/components/ui/button"
 import { BuyersTable, type BuyerRow } from "@/components/admin/buyers-table"
 import { ScopeBanner } from "@/components/admin/scope-banner"
+import { NON_TERMINAL_ENROLLMENT_STATES } from "@/lib/campaign/constants"
+import type { CampaignEnrollmentSummary } from "@/lib/campaign/types"
 import type { Stage } from "@/lib/supabase/types"
 
 export const dynamic = "force-dynamic"
@@ -34,6 +36,7 @@ export default async function BuyersDirectoryPage() {
   // buyer side — creating/editing buyers and running AI matching is LR /
   // admin territory.
   const isSR = role === "supplier_researcher"
+  const canViewCampaigns = can(role, CAPS.CAMPAIGN_VIEW)
 
   // LR can write (create/import) buyers; AE cannot
   const canWriteBuyer = (isLR || isAdmin) && !isSR
@@ -112,6 +115,34 @@ export default async function BuyersDirectoryPage() {
   }
   const { data: buyers } = await buyersQ
 
+  // Current campaign enrollment is missing from the buyer list today, making
+  // it easy to mistake a buyer already in a sequence for an untouched lead.
+  // Campaign visibility follows the same owner scope as /admin/campaigns.
+  const campaignEnrollmentByLead = new Map<string, CampaignEnrollmentSummary>()
+  const buyerIds = ((buyers ?? []) as Array<{ id: string }>).map((buyer) => buyer.id)
+  if (canViewCampaigns && buyerIds.length > 0) {
+    let enrollmentQuery = (current.admin.from("campaign_enrollments") as any)
+      .select("lead_id, state, current_step_number, updated_at, campaign:campaigns(id, name, status)")
+      .in("lead_id", buyerIds)
+      .in("state", NON_TERMINAL_ENROLLMENT_STATES as readonly string[])
+      .order("updated_at", { ascending: false })
+    if (role === "account_executive") enrollmentQuery = enrollmentQuery.eq("owner_id", current.userId)
+
+    const { data: enrollments, error: enrollmentError } = await enrollmentQuery
+    if (enrollmentError) console.error("[buyers] campaign enrollment lookup failed:", enrollmentError)
+    for (const enrollment of (enrollments ?? []) as Array<any>) {
+      const campaign = Array.isArray(enrollment.campaign) ? enrollment.campaign[0] : enrollment.campaign
+      if (!campaign || campaignEnrollmentByLead.has(enrollment.lead_id)) continue
+      campaignEnrollmentByLead.set(enrollment.lead_id, {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        campaignStatus: campaign.status,
+        state: enrollment.state,
+        currentStepNumber: enrollment.current_step_number ?? 1,
+      })
+    }
+  }
+
   const rows: BuyerRow[] = (buyers ?? []).map((b: any) => {
     const allOpps: Array<{
       id: string
@@ -176,6 +207,7 @@ export default async function BuyersDirectoryPage() {
         : null,
       latestUpdated: latest?.last_updated ?? null,
       assignedAE,
+      campaignEnrollment: campaignEnrollmentByLead.get(b.id) ?? null,
     }
   })
 
@@ -226,7 +258,17 @@ export default async function BuyersDirectoryPage() {
         )}
       </div>
 
-      <BuyersTable rows={rows} locale={locale} canViewPII={canViewPII} canRunMatch={canRunMatch} isLeadResearcher={isLR} canWriteBuyer={canWriteBuyer} canAssign={canAssignBuyer} currentRole={role} />
+      <BuyersTable
+        rows={rows}
+        locale={locale}
+        canViewPII={canViewPII}
+        canRunMatch={canRunMatch}
+        isLeadResearcher={isLR}
+        canWriteBuyer={canWriteBuyer}
+        canAssign={canAssignBuyer}
+        canViewCampaigns={canViewCampaigns}
+        currentRole={role}
+      />
     </div>
   )
 }

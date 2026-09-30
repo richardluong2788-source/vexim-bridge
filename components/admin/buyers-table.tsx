@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
+  Mail,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
@@ -39,6 +40,8 @@ import { maskEmail, maskPhone } from "@/lib/buyers/mask"
 import { RunAIMatchButton } from "@/components/admin/run-ai-match-button"
 import { DeleteBuyerButton } from "@/components/admin/delete-buyer-button"
 import { AssignBuyerDialog } from "@/components/admin/assign-buyer-dialog"
+import { CAMPAIGN_STATUS_LABELS, STATE_LABELS } from "@/lib/campaign/constants"
+import type { CampaignEnrollmentSummary } from "@/lib/campaign/types"
 import type { Role, Stage } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
@@ -69,6 +72,7 @@ export interface BuyerRow {
   latestClient: { id: string; name: string } | null
   latestUpdated: string | null
   assignedAE: { id: string; name: string } | null
+  campaignEnrollment: CampaignEnrollmentSummary | null
 }
 
 interface Props {
@@ -80,6 +84,7 @@ interface Props {
   canWriteBuyer?: boolean
   /** Show the admin-only "Assign to AE" row action. */
   canAssign?: boolean
+  canViewCampaigns?: boolean
   currentRole?: Role | null
 }
 
@@ -127,6 +132,7 @@ export function BuyersTable({
   isLeadResearcher = false,
   canWriteBuyer = false,
   canAssign = false,
+  canViewCampaigns = false,
   currentRole = null,
 }: Props) {
   const [search, setSearch] = useState("")
@@ -136,7 +142,14 @@ export function BuyersTable({
   // convenience: they show every buyer, but sort strictly by created_at
   // instead of the default triage order (unassigned + priority first).
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "has_open" | "has_any" | "never_assigned" | "newest" | "oldest"
+    | "all"
+    | "has_open"
+    | "has_any"
+    | "never_assigned"
+    | "newest"
+    | "oldest"
+    | "in_campaign"
+    | "not_in_campaign"
   >("all")
   const [page, setPage] = useState(1)
 
@@ -162,6 +175,8 @@ export function BuyersTable({
       if (statusFilter === "has_open" && r.openOpportunities === 0) return false
       if (statusFilter === "has_any" && r.totalOpportunities === 0) return false
       if (statusFilter === "never_assigned" && r.totalOpportunities > 0) return false
+      if (statusFilter === "in_campaign" && !r.campaignEnrollment) return false
+      if (statusFilter === "not_in_campaign" && r.campaignEnrollment) return false
       if (!q) return true
       return (
         r.company_name?.toLowerCase().includes(q) ||
@@ -171,6 +186,7 @@ export function BuyersTable({
         r.industry?.toLowerCase().includes(q) ||
         r.main_product?.toLowerCase().includes(q) ||
         r.hs_code?.toLowerCase().includes(q) ||
+        r.campaignEnrollment?.campaignName.toLowerCase().includes(q) ||
         false
       )
     })
@@ -305,7 +321,7 @@ export function BuyersTable({
                 setStatusFilter(v as typeof statusFilter)
               }
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[220px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -321,6 +337,16 @@ export function BuyersTable({
                 <SelectItem value="never_assigned">
                   {locale === "vi" ? "Chưa gán lần nào" : "Never assigned"}
                 </SelectItem>
+                {canViewCampaigns && (
+                  <>
+                    <SelectItem value="in_campaign">
+                      {locale === "vi" ? "Đang có email campaign" : "In an email campaign"}
+                    </SelectItem>
+                    <SelectItem value="not_in_campaign">
+                      {locale === "vi" ? "Chưa có email campaign mở" : "No open email campaign"}
+                    </SelectItem>
+                  </>
+                )}
                 <SelectItem value="newest">
                   {locale === "vi" ? "Mới nhất" : "Newest first"}
                 </SelectItem>
@@ -441,6 +467,22 @@ export function BuyersTable({
                               {r.main_product}
                             </span>
                           ) : null}
+                          {canViewCampaigns && r.campaignEnrollment && (
+                            <div
+                              className="mt-1 flex min-w-0 flex-col gap-0.5"
+                              title={`${CAMPAIGN_STATUS_LABELS[r.campaignEnrollment.campaignStatus][locale]} · ${r.campaignEnrollment.campaignName} · ${STATE_LABELS[r.campaignEnrollment.state][locale]}`}
+                            >
+                              <Badge className="w-fit max-w-full gap-1 border-chart-2/40 bg-chart-2/10 px-1.5 py-0.5 text-[10px] font-normal text-chart-2">
+                                <Mail className="h-2.5 w-2.5 shrink-0" />
+                                <span className="truncate">
+                                  {CAMPAIGN_STATUS_LABELS[r.campaignEnrollment.campaignStatus][locale]} · {r.campaignEnrollment.campaignName}
+                                </span>
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground">
+                                {STATE_LABELS[r.campaignEnrollment.state][locale]} · {locale === "vi" ? "Bước" : "Step"} {r.campaignEnrollment.currentStepNumber}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </Link>
                     </TableCell>

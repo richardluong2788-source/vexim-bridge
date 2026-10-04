@@ -30,6 +30,7 @@ import { siteConfig } from "@/lib/site-config"
 import { localizePath } from "@/lib/i18n/routing"
 import { localizedAlternates } from "@/lib/seo/alternates"
 import { JsonLd } from "@/components/seo/json-ld"
+import { CookiePreferencesButton } from "@/components/analytics/cookie-preferences-button"
 import type { Metadata } from "next"
 
 /**
@@ -440,7 +441,9 @@ export default async function RootPage() {
               <Link href="/auth/login">{t.signIn}</Link>
             </Button>
             <Button asChild className="bg-cta text-cta-foreground shadow-sm hover:bg-cta/90">
-              <a href="#sourcing-request">{t.ctaPrimary}</a>
+              <a href="#sourcing-request" data-meta-cta="buyer_sourcing_request">
+                {t.ctaPrimary}
+              </a>
             </Button>
           </div>
         </div>
@@ -462,7 +465,7 @@ export default async function RootPage() {
             <p className="mt-6 max-w-xl text-base leading-8 text-slate-200 sm:text-lg">{t.heroSub}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button asChild size="lg" className="h-12 bg-cta px-6 text-cta-foreground shadow-lg shadow-amber-950/20 hover:bg-cta/90">
-                <a href="#sourcing-request">
+                <a href="#sourcing-request" data-meta-cta="buyer_sourcing_request">
                   {t.ctaPrimary}
                   <ArrowRight className="h-4 w-4" />
                 </a>
@@ -697,7 +700,7 @@ export default async function RootPage() {
             <p className="mt-4 text-base leading-7 text-muted-foreground">{t.catalogText}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="bg-cta text-cta-foreground hover:bg-cta/90">
-                <a href="#sourcing-request">
+                <a href="#sourcing-request" data-meta-cta="buyer_sourcing_request">
                   {t.ctaPrimary} <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
@@ -897,8 +900,15 @@ export default async function RootPage() {
                   {locale === "vi" ? "Pháp lý" : "Legal"}
                 </Link>
                 <Link href={localizePath("/legal/privacy", locale)} className="mt-2 text-xs text-slate-500 hover:text-white">
-                  Privacy · Terms · Cookies
+                  {locale === "vi" ? "Bảo mật & điều khoản" : "Privacy · Terms"}
                 </Link>
+                <Link href={localizePath("/legal/cookies", locale)} className="text-xs text-slate-500 hover:text-white">
+                  {locale === "vi" ? "Chính sách cookie" : "Cookie policy"}
+                </Link>
+                <CookiePreferencesButton
+                  label={locale === "vi" ? "Cài đặt cookie" : "Cookie settings"}
+                  className="w-fit text-left text-xs text-slate-500 hover:text-white"
+                />
               </div>
             </div>
           </div>

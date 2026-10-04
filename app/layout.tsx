@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE } from "@/lib/i18n/config"
 import { getDictionarySync } from "@/lib/i18n/dictionaries"
 import { siteConfig } from "@/lib/site-config"
 import { Toaster } from "sonner"
+import { MetaPixelConsent } from "@/components/analytics/meta-pixel-consent"
 
 const _inter = Inter({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -57,7 +58,10 @@ export default function RootLayout({
   return (
     <html lang={DEFAULT_LOCALE} className="bg-background">
       <body className="font-sans antialiased">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          {children}
+          <MetaPixelConsent />
+        </LanguageProvider>
         <Toaster position="top-right" richColors />
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>

@@ -49,7 +49,7 @@ const DOCS = [
     href: "/legal/cookies",
     title: "Chính sách cookie",
     description:
-      "Cookie thiết yếu cho phiên đăng nhập, cookie chức năng cho ngôn ngữ và đo lường ẩn danh qua Vercel Analytics.",
+      "Cookie thiết yếu, cookie chức năng, Vercel Analytics và Meta Pixel tùy chọn chỉ chạy sau khi bạn đồng ý.",
     icon: Cookie,
   },
 ]

@@ -6,12 +6,16 @@ cd "$(dirname "$0")/../.."
 
 OUT=$(mktemp -d)
 pnpm exec tsc lib/campaign/constants.ts lib/campaign/state-machine.ts lib/campaign/types.ts \
+  lib/campaign/product-industry-matcher.ts lib/campaign/ai-context-safety.ts \
   lib/campaign/email-qa.ts lib/campaign/reply-intent.ts lib/campaign/followup-gate.ts \
   lib/campaign/country-validation.ts \
   --outDir "$OUT" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
 
+# Product/category/industry matcher — deterministic and dependency-free.
+pnpm exec tsc lib/campaign/product-industry-matcher.ts --outDir "$OUT/matcher" --module commonjs --target es2020 --moduleResolution node --skipLibCheck
+
 # Signature normalization (owner name at generation, authenticated sender at send).
-pnpm exec tsc lib/campaign/email-generator.ts lib/campaign/constants.ts lib/campaign/types.ts \
+pnpm exec tsc lib/campaign/email-generator.ts lib/campaign/ai-context-safety.ts lib/campaign/constants.ts lib/campaign/types.ts \
   --outDir "$OUT/signature" --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop
 
 # pitch-first helpers (093) — pure, không import gì. OUT/pitch để tránh
@@ -72,6 +76,7 @@ sed -i '/require("server-only")/d; /require("@\/lib\/supabase\/admin")/d' "$OUT/
 
 fail=0
 node scripts/campaign-tests/email-signature.test.js "$OUT/signature" || fail=1
+node scripts/campaign-tests/product-industry-match.test.js "$OUT/matcher" || fail=1
 node scripts/campaign-tests/email-generator.test.js "$OUT" || fail=1
 node scripts/campaign-tests/country-validation.test.js "$OUT" || fail=1
 node -e "

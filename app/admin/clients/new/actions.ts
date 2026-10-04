@@ -8,6 +8,14 @@ import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
 import { siteConfig } from "@/lib/site-config"
 import { rematchOpenSharedInboxLeads } from "@/lib/matching/rematch-shared-inbox"
 import { sendClientInviteEmail } from "@/lib/email/client-invite-email"
+import {
+  isInitialProfileSourceStatus,
+  isSupplierEntityType,
+  isUsSalesChannelStatus,
+  normalizeSupportNeeds,
+  type ProfileSourceStatus,
+  type SupplierEntityType,
+} from "@/lib/client-intake/sourcing"
 
 export interface CreateClientInput {
   email: string
@@ -23,6 +31,14 @@ export interface CreateClientInput {
   fda_registration_number?: string | null
   fda_expires_at?: string | null // YYYY-MM-DD
   fda_status?: string | null
+  supplier_entity_type?: SupplierEntityType
+  source_verification_status?: ProfileSourceStatus
+  source_verification_consent?: boolean
+  source_change_acknowledged?: boolean
+  us_sales_channel_status?: string | null
+  us_sales_channel_notes?: string | null
+  vexim_support_needs?: string[]
+  vexim_support_other?: string | null
   phone?: string | null
   /**
    * Country the client (supplier) company is based in. Free text — feeds
@@ -87,38 +103,66 @@ export async function createClientAccount(
     return { ok: false, error: "industry_invalid" }
   }
 
-  // FDA fields: optional, but if expiry is provided it must parse.
-  let fdaExpiresAt: string | null = null
-  if (input.fda_expires_at) {
-    const d = new Date(input.fda_expires_at)
-    if (isNaN(d.getTime())) {
-      return { ok: false, error: "fda_expires_at_invalid" }
+  // FDA fields remain supported for legacy/internal callers, but are not part
+  // of account creation. Omit the FDA columns entirely unless a caller
+  // explicitly supplied FDA data so a supplement/upsert cannot overwrite an
+  // existing registration with an inferred "missing" value.
+  const hasFdaUpdate =
+    input.fda_registration_number !== undefined ||
+    input.fda_expires_at !== undefined ||
+    input.fda_status !== undefined
+  let fdaPatch: Record<string, string | null> = {}
+  let fdaNumber: string | null = null
+  if (hasFdaUpdate) {
+    let fdaExpiresAt: string | null = null
+    if (input.fda_expires_at) {
+      const d = new Date(input.fda_expires_at)
+      if (isNaN(d.getTime())) {
+        return { ok: false, error: "fda_expires_at_invalid" }
+      }
+      fdaExpiresAt = input.fda_expires_at
     }
-    fdaExpiresAt = input.fda_expires_at
-  }
-  const rawFdaNumber = input.fda_registration_number?.trim() || null
 
-  const isPending =
-    input.fda_status === "pending_supplement" ||
-    input.fda_status === "in_progress" ||
-    rawFdaNumber?.toLowerCase() === "pending" ||
-    rawFdaNumber?.toLowerCase() === "dang_bo_sung" ||
-    rawFdaNumber?.toLowerCase() === "đang bổ sung"
+    const rawFdaNumber = input.fda_registration_number?.trim() || null
+    const isPending =
+      input.fda_status === "pending_supplement" ||
+      input.fda_status === "in_progress" ||
+      rawFdaNumber?.toLowerCase() === "pending" ||
+      rawFdaNumber?.toLowerCase() === "dang_bo_sung" ||
+      rawFdaNumber?.toLowerCase() === "đang bổ sung"
 
-  const fdaStatusValue = isPending
-    ? "pending_supplement"
-    : rawFdaNumber
-      ? "valid"
-      : "missing"
-
-  const fdaNumber =
-    isPending &&
-    (!rawFdaNumber ||
-      rawFdaNumber.toLowerCase() === "pending" ||
-      rawFdaNumber.toLowerCase() === "dang_bo_sung" ||
-      rawFdaNumber.toLowerCase() === "đang bổ sung")
-      ? "PENDING"
+    const fdaStatusValue = isPending
+      ? "pending_supplement"
       : rawFdaNumber
+        ? "valid"
+        : "missing"
+
+    fdaNumber =
+      isPending &&
+      (!rawFdaNumber ||
+        rawFdaNumber.toLowerCase() === "pending" ||
+        rawFdaNumber.toLowerCase() === "dang_bo_sung" ||
+        rawFdaNumber.toLowerCase() === "đang bổ sung")
+        ? "PENDING"
+        : rawFdaNumber
+
+    fdaPatch = {
+      fda_registration_number: fdaNumber,
+      fda_expires_at: isPending ? null : fdaExpiresAt,
+      fda_status: fdaStatusValue,
+    }
+  }
+
+  const supplierEntityType = isSupplierEntityType(input.supplier_entity_type)
+    ? input.supplier_entity_type
+    : "unknown"
+  const sourceVerificationStatus = isInitialProfileSourceStatus(input.source_verification_status)
+    ? input.source_verification_status
+    : "awaiting_details"
+  const usSalesChannelStatus = isUsSalesChannelStatus(input.us_sales_channel_status)
+    ? input.us_sales_channel_status
+    : "unknown"
+  const supportNeeds = normalizeSupportNeeds(input.vexim_support_needs)
 
   // ---- 2. Caller auth + role check ------------------------------------------
   const supabase = await createClient()
@@ -225,9 +269,15 @@ export async function createClientAccount(
         industries,
         phone: input.phone?.trim() || null,
         country: input.country?.trim() || null,
-        fda_registration_number: fdaNumber,
-        fda_expires_at: isPending ? null : fdaExpiresAt,
-        fda_status: fdaStatusValue,
+        supplier_entity_type: supplierEntityType,
+        source_verification_status: sourceVerificationStatus,
+        source_verification_consent: input.source_verification_consent ?? false,
+        source_change_acknowledged: input.source_change_acknowledged ?? false,
+        us_sales_channel_status: usSalesChannelStatus,
+        us_sales_channel_notes: input.us_sales_channel_notes?.trim() || null,
+        vexim_support_needs: supportNeeds,
+        vexim_support_other: input.vexim_support_other?.trim() || null,
+        ...fdaPatch,
         // Auto-assign AE as account manager when they create the client
         account_manager_id: isAE ? caller.id : null,
         // SR who sourced this supplier (for billing-proposal / collections)
@@ -272,7 +322,7 @@ export async function createClientAccount(
         company_name: company,
         industries,
         primary_industry: industries[0],
-        has_fda: !!fdaNumber,
+        has_fda: hasFdaUpdate ? !!fdaNumber : null,
         auto_assigned_ae: isAE ? caller.id : null,
         created_by_role: callerProfile.role,
       }),
@@ -375,7 +425,9 @@ export async function createIntakeLink(prefill?: {
   if (prefill?.client_id) {
     const { data: client } = await admin
       .from("profiles")
-      .select("email, full_name, company_name, industries, phone")
+      .select(
+        "email, full_name, company_name, industries, phone, supplier_entity_type, source_verification_status, source_verification_consent, source_change_acknowledged, us_sales_channel_status, us_sales_channel_notes, vexim_support_needs, vexim_support_other",
+      )
       .eq("id", prefill.client_id)
       .maybeSingle()
     if (client) {
@@ -385,6 +437,14 @@ export async function createIntakeLink(prefill?: {
         company_name: client.company_name ?? prefill.company_name ?? null,
         industries: client.industries ?? prefill.industries ?? [],
         phone: client.phone ?? prefill.phone ?? null,
+        supplier_entity_type: client.supplier_entity_type ?? "unknown",
+        source_verification_status: client.source_verification_status ?? "awaiting_details",
+        source_verification_consent: client.source_verification_consent ?? false,
+        source_change_acknowledged: client.source_change_acknowledged ?? false,
+        us_sales_channel_status: client.us_sales_channel_status ?? "unknown",
+        us_sales_channel_notes: client.us_sales_channel_notes ?? null,
+        vexim_support_needs: client.vexim_support_needs ?? [],
+        vexim_support_other: client.vexim_support_other ?? null,
       }
     }
   } else if (prefill) {
@@ -420,7 +480,7 @@ export async function createIntakeLink(prefill?: {
   for (const payload of tryPayloads) {
     const res = await admin
       .from("client_intake_submissions")
-      .insert(payload)
+      .insert(payload as any)
       .select("expires_at")
       .single()
     if (!res.error) {

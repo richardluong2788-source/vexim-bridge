@@ -1,13 +1,47 @@
 import type { BuyerContext } from "./types"
 
 export function normalizeCampaignCountry(value: string | null | undefined): string | null {
-  const normalized = value?.trim().toLowerCase().replace(/[._]/g, " ").replace(/\s+/g, " ")
+  const normalized = value
+    ?.normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[._]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
   if (!normalized) return null
-  if (["us", "usa", "u s", "united states", "united states of america", "america"].includes(normalized)) return "US"
-  if (["ca", "can", "canada"].includes(normalized)) return "CA"
-  if (["uk", "u k", "great britain", "britain", "united kingdom"].includes(normalized)) return "GB"
-  if (["kr", "korea", "south korea", "republic of korea"].includes(normalized)) return "KR"
-  return normalized
+
+  // Country is deliberately free text in leads/campaigns. Compare a compact
+  // punctuation-insensitive key as well as the readable form so inputs like
+  // "U.S.A.", "U.S." and "US (United States)" resolve to the same country.
+  const compact = normalized.replace(/[^a-z0-9]/g, "")
+  const aliases: Record<string, string> = {
+    us: "US",
+    usa: "US",
+    unitedstates: "US",
+    unitedstatesofamerica: "US",
+    america: "US",
+    usofamerica: "US",
+    unitedstatesusa: "US",
+    unitedstatesofamericausa: "US",
+    unitedstatesus: "US",
+    unitedstatesofamericaus: "US",
+    usunitedstates: "US",
+    usunitedstatesofamerica: "US",
+    usaunitedstates: "US",
+    usausa: "US",
+    ca: "CA",
+    can: "CA",
+    canada: "CA",
+    uk: "GB",
+    greatbritain: "GB",
+    britain: "GB",
+    unitedkingdom: "GB",
+    kr: "KR",
+    korea: "KR",
+    southkorea: "KR",
+    republicofkorea: "KR",
+  }
+  return aliases[compact] ?? normalized
 }
 
 export function countriesMatch(left: string | null | undefined, right: string | null | undefined): boolean {

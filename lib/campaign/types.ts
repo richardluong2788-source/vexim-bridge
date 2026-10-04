@@ -6,6 +6,7 @@
 // app/admin/ae-inbox/engagement-actions.ts, webhook resend route).
 
 import type { EnrollmentState } from "./constants"
+import type { CampaignMatchLevel } from "./product-industry-matcher"
 
 export interface CampaignRow {
   id: string
@@ -13,7 +14,10 @@ export interface CampaignRow {
   description: string | null
   target_segment: string | null
   target_country: string | null
+  target_product_name: string | null
   product_category: string | null
+  target_industries: string[]
+  target_hs_codes: string[]
   status: "draft" | "active" | "paused" | "completed" | "archived"
   start_date: string | null
   end_date: string | null
@@ -21,6 +25,14 @@ export interface CampaignRow {
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface CampaignEnrollmentSummary {
+  campaignId: string
+  campaignName: string
+  campaignStatus: CampaignRow["status"]
+  state: EnrollmentState
+  currentStepNumber: number
 }
 
 export interface CampaignStepRow {
@@ -51,6 +63,11 @@ export interface CampaignEnrollmentRow {
   last_reply_at: string | null
   needs_human_review: boolean
   human_review_reason: string | null
+  match_level: CampaignMatchLevel | null
+  match_confidence: number | null
+  match_reason: string | null
+  match_evidence: string[]
+  match_requires_human_review: boolean
   paused_until: string | null
   handoff_engagement_id: string | null
   stopped_reason: string | null
@@ -123,10 +140,20 @@ export interface BuyerContext {
     description: string | null
     target_segment: string | null
     target_country: string | null
+    target_product_name: string | null
     product_category: string | null
+    target_industries: string[]
+    target_hs_codes: string[]
   }
-  // Research data (migration 079) — INTERNAL REASONING ONLY. Email generator
-  // cấm nêu raw data trong email; follow-up gate ĐƯỢC dùng để tìm góc mới.
+  campaign_match: {
+    level: CampaignMatchLevel | null
+    confidence: number | null
+    reason: string | null
+    evidence: string[]
+    requires_human_review: boolean
+  }
+  // Research data (migration 079) — raw internal data. ai-context-safety.ts
+  // redacts it from campaign model prompts so productMatchScore is not mistaken for demand.
   research: {
     buyer_analysis: Record<string, unknown> | "UNKNOWN"
     buyer_strategy: Record<string, unknown> | "UNKNOWN"

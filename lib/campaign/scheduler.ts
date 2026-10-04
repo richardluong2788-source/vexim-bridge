@@ -228,6 +228,10 @@ async function queueDraftForEnrollment(
           generated_content_en: generated.contentEn,
           translated_content_vi: generated.contentVi,
           status: "draft",
+          error_message: `QA blocked: ${qa.issues
+            .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
+            .map((issue) => `${issue.severity}:${issue.check} — ${issue.message}`)
+            .join(" | ")}`,
           recipient_email: contactEmail,
         })
         .select("id")

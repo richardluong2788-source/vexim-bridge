@@ -735,7 +735,7 @@ emailSectionHint:
       createProfileBtn: "Create Profile",
       basicInfo: {
         title: "Basic Information",
-        subtitle: "Company name and URL settings",
+        subtitle: "Display name, URL, tagline, and public overview",
         slug: "URL Slug",
         slugPlaceholder: "company-name",
         profileUrl: "Profile URL: /profile/{slug}",
@@ -743,8 +743,9 @@ emailSectionHint:
         displayNamePlaceholder: "Company Name",
         tagline: "Tagline",
         taglinePlaceholder: "Your company's value proposition...",
-        description: "Company Description",
+        description: "Overview / Company Description",
         descriptionPlaceholder: "Tell buyers about your company, history, mission, and values...",
+        descriptionHint: "This content appears in the Overview section of the public profile.",
       },
       branding: {
         title: "Branding",

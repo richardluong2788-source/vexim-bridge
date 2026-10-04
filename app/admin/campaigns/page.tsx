@@ -26,7 +26,9 @@ interface CampaignListItem {
   status: string
   target_segment: string | null
   target_country: string | null
+  target_product_name: string | null
   product_category: string | null
+  target_industries: string[] | null
   daily_send_limit: number
   created_at: string
   enrollment_count: number
@@ -121,7 +123,12 @@ export default async function CampaignsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <p className="line-clamp-2 text-muted-foreground">{c.description ?? "—"}</p>
-                  <Badge variant="secondary">Quốc gia mục tiêu: {c.target_country ?? "chưa chọn"}</Badge>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary">Quốc gia: {c.target_country ?? "chưa chọn"}</Badge>
+                    {c.target_product_name && <Badge variant="outline">Product: {c.target_product_name}</Badge>}
+                    {c.product_category && <Badge variant="outline">Category: {c.product_category}</Badge>}
+                    {(c.target_industries ?? []).map((industry) => <Badge key={industry} variant="outline">{industry}</Badge>)}
+                  </div>
                   <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span>
                       <strong className="text-foreground">{c.enrollment_count}</strong> buyer

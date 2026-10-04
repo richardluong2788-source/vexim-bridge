@@ -21,8 +21,11 @@ interface LeadFields {
   source: string | null
   source_ref: string | null
   product_keywords: string[] | null
+  main_product: string | null
   hs_code: string | null
   hs_codes: string[] | null
+  secondary_hs_codes: string | null
+  bol_description: string | null
   purchase_history: string | null
   top_suppliers: unknown | null
   customs_shipment_count: number | null
@@ -75,8 +78,9 @@ export async function buildBuyerContext(
   const admin = createAdminClient()
 
   const leadColumns = `id, company_name, contact_person, contact_email, contact_title, country, industry,
-       website, source, source_ref, product_keywords, hs_code, hs_codes,
-       purchase_history, top_suppliers, customs_shipment_count, peak_months,
+       website, source, source_ref, product_keywords, main_product, hs_code, hs_codes,
+       secondary_hs_codes, bol_description, purchase_history, top_suppliers,
+       customs_shipment_count, peak_months,
        buyer_analysis, buyer_strategy, buyer_analysis_at`
   const { data: lead, error } = await (admin.from("leads") as any)
     .select(leadColumns)
@@ -86,32 +90,50 @@ export async function buildBuyerContext(
   if (error || !lead) {
     throw new Error(`buildBuyerContext: lead ${enrollment.lead_id} lookup failed: ${error?.message ?? "not found"}`)
   }
-  // Cast qua unknown: generated types chưa có hs_codes dù cột tồn tại từ migration 032.
+  // Cast qua unknown: generated types chưa bao phủ đầy đủ các LR product/HS fields mới.
   const l = lead as unknown as LeadFields
 
   const [previousEmails, replies, campaignRes] = await Promise.all([
     loadOutboundEmails(enrollment.id),
     loadInboundReplies(enrollment.id),
     (admin.from("campaigns") as any)
-      .select("name, description, target_segment, target_country, product_category")
+      .select("name, description, target_segment, target_country, target_product_name, product_category, target_industries, target_hs_codes")
       .eq("id", enrollment.campaign_id)
       .single(),
   ])
   const campaign = (campaignRes.data ?? {}) as {
     name?: string; description?: string | null
-    target_segment?: string | null; target_country?: string | null; product_category?: string | null
+    target_segment?: string | null; target_country?: string | null
+    target_product_name?: string | null; product_category?: string | null
+    target_industries?: string[] | null; target_hs_codes?: string[] | null
   }
 
-  const hsCodes = Array.isArray(l.hs_codes) && l.hs_codes.length > 0
-    ? l.hs_codes
-    : l.hs_code?.trim()
-      ? [l.hs_code.trim()]
-      : "UNKNOWN" as const
+  const hsCodeValues = [
+    ...(Array.isArray(l.hs_codes) ? l.hs_codes : []),
+    ...(l.hs_code?.trim() ? [l.hs_code.trim()] : []),
+    ...(l.secondary_hs_codes?.trim() ? l.secondary_hs_codes.split(/[;,|]+/).map((code) => code.trim()).filter(Boolean) : []),
+  ]
+  const uniqueHsCodes = [...new Set(hsCodeValues)]
+  const hsCodes = uniqueHsCodes.length > 0 ? uniqueHsCodes : "UNKNOWN" as const
+
+  // Product descriptors must come from LR/product fields only. Industry is
+  // deliberately not a fallback: it describes the buyer's sector, not what it buys.
+  const productValues = [
+    ...(l.main_product?.trim() ? [l.main_product.trim()] : []),
+    ...(Array.isArray(l.product_keywords) ? l.product_keywords.filter((value): value is string => typeof value === "string") : []),
+    ...(l.bol_description?.trim() ? [l.bol_description.trim()] : []),
+  ]
+  const mainProducts = [...new Set(productValues.map((value) => value.trim()).filter(Boolean))]
+    .slice(0, 12)
+    .join(", ")
 
   const analysisAgeDays =
     l.buyer_analysis_at
       ? Math.floor((Date.now() - new Date(l.buyer_analysis_at).getTime()) / 86400000)
       : "UNKNOWN"
+  const matchEvidence = Array.isArray(enrollment.match_evidence)
+    ? enrollment.match_evidence.filter((item): item is string => typeof item === "string")
+    : []
 
   return {
     buyer: {
@@ -126,9 +148,7 @@ export async function buildBuyerContext(
     },
     import_data: {
       hs_codes: hsCodes === "UNKNOWN" ? ("UNKNOWN" as const) : hsCodes,
-      main_products: Array.isArray(l.product_keywords) && l.product_keywords.length > 0
-        ? l.product_keywords.map((x) => x.trim()).filter(Boolean).join(", ") || unknownIfEmpty(l.industry)
-        : unknownIfEmpty(l.industry),
+      main_products: unknownIfEmpty(mainProducts),
       purchase_history: unknownIfEmpty(l.purchase_history),
       vietnam_supplier_exists: detectVietnamSupplier(l.top_suppliers),
       shipment_count: typeof l.customs_shipment_count === "number" ? l.customs_shipment_count : "UNKNOWN",
@@ -139,7 +159,17 @@ export async function buildBuyerContext(
       description: campaign.description ?? null,
       target_segment: campaign.target_segment ?? null,
       target_country: campaign.target_country ?? null,
+      target_product_name: campaign.target_product_name ?? null,
       product_category: campaign.product_category ?? null,
+      target_industries: Array.isArray(campaign.target_industries) ? campaign.target_industries : [],
+      target_hs_codes: Array.isArray(campaign.target_hs_codes) ? campaign.target_hs_codes : [],
+    },
+    campaign_match: {
+      level: enrollment.match_level ?? null,
+      confidence: typeof enrollment.match_confidence === "number" ? enrollment.match_confidence : null,
+      reason: enrollment.match_reason ?? null,
+      evidence: matchEvidence,
+      requires_human_review: enrollment.match_requires_human_review === true,
     },
     research: {
       buyer_analysis: (l.buyer_analysis && typeof l.buyer_analysis === "object" ? l.buyer_analysis : "UNKNOWN") as

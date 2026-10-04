@@ -3,7 +3,7 @@
  *   - Stats + sequence steps
  *   - Approval queue: draft AI chờ duyệt (shadow mode) — xem QA, sửa, gửi / từ chối
  *   - Enrollments: bảng trạng thái + hành động pause/resume/stop/resolve review
- *   - Enroll dialog: chọn lead theo bộ lọc pilot (50–100 buyer có tín hiệu rõ)
+ *   - Enroll dialog: chọn buyer theo product/category/industry match đã được recheck ở server
  *   - Controls (admin): activate/pause campaign, chạy scheduler ngay
  */
 
@@ -40,11 +40,18 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const isAdmin = current.role === "admin" || current.role === "super_admin"
   const isAE = current.role === "account_executive"
 
+  const { data: viewerProfile } = await (admin.from("profiles") as any)
+    .select("full_name")
+    .eq("id", current.userId)
+    .maybeSingle()
+  const senderName = (viewerProfile as { full_name?: string | null } | null)?.full_name?.trim() || null
+
   const { data: campaign } = await (admin.from("campaigns") as any).select("*").eq("id", id).single()
   if (!campaign) notFound()
   const c = campaign as {
     id: string; name: string; description: string | null; status: string
-    target_segment: string | null; target_country: string | null; product_category: string | null
+    target_segment: string | null; target_country: string | null; target_product_name: string | null
+    product_category: string | null; target_industries: string[] | null; target_hs_codes: string[] | null
     daily_send_limit: number; start_date: string | null; end_date: string | null
   }
 
@@ -84,7 +91,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     ? await (admin.from("email_drafts") as any)
         .select(
           `*, enrollment:campaign_enrollments(id, lead_id, owner_id, state, current_step_number,
-             lead:leads(id, company_name, contact_person, contact_email))`,
+             lead:leads(id, company_name, contact_person, contact_email, country))`,
         )
         .in("campaign_enrollment_id", enrollmentIds)
         .in("status", ["pending_approval", "draft"])
@@ -105,6 +112,25 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         .select("id", { count: "exact", head: true })
         .in("campaign_enrollment_id", enrollmentIds)
         .eq("status", "rejected")
+    : { count: 0 }
+  const { count: draftsPendingApproval } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "pending_approval")
+    : { count: 0 }
+  const { count: draftsBlocked } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "draft")
+    : { count: 0 }
+  const { count: countryMismatchDrafts } = enrollmentIds.length
+    ? await (admin.from("email_drafts") as any)
+        .select("id", { count: "exact", head: true })
+        .in("campaign_enrollment_id", enrollmentIds)
+        .eq("status", "draft")
+        .like("error_message", "not_eligible_country:%")
     : { count: 0 }
   const { count: draftsSent } = enrollmentIds.length
     ? await (admin.from("email_drafts") as any)
@@ -140,8 +166,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     handoff: enrollmentRows.filter((r) => r.state === "replied_handoff").length,
     stopped: enrollmentRows.filter((r) => ["stopped", "suppressed", "invalid_contact", "nurture"].includes(r.state)).length,
     review: enrollmentRows.filter((r) => r.needs_human_review).length,
-    pendingApproval: draftRows.filter((d) => d.status === "pending_approval").length,
-    qaBlocked: draftRows.filter((d) => d.status === "draft").length,
+    pendingApproval: draftsPendingApproval ?? 0,
+    qaBlocked: Math.max((draftsBlocked ?? 0) - (countryMismatchDrafts ?? 0), 0),
+    countryMismatch: countryMismatchDrafts ?? 0,
   }
   const replyRate = stats.contacted > 0 ? Math.round((stats.replied / stats.contacted) * 100) : 0
 
@@ -170,9 +197,15 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">{c.name}</h1>
             <Badge variant="outline" className={STATUS_TONE[c.status]}>{c.status}</Badge>
-            <Badge variant="secondary">Buyer country: {c.target_country ?? "not set"}</Badge>
+            <Badge variant="secondary">Campaign target country: {c.target_country ?? "not set"}</Badge>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{c.description ?? "—"}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {c.target_product_name && <Badge variant="outline">Product: {c.target_product_name}</Badge>}
+            {c.product_category && <Badge variant="outline">Category: {c.product_category}</Badge>}
+            {(c.target_industries ?? []).map((industry) => <Badge key={industry} variant="outline">Industry: {industry}</Badge>)}
+            {(c.target_hs_codes ?? []).map((code) => <Badge key={code} variant="outline">HS support: {code}</Badge>)}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!steps?.length && isAdmin && (
@@ -193,6 +226,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           { label: "Handoff AE", value: stats.handoff },
           { label: "Chờ duyệt", value: stats.pendingApproval },
           { label: "QA chặn", value: stats.qaBlocked },
+          { label: "Sai quốc gia", value: stats.countryMismatch },
           { label: "Cần review", value: stats.review },
         ].map((s) => (
           <Card key={s.label}>
@@ -241,7 +275,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       </Card>
 
       {/* Approval queue */}
-      <ApprovalQueue drafts={draftRows} />
+      <ApprovalQueue drafts={draftRows} senderName={senderName} />
 
       {/* Enrollments */}
       <CampaignEnrollmentsTable

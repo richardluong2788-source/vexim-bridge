@@ -22,6 +22,8 @@ import {
 } from "@/components/admin/buyer-replies-list"
 import { toast } from "sonner"
 import { inquiryChannelLabel } from "@/lib/constants/inquiry-channels"
+import { CAMPAIGN_STATUS_LABELS, STATE_LABELS } from "@/lib/campaign/constants"
+import type { CampaignEnrollmentSummary } from "@/lib/campaign/types"
 import {
   Building2,
   Clock,
@@ -233,6 +235,8 @@ interface Props {
   pendingMatch?: PendingMatch | null
   /** Lead Researcher: sees the proposal, decides nothing. */
   canDecideMatch?: boolean
+  /** Non-terminal email campaign enrollment, scoped to campaign visibility. */
+  campaignEnrollment?: CampaignEnrollmentSummary | null
 }
 
 // Stage labels — mirror buyers-table so the two screens stay consistent
@@ -302,6 +306,7 @@ export function BuyerDetailView({
   clients = [],
   pendingMatch = null,
   canDecideMatch = true,
+  campaignEnrollment = null,
 }: Props) {
   const router = useRouter()
   const L = locale === "vi" ? STAGE_LABEL_VI : STAGE_LABEL_EN
@@ -463,6 +468,33 @@ export function BuyerDetailView({
           </div>
         )}
       </div>
+
+      {campaignEnrollment && (
+        <Card className="border-chart-2/40 bg-chart-2/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-chart-2">
+                  <Mail className="h-4 w-4" />
+                  {locale === "vi" ? "Buyer đang nằm trong email campaign" : "Buyer is enrolled in an email campaign"}
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {CAMPAIGN_STATUS_LABELS[campaignEnrollment.campaignStatus][locale]}
+                </Badge>
+              </div>
+              <p className="text-sm font-medium text-foreground">{campaignEnrollment.campaignName}</p>
+              <p className="text-xs text-muted-foreground">
+                {STATE_LABELS[campaignEnrollment.state][locale]} · {locale === "vi" ? "Bước" : "Step"} {campaignEnrollment.currentStepNumber}
+              </p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/admin/campaigns/${campaignEnrollment.campaignId}`}>
+                {locale === "vi" ? "Mở chiến dịch" : "Open campaign"}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* --- Email suppression banner (hard bounce / spam complaint) ------ */}
       <EmailSuppressionPanel

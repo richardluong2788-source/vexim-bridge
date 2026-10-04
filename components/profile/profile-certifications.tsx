@@ -5,19 +5,16 @@ import { SmartImage } from "@/components/ui/smart-image"
 import { ChevronLeft, ChevronRight, FileCheck, Copy, Check, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { privateFileHref } from "@/lib/blob/file-url"
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileCertificationsProps {
   profile: ClientProfileWithRelations
+  locale: Locale
 }
 
-const kindLabels: Record<string, string> = {
-  fda_certificate: "FDA",
-  coa: "COA",
-  other: "Certificate",
-}
-
-function CopyCode({ code }: { code: string }) {
+function CopyCode({ code, label }: { code: string; label: string }) {
   const [copied, setCopied] = useState(false)
 
   return (
@@ -29,14 +26,15 @@ function CopyCode({ code }: { code: string }) {
         setTimeout(() => setCopied(false), 1500)
       }}
       className="text-muted-foreground hover:text-foreground transition-colors"
-      aria-label="Copy code"
+      aria-label={label}
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
     </button>
   )
 }
 
-export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
+export function ProfileCertifications({ profile, locale }: ProfileCertificationsProps) {
+  const copy = getProfileCopy(locale)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const certifications = profile.certifications || []
@@ -54,7 +52,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
     <section className="py-12 sm:py-16 bg-muted/30">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8 text-center">
-          Certifications & Compliance
+          {copy.certifications.heading}
         </h2>
 
         <div className="flex flex-wrap justify-center gap-5 max-w-5xl mx-auto">
@@ -74,7 +72,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                   {isImage && fileUrl ? (
                     <SmartImage
                       src={fileUrl}
-                      alt={doc.title || "Certificate"}
+                      alt={doc.title || copy.certifications.certificate}
                       fill
                       className="object-contain p-1.5 group-hover:scale-[1.03] transition-transform"
                     />
@@ -82,7 +80,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-3 gap-2 bg-muted/40">
                       <FileCheck className="w-10 h-10 text-accent" />
                       <span className="text-[11px] text-muted-foreground text-center line-clamp-2">
-                        {doc.title || "Document"}
+                        {doc.title || copy.certifications.document}
                       </span>
                     </div>
                   )}
@@ -93,12 +91,12 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                   <ShieldCheck className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground leading-tight line-clamp-1">
-                      {doc.title || kindLabels[doc.kind] || doc.kind}
+                      {doc.title || copy.certifications.kindLabels[doc.kind] || doc.kind}
                     </p>
                     {code && (
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-xs text-muted-foreground truncate">{code}</span>
-                        <CopyCode code={code} />
+                        <CopyCode code={code} label={copy.certifications.copyCode} />
                       </div>
                     )}
                   </div>
@@ -111,14 +109,14 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
         {/* Lightbox Dialog */}
         <Dialog open={activeIndex !== null} onOpenChange={(open) => !open && setActiveIndex(null)}>
           <DialogContent className="max-w-6xl border-border bg-background p-3 sm:p-5">
-            <DialogTitle className="sr-only">{selectedDoc?.title || "Certificate"}</DialogTitle>
+            <DialogTitle className="sr-only">{selectedDoc?.title || copy.certifications.certificate}</DialogTitle>
             <div className="relative flex min-h-[50vh] items-center justify-center rounded-lg bg-muted/30">
               {selectedDoc && (
                 <>
                   {selectedDoc.mime_type?.startsWith("image/") && privateFileHref(selectedDoc.url) ? (
                     <SmartImage
                       src={privateFileHref(selectedDoc.url)!}
-                      alt={selectedDoc.title || "Certificate"}
+                      alt={selectedDoc.title || copy.certifications.certificate}
                       width={1600}
                       height={1200}
                       className="max-h-[75vh] w-auto max-w-full object-contain"
@@ -127,12 +125,12 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                     <iframe
                       src={privateFileHref(selectedDoc.url)!}
                       className="w-full h-[75vh]"
-                      title={selectedDoc.title || "Document"}
+                      title={selectedDoc.title || copy.certifications.document}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center py-16">
                       <FileCheck className="w-16 h-16 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">Document preview not available</p>
+                      <p className="text-muted-foreground">{copy.certifications.previewUnavailable}</p>
                     </div>
                   )}
 
@@ -141,7 +139,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                       <button
                         type="button"
                         onClick={showPrevious}
-                        aria-label="Previous certificate"
+                        aria-label={copy.certifications.previous}
                         className="absolute left-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background"
                       >
                         <ChevronLeft className="h-5 w-5" />
@@ -149,7 +147,7 @@ export function ProfileCertifications({ profile }: ProfileCertificationsProps) {
                       <button
                         type="button"
                         onClick={showNext}
-                        aria-label="Next certificate"
+                        aria-label={copy.certifications.next}
                         className="absolute right-2 rounded-full bg-background/90 p-2 shadow-md hover:bg-background"
                       >
                         <ChevronRight className="h-5 w-5" />

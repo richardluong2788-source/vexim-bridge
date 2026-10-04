@@ -20,11 +20,12 @@ export function formatPrice(
   min: number | null | undefined,
   max: number | null | undefined,
   currency: string,
+  locale = CURRENCY_LOCALE,
 ): string | null {
   if (!min && !max) return null
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat(CURRENCY_LOCALE, {
+    new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       maximumFractionDigits: 2,

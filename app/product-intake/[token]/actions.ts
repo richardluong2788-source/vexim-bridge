@@ -1,7 +1,22 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { translateSupplierTextFields } from "@/lib/ai/supplier-content-translation"
 import { notifyAeAndSrOfProductIntake } from "@/lib/notifications/product-intake-submitted"
+
+const STANDARD_CATEGORY_VALUES = new Set([
+  "Coffee",
+  "Cocoa",
+  "Pepper",
+  "Cashew",
+  "Spices",
+  "Nuts",
+  "Dried Fruits",
+  "Grains",
+  "Oils",
+  "Seafood",
+  "Other",
+])
 
 interface ProductPayload {
   product_name: string
@@ -50,33 +65,75 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     return { success: false, error: "invalid_or_expired_link" }
   }
 
+  // product_intake_links is not yet represented in the generated Supabase type.
+  const clientId = link.client_id as string
+  const intakeLinkId = link.id as string
+
+  const productName = data.product_name?.trim()
+  const category = data.category?.trim()
+  if (!productName || !category) {
+    return { success: false, error: "Vui lòng điền tên sản phẩm và danh mục." }
+  }
+
+  // Canonical category values are codes and must not be rewritten. A supplier-
+  // entered custom category is free text, so translate it with the descriptions.
+  const isStandardCategory = STANDARD_CATEGORY_VALUES.has(category)
+  const textFields: Record<string, string | undefined> = {
+    product_name: productName,
+    subcategory: data.subcategory,
+    description: data.description,
+    price_unit: data.price_unit,
+    moq_unit: data.moq_unit,
+    lead_time: data.lead_time,
+    key_specifications: data.key_specifications,
+    usp: data.usp,
+    packing: data.packing,
+    package_size: data.package_size,
+    shelf_life: data.shelf_life,
+    storage_conditions: data.storage_conditions,
+  }
+  if (!isStandardCategory) textFields.category = category
+
+  const translation = await translateSupplierTextFields(textFields)
+  if (translation.status === "failed") {
+    return { success: false, error: "translation_failed" }
+  }
+
+  const translatedValue = (key: string, value?: string) => {
+    const translated = translation.translatedTexts[key]
+    const trimmed = value?.trim()
+    return translated ?? (trimmed || null)
+  }
+  const translatedProductName = translatedValue("product_name", productName) ?? productName
   const basePayload: any = {
-    client_id: link.client_id,
-    product_name: data.product_name,
-    product_code: data.product_code || null,
-    category: data.category,
-    subcategory: data.subcategory || null,
-    description: data.description || null,
-    country_of_origin: data.country_of_origin || "Vietnam",
+    client_id: clientId,
+    product_name: translatedProductName,
+    product_code: data.product_code?.trim() || null,
+    category: translatedValue("category", category) ?? category,
+    subcategory: translatedValue("subcategory", data.subcategory),
+    description: translatedValue("description", data.description),
+    // Country of origin is structured location data; preserve it exactly as entered.
+    country_of_origin: data.country_of_origin?.trim() || "Vietnam",
     unit_of_measure: data.unit_of_measure || "kg",
     currency: data.currency || "USD",
     min_unit_price: data.min_unit_price || null,
     max_unit_price: data.max_unit_price || null,
-    price_unit: data.price_unit || null,
+    price_unit: translatedValue("price_unit", data.price_unit),
     moq_value: data.moq_value || null,
-    moq_unit: data.moq_unit || null,
-    lead_time: data.lead_time || null,
+    moq_unit: translatedValue("moq_unit", data.moq_unit),
+    lead_time: translatedValue("lead_time", data.lead_time),
     incoterm: data.incoterm || null,
-    incoterm_place: data.incoterm_place || null,
+    // Keep shipping-place/location data exactly as supplied.
+    incoterm_place: data.incoterm_place?.trim() || null,
     payment_terms: data.payment_terms || null,
-    hs_code: data.hs_code || null,
-    key_specifications: data.key_specifications || null,
-    usp: data.usp || null,
+    hs_code: data.hs_code?.trim() || null,
+    key_specifications: translatedValue("key_specifications", data.key_specifications),
+    usp: translatedValue("usp", data.usp),
     monthly_capacity_units: data.monthly_capacity_units || null,
-    packing: data.packing || null,
-    package_size: data.package_size || null,
-    shelf_life: data.shelf_life || null,
-    storage_conditions: data.storage_conditions || null,
+    packing: translatedValue("packing", data.packing),
+    package_size: translatedValue("package_size", data.package_size),
+    shelf_life: translatedValue("shelf_life", data.shelf_life),
+    storage_conditions: translatedValue("storage_conditions", data.storage_conditions),
     status: "inactive",
     source_submission_id: null,
     image_urls: data.image_urls || [],
@@ -84,10 +141,10 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
     price_attested_at: new Date().toISOString(),
     price_attestation_text:
       "Tôi xác nhận giá kê khai không được nâng riêng do đơn hàng đến từ Vexim và phản ánh mức giá thương mại thực tế của nhà cung cấp tại thời điểm kê khai.",
-    created_by: link.client_id,
+    created_by: clientId,
     // Lets the admin UI show "N sản phẩm" per link instead of a vague
     // "đã dùng" flag. Migration 089; stripped below if not applied yet.
-    product_intake_link_id: link.id,
+    product_intake_link_id: intakeLinkId,
   }
 
   // Returns the new row's id, or an error the supplier can act on.
@@ -95,20 +152,21 @@ export async function submitProductIntakeAction(token: string, data: ProductPayl
   // exact row; a timestamp would make every key unique and defeat dedup.
   const result = await insertProduct(admin, basePayload, data.product_code)
   if (result.error) return { success: false, error: result.error }
+  if (!result.id) return { success: false, error: "Gửi thất bại. Vui lòng thử lại." }
   const productId = result.id
 
-  await admin.from("product_intake_links").update({ used_at: new Date().toISOString() }).eq("id", link.id)
+  await admin.from("product_intake_links").update({ used_at: new Date().toISOString() }).eq("id", intakeLinkId)
 
   try {
     await admin.from("activities").insert({
       action_type: "product_intake_submitted",
-      description: JSON.stringify({ client_id: link.client_id, product_name: data.product_name, via_token: token.slice(0, 8), image_count: data.image_urls?.length || 0 }),
-      performed_by: link.client_id,
+      description: JSON.stringify({ client_id: clientId, product_name: translatedProductName, via_token: token.slice(0, 8), image_count: data.image_urls?.length || 0 }),
+      performed_by: clientId,
     })
   } catch {}
 
-  // Best-effort notify AE/SR via system + email to registration email
-  notifyAeAndSrOfProductIntake(token, data.product_name, productId).catch((err) => {
+  // Best-effort notify AE/SR via system + email to registration email.
+  notifyAeAndSrOfProductIntake(token, translatedProductName, productId).catch((err) => {
     console.error("[product intake] notify failed", err)
   })
 

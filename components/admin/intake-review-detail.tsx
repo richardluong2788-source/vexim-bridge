@@ -46,6 +46,27 @@ import {
   type FactoryCapabilityAnswers,
 } from "@/lib/assessment/constants"
 import {
+  MAX_MANUFACTURING_SOURCES,
+  PROFILE_SOURCE_STATUSES,
+  SOURCE_RELATIONSHIP_TYPES,
+  SOURCE_VERIFICATION_STATUSES,
+  SUPPLIER_ENTITY_TYPES,
+  US_SALES_CHANNEL_STATUSES,
+  VEXIM_SUPPORT_OPTIONS,
+  deriveProfileSourceStatus,
+  emptyManufacturingSource,
+  isProfileSourceStatus,
+  isSupplierEntityType,
+  isUsSalesChannelStatus,
+  normalizeManufacturingSources,
+  normalizeSupportNeeds,
+  type ManufacturingSourceEntry,
+  type ProfileSourceStatus,
+  type SupplierEntityType,
+  type UsSalesChannelStatus,
+  type VeximSupportNeed,
+} from "@/lib/client-intake/sourcing"
+import {
   approveIntakeSubmission,
   rejectIntakeSubmission,
   type IntakeEditableFields,
@@ -56,7 +77,6 @@ const CERTIFICATION_OPTIONS = [
   "GMP",
   "ISO 22000",
   "ISO 9001",
-  "FDA Registration",
   "Organic (USDA/EU)",
   "Halal",
   "Kosher",
@@ -94,6 +114,8 @@ export interface IntakeSubmissionDetail {
   certification_image_urls?: string[] | null
   submitted_at: string | null
   created_client_id: string | null
+  client_id?: string | null
+  linked_client_profile?: boolean
   review_notes: string | null
   rejection_reason: string | null
   quality_systems?: string[] | null
@@ -104,10 +126,15 @@ export interface IntakeSubmissionDetail {
   export_markets?: string[] | null
   export_markets_other?: string | null
   traceability?: string[] | null
-  fda_status?: string | null
-  fda_number?: string | null
-  fda_expires_at?: string | null
-  fda_certificate_url?: string | null
+  supplier_entity_type?: string | null
+  manufacturing_sources?: Record<string, unknown>[] | null
+  source_verification_status?: string | null
+  source_verification_consent?: boolean | null
+  source_change_acknowledged?: boolean | null
+  us_sales_channel_status?: string | null
+  us_sales_channel_notes?: string | null
+  vexim_support_needs?: string[] | null
+  vexim_support_other?: string | null
   audit_readiness?: string[] | null
   audit_owner?: string | null
   incoterms?: string[] | null
@@ -178,10 +205,37 @@ export function IntakeReviewDetail({
     coverImageUrl: submission.cover_image_url ?? "",
     factoryImageUrls: (submission.factory_image_urls ?? []).join(", "),
     videoUrl: submission.video_url ?? "",
-    certifications: submission.certifications ?? [],
+    certifications: (submission.certifications ?? []).filter(
+      (certification) => certification.trim().toLowerCase() !== "fda registration",
+    ),
     certificationsOther: submission.certifications_other ?? "",
     certificationImageUrls: (submission.certification_image_urls ?? []).join(", "),
   })
+
+  const [manufacturingSources, setManufacturingSources] = useState<ManufacturingSourceEntry[]>(() =>
+    normalizeManufacturingSources(submission.manufacturing_sources, { preserveReviewFields: true }),
+  )
+  const [sourcing, setSourcing] = useState({
+    supplierEntityType: isSupplierEntityType(submission.supplier_entity_type)
+      ? submission.supplier_entity_type
+      : "unknown" as SupplierEntityType,
+    sourceVerificationConsent: submission.source_verification_consent ?? false,
+    sourceChangeAcknowledged: submission.source_change_acknowledged ?? false,
+    usSalesChannelStatus: isUsSalesChannelStatus(submission.us_sales_channel_status)
+      ? submission.us_sales_channel_status
+      : "unknown" as UsSalesChannelStatus,
+    usSalesChannelNotes: submission.us_sales_channel_notes ?? "",
+    veximSupportNeeds: normalizeSupportNeeds(submission.vexim_support_needs),
+    veximSupportOther: submission.vexim_support_other ?? "",
+  })
+  const [sourceVerificationStatus, setSourceVerificationStatus] =
+    useState<ProfileSourceStatus>(() =>
+      isProfileSourceStatus(submission.source_verification_status)
+        ? submission.source_verification_status
+        : submission.manufacturing_sources?.length
+          ? "pending_verification"
+          : "awaiting_details",
+    )
 
   const [assessment, setAssessment] = useState<FactoryCapabilityAnswers>(() => ({
     ...EMPTY_FACTORY_CAPABILITY_ANSWERS,
@@ -193,10 +247,10 @@ export function IntakeReviewDetail({
     export_markets: submission.export_markets ?? [],
     export_markets_other: submission.export_markets_other ?? "",
     traceability: submission.traceability ?? [],
-    fda_status: submission.fda_status ?? "",
-    fda_number: submission.fda_number ?? "",
-    fda_expires_at: submission.fda_expires_at ?? "",
-    fda_certificate_url: submission.fda_certificate_url ?? "",
+    fda_status: "",
+    fda_number: "",
+    fda_expires_at: "",
+    fda_certificate_url: "",
     audit_readiness: submission.audit_readiness ?? [],
     audit_owner: submission.audit_owner ?? "",
     incoterms: submission.incoterms ?? [],
@@ -214,6 +268,10 @@ export function IntakeReviewDetail({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function updateSourcing<K extends keyof typeof sourcing>(key: K, value: (typeof sourcing)[K]) {
+    setSourcing((previous) => ({ ...previous, [key]: value }))
+  }
+
   function toggleIndustry(ind: Industry) {
     setForm((prev) => ({
       ...prev,
@@ -229,6 +287,32 @@ export function IntakeReviewDetail({
       certifications: prev.certifications.includes(cert)
         ? prev.certifications.filter((c) => c !== cert)
         : [...prev.certifications, cert],
+    }))
+  }
+
+  function updateManufacturingSource(index: number, patch: Partial<ManufacturingSourceEntry>) {
+    setManufacturingSources((previous) =>
+      previous.map((source, currentIndex) =>
+        currentIndex === index ? { ...source, ...patch } : source,
+      ),
+    )
+  }
+
+  function addManufacturingSource() {
+    if (manufacturingSources.length >= MAX_MANUFACTURING_SOURCES) return
+    setManufacturingSources((previous) => [...previous, emptyManufacturingSource()])
+  }
+
+  function removeManufacturingSource(index: number) {
+    setManufacturingSources((previous) => previous.filter((_, currentIndex) => currentIndex !== index))
+  }
+
+  function toggleSupportNeed(value: VeximSupportNeed) {
+    setSourcing((previous) => ({
+      ...previous,
+      veximSupportNeeds: previous.veximSupportNeeds.includes(value)
+        ? previous.veximSupportNeeds.filter((item) => item !== value)
+        : [...previous.veximSupportNeeds, value],
     }))
   }
 
@@ -260,6 +344,10 @@ export function IntakeReviewDetail({
   }, [form, locale])
 
   function buildFields(): IntakeEditableFields {
+    const sources = normalizeManufacturingSources(manufacturingSources, { preserveReviewFields: true })
+    const effectiveSourceStatus = sources.length > 0
+      ? deriveProfileSourceStatus(sources)
+      : sourceVerificationStatus
     return {
       contact_name: form.contactName,
       email: form.email,
@@ -298,10 +386,15 @@ export function IntakeReviewDetail({
       export_markets: assessment.export_markets,
       export_markets_other: assessment.export_markets_other || null,
       traceability: assessment.traceability,
-      fda_status: assessment.fda_status || null,
-      fda_number: assessment.fda_number || null,
-      fda_expires_at: assessment.fda_expires_at || null,
-      fda_certificate_url: assessment.fda_certificate_url || null,
+      supplier_entity_type: sourcing.supplierEntityType,
+      manufacturing_sources: sources,
+      source_verification_status: effectiveSourceStatus,
+      source_verification_consent: sourcing.sourceVerificationConsent,
+      source_change_acknowledged: sourcing.sourceChangeAcknowledged,
+      us_sales_channel_status: sourcing.usSalesChannelStatus,
+      us_sales_channel_notes: sourcing.usSalesChannelNotes || null,
+      vexim_support_needs: sourcing.veximSupportNeeds,
+      vexim_support_other: sourcing.veximSupportOther || null,
       audit_readiness: assessment.audit_readiness,
       audit_owner: assessment.audit_owner || null,
       incoterms: assessment.incoterms,
@@ -329,6 +422,23 @@ export function IntakeReviewDetail({
           "Email này đã có tài khoản trong hệ thống.",
           "This email already has an account.",
         )
+      case "verification_notes_required":
+        return tr(
+          "Hãy ghi chú cách Vexim xác minh trước khi đánh dấu cơ sở là đã xác minh.",
+          "Add internal verification notes before marking a facility verified.",
+        )
+      case "verified_source_required":
+        return tr(
+          "Cần ít nhất một cơ sở nguồn được ghi nhận và có ghi chú xác minh trước khi đặt trạng thái đã xác minh.",
+          "Record at least one manufacturing source and its verification notes before setting the status to verified.",
+        )
+      case "profile_lookup_failed":
+      case "profile_update_failed":
+      case "source_save_failed":
+        return tr(
+          "Không thể lưu thông tin nguồn vào tài khoản. Vui lòng thử lại hoặc báo quản trị viên.",
+          "Could not save source information to the account. Please retry or contact an administrator.",
+        )
       case "industry_invalid":
         return tr("Vui lòng chọn ngành nghề hợp lệ.", "Please select a valid industry.")
       default:
@@ -345,6 +455,9 @@ export function IntakeReviewDetail({
     () => splitMainProducts(form.mainProducts, { companyName: form.companyName }),
     [form.mainProducts, form.companyName],
   )
+  const effectiveSourceStatus = manufacturingSources.length > 0
+    ? deriveProfileSourceStatus(manufacturingSources)
+    : sourceVerificationStatus
 
   function handleApprove() {
     if (missingRequired.length > 0) {
@@ -657,6 +770,248 @@ export function IntakeReviewDetail({
 
           <Card>
             <CardHeader>
+              <CardTitle>{tr("Nguồn nhà máy & xác minh (nội bộ)", "Manufacturing sources & verification (internal)")}</CardTitle>
+              <CardDescription>
+                {tr(
+                  "Địa điểm và thông tin xác minh chỉ dùng nội bộ, không đưa vào địa chỉ hoặc hồ sơ công khai. Thiếu bằng chứng không cản trở việc tiếp nhận; hồ sơ phải tiếp tục ở trạng thái chờ xác minh.",
+                  "Facility locations and verification details are internal only and never copied to public addresses or profiles. Missing evidence does not block intake; unverified sources stay pending.",
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="review-supplier-entity-type">{tr("Loại đối tác", "Supplier relationship type")}</Label>
+                  <select
+                    id="review-supplier-entity-type"
+                    value={sourcing.supplierEntityType}
+                    onChange={(event) => updateSourcing("supplierEntityType", event.target.value as SupplierEntityType)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    {SUPPLIER_ENTITY_TYPES.map((option) => (
+                      <option key={option.value} value={option.value}>{locale === "vi" ? option.labelVi : option.labelEn}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="review-source-status">{tr("Tình trạng nguồn sản xuất", "Manufacturing source status")}</Label>
+                  <select
+                    id="review-source-status"
+                    value={effectiveSourceStatus}
+                    disabled={Boolean(
+                      manufacturingSources.length > 0 ||
+                      ((submission.client_id || submission.linked_client_profile) && manufacturingSources.length === 0)
+                    )}
+                    onChange={(event) => setSourceVerificationStatus(event.target.value as ProfileSourceStatus)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                  >
+                    {PROFILE_SOURCE_STATUSES
+                      .filter((option) =>
+                        option.value !== "verified" ||
+                        manufacturingSources.length > 0 ||
+                        effectiveSourceStatus === "verified",
+                      )
+                      .map((option) => (
+                        <option key={option.value} value={option.value}>{locale === "vi" ? option.labelVi : option.labelEn}</option>
+                      ))}
+                  </select>
+                  {manufacturingSources.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {tr("Tình trạng tài khoản được suy ra từ trạng thái xác minh của từng cơ sở bên dưới.", "Account status is derived from the facility verification decisions below.")}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <section className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold">{tr("Các cơ sở và sản phẩm nguồn", "Source facilities and products")}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {tr(`Tối đa ${MAX_MANUFACTURING_SOURCES} cơ sở. Không có cơ sở khai báo vẫn có thể duyệt, nhưng cần giữ trạng thái chờ thông tin.`, `Up to ${MAX_MANUFACTURING_SOURCES} facilities. Intake may be approved with no facility yet, but keep the status awaiting details.`)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addManufacturingSource}
+                    disabled={manufacturingSources.length >= MAX_MANUFACTURING_SOURCES}
+                    className="gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> {tr("Thêm cơ sở", "Add facility")}
+                  </Button>
+                </div>
+
+                {manufacturingSources.length === 0 && (
+                  <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    {tr("Chưa có thông tin cơ sở sản xuất. Có thể duyệt hồ sơ và đặt tình trạng nguồn là chờ bổ sung.", "No manufacturing-source details yet. You may approve the intake and leave source status as awaiting details.")}
+                  </p>
+                )}
+                {manufacturingSources.length === 0 && (submission.client_id || submission.linked_client_profile) && (
+                  <p className="text-xs text-muted-foreground">
+                    {tr("Đây là hồ sơ bổ sung chưa có cơ sở mới; trạng thái nguồn hiện tại của tài khoản sẽ được giữ nguyên.", "This supplement has no new facility records; the account's existing source status will be preserved.")}
+                  </p>
+                )}
+
+                {manufacturingSources.map((source, index) => (
+                  <div key={index} className="flex flex-col gap-4 rounded-lg border border-border p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold">{tr(`Cơ sở #${index + 1}`, `Facility #${index + 1}`)}</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeManufacturingSource(index)}
+                        className="gap-1 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" /> {tr("Xóa", "Remove")}
+                      </Button>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-facility-name-${index}`}>{tr("Tên pháp lý đơn vị vận hành", "Facility operator's legal name")}</Label>
+                        <Input
+                          id={`review-facility-name-${index}`}
+                          value={source.facility_name}
+                          onChange={(event) => updateManufacturingSource(index, { facility_name: event.target.value })}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-facility-address-${index}`}>{tr("Địa chỉ cơ sở (nội bộ)", "Facility location (internal)")}</Label>
+                        <Textarea
+                          id={`review-facility-address-${index}`}
+                          value={source.facility_address}
+                          onChange={(event) => updateManufacturingSource(index, { facility_address: event.target.value })}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-relationship-${index}`}>{tr("Mối quan hệ với cơ sở", "Relationship to facility")}</Label>
+                        <select
+                          id={`review-source-relationship-${index}`}
+                          value={source.relationship_type}
+                          onChange={(event) => updateManufacturingSource(index, { relationship_type: event.target.value as ManufacturingSourceEntry["relationship_type"] })}
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="">{tr("Chưa xác định", "Not specified")}</option>
+                          {SOURCE_RELATIONSHIP_TYPES.map((option) => (
+                            <option key={option.value} value={option.value}>{locale === "vi" ? option.labelVi : option.labelEn}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-verification-${index}`}>{tr("Trạng thái xác minh cơ sở", "Facility verification status")}</Label>
+                        <select
+                          id={`review-source-verification-${index}`}
+                          value={source.verification_status}
+                          onChange={(event) => updateManufacturingSource(index, { verification_status: event.target.value as ManufacturingSourceEntry["verification_status"] })}
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          {SOURCE_VERIFICATION_STATUSES.map((option) => (
+                            <option key={option.value} value={option.value}>{locale === "vi" ? option.labelVi : option.labelEn}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-products-${index}`}>{tr("Sản phẩm tại cơ sở này", "Products made at this facility")}</Label>
+                        <Textarea
+                          id={`review-source-products-${index}`}
+                          value={source.product_names.join("\n")}
+                          onChange={(event) => updateManufacturingSource(index, {
+                            product_names: event.target.value.split(/\r?\n|;/).map((value) => value.trim()).filter(Boolean).slice(0, 20),
+                          })}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-relationship-notes-${index}`}>{tr("Ghi chú về mối quan hệ", "Relationship notes")}</Label>
+                        <Textarea
+                          id={`review-source-relationship-notes-${index}`}
+                          value={source.relationship_notes}
+                          onChange={(event) => updateManufacturingSource(index, { relationship_notes: event.target.value })}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-contact-name-${index}`}>{tr("Đầu mối xác minh", "Verification contact")}</Label>
+                        <Input id={`review-source-contact-name-${index}`} value={source.verification_contact_name} onChange={(event) => updateManufacturingSource(index, { verification_contact_name: event.target.value })} />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-contact-email-${index}`}>Email</Label>
+                        <Input id={`review-source-contact-email-${index}`} type="email" value={source.verification_contact_email} onChange={(event) => updateManufacturingSource(index, { verification_contact_email: event.target.value })} />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-contact-phone-${index}`}>{tr("Điện thoại", "Phone")}</Label>
+                        <Input id={`review-source-contact-phone-${index}`} value={source.verification_contact_phone} onChange={(event) => updateManufacturingSource(index, { verification_contact_phone: event.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-evidence-${index}`}>{tr("Bằng chứng / cách xác minh do nhà cung cấp nêu", "Supplier-reported evidence / verification method")}</Label>
+                        <Textarea id={`review-source-evidence-${index}`} value={source.evidence_note} onChange={(event) => updateManufacturingSource(index, { evidence_note: event.target.value })} rows={2} />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor={`review-source-verification-notes-${index}`}>{tr("Ghi chú xác minh nội bộ (bắt buộc nếu đánh dấu đã xác minh)", "Internal verification notes (required when marked verified)")}</Label>
+                        <Textarea id={`review-source-verification-notes-${index}`} value={source.verification_notes} onChange={(event) => updateManufacturingSource(index, { verification_notes: event.target.value })} rows={2} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </section>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sourcing.sourceVerificationConsent} onCheckedChange={(checked) => updateSourcing("sourceVerificationConsent", checked === true)} className="mt-0.5" />
+                  <span>{tr("Nhà cung cấp đồng ý cho Vexim xác minh nguồn", "Supplier consented to source verification")}</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox checked={sourcing.sourceChangeAcknowledged} onCheckedChange={(checked) => updateSourcing("sourceChangeAcknowledged", checked === true)} className="mt-0.5" />
+                  <span>{tr("Đã xác nhận phải báo Vexim trước khi đổi nguồn đã giới thiệu", "Supplier acknowledged the source-change notice commitment")}</span>
+                </label>
+              </div>
+
+              <section className="flex flex-col gap-3 rounded-md border border-border p-4">
+                <div>
+                  <h3 className="text-sm font-semibold">{tr("Kênh bán tại Mỹ & hỗ trợ mong muốn", "U.S. sales channels & requested support")}</h3>
+                  <p className="text-xs text-muted-foreground">{tr("Chỉ dùng để hiểu nhu cầu; không tự động loại supplier.", "For planning only; never auto-reject a supplier.")}</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="review-us-channel-status">{tr("Buyer/kênh bán hiện có", "Current U.S. buyer/channel status")}</Label>
+                  <select id="review-us-channel-status" value={sourcing.usSalesChannelStatus} onChange={(event) => updateSourcing("usSalesChannelStatus", event.target.value as UsSalesChannelStatus)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    {US_SALES_CHANNEL_STATUSES.map((option) => <option key={option.value} value={option.value}>{locale === "vi" ? option.labelVi : option.labelEn}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="review-us-channel-notes">{tr("Ghi chú kênh/buyer", "Buyer/channel notes")}</Label>
+                  <Textarea id="review-us-channel-notes" value={sourcing.usSalesChannelNotes} onChange={(event) => updateSourcing("usSalesChannelNotes", event.target.value)} rows={2} />
+                </div>
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm font-medium">{tr("Nhu cầu hỗ trợ", "Requested support")}</legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {VEXIM_SUPPORT_OPTIONS.map((option) => (
+                      <label key={option.value} className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
+                        <Checkbox checked={sourcing.veximSupportNeeds.includes(option.value)} onCheckedChange={() => toggleSupportNeed(option.value)} className="mt-0.5" />
+                        <span>{locale === "vi" ? option.labelVi : option.labelEn}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {sourcing.veximSupportNeeds.includes("other") && (
+                    <Textarea aria-label={tr("Nhu cầu hỗ trợ khác", "Other support needs")} value={sourcing.veximSupportOther} onChange={(event) => updateSourcing("veximSupportOther", event.target.value)} rows={2} />
+                  )}
+                </fieldset>
+              </section>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>{tr("Năng lực & chứng nhận", "Capability & certifications")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -745,7 +1100,7 @@ export function IntakeReviewDetail({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>{tr("Ảnh chứng nhận (HACCP, ISO, FDA...)", "Certification images (HACCP, ISO, FDA...)")}</Label>
+                <Label>{tr("Ảnh chứng nhận (HACCP, ISO...)", "Certification images (HACCP, ISO...)")}</Label>
                 <Input
                   value={form.certificationImageUrls}
                   onChange={(e) => update("certificationImageUrls", e.target.value)}
@@ -766,13 +1121,14 @@ export function IntakeReviewDetail({
             <CardHeader>
               <CardTitle>{tr("Đánh giá năng lực nhà máy", "Factory capability assessment")}</CardTitle>
               <CardDescription>
-                {tr("9 mục thông tin được đánh số từ 1 đến 9.", "Nine assessment sections, numbered 1 through 9.")}
+                {tr("8 mục thông tin được đánh số từ 1 đến 8; rà soát FDA diễn ra riêng khi cần theo buyer, sản phẩm và cơ sở.", "Eight assessment sections, numbered 1 through 8; FDA review is handled separately when relevant to a buyer, product, and facility.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <FactoryCapabilityStep
                 values={assessment}
                 onChange={(patch) => setAssessment((previous) => ({ ...previous, ...patch }))}
+                showFda={false}
               />
             </CardContent>
           </Card>

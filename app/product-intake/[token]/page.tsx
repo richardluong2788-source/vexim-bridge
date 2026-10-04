@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { siteConfig } from "@/lib/site-config"
 import { ProductIntakeForm } from "@/components/product-intake/product-intake-form"
 
+// The submit Server Action may call the AI translation service before saving.
+export const maxDuration = 60
+
 interface ProductIntakeLinkRow {
   id: string
   token: string

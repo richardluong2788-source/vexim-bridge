@@ -13,6 +13,7 @@ import { generateText, Output } from "ai"
 import { z } from "zod"
 import { GATE_CONFIDENCE_THRESHOLD } from "./constants"
 import type { BuyerContext } from "./types"
+import { campaignSafeAIContext } from "./ai-context-safety"
 
 const gateSchema = z.object({
   proceed: z.boolean().describe("true ONLY if there is a genuine, specific reason to send this follow-up email."),
@@ -93,6 +94,7 @@ export async function assessFollowupJustification(params: {
   if (defensive) return defensive
 
   try {
+    const safeContext = campaignSafeAIContext(ctx)
     const { experimental_output: output } = await generateText({
       model: "openai/gpt-4o-mini",
       experimental_output: Output.object({ schema: gateSchema }),
@@ -111,6 +113,7 @@ export async function assessFollowupJustification(params: {
         "Rules:",
         "- Ground every justification in the provided context. NEVER invent research findings, data, or buyer intentions.",
         "- If research/import fields are UNKNOWN they cannot justify anything.",
+        "- The deterministic campaign_match level is a hard boundary: category-level means broad category only; industry-only, unclassified, or unresolved conflict is discovery-only and cannot be used to claim buyer product demand. HS codes are never demand evidence.",
         "- close_loop_courtesy is acceptable for the final step of a sequence with no replies, but you must still confirm the context supports it.",
         "- When unsure, choose proceed=false. Missing one email is cheap; annoying a buyer is not.",
       ].join("\n"),
@@ -119,7 +122,7 @@ export async function assessFollowupJustification(params: {
         `DAYS SINCE LAST CONTACT: ${daysSinceLastContact ?? "unknown"}`,
         "",
         "FULL BUYER CONTEXT (curated by backend; UNKNOWN means unknown):",
-        JSON.stringify(ctx, null, 2),
+        JSON.stringify(safeContext, null, 2),
         "",
         "Decide: is there a genuine reason to send this follow-up? Return proceed, reason_category, reason_summary, confidence.",
       ].join("\n"),

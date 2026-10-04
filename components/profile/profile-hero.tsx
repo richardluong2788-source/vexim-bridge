@@ -1,10 +1,13 @@
 "use client"
 
 import { SmartImage } from "@/components/ui/smart-image"
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileHeroProps {
   profile: ClientProfileWithRelations
+  locale: Locale
 }
 
 /**
@@ -12,9 +15,10 @@ interface ProfileHeroProps {
  * hien thi trong ProfileHeaderCard (de tao layout dang "profile card"
  * chong len phan cover, giong cac trang B2B marketplace).
  */
-export function ProfileHero({ profile }: ProfileHeroProps) {
+export function ProfileHero({ profile, locale }: ProfileHeroProps) {
+  const copy = getProfileCopy(locale)
   const coverUrl = profile.cover_image_url
-  const displayName = profile.display_name || profile.profiles.company_name || "Company"
+  const displayName = profile.display_name || profile.profiles.company_name || copy.common.companyFallback
 
   return (
     <section className="relative w-full bg-white">
@@ -22,7 +26,7 @@ export function ProfileHero({ profile }: ProfileHeroProps) {
         {coverUrl ? (
           <SmartImage
             src={coverUrl}
-            alt={`${displayName} cover`}
+            alt={`${displayName} ${copy.common.coverImage}`}
             fill
             className="object-cover"
             priority

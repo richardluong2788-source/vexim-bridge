@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import { MetaPixel } from "@/components/analytics/meta-pixel"
 import { LanguageProvider } from "@/components/i18n/language-provider"
 import { DEFAULT_LOCALE } from "@/lib/i18n/config"
 import { getDictionarySync } from "@/lib/i18n/dictionaries"
@@ -48,6 +49,14 @@ export default function RootLayout({
     <html lang={DEFAULT_LOCALE} className="bg-background">
       <body className="font-sans antialiased">
         <LanguageProvider>{children}</LanguageProvider>
+        {/*
+          Ad measurement. <MetaPixel /> reads no cookies and no headers at render
+          time (it only looks at the pathname on the client), so the static shell
+          documented above — and with it CDN caching of every public route — is
+          untouched. It renders nothing at all unless NEXT_PUBLIC_META_PIXEL_ID is
+          set, and only on marketing surfaces, never inside /admin or /client.
+        */}
+        <MetaPixel />
         <Toaster position="top-right" richColors />
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>

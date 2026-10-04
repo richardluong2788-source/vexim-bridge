@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react"
 import { CheckCircle2, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { INDUSTRIES } from "@/lib/constants/industries"
+import { newMetaEventId, trackMetaEvent } from "@/lib/analytics/meta/browser"
+import { metaLeadValue } from "@/lib/analytics/meta/config"
 
 export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
   const vi = locale === "vi"
@@ -30,11 +32,27 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-      const result = (await response.json()) as { ok?: boolean; error?: string; reference?: string }
+      const result = (await response.json()) as {
+        ok?: boolean
+        error?: string
+        reference?: string
+        /** Meta Conversions API dedup id — the same one the server already sent. */
+        eventId?: string
+        /** True when the API reused an existing open lead instead of creating one. */
+        duplicate?: boolean
+      }
       if (!response.ok || !result.ok) {
         throw new Error(result.error || (vi ? "Vui lòng kiểm tra lại thông tin." : "Please check your information and try again."))
       }
       setReference(result.reference ?? "")
+      // A re-send of the same enquiry is not a second lead: the API reused the
+      // open row and reported nothing to Meta, so the browser stays quiet too.
+      if (!result.duplicate) {
+        reportLeadConversion({
+          eventId: result.eventId,
+          industry: typeof payload.industry === "string" ? payload.industry : undefined,
+        })
+      }
       setSubmitted(true)
       form.reset()
     } catch (submissionError) {
@@ -127,5 +145,51 @@ function collectAttribution(locale: "vi" | "en"): Record<string, string> {
     const value = params.get(param)?.trim()
     if (value) out[field] = value.slice(0, 200)
   }
+
+  // Meta appends this to the landing URL on an ad click. It is not what answers
+  // "which campaign" (the utm_* fields already do) — it is what lets the server
+  // rebuild an `fbc` click id for the Conversions API call when the pixel's own
+  // `_fbc` cookie was blocked. Kept out of the loop above on purpose: fbclids
+  // are long, and truncating one at 200 chars would hand Meta an id it cannot
+  // match, which is worse than sending nothing.
+  const fbclid = params.get("fbclid")?.trim()
+  if (fbclid) out.fbclid = fbclid.slice(0, 500)
+
   return out
+}
+
+/**
+ * Report the conversion to Meta.
+ *
+ * Two copies of this event reach Meta on purpose: this browser one, and the
+ * server-side Conversions API call `app/api/consultation/route.ts` makes a
+ * moment earlier. They share `eventId`, and Meta collapses a matching pair into
+ * a single conversion — so the browser covers "CAPI is not configured" while
+ * CAPI covers "the visitor runs an ad blocker / Safari ITP / iOS ATT". Sending
+ * only one of the two is what makes a Facebook campaign look worse than it is.
+ *
+ * Safe to call unconditionally: `trackMetaEvent` is a no-op when the pixel is
+ * off, so dev, previews and untracked routes report nothing.
+ */
+function reportLeadConversion({ eventId, industry }: { eventId?: string; industry?: string }) {
+  const { value, currency } = metaLeadValue()
+
+  trackMetaEvent(
+    "Lead",
+    {
+      // Same tag the API writes to marketing_leads.source, so a conversion
+      // count in Ads Manager can be reconciled against rows in the database.
+      content_name: "landing_consultation",
+      content_category: industry,
+      content_type: "service",
+      currency,
+      value,
+    },
+    {
+      // Prefer the server's id — that is what makes the pair dedupe. A locally
+      // generated one only happens when the API didn't return one (CAPI off, or
+      // an older deploy), where there is nothing to dedupe against anyway.
+      eventID: eventId || newMetaEventId(),
+    },
+  )
 }

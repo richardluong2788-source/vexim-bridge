@@ -8,6 +8,7 @@ import { ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileHeaderCard } from "@/components/profile/profile-header-card"
 import { ProfileTabs } from "@/components/profile/profile-tabs"
 import { ProfileCTA } from "@/components/profile/profile-cta"
+import { MetaPageEvent } from "@/components/analytics/meta-page-event"
 
 interface ProfilePageProps {
   params: Promise<{ slug: string }>
@@ -107,6 +108,22 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   return (
     <main lang="en" className="min-h-screen bg-background">
+      {/*
+        Meta Pixel ViewContent for the public supplier profile — the page a
+        shared link or an ad points at. `content_type` is not one of Meta's
+        product types, which is fine for a custom breakdown; it is what separates
+        "looked at a supplier" from "looked at a product" in Events Manager.
+      */}
+      <MetaPageEvent
+        event="ViewContent"
+        dedupeKey={`/profile/${slug}`}
+        params={{
+          content_name: profile.display_name,
+          content_ids: [String(profile.client_id)],
+          content_type: "supplier_profile",
+        }}
+      />
+
       {/* Block 1: Cover image */}
       <ProfileHero profile={profile} />
 

@@ -23,6 +23,7 @@ import { formatPrice, toMetaDescription } from "@/lib/product-format"
 import { localizedAlternates, INDEXABLE } from "@/lib/seo/alternates"
 import { CATALOG_CACHE_TAG, CATALOG_REVALIDATE_SECONDS } from "@/lib/catalog/cache"
 import { JsonLd } from "@/components/seo/json-ld"
+import { MetaPageEvent } from "@/components/analytics/meta-page-event"
 import { ProductImageGallery } from "@/components/product"
 import { ProductRequestQuoteDialog } from "@/components/product"
 import { ProductMarkdown } from "@/components/product"
@@ -285,6 +286,27 @@ export default async function ProductPage({ params }: PageProps) {
   return (
     <main lang="en" className="min-h-screen bg-background">
       <JsonLd data={productJsonLd} id="product-json-ld" />
+
+      {/*
+        Meta Pixel ViewContent: the event a catalog/retargeting campaign
+        optimises towards, and the signal behind a "viewed a product but never
+        enquired" audience. A client component because this route is statically
+        generated and cached on the CDN — there is no request to hook into.
+        `value` is the supplier's floor unit price, which is how a catalog feed
+        reports price, not an order total.
+      */}
+      <MetaPageEvent
+        event="ViewContent"
+        dedupeKey={`/products/${id}`}
+        params={{
+          content_name: typedProduct.product_name,
+          content_ids: [String(typedProduct.id)],
+          content_type: "product",
+          content_category: typedProduct.category ?? undefined,
+          currency: typedProduct.currency ?? undefined,
+          value: typedProduct.min_unit_price ?? undefined,
+        }}
+      />
 
       {/* Breadcrumb */}
       <div className="border-b bg-muted/30">

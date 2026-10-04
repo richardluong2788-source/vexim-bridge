@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { sendMail, getFromAddress } from "@/lib/email/mailer"
+import { metaClickIdsFromRequest, sendMetaConversionEvent } from "@/lib/analytics/meta/server"
+import { metaLeadValue } from "@/lib/analytics/meta/config"
 import { INDUSTRIES } from "@/lib/constants/industries"
 import { siteConfig } from "@/lib/site-config"
 import { checkRateLimit, type RateRule } from "@/lib/security/rate-limit"
@@ -97,6 +100,23 @@ const payloadSchema = z.object({
   utmContent: optionalText(200),
   utmTerm: optionalText(200),
   gclid: optionalText(120),
+  /**
+   * Meta click id from the landing URL. Not persisted as a column — it exists so
+   * the Conversions API call can rebuild an `fbc` when the pixel's own `_fbc`
+   * cookie was blocked (see lib/analytics/meta/server.ts). It does end up inside
+   * `raw_payload`, which is what makes "which click produced which lead"
+   * answerable after the fact.
+   *
+   * Deliberately tolerant, unlike every field above: a *tracking* parameter must
+   * never be able to fail the submission itself, so an over-long or non-string
+   * fbclid is truncated or dropped here instead of answering a real lead with a
+   * 400. fbclids run long (Meta appends its own payload), hence 500 and not the
+   * 120-200 the utm fields use.
+   */
+  fbclid: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim().slice(0, 500) : undefined),
+    z.string().max(500).optional(),
+  ),
 })
 
 export async function POST(req: Request) {
@@ -181,9 +201,36 @@ export async function POST(req: Request) {
 
   // Same person, same still-untouched row → nothing new to route. Confirm
   // receipt and re-show the original reference instead of emailing twice.
+  // No conversion is reported to Meta here either: the first submission already
+  // sent the Lead, and counting a re-send would inflate the number the ad
+  // account optimises towards.
   if (lead.duplicate) {
     return NextResponse.json({ ok: true, reference: lead.reference ?? undefined, duplicate: true })
   }
+
+  // 3b) Report the Lead to Meta server-side (Conversions API). The form fires
+  //     the browser copy with this same `metaEventId`, and Meta collapses the
+  //     pair into one conversion — see docs/META_PIXEL_SETUP.md.
+  //
+  //     Awaited rather than fire-and-forget: on Vercel a promise still pending
+  //     when the response leaves can be frozen with the function, which drops
+  //     events silently. It carries a 5s timeout internally and never throws, so
+  //     the worst case is a marginally slower "thank you" screen — and it costs
+  //     nothing at all until META_CAPI_ACCESS_TOKEN is set.
+  //
+  //     Placed *before* the two SMTP calls on purpose: they dominate this
+  //     request's latency anyway (so the extra ~200ms is noise), and reporting
+  //     first means the conversion is already on record if a mail step throws or
+  //     the function is recycled mid-send. The lead itself was persisted in step
+  //     3, so nothing here can lose data.
+  const metaEventId = randomUUID()
+  await reportLeadToMeta({
+    eventId: metaEventId,
+    data,
+    leadReference: lead.reference,
+    headers: req.headers,
+    ip,
+  })
 
   const submittedAt = new Date()
   const submittedAtLabel = new Intl.DateTimeFormat("vi-VN", {
@@ -286,7 +333,12 @@ export async function POST(req: Request) {
     // here would only teach the visitor to submit twice. Escalate to an error
     // only when both the DB write and the email are gone.
     if (lead.stored) {
-      return NextResponse.json({ ok: true, reference: lead.reference ?? undefined, queued: false })
+      return NextResponse.json({
+        ok: true,
+        reference: lead.reference ?? undefined,
+        queued: false,
+        eventId: metaEventId,
+      })
     }
     return NextResponse.json(
       {
@@ -317,7 +369,98 @@ export async function POST(req: Request) {
     )
   }
 
-  return NextResponse.json({ ok: true, reference: lead.reference ?? undefined })
+  return NextResponse.json({ ok: true, reference: lead.reference ?? undefined, eventId: metaEventId })
+}
+
+// --------------------------------------------------------------------------
+// Meta conversion (Conversions API)
+// --------------------------------------------------------------------------
+
+/**
+ * Send the Lead to Meta from the server.
+ *
+ * Complements the browser `fbq('track','Lead')` the form fires with the same
+ * event id: whichever of the two survives (ad blocker on one side, an
+ * unconfigured token on the other) still reports the conversion, and when both
+ * arrive Meta dedupes them on `event_id`.
+ *
+ * Identifiers sent, and why: `em` + `ph` + `fn`/`ln` (hashed) give Meta
+ * something to match a Facebook account against; `fbc`/`fbp` + IP + user agent
+ * tie the event to the exact browser session that clicked the ad. That is what
+ * raises the Event Match Quality score in Events Manager, which in turn is what
+ * makes campaign optimisation and lookalikes work. All hashing happens inside
+ * `lib/analytics/meta/server.ts` — nothing here sees or logs a hashed value.
+ */
+async function reportLeadToMeta(args: {
+  eventId: string
+  data: z.infer<typeof payloadSchema>
+  leadReference?: string | null
+  headers: Headers
+  ip: string | null
+}): Promise<void> {
+  const { eventId, data, leadReference, headers, ip } = args
+  const cookieHeader = headers.get("cookie")
+
+  // Same-origin fetch sends the Cookie header, so the pixel's `_fbc` / `_fbp`
+  // arrive on their own; `fbclid` from the landing URL is the fallback when the
+  // pixel was blocked before it could write one.
+  const clickIds = metaClickIdsFromRequest(cookieHeader, {
+    fbclid: data.fbclid,
+    url: headers.get("referer"),
+  })
+
+  const { value, currency } = metaLeadValue()
+
+  const result = await sendMetaConversionEvent({
+    eventName: "Lead",
+    eventId,
+    actionSource: "website",
+    eventSourceUrl: absolutePageUrl(data.pagePath, headers),
+    userData: {
+      email: data.email,
+      phone: data.phone,
+      fullName: data.fullName,
+      // The lead's own reference doubles as an external id: if the row is ever
+      // needed to reconcile Ads Manager against marketing_leads, this is the key.
+      externalId: leadReference,
+      clientIp: ip,
+      userAgent: headers.get("user-agent"),
+      fbc: clickIds.fbc,
+      fbp: clickIds.fbp,
+    },
+    customData: {
+      content_name: "landing_consultation",
+      content_category: data.industry,
+      content_type: "service",
+      currency,
+      value,
+    },
+  })
+
+  // "not-configured" is the normal state until someone pastes a CAPI token into
+  // Vercel — logging that on every submission would be noise, not a warning.
+  if (!result.ok && result.skipped !== "not-configured") {
+    console.warn(
+      "[v0] consultation: Meta conversion not delivered:",
+      result.skipped ?? "unknown",
+      result.error ?? "",
+    )
+  }
+}
+
+/**
+ * Absolute URL of the page the form was submitted from, for `event_source_url`.
+ *
+ * Meta wants a real URL (it is where the domain verification check happens), so
+ * the relative `pagePath` the form reports is rebased onto the canonical site
+ * URL, with the `#consultation` fragment dropped. The Referer header is the
+ * fallback for an older cached bundle that does not send `pagePath`.
+ */
+function absolutePageUrl(pagePath: string | undefined, headers: Headers): string {
+  if (!pagePath) return headers.get("referer") || `${siteConfig.url}/`
+
+  const path = pagePath.split("#")[0].split("?")[0] || "/"
+  return `${siteConfig.url}${path.startsWith("/") ? path : `/${path}`}`
 }
 
 // --------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { siteConfig } from "@/lib/site-config"
+import { isMetaPixelEnabled } from "@/lib/analytics/meta/config"
 import { LegalPage, type LegalSection } from "@/components/legal/legal-page"
 import {
   LegalSection as Section,
@@ -11,10 +12,21 @@ import {
 } from "@/components/legal/legal-prose"
 
 const PATHNAME = "/legal/privacy"
+
+/**
+ * Same rule as app/legal/cookies/page.tsx: the disclosure follows the switch.
+ * With NEXT_PUBLIC_META_PIXEL_ID unset the site loads no Meta code at all, so
+ * naming Meta here would describe a processor we do not use; with it set, the
+ * pixel and the server-side Conversions API call both have to be disclosed.
+ * Evaluated at build time (static page, NEXT_PUBLIC_* inlined).
+ */
+const AD_TRACKING_ON = isMetaPixelEnabled()
+
 const TITLE = "Chính sách bảo mật"
 const SUMMARY =
   "Cách Vexim Trade thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
-const EFFECTIVE_DATE = "2026-04-26"
+/** Re-dated only when the Meta disclosure above is actually published. */
+const EFFECTIVE_DATE = AD_TRACKING_ON ? "2026-10-04" : "2026-04-26"
 
 const SECTIONS: LegalSection[] = [
   { id: "tong-quan", title: "Tổng quan" },
@@ -144,6 +156,11 @@ export default function PrivacyPolicyPage() {
             "Cookie phiên làm việc do Supabase Auth phát hành để duy trì session SSR.",
             "Địa chỉ IP, user agent, timestamp request — phục vụ phát hiện gian lận và debug.",
             "Số liệu sử dụng ẩn danh từ Vercel Analytics (chỉ chạy ở môi trường production).",
+            ...(AD_TRACKING_ON
+              ? [
+                  "Sự kiện quảng cáo từ Meta Pixel trên các trang công khai (lượt xem trang, lượt xem sản phẩm, bấm gọi hotline, gửi form tư vấn) cùng cookie _fbp/_fbc. Không chạy trong /admin, /client, /settings.",
+                ]
+              : []),
           ]}
         />
         <LegalCallout>
@@ -192,6 +209,15 @@ export default function PrivacyPolicyPage() {
             { term: "Resend", definition: "Gửi email giao dịch (mời, hóa đơn, nhắc nhở)." },
             { term: "Apollo", definition: "Làm giàu dữ liệu lead (B2B firmographic). Dữ liệu trả về được lưu trong cột enriched_data." },
             { term: "Vercel AI Gateway providers", definition: "Các mô hình LLM (OpenAI, Anthropic, Google) được gọi không lưu trữ — chúng tôi không cho phép sử dụng dữ liệu của bạn để huấn luyện mô hình của họ." },
+            ...(AD_TRACKING_ON
+              ? [
+                  {
+                    term: "Meta Platforms (Facebook)",
+                    definition:
+                      "Meta Pixel trên các trang công khai và Conversions API phía máy chủ, dùng để đo hiệu quả quảng cáo. Dữ liệu chia sẻ: sự kiện truy cập (page view, xem sản phẩm, gửi form) và — khi bạn gửi form tư vấn — email, số điện thoại, họ tên đã băm SHA-256 (không thể đọc ngược), địa chỉ IP, user agent, cookie _fbc/_fbp. Mục đích: đối khớp chuyển đổi với lượt click quảng cáo. Chúng tôi không bán dữ liệu, không nhận lại dữ liệu cá nhân từ Meta, và không dùng kênh này cho việc khác.",
+                  },
+                ]
+              : []),
           ]}
         />
         <LegalParagraph>

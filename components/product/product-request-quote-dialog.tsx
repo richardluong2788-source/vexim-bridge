@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { submitProductQuoteRequest } from "@/lib/product/actions"
+import { trackMetaEvent } from "@/lib/analytics/meta/browser"
 import { useQuoteOpportunityRef } from "@/components/product/use-quote-opportunity-ref"
 
 const INCOTERM_OPTIONS = [
@@ -115,6 +116,17 @@ function ProductRequestQuoteDialogContent({
       if (result.success) {
         setIsSuccess(true)
         setReference(result.reference || "")
+        // A quote request from a public product page is the buyer-side
+        // conversion, and it never touches /api/consultation — so the pixel has
+        // to be told here. Browser-only on purpose: the server action has no
+        // request context for a Conversions API call, and this flow is not (yet)
+        // what the Facebook ads optimise towards. No-op unless the pixel is on.
+        trackMetaEvent("Lead", {
+          content_name: "product_quote_request",
+          content_ids: [String(productId)],
+          content_type: "product",
+          content_category: productName,
+        })
       } else {
         toast.error(result.error || "Failed to submit request")
       }

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProductCard, type CatalogProduct } from "@/components/product/product-card"
 import { JsonLd } from "@/components/seo/json-ld"
+import { MetaPageEvent } from "@/components/analytics/meta-page-event"
 
 /**
  * Public product catalog (`/products`, Vietnamese twin at `/vi/products`).
@@ -304,6 +305,26 @@ export default async function ProductsCatalogPage({ searchParams }: PageProps) {
   return (
     <main lang={locale} className="min-h-screen bg-background">
       <JsonLd data={itemListOf} id="catalog-item-list" />
+
+      {/*
+        Meta Pixel: a keyword search is a `Search` event, browsing the unfiltered
+        catalog is a `ViewContent`. Keeping them apart matters — `Search` tells
+        Meta what buyers actually asked for, which is the only demand signal this
+        page produces. `dedupeKey` carries the query so two different searches in
+        one session count as two, while a re-render counts as none.
+      */}
+      <MetaPageEvent
+        event={query.q ? "Search" : "ViewContent"}
+        dedupeKey={`/products?q=${query.q ?? ""}&category=${query.category ?? ""}&page=${page}`}
+        params={{
+          search_string: query.q ?? undefined,
+          content_name: "export_catalog",
+          content_type: "product_group",
+          content_category: query.category ?? undefined,
+          num_items: entries.length,
+          content_ids: entries.map((entry) => String(entry.id)),
+        }}
+      />
 
       <div className="border-b bg-muted/30">
         <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">

@@ -1,6 +1,6 @@
 "use client"
 
-import { NOINDEX_SEGMENTS, PRIVATE_SEGMENTS } from "@/lib/i18n/routing"
+import { isPublicPath, NOINDEX_SEGMENTS, PRIVATE_SEGMENTS } from "@/lib/i18n/routing"
 
 const DEFAULT_META_PIXEL_ID = "4532386106980064"
 const configuredPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? DEFAULT_META_PIXEL_ID
@@ -9,10 +9,12 @@ const normalizedPixelId = configuredPixelId.trim()
 /** A Meta Pixel ID is public and safe to ship to the browser. */
 export const META_PIXEL_ID = /^\d+$/.test(normalizedPixelId) ? normalizedPixelId : null
 
-export const META_PIXEL_CONSENT_KEY = "vexim-meta-pixel-consent"
+// Versioned so visitors who previously consented only to the Meta Pixel are
+// asked again now that GA4 is being added to optional measurement.
+export const OPTIONAL_TRACKING_CONSENT_KEY = "vexim-optional-tracking-consent-v2"
 export const OPEN_COOKIE_PREFERENCES_EVENT = "vexim:open-cookie-preferences"
 
-export type MetaPixelConsent = "granted" | "denied" | null
+export type OptionalTrackingConsent = "granted" | "denied" | null
 export type MetaPixelEvent = "PageView" | "Contact" | "Lead"
 
 type PixelArgument = string | boolean | Record<string, string | number>
@@ -69,7 +71,7 @@ const sensitiveQueryKeys = new Set([
 ])
 
 const initializedPixelIds = new Set<string>()
-let inMemoryConsent: MetaPixelConsent = null
+let inMemoryConsent: OptionalTrackingConsent = null
 
 /**
  * Do not send page views for private areas or token-addressed links. Strip a
@@ -81,11 +83,11 @@ export function isMetaPixelExcludedPath(pathname: string): boolean {
   return excludedPathSegments.has(firstSegment)
 }
 
-export function readMetaPixelConsent(): MetaPixelConsent {
+export function readOptionalTrackingConsent(): OptionalTrackingConsent {
   if (typeof window === "undefined") return null
 
   try {
-    const storedChoice = window.localStorage.getItem(META_PIXEL_CONSENT_KEY)
+    const storedChoice = window.localStorage.getItem(OPTIONAL_TRACKING_CONSENT_KEY)
     if (storedChoice === "granted" || storedChoice === "denied") {
       inMemoryConsent = storedChoice
       return storedChoice
@@ -98,12 +100,12 @@ export function readMetaPixelConsent(): MetaPixelConsent {
   return inMemoryConsent
 }
 
-export function setMetaPixelConsent(choice: Exclude<MetaPixelConsent, null>): void {
+export function setOptionalTrackingConsent(choice: Exclude<OptionalTrackingConsent, null>): void {
   inMemoryConsent = choice
   if (typeof window === "undefined") return
 
   try {
-    window.localStorage.setItem(META_PIXEL_CONSENT_KEY, choice)
+    window.localStorage.setItem(OPTIONAL_TRACKING_CONSENT_KEY, choice)
   } catch {
     // The current tab still honors the choice if persistent storage is blocked.
   }
@@ -161,9 +163,12 @@ function referrerContainsSensitiveData(): boolean {
   }
 }
 
-function isTrackingAllowedOnCurrentPage(): boolean {
-  if (typeof window === "undefined" || !META_PIXEL_ID) return false
-  if (isMetaPixelExcludedPath(window.location.pathname)) return false
+export function isOptionalTrackingAllowedOnCurrentPage(): boolean {
+  if (typeof window === "undefined") return false
+
+  const pathname = window.location.pathname
+  const unprefixedPath = pathname.replace(/^\/(?:en|vi)(?=\/|$)/, "") || "/"
+  if (!isPublicPath(unprefixedPath) || isMetaPixelExcludedPath(pathname)) return false
   // Pixel's automatic URL metadata includes the current URL. Avoid sending
   // arbitrary query values or referrers that could contain tokens or PII.
   return hasOnlyApprovedQueryParameters() && !referrerContainsSensitiveData()
@@ -214,12 +219,12 @@ function getFbq(): FbqFunction | null {
   return fbq
 }
 
-/** Send a privacy-minimized browser event after explicit marketing consent. */
+/** Send a privacy-minimized browser event after optional-tracking consent. */
 export function trackMetaEvent(
   eventName: MetaPixelEvent,
   parameters?: Record<string, string | number>,
 ): void {
-  if (readMetaPixelConsent() !== "granted" || !isTrackingAllowedOnCurrentPage()) return
+  if (readOptionalTrackingConsent() !== "granted" || !isOptionalTrackingAllowedOnCurrentPage()) return
 
   try {
     const fbq = getFbq()

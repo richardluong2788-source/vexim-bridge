@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { INDUSTRIES } from "@/lib/constants/industries"
 import { trackMetaEvent } from "@/lib/analytics/meta-pixel"
+import { trackGoogleAnalyticsEvent } from "@/lib/analytics/google-analytics"
 
 export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
   const vi = locale === "vi"
@@ -38,6 +39,10 @@ export function ConsultationForm({ locale }: { locale: "vi" | "en" }) {
       trackMetaEvent("Lead", {
         content_name: "supplier_consultation",
         content_category: "supplier",
+      })
+      trackGoogleAnalyticsEvent("generate_lead", {
+        form_type: "supplier_consultation",
+        audience: "supplier",
       })
       setReference(result.reference ?? "")
       setSubmitted(true)

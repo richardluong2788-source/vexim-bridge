@@ -190,9 +190,10 @@ Guardrails to keep it that way:
 3. `typescript.ignoreBuildErrors: true` is still on and cannot be turned off until the
    hand-written `lib/supabase/types.ts` is replaced by a generated one (363 project-wide
    type errors today, almost all from that file).
-4. GA4 is not installed. Meta Pixel now runs browser-only, consent-gated on public
-   marketing routes (see `docs/META_PIXEL_TRACKING.md`); CAPI remains off until its
-   server-side token/permissions are available.
+4. GA4 and Meta Pixel run browser-only after optional-tracking consent on public
+   routes (see `docs/META_PIXEL_TRACKING.md`). GA4 defaults to the supplied
+   Measurement ID; `NEXT_PUBLIC_GA_MEASUREMENT_ID` can override it. CAPI remains
+   off until its server-side token/permissions are available.
 5. `/api/products/search` still lists active products of suppliers whose profile is
    unpublished (the catalog pages do not). It has no in-app consumer, so aligning it is a
    behaviour change for external callers — decide deliberately.

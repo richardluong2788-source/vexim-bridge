@@ -6,31 +6,45 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "@/components/i18n/language-provider"
 import {
   isMetaPixelExcludedPath,
+  isOptionalTrackingAllowedOnCurrentPage,
   OPEN_COOKIE_PREFERENCES_EVENT,
-  readMetaPixelConsent,
-  setMetaPixelConsent,
+  readOptionalTrackingConsent,
+  setOptionalTrackingConsent,
   trackMetaEvent,
-  type MetaPixelConsent,
+  type OptionalTrackingConsent,
 } from "@/lib/analytics/meta-pixel"
+import {
+  revokeGoogleAnalyticsConsent,
+  trackGoogleAnalyticsEvent,
+} from "@/lib/analytics/google-analytics"
 import { localizePath } from "@/lib/i18n/routing"
 
 export function MetaPixelConsent() {
   const pathname = usePathname() ?? "/"
   const { locale } = useTranslation()
-  const [consent, setConsent] = useState<MetaPixelConsent>(null)
+  const [consent, setConsent] = useState<OptionalTrackingConsent>(null)
   const [isReady, setIsReady] = useState(false)
   const [showPreferences, setShowPreferences] = useState(false)
 
   useEffect(() => {
-    const savedChoice = readMetaPixelConsent()
+    const savedChoice = readOptionalTrackingConsent()
     setConsent(savedChoice)
     setShowPreferences(savedChoice === null)
     setIsReady(true)
   }, [])
 
   useEffect(() => {
-    if (consent === "granted" && !isMetaPixelExcludedPath(pathname)) {
+    if (
+      consent === "granted" &&
+      !isMetaPixelExcludedPath(pathname) &&
+      isOptionalTrackingAllowedOnCurrentPage()
+    ) {
       trackMetaEvent("PageView")
+      trackGoogleAnalyticsEvent("page_view", {
+        page_path: pathname,
+        page_location: window.location.href,
+        page_title: document.title,
+      })
     }
   }, [consent, pathname])
 
@@ -47,14 +61,16 @@ export function MetaPixelConsent() {
       const contentName = cta?.dataset.metaCta
       if (!contentName) return
       trackMetaEvent("Contact", { content_name: contentName })
+      trackGoogleAnalyticsEvent("contact", { cta_name: contentName })
     }
 
     document.addEventListener("click", trackCtaClick)
     return () => document.removeEventListener("click", trackCtaClick)
   }, [])
 
-  function saveChoice(choice: Exclude<MetaPixelConsent, null>) {
-    setMetaPixelConsent(choice)
+  function saveChoice(choice: Exclude<OptionalTrackingConsent, null>) {
+    setOptionalTrackingConsent(choice)
+    if (choice === "denied") revokeGoogleAnalyticsConsent()
     setConsent(choice)
     setShowPreferences(false)
   }
@@ -72,12 +88,12 @@ export function MetaPixelConsent() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-xl">
           <h2 id="cookie-consent-title" className="text-sm font-semibold">
-            {isVietnamese ? "Cookie tùy chọn" : "Optional cookies"}
+            {isVietnamese ? "Đo lường tùy chọn" : "Optional measurement"}
           </h2>
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground sm:text-sm">
             {isVietnamese
-              ? "Vexim dùng Meta Pixel để đo lường lượt truy cập, nhấp CTA và yêu cầu đã gửi trên các trang công khai. Pixel chỉ chạy sau khi bạn đồng ý; dữ liệu trường biểu mẫu không được gửi cho Meta."
-              : "Vexim uses Meta Pixel to measure visits, CTA clicks, and submitted requests on public pages. It runs only after you consent; form field values are not sent to Meta."}{" "}
+              ? "Vexim dùng Google Analytics 4 để đo lượt truy cập và Meta Pixel để đo lượt xem, nhấp CTA, yêu cầu đã gửi trên các trang công khai. Hai công cụ chỉ chạy sau khi bạn đồng ý; dữ liệu trường biểu mẫu không được gửi cho Google hoặc Meta."
+              : "Vexim uses Google Analytics 4 to measure visits and Meta Pixel to measure public-page views, CTA clicks, and submitted requests. Both tools run only after you consent; form field values are not sent to Google or Meta."}{" "}
             <Link
               href={localizePath("/legal/cookies", locale)}
               className="font-medium text-foreground underline underline-offset-2 hover:text-primary"

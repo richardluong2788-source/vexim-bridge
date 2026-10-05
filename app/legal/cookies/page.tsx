@@ -13,8 +13,8 @@ import {
 const PATHNAME = "/legal/cookies"
 const TITLE = "Chính sách cookie"
 const SUMMARY =
-  "Cookie và tracker mà Vexim Trade sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên, đo hiệu năng và — nếu bạn đồng ý — đo lường marketing bằng Meta Pixel."
-const EFFECTIVE_DATE = "2026-10-04"
+  "Cookie và tracker mà Vexim Trade sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên, đo hiệu năng và — nếu bạn đồng ý — đo lường bằng Google Analytics 4 và Meta Pixel."
+const EFFECTIVE_DATE = "2026-10-05"
 
 const SECTIONS: LegalSection[] = [
   { id: "cookie-la-gi", title: "Cookie là gì" },
@@ -102,13 +102,14 @@ export default function CookiePolicyPage() {
         <LegalList
           items={[
             <><strong>Cookie thiết yếu (strictly necessary):</strong> giữ phiên đăng nhập, bảo vệ CSRF, bảo đảm hệ thống hoạt động an toàn. Không thể tắt nếu bạn muốn dùng Dịch vụ.</>,
-            <><strong>Cookie chức năng (functional):</strong> nhớ lựa chọn của bạn (ngôn ngữ vi/en, theme) và lựa chọn đồng ý/từ chối Meta Pixel.</>,
-            <><strong>Đo lường:</strong> Vercel Analytics đo hiệu năng; Meta Pixel đo lượt xem trang, nhấp CTA và Lead trên các trang công khai chỉ sau khi bạn đồng ý.</>,
+            <><strong>Cookie chức năng (functional):</strong> nhớ lựa chọn của bạn (ngôn ngữ vi/en, theme) và lựa chọn đồng ý/từ chối công cụ đo lường tùy chọn.</>,
+            <><strong>Đo lường:</strong> Vercel Analytics đo hiệu năng; Google Analytics 4 đo lượt xem và sự kiện website, Meta Pixel đo lượt xem, nhấp CTA và Lead — cả hai chỉ chạy sau khi bạn đồng ý.</>,
           ]}
         />
         <LegalCallout>
-          Meta Pixel là cookie marketing tùy chọn: không tải và không gửi sự kiện trước khi bạn
-          đồng ý. Bạn có thể từ chối ngay trên banner hoặc mở lại cài đặt cookie bất kỳ lúc nào.
+          Google Analytics 4 và Meta Pixel là công cụ đo lường tùy chọn: không tải và không gửi
+          sự kiện trước khi bạn đồng ý. Bạn có thể từ chối ngay trên banner hoặc mở lại cài đặt
+          cookie bất kỳ lúc nào.
         </LegalCallout>
       </Section>
 
@@ -185,12 +186,17 @@ export default function CookiePolicyPage() {
                 <td className="px-4 py-2">Pageview, Web Vitals theo cấu hình của Vercel.</td>
               </tr>
               <tr>
+                <td className="px-4 py-2 font-mono text-xs">_ga, _ga_*</td>
+                <td className="px-4 py-2">Google Analytics 4</td>
+                <td className="px-4 py-2">Đo lượt truy cập và sự kiện sau khi bạn đồng ý; thời hạn tùy cấu hình GA4 (mặc định thường tối đa 2 năm).</td>
+              </tr>
+              <tr>
                 <td className="px-4 py-2 font-mono text-xs">_fbp, _fbc</td>
                 <td className="px-4 py-2">Meta Pixel</td>
                 <td className="px-4 py-2">Đo lường quảng cáo/chuyển đổi; chỉ tạo sau khi đồng ý. _fbc có thể xuất hiện khi URL có fbclid; thời hạn tùy cookie và cài đặt trình duyệt (thường tối đa 90 ngày).</td>
               </tr>
               <tr>
-                <td className="px-4 py-2 font-mono text-xs">vexim-meta-pixel-consent</td>
+                <td className="px-4 py-2 font-mono text-xs">vexim-optional-tracking-consent-v2</td>
                 <td className="px-4 py-2">Vexim Trade (localStorage)</td>
                 <td className="px-4 py-2">Ghi nhớ lựa chọn đồng ý/từ chối cho tới khi bạn đổi hoặc xóa lựa chọn.</td>
               </tr>
@@ -207,6 +213,7 @@ export default function CookiePolicyPage() {
           items={[
             "Google Fonts (Inter, Geist Mono) — phục vụ font; không gắn cookie.",
             "Vercel Blob — chỉ chạy khi tải tài liệu, không đặt cookie tracking.",
+            "Google Analytics 4 (Google) — chỉ chạy sau khi bạn đồng ý; đo PageView, contact và generate_lead trên các trang công khai. Google nhận dữ liệu kỹ thuật/trình duyệt và URL trang; Vexim không gửi giá trị trường biểu mẫu trong các sự kiện này.",
             "Meta Pixel (Meta Platforms, Inc.) — chỉ chạy sau khi bạn đồng ý; ghi nhận PageView, Contact và Lead trên trang công khai. Meta có thể nhận IP, user agent, URL/referrer và tín hiệu thiết bị; Vexim không gửi giá trị trường biểu mẫu trong các sự kiện này.",
           ]}
         />
@@ -234,11 +241,11 @@ export default function CookiePolicyPage() {
           theo cấu hình của Vercel. Bạn có thể chặn bằng các tiện ích trình duyệt phổ biến
           (uBlock Origin, Privacy Badger, &hellip;).
         </LegalParagraph>
-        <LegalSubheading>5.4 Meta Pixel</LegalSubheading>
+        <LegalSubheading>5.4 Google Analytics 4 và Meta Pixel</LegalSubheading>
         <LegalParagraph>
-          Meta Pixel mặc định chưa chạy cho tới khi bạn chọn đồng ý. Bạn có thể rút lại hoặc đổi
-          lựa chọn bất kỳ lúc nào bằng nút dưới đây; sau khi từ chối, Pixel không gửi thêm sự kiện
-          từ trình duyệt này.
+          Hai công cụ chỉ chạy sau khi bạn chọn đồng ý. Bạn có thể rút lại hoặc đổi lựa chọn bất kỳ
+          lúc nào bằng nút dưới đây; sau khi từ chối, các công cụ ngừng gửi sự kiện và cookie đo
+          lường của bên thứ nhất sẽ được xóa khi có thể.
         </LegalParagraph>
         <CookiePreferencesButton className="w-fit rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </Section>

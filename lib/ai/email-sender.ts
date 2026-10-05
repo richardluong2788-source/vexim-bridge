@@ -292,8 +292,9 @@ export async function sendEmailDraft(
     throw new Error(sendRes.error.message ?? "Email send failed")
   }
 
-  // 4. Flip draft status — also persist the Resend Message-ID so webhook
-  //    can match buyer replies via the In-Reply-To header.
+  // 4. Flip draft status — persist the provider ID for delivery-event tracking.
+  //    This ID is not guaranteed to be the RFC Message-ID in inbound
+  //    In-Reply-To headers, so reply matching also has sender/recipient fallbacks.
   await supabase
     .from("email_drafts")
     .update({

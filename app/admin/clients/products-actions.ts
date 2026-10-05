@@ -415,7 +415,7 @@ export async function listClientProductsAction(
   filters?: {
     category?: string;
     subcategory?: string;
-    status?: string;
+    status?: "active" | "inactive" | "suspended";
     min_capacity?: number;
     search?: string;
   }
@@ -473,14 +473,14 @@ export async function listClientProductsAction(
     return { success: false, error: error.message, data: [] };
   }
 
-  return { success: true, data: data || [] };
+  return { success: true, data: (data ?? []) as unknown as ClientProduct[] }
 }
 
 // Search products across all clients (for admin)
 export async function searchClientProductsAction(filters: {
   category?: string;
   subcategory?: string;
-  status?: string;
+  status?: "active" | "inactive" | "suspended";
   min_capacity?: number;
   min_price?: number;
   max_price?: number;

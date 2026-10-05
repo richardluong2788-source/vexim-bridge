@@ -79,7 +79,7 @@ export function SupplementIntakeLinkGenerator({ clientId }: { clientId: string }
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Form thông tin doanh nghiệp (link bổ sung hồ sơ)</CardTitle>
         <CardDescription>
-          Client điền: Giới thiệu doanh nghiệp · Năng lực &amp; Chứng nhận · Đánh giá nhà máy (không gồm Liên hệ
+          Client điền: Giới thiệu doanh nghiệp · Nguồn nhà máy &amp; thị trường Mỹ · Năng lực &amp; Chứng nhận · Đánh giá nhà máy (không gồm Liên hệ
           &amp; Đăng ký vì tài khoản đã có). Mỗi link dùng một lần, hết hạn sau 14 ngày. Sau khi client submit,
           submission nằm ở &quot;Hồ sơ chờ duyệt&quot; (/admin/clients/intake).
         </CardDescription>

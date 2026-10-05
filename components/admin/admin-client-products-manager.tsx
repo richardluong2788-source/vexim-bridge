@@ -12,7 +12,7 @@ import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Empty } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -142,16 +142,20 @@ export function AdminClientProductsManager({
           </CardContent>
         </Card>
       ) : products.length === 0 ? (
-        <Empty
-          title="Chưa có sản phẩm nào"
-          description={`Bắt đầu bằng cách thêm sản phẩm đầu tiên cho ${clientName}`}
-          action={
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>Chưa có sản phẩm nào</EmptyTitle>
+            <EmptyDescription>
+              Bắt đầu bằng cách thêm sản phẩm đầu tiên cho {clientName}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
             <Button onClick={() => handleOpenDialog()}>
               <Plus className="w-4 h-4 mr-2" />
               Thêm sản phẩm
             </Button>
-          }
-        />
+          </EmptyContent>
+        </Empty>
       ) : (
         <div className="grid gap-4">
           {products.map((product) => (

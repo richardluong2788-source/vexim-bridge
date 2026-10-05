@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { dispatchNotification } from "@/lib/notifications/dispatcher"
 import { runMatchingPipeline } from "@/lib/matching/orchestrator"
+import { revalidatePath } from "next/cache"
 import { revalidateCatalog } from "@/lib/catalog/cache"
 import type {
   ClientProfile,
@@ -282,6 +283,7 @@ export async function createClientProfile(
       slug: input.slug,
       display_name: input.display_name || null,
       tagline: input.tagline || null,
+      description: input.description || null,
       cover_image_url: input.cover_image_url || null,
       logo_url: input.logo_url || null,
       factory_image_urls: input.factory_image_urls || [],
@@ -341,6 +343,11 @@ export async function updateClientProfile(
   }
 
   const adminSupabase = createAdminClient()
+  const { data: currentProfile } = await adminSupabase
+    .from("client_profiles")
+    .select("slug")
+    .eq("id", profileId)
+    .maybeSingle()
 
   // Check if slug is unique (if changing slug)
   if (input.slug) {
@@ -372,6 +379,15 @@ export async function updateClientProfile(
     console.error("[v0] updateClientProfile error:", error)
     return { success: false, error: error.message }
   }
+
+  const profileSlugs = [currentProfile?.slug, profile.slug].filter(
+    (slug): slug is string => Boolean(slug)
+  )
+  for (const slug of new Set(profileSlugs)) {
+    revalidatePath(`/profile/${slug}`)
+    revalidatePath(`/vi/profile/${slug}`)
+  }
+  revalidateCatalog()
 
   return { success: true, data: profile }
 }

@@ -104,33 +104,40 @@ Ngành nghề lấy từ `lib/constants/industries.ts`: `Food & Beverage, Agricu
 | **MOQ (số lượng tối thiểu)** | `moq` | "1 container (20ft)" |
 | **Thời gian giao hàng** | `lead_time_days` | "20-30 ngày" |
 
-**Bước 2 — Năng lực & chứng nhận**
+**Bước 2 — Nguồn nhà máy & thị trường Mỹ**
+
+- `supplier_entity_type`: vai trò nhà cung cấp (nhà sản xuất, nhóm có nhà máy, trader, đại diện/ủy quyền, khác, chưa rõ).
+- `manufacturing_sources[]`: tối đa 5 cơ sở; tên pháp lý, địa điểm nội bộ, sản phẩm tại cơ sở, quan hệ với nhà máy, đầu mối và cách xác minh. Địa điểm/đầu mối chỉ dùng nội bộ, không map sang company address/public profile.
+- `source_verification_consent` và `source_change_acknowledged`: hai xác nhận bắt buộc trước khi gửi; bằng chứng chưa đủ vẫn nhận intake với nguồn ở trạng thái chờ xác minh.
+- `us_sales_channel_status`, `us_sales_channel_notes`, `vexim_support_needs[]`, `vexim_support_other`: buyer/kênh Mỹ hiện có và hỗ trợ mong muốn; không dùng để tự động loại supplier.
+
+**Bước 3 — Năng lực & chứng nhận**
 
 | Nhóm | Field | Chi tiết |
 |---|---|---|
 | USP (tối đa 4) | `usp_points[]` | mỗi USP = `{ icon, title }`; icon là từ khóa (VD "Experience") |
-| Chứng nhận | `certifications[]` | `HACCP, GMP, ISO 22000, ISO 9001, FDA Registration, Organic (USDA/EU), Halal, Kosher, BRC, FSSC 22000` + `certifications_other` |
+| Chứng nhận | `certifications[]` | `HACCP, GMP, ISO 22000, ISO 9001, Organic (USDA/EU), Halal, Kosher, BRC, FSSC 22000` + `certifications_other`; FDA registration is not collected as a general certification during initial intake |
 | Logo doanh nghiệp | `logo_url` | chỉ dán link; khuyến nghị 400×400, nền trong/trắng |
 | Ảnh bìa | `cover_image_url` | 1600×900 (16:9) |
 | Ảnh nhà máy / sản phẩm | `factory_image_urls[]` | tối đa 5, ≥1200×1200 |
 | URL video nhà máy (YouTube) | `video_url` | không cho upload file ở intake |
 
-**Bước 3 — Đánh giá năng lực nhà máy** (`factory-capability-step.tsx`, ánh xạ mục 6–15 của form nội bộ)
+**Bước 4 — Đánh giá năng lực nhà máy** (`factory-capability-step.tsx`; 8 mục trong intake ban đầu)
 
 | # | Câu hỏi | Field |
 |---|---|---|
-| 1 | Hệ thống quản lý chất lượng & ATTP đang áp dụng | `quality_systems[]` (HACCP/GMP/ISO22000/SOP/QC/other) + `quality_systems_other` |
-| 2 | Năng lực OEM/ODM + quy mô | `oem_odm[]` (OEM/ODM/Private Label/none), `company_scale` |
-| 3 | Kinh nghiệm xuất khẩu | `export_since_year`, `export_markets[]` (US/EU/JP/KR/CN/ASEAN/ME/other), `export_markets_other` |
-| 4 | Hệ thống truy xuất nguồn gốc | `traceability[]` (lot/input/finished/recall/batch-lot/none) |
-| 5 | Đăng ký FDA | `fda_status` (valid/expired/none), `fda_number`, `fda_expires_at` |
-| 6 | Nhân sự, giờ làm việc & rủi ro lao động/môi trường | `staff_engineers_count`, `staff_workers_count`, `work_hours_start/end`, `work_days_per_week`, `food_safety_training_regular`, `equipment_calibration_regular`, `water_source[]`, `water_source_other`, `water_testing`, `near_pollution_source`, `pollution_source_note` |
-| 7 | Khả năng tiếp đón Buyer Audit | `audit_readiness[]` (onsite/online/not-ready), `audit_owner` |
-| 8 | Năng lực thương mại | `incoterms[]` (EXW/FOB/CIF), `payment_policy`, `oem_policy`, `odm_policy` |
-| 9 | Nhân sự phụ trách dự án | `has_export_dept`, `has_english_staff`, `pricing_decision_maker` |
-| 10 | Cam kết triển khai dự án | `commitments[]` (priority/cooperation/accuracy), `project_priority` (Cao/Trung bình/Thấp) |
+| 1 | Hệ thống quản lý chất lượng & ATTP đang áp dụng | `quality_systems[]` + `quality_systems_other` |
+| 2 | Năng lực OEM/ODM + quy mô | `oem_odm[]`, `company_scale` |
+| 3 | Kinh nghiệm xuất khẩu | `export_since_year`, `export_markets[]`, `export_markets_other` |
+| 4 | Hệ thống truy xuất nguồn gốc | `traceability[]` |
+| 5 | Khả năng tiếp đón Buyer Audit | `audit_readiness[]`, `audit_owner` |
+| 6 | Năng lực thương mại | `incoterms[]`, `payment_policy`, `oem_policy`, `odm_policy` |
+| 7 | Nhân sự phụ trách dự án | `has_export_dept`, `has_english_staff`, `pricing_decision_maker` |
+| 8 | Cam kết triển khai dự án | `commitments[]`, `project_priority` |
 
-**Bước 4 — Xem lại**: 4 khối `ReviewSection` (Liên hệ & đăng ký / Giới thiệu doanh nghiệp / Năng lực & chứng nhận / Đánh giá năng lực nhà máy), nút "Gửi hồ sơ".
+FDA registration/status/number/expiry/document are intentionally not collected in this initial intake. FDA review is handled later against the actual buyer, product, and manufacturing facility.
+
+**Bước 5 — Xem lại**: các khối `ReviewSection` gồm thông tin liên hệ/doanh nghiệp, nguồn nhà máy & thị trường Mỹ, năng lực/chứng nhận và đánh giá nhà máy; nút "Gửi hồ sơ".
 
 ### 1.4 Ràng buộc khi gửi (`app/client-intake/[token]/actions.ts`)
 

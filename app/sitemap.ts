@@ -9,10 +9,12 @@ import { publicUrl } from "@/lib/seo/alternates"
 // list is assembled from Postgres, so rebuild it hourly rather than per crawl.
 export const revalidate = 3600
 
-// Last update of legal documents — keep in sync with the `EFFECTIVE_DATE`
-// constants inside each /app/legal/*/page.tsx file. We surface this in the
-// sitemap so search engines can detect freshness without re-crawling.
-const LEGAL_LAST_UPDATED = new Date("2026-04-26")
+// Keep policy dates in sync with their `EFFECTIVE_DATE` constants. The legal
+// index and privacy/cookie policies were updated with the optional analytics
+// disclosure; the terms page itself was not changed.
+const LEGAL_INDEX_LAST_UPDATED = new Date("2026-10-05")
+const TERMS_LAST_UPDATED = new Date("2026-04-26")
+const PRIVACY_AND_COOKIES_LAST_UPDATED = new Date("2026-10-05")
 
 /**
  * Caps below are deliberate: PostgREST answers at most 1000 rows per request,
@@ -45,10 +47,10 @@ function staticEntries(now: Date): Entry[] {
       changeFrequency: "monthly",
       priority: 0.5,
     },
-    page(publicUrl("/legal"), LEGAL_LAST_UPDATED, 0.4, "yearly"),
-    page(publicUrl("/legal/terms"), LEGAL_LAST_UPDATED, 0.5, "yearly"),
-    page(publicUrl("/legal/privacy"), LEGAL_LAST_UPDATED, 0.5, "yearly"),
-    page(publicUrl("/legal/cookies"), LEGAL_LAST_UPDATED, 0.4, "yearly"),
+    page(publicUrl("/legal"), LEGAL_INDEX_LAST_UPDATED, 0.4, "yearly"),
+    page(publicUrl("/legal/terms"), TERMS_LAST_UPDATED, 0.5, "yearly"),
+    page(publicUrl("/legal/privacy"), PRIVACY_AND_COOKIES_LAST_UPDATED, 0.5, "yearly"),
+    page(publicUrl("/legal/cookies"), PRIVACY_AND_COOKIES_LAST_UPDATED, 0.4, "yearly"),
   ]
 }
 
@@ -90,14 +92,14 @@ async function collectCatalogEntries(): Promise<Entry[]> {
   if (productError) console.error("[sitemap] product urls skipped:", productError.message)
 
   return [
-    ...profiles.map((profile) =>
-      page(
-        publicUrl(`/profile/${profile.slug}`),
-        profile.updated_at ? new Date(profile.updated_at) : now,
-        0.7,
-        "weekly",
-      ),
-    ),
+    ...profiles.flatMap((profile) => {
+      const profilePath = `/profile/${profile.slug}`
+      const updatedAt = profile.updated_at ? new Date(profile.updated_at) : now
+      return [
+        page(publicUrl(profilePath), updatedAt, 0.7, "weekly"),
+        page(publicUrl(localizePath(profilePath, "vi")), updatedAt, 0.65, "weekly"),
+      ]
+    }),
     ...products.map((product) =>
       page(
         publicUrl(`/products/${product.id}`),

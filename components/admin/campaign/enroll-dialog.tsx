@@ -1,7 +1,7 @@
 "use client"
 
-// Enroll buyer pilot (quyết định §3): preview bộ lọc (food importer + VN signal
-// + contact hợp lệ) → chọn ≤100 lead → chọn AE owner → enroll.
+// Preview product/category/industry match on LR evidence, let AE select up to
+// 100 candidates, then server-revalidate match and country before enrollment.
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -9,6 +9,7 @@ import { Loader2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
@@ -63,8 +64,14 @@ export function EnrollDialog({
     setLoading(false)
     if (res.ok) {
       setCandidates(res.candidates)
-      // Default chọn tối đa 100 buyer đầu (shipment count desc = ưu tiên).
-      setSelected(new Set(res.candidates.slice(0, 100).map((c) => c.leadId)))
+      // Auto-select only clean product/category matches; industry-only or
+      // contradictory signals remain visible but require deliberate AE review.
+      setSelected(new Set(
+        res.candidates
+          .filter((candidate) => candidate.matchLevel !== "industry" && !candidate.requiresHumanReview)
+          .slice(0, 100)
+          .map((candidate) => candidate.leadId),
+      ))
     } else {
       toast.error(res.message ?? "Không load được danh sách lead")
     }
@@ -118,10 +125,11 @@ export function EnrollDialog({
         <DialogHeader>
           <DialogTitle>Enroll buyer pilot</DialogTitle>
           <DialogDescription>
-            Quốc gia buyer phải khớp campaign ({targetCountry ?? "chưa chọn"}); bộ lọc còn lại:
-            food importer + có tín hiệu sourcing từ Vietnam + contact hợp lệ, chưa suppress.
-            Shipment count chỉ dùng sắp xếp ưu tiên. Tối đa 100/lần. Bỏ chọn AE →
-            fallback là người tạo campaign khi handoff.
+            Quốc gia buyer phải khớp campaign ({targetCountry ?? "chưa chọn"}); buyer cần là food importer, có tín hiệu sourcing từ Vietnam, contact hợp lệ và chưa suppress.
+            Product text LR là tín hiệu chính; category match chỉ dùng copy rộng. Industry-only và dữ liệu mâu thuẫn cần AE review trước khi tạo draft.
+            HS chỉ corroborate product evidence, không tự tạo match; confidence 0–100 là rule-based, không phải xác suất.
+            Buyer đang có engagement mở hoặc enrollment chưa kết thúc sẽ bị lọc; shipment count chỉ sắp xếp ưu tiên.
+            Tối đa 100/lần. Bỏ chọn AE → fallback là người tạo campaign khi handoff.
             {disabled && " — Campaign phải ở trạng thái draft/active."}
           </DialogDescription>
         </DialogHeader>
@@ -134,7 +142,7 @@ export function EnrollDialog({
           <>
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">
-                {candidates.length} lead đạt bộ lọc · đã chọn <strong>{selected.size}</strong>
+                {candidates.length} candidate · {candidates.filter((candidate) => candidate.matchLevel === "product").length} product · {candidates.filter((candidate) => candidate.matchLevel === "category").length} category · {candidates.filter((candidate) => candidate.matchLevel === "industry" || candidate.requiresHumanReview).length} AE review · đã chọn <strong>{selected.size}</strong>
               </div>
               <div className="w-56">
                 <Select value={ownerId} onValueChange={setOwnerId}>
@@ -152,14 +160,23 @@ export function EnrollDialog({
             <ScrollArea className="h-80 rounded-md border">
               <div className="divide-y">
                 {candidates.map((c) => (
-                  <label key={c.leadId} className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted/40">
-                    <Checkbox checked={selected.has(c.leadId)} onCheckedChange={() => toggle(c.leadId)} />
+                  <label key={c.leadId} className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-muted/40">
+                    <Checkbox checked={selected.has(c.leadId)} onCheckedChange={() => toggle(c.leadId)} className="mt-1" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{c.companyName}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-medium">{c.companyName}</span>
+                        <Badge variant="outline" className={c.matchLevel === "product" ? "border-emerald-500/40 text-emerald-700" : c.matchLevel === "category" ? "border-blue-500/40 text-blue-700" : "border-amber-500/40 text-amber-700"}>
+                          {c.matchLevel === "product" ? "Product" : c.matchLevel === "category" ? "Category" : "Industry · AE review"} · {c.matchConfidence}/100
+                        </Badge>
+                        {c.requiresHumanReview && c.matchLevel !== "industry" && (
+                          <Badge variant="outline" className="border-amber-500/40 text-amber-700">Conflict · review</Badge>
+                        )}
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {c.industry ?? "—"} · {c.country ?? "—"} · {c.contactEmail ?? "no email"} · VN signal: {c.vietnamSignal}
+                        {c.industry ?? "—"} · {c.country ?? "—"} · {c.contactEmail ?? "no email"}
                         {c.shipmentCount != null ? ` · ${c.shipmentCount} shipments` : ""}
                       </div>
+                      <div className="mt-1 text-xs leading-snug text-foreground/80">{c.matchReason}</div>
                     </div>
                   </label>
                 ))}
@@ -175,7 +192,7 @@ export function EnrollDialog({
 
         <DialogFooter>
           <Label className="mr-auto text-xs text-muted-foreground">
-            Enrollment trùng sẽ tự bỏ qua (unique constraint).
+            Industry-only/conflict được giữ chờ AE review; buyer đã có enrollment chưa kết thúc bị lọc và database vẫn chặn enroll trùng.
           </Label>
           <Button onClick={enroll} disabled={enrolling || loading || selected.size === 0 || disabled}>
             {enrolling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Enroll {selected.size} buyer

@@ -165,6 +165,7 @@ export type Database = {
           fda_registration_number: string | null
           fda_registered_at: string | null
           fda_expires_at: string | null
+          fda_status: string | null
           fda_renewal_notified_at: string | null
           avatar_url: string | null
           preferred_language: PreferredLanguage
@@ -175,6 +176,14 @@ export type Database = {
           // Supplier Researcher who sourced/onboarded this client (074).
           // Drives SR's billing-proposal + collections scope.
           sourced_by: string | null
+          supplier_entity_type: string
+          source_verification_status: string
+          source_verification_consent: boolean
+          source_change_acknowledged: boolean
+          us_sales_channel_status: string
+          us_sales_channel_notes: string | null
+          vexim_support_needs: string[]
+          vexim_support_other: string | null
           /** Personal buyer-facing sender address (migration 053). */
           work_email: string | null
           /** Staff login username (migration 076); null for clients and legacy staff. */
@@ -198,11 +207,20 @@ export type Database = {
           fda_registration_number?: string | null
           fda_registered_at?: string | null
           fda_expires_at?: string | null
+          fda_status?: string | null
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          supplier_entity_type?: string
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           work_email?: string | null
           username?: string | null
           created_at?: string
@@ -223,11 +241,20 @@ export type Database = {
           fda_registration_number?: string | null
           fda_registered_at?: string | null
           fda_expires_at?: string | null
+          fda_status?: string | null
           fda_renewal_notified_at?: string | null
           avatar_url?: string | null
           preferred_language?: PreferredLanguage
           account_manager_id?: string | null
           sourced_by?: string | null
+          supplier_entity_type?: string
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           work_email?: string | null
           username?: string | null
           created_at?: string
@@ -1065,12 +1092,13 @@ export type Database = {
           slug: string
           display_name: string | null
           tagline: string | null
+          description: string | null
           cover_image_url: string | null
           logo_url: string | null
           factory_image_urls: string[]
           video_url: string | null
           video_thumbnail_url: string | null
-          usp_points: Record<string, unknown>[]
+          usp_points: USPPoint[]
           production_capacity: string | null
           moq: string | null
           lead_time_days: string | null
@@ -1093,12 +1121,13 @@ export type Database = {
           slug: string
           display_name?: string | null
           tagline?: string | null
+          description?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
           factory_image_urls?: string[]
           video_url?: string | null
           video_thumbnail_url?: string | null
-          usp_points?: Record<string, unknown>[]
+          usp_points?: USPPoint[]
           production_capacity?: string | null
           moq?: string | null
           lead_time_days?: string | null
@@ -1121,12 +1150,13 @@ export type Database = {
           slug?: string
           display_name?: string | null
           tagline?: string | null
+          description?: string | null
           cover_image_url?: string | null
           logo_url?: string | null
           factory_image_urls?: string[]
           video_url?: string | null
           video_thumbnail_url?: string | null
-          usp_points?: Record<string, unknown>[]
+          usp_points?: USPPoint[]
           production_capacity?: string | null
           moq?: string | null
           lead_time_days?: string | null
@@ -1152,11 +1182,180 @@ export type Database = {
           }
         ]
       }
+      product_intake_links: {
+        Row: {
+          id: string
+          token: string
+          client_id: string
+          created_by: string | null
+          expires_at: string
+          used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          token: string
+          client_id: string
+          created_by?: string | null
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          token?: string
+          client_id?: string
+          created_by?: string | null
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      client_products: {
+        Row: {
+          id: string
+          client_id: string
+          product_name: string
+          product_code: string | null
+          category: string | null
+          subcategory: string | null
+          description: string | null
+          hs_code: string | null
+          unit_of_measure: string
+          min_unit_price: number | null
+          max_unit_price: number | null
+          currency: string
+          monthly_capacity_units: number | null
+          status: "active" | "inactive" | "suspended"
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          image_urls: string[]
+          compliance_badges: string[]
+          source_submission_id: string | null
+          price_confirmed: boolean
+          price_attested_at: string | null
+          price_attested_by: string | null
+          price_attestation_text: string | null
+          price_unit: string | null
+          incoterm: string | null
+          incoterm_place: string | null
+          payment_terms: string | null
+          country_of_origin: string | null
+          key_specifications: string | null
+          usp: string | null
+          moq_value: number | null
+          moq_unit: string | null
+          lead_time: string | null
+          sample_available: boolean
+          sample_notes: string | null
+          packing: string | null
+          package_size: string | null
+          shelf_life: string | null
+          storage_conditions: string | null
+          private_label_available: boolean
+          private_label_notes: string | null
+          product_intake_link_id: string | null
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          product_name: string
+          product_code?: string | null
+          category?: string | null
+          subcategory?: string | null
+          description?: string | null
+          hs_code?: string | null
+          unit_of_measure?: string
+          min_unit_price?: number | null
+          max_unit_price?: number | null
+          currency?: string
+          monthly_capacity_units?: number | null
+          status?: "active" | "inactive" | "suspended"
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          image_urls?: string[]
+          compliance_badges?: string[]
+          source_submission_id?: string | null
+          price_confirmed?: boolean
+          price_attested_at?: string | null
+          price_attested_by?: string | null
+          price_attestation_text?: string | null
+          price_unit?: string | null
+          incoterm?: string | null
+          incoterm_place?: string | null
+          payment_terms?: string | null
+          country_of_origin?: string | null
+          key_specifications?: string | null
+          usp?: string | null
+          moq_value?: number | null
+          moq_unit?: string | null
+          lead_time?: string | null
+          sample_available?: boolean
+          sample_notes?: string | null
+          packing?: string | null
+          package_size?: string | null
+          shelf_life?: string | null
+          storage_conditions?: string | null
+          private_label_available?: boolean
+          private_label_notes?: string | null
+          product_intake_link_id?: string | null
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          product_name?: string
+          product_code?: string | null
+          category?: string | null
+          subcategory?: string | null
+          description?: string | null
+          hs_code?: string | null
+          unit_of_measure?: string
+          min_unit_price?: number | null
+          max_unit_price?: number | null
+          currency?: string
+          monthly_capacity_units?: number | null
+          status?: "active" | "inactive" | "suspended"
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          image_urls?: string[]
+          compliance_badges?: string[]
+          source_submission_id?: string | null
+          price_confirmed?: boolean
+          price_attested_at?: string | null
+          price_attested_by?: string | null
+          price_attestation_text?: string | null
+          price_unit?: string | null
+          incoterm?: string | null
+          incoterm_place?: string | null
+          payment_terms?: string | null
+          country_of_origin?: string | null
+          key_specifications?: string | null
+          usp?: string | null
+          moq_value?: number | null
+          moq_unit?: string | null
+          lead_time?: string | null
+          sample_available?: boolean
+          sample_notes?: string | null
+          packing?: string | null
+          package_size?: string | null
+          shelf_life?: string | null
+          storage_conditions?: string | null
+          private_label_available?: boolean
+          private_label_notes?: string | null
+          product_intake_link_id?: string | null
+        }
+        Relationships: []
+      }
       client_intake_submissions: {
         Row: {
           id: string
           token: string
           ae_id: string
+          client_id: string | null
           status: "pending" | "submitted" | "approved" | "rejected"
           expires_at: string
           contact_name: string | null
@@ -1181,6 +1380,7 @@ export type Database = {
           video_url: string | null
           certifications: string[]
           certifications_other: string | null
+          certification_image_urls: string[]
           quality_systems: string[]
           quality_systems_other: string | null
           oem_odm: string[]
@@ -1192,6 +1392,7 @@ export type Database = {
           fda_status: string | null
           fda_number: string | null
           fda_expires_at: string | null
+          fda_certificate_url: string | null
           staff_engineers_count: number | null
           staff_workers_count: number | null
           work_hours_start: string | null
@@ -1215,6 +1416,15 @@ export type Database = {
           pricing_decision_maker: string | null
           commitments: string[]
           project_priority: string | null
+          supplier_entity_type: string | null
+          manufacturing_sources: Record<string, unknown>[]
+          source_verification_status: string
+          source_verification_consent: boolean
+          source_change_acknowledged: boolean
+          us_sales_channel_status: string | null
+          us_sales_channel_notes: string | null
+          vexim_support_needs: string[]
+          vexim_support_other: string | null
           reviewed_by: string | null
           reviewed_at: string | null
           review_notes: string | null
@@ -1228,6 +1438,7 @@ export type Database = {
           id?: string
           token: string
           ae_id: string
+          client_id?: string | null
           status?: "pending" | "submitted" | "approved" | "rejected"
           expires_at?: string
           contact_name?: string | null
@@ -1252,6 +1463,7 @@ export type Database = {
           video_url?: string | null
           certifications?: string[]
           certifications_other?: string | null
+          certification_image_urls?: string[]
           quality_systems?: string[]
           quality_systems_other?: string | null
           oem_odm?: string[]
@@ -1263,6 +1475,7 @@ export type Database = {
           fda_status?: string | null
           fda_number?: string | null
           fda_expires_at?: string | null
+          fda_certificate_url?: string | null
           staff_engineers_count?: number | null
           staff_workers_count?: number | null
           work_hours_start?: string | null
@@ -1286,6 +1499,15 @@ export type Database = {
           pricing_decision_maker?: string | null
           commitments?: string[]
           project_priority?: string | null
+          supplier_entity_type?: string | null
+          manufacturing_sources?: Record<string, unknown>[]
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string | null
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           reviewed_by?: string | null
           reviewed_at?: string | null
           review_notes?: string | null
@@ -1299,6 +1521,7 @@ export type Database = {
           id?: string
           token?: string
           ae_id?: string
+          client_id?: string | null
           status?: "pending" | "submitted" | "approved" | "rejected"
           expires_at?: string
           contact_name?: string | null
@@ -1323,6 +1546,51 @@ export type Database = {
           video_url?: string | null
           certifications?: string[]
           certifications_other?: string | null
+          certification_image_urls?: string[]
+          quality_systems?: string[]
+          quality_systems_other?: string | null
+          oem_odm?: string[]
+          company_scale?: string | null
+          export_since_year?: number | null
+          export_markets?: string[]
+          export_markets_other?: string | null
+          traceability?: string[]
+          fda_status?: string | null
+          fda_number?: string | null
+          fda_expires_at?: string | null
+          fda_certificate_url?: string | null
+          staff_engineers_count?: number | null
+          staff_workers_count?: number | null
+          work_hours_start?: string | null
+          work_hours_end?: string | null
+          work_days_per_week?: number | null
+          food_safety_training_regular?: boolean | null
+          equipment_calibration_regular?: boolean | null
+          water_source?: string[]
+          water_source_other?: string | null
+          water_testing?: boolean | null
+          near_pollution_source?: boolean | null
+          pollution_source_note?: string | null
+          audit_readiness?: string[]
+          audit_owner?: string | null
+          incoterms?: string[]
+          payment_policy?: string | null
+          oem_policy?: string | null
+          odm_policy?: string | null
+          has_export_dept?: boolean | null
+          has_english_staff?: boolean | null
+          pricing_decision_maker?: string | null
+          commitments?: string[]
+          project_priority?: string | null
+          supplier_entity_type?: string | null
+          manufacturing_sources?: Record<string, unknown>[]
+          source_verification_status?: string
+          source_verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          us_sales_channel_status?: string | null
+          us_sales_channel_notes?: string | null
+          vexim_support_needs?: string[]
+          vexim_support_other?: string | null
           reviewed_by?: string | null
           reviewed_at?: string | null
           review_notes?: string | null
@@ -1352,6 +1620,81 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      }
+      client_manufacturing_sources: {
+        Row: {
+          id: string
+          client_id: string
+          intake_submission_id: string | null
+          source_index: number | null
+          facility_name: string | null
+          facility_address: string | null
+          product_names: string[]
+          relationship_type: string | null
+          relationship_notes: string | null
+          verification_contact_name: string | null
+          verification_contact_email: string | null
+          verification_contact_phone: string | null
+          evidence_note: string | null
+          verification_status: string
+          verification_notes: string | null
+          verification_consent: boolean
+          source_change_acknowledged: boolean
+          verified_by: string | null
+          verified_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          intake_submission_id?: string | null
+          source_index?: number | null
+          facility_name?: string | null
+          facility_address?: string | null
+          product_names?: string[]
+          relationship_type?: string | null
+          relationship_notes?: string | null
+          verification_contact_name?: string | null
+          verification_contact_email?: string | null
+          verification_contact_phone?: string | null
+          evidence_note?: string | null
+          verification_status?: string
+          verification_notes?: string | null
+          verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          intake_submission_id?: string | null
+          source_index?: number | null
+          facility_name?: string | null
+          facility_address?: string | null
+          product_names?: string[]
+          relationship_type?: string | null
+          relationship_notes?: string | null
+          verification_contact_name?: string | null
+          verification_contact_email?: string | null
+          verification_contact_phone?: string | null
+          evidence_note?: string | null
+          verification_status?: string
+          verification_notes?: string | null
+          verification_consent?: boolean
+          source_change_acknowledged?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       client_factory_assessments: {
         Row: {
@@ -2368,7 +2711,7 @@ export type CreateClientProfileInput = {
   slug: string
   display_name?: string
   tagline?: string
-  description?: string
+  description?: string | null
   cover_image_url?: string
   logo_url?: string
   factory_image_urls?: string[]

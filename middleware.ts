@@ -63,12 +63,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 307)
   }
 
-  // Public surfaces (catalog, supplier profiles, share/shortlist/invoice tokens,
-  // legal, the landing page) render the same thing for everyone: an anonymous
-  // crawl and a logged-in AE. Skipping updateSession here removes a
-  // `auth.getUser()` round-trip per page view — and every one of those pages
-  // that needs a session (currently only the landing page's role redirect)
-  // resolves it itself, refreshing the token on the way.
+  // Public surfaces are accessible to anonymous crawlers and signed-in users
+  // alike. Locale-aware pages read the locale header set above; skipping
+  // updateSession avoids an unnecessary auth round-trip on each public request.
   if (isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.next({ request: { headers: forwarded } })
   }

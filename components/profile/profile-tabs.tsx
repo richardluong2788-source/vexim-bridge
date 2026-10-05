@@ -4,46 +4,16 @@ import type { ReactNode } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProfileProducts } from "./profile-products"
 import { ProfileCertifications } from "./profile-certifications"
+import type { Locale } from "@/lib/i18n/config"
+import { getProfileCopy } from "@/lib/profile/translations"
 import type { PublicCapability } from "@/lib/assessment/actions"
 import type { ClientProfileWithRelations } from "@/lib/supabase/types"
 
 interface ProfileTabsProps {
   profile: ClientProfileWithRelations
   capability: PublicCapability | null
+  locale: Locale
 }
-
-const QUALITY_SYSTEM_LABELS: Record<string, string> = {
-  HACCP: "HACCP",
-  GMP: "GMP",
-  ISO22000: "ISO 22000",
-  SOP: "Standard Operating Procedures (SOP)",
-  QC: "Quality Control (QC) Process",
-}
-
-const TRACEABILITY_LABELS: Record<string, string> = {
-  lot: "Lot-level Traceability",
-  input: "Input Material Records",
-  finished: "Finished Goods Records",
-  recall: "Product Recall Procedure",
-  "batch-lot": "Batch/Lot Coding",
-}
-
-const AUDIT_LABELS: Record<string, string> = {
-  onsite: "On-site Factory Audits Accepted",
-  online: "Online Audits Supported",
-}
-
-const MARKET_LABELS: Record<string, string> = {
-  US: "United States",
-  EU: "European Union",
-  JP: "Japan",
-  KR: "South Korea",
-  CN: "China",
-  ASEAN: "ASEAN",
-  ME: "Middle East",
-}
-
-const NOT_SPECIFIED = "Not specified"
 
 function InfoGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -56,7 +26,15 @@ function InfoGroup({ title, children }: { title: string; children: ReactNode }) 
   )
 }
 
-function InfoRow({ label, value }: { label: string; value?: ReactNode }) {
+function InfoRow({
+  label,
+  value,
+  notSpecified,
+}: {
+  label: string
+  value?: ReactNode
+  notSpecified: string
+}) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3">
       <span className="text-sm text-muted-foreground sm:w-56 shrink-0">{label}</span>
@@ -64,30 +42,22 @@ function InfoRow({ label, value }: { label: string; value?: ReactNode }) {
         {value !== undefined && value !== null && value !== "" ? (
           value
         ) : (
-          <span className="font-normal text-muted-foreground">{NOT_SPECIFIED}</span>
+          <span className="font-normal text-muted-foreground">{notSpecified}</span>
         )}
       </span>
     </div>
   )
 }
 
-/** Row for a tri-state boolean field: shows Yes / No / Not specified — always visible, never hidden. */
-function BooleanRow({ label, value }: { label: string; value: boolean | null | undefined }) {
-  return (
-    <InfoRow
-      label={label}
-      value={
-        value === null || value === undefined ? undefined : (
-          <span className={value ? "text-foreground" : "text-muted-foreground"}>
-            {value ? "Yes" : "No"}
-          </span>
-        )
-      }
-    />
-  )
-}
-
-function ChipsRow({ label, items }: { label: string; items: string[] }) {
+function ChipsRow({
+  label,
+  items,
+  notSpecified,
+}: {
+  label: string
+  items: string[]
+  notSpecified: string
+}) {
   return (
     <div className="py-3">
       <p className="text-sm text-muted-foreground mb-2">{label}</p>
@@ -103,39 +73,43 @@ function ChipsRow({ label, items }: { label: string; items: string[] }) {
           ))}
         </div>
       ) : (
-        <span className="text-sm font-medium text-muted-foreground">{NOT_SPECIFIED}</span>
+        <span className="text-sm font-medium text-muted-foreground">{notSpecified}</span>
       )}
     </div>
   )
 }
 
 /**
- * Tab "Company Profile" / "Products" — presented as a spec-sheet: every
- * field always shows its label on the left, even when there is no data or
- * a boolean is false, so buyers see the full picture rather than a partial
- * list of only the positive signals.
+ * Company details and featured products. Each field remains visible even when
+ * its value is missing or false, so buyers see the full picture rather than
+ * a partial list of only positive signals.
  */
-export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
+export function ProfileTabs({ profile, capability, locale }: ProfileTabsProps) {
+  const copy = getProfileCopy(locale)
+  const notSpecified = copy.common.notSpecified
+
   const quality = (capability?.quality_systems ?? [])
-    .map((q) => QUALITY_SYSTEM_LABELS[q])
+    .map((value) => copy.capabilityLabels.qualitySystems[value])
     .filter((label): label is string => Boolean(label))
 
   const traceability = (capability?.traceability ?? [])
-    .filter((t) => t !== "none")
-    .map((t) => TRACEABILITY_LABELS[t])
+    .filter((value) => value !== "none")
+    .map((value) => copy.capabilityLabels.traceability[value])
     .filter((label): label is string => Boolean(label))
 
   const audit = (capability?.audit_readiness ?? [])
-    .filter((a) => a !== "not-ready")
-    .map((a) => AUDIT_LABELS[a])
+    .filter((value) => value !== "not-ready")
+    .map((value) => copy.capabilityLabels.auditReadiness[value])
     .filter((label): label is string => Boolean(label))
 
   const markets = (capability?.export_markets ?? [])
-    .map((m) => MARKET_LABELS[m] ?? m)
-    .filter((m) => m !== "other")
+    .map((value) => copy.capabilityLabels.markets[value] ?? value)
+    .filter((value) => value !== "other")
 
   const incoterms = capability?.incoterms ?? []
-  const oem = (capability?.oem_odm ?? []).filter((o) => o !== "none")
+  const oem = (capability?.oem_odm ?? [])
+    .filter((value) => value !== "none")
+    .map((value) => copy.capabilityLabels.oemOdm[value] ?? value)
 
   const certifications = profile.certifications || []
   const uspPoints = profile.usp_points || []
@@ -143,7 +117,7 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
   const exportExperience = (() => {
     const startYear = capability?.export_since_year || new Date(profile.created_at).getFullYear()
     const years = new Date().getFullYear() - startYear
-    return years > 0 ? `${years} ${years === 1 ? "year" : "years"}` : undefined
+    return years > 0 ? copy.common.yearCount(years) : undefined
   })()
 
   return (
@@ -151,12 +125,12 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs defaultValue="company" className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="company">Company Profile</TabsTrigger>
-            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="company">{copy.tabs.companyProfile}</TabsTrigger>
+            <TabsTrigger value="products">{copy.tabs.products}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="company" className="space-y-8">
-            <InfoGroup title="Overview">
+            <InfoGroup title={copy.tabs.overview}>
               {profile.description && (
                 <div className="py-3">
                   <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
@@ -164,50 +138,103 @@ export function ProfileTabs({ profile, capability }: ProfileTabsProps) {
                   </p>
                 </div>
               )}
-              <InfoRow label="Location" value={profile.profiles.country ?? undefined} />
-              <InfoRow label="Exporting Since" value={capability?.export_since_year ?? undefined} />
-              <InfoRow label="Export Experience" value={exportExperience} />
-              <InfoRow label="Company Scale" value={capability?.company_scale ?? undefined} />
+              <InfoRow
+                label={copy.tabs.location}
+                value={profile.profiles.country ?? undefined}
+                notSpecified={notSpecified}
+              />
+              <InfoRow
+                label={copy.tabs.exportingSince}
+                value={capability?.export_since_year ?? undefined}
+                notSpecified={notSpecified}
+              />
+              <InfoRow
+                label={copy.tabs.exportExperience}
+                value={exportExperience}
+                notSpecified={notSpecified}
+              />
+              <InfoRow
+                label={copy.tabs.companyScale}
+                value={capability?.company_scale ?? undefined}
+                notSpecified={notSpecified}
+              />
               <ChipsRow
-                label="Highlights"
-                items={uspPoints.map((p) => p.title).filter(Boolean)}
+                label={copy.tabs.highlights}
+                items={uspPoints.map((point) => point.title).filter(Boolean)}
+                notSpecified={notSpecified}
               />
             </InfoGroup>
 
-            <InfoGroup title="Production Capacity">
-              <InfoRow label="Production Capacity" value={profile.production_capacity ?? undefined} />
-              <InfoRow label="Minimum Order Quantity (MOQ)" value={profile.moq ?? undefined} />
-              <InfoRow label="Lead Time" value={profile.lead_time_days ?? undefined} />
+            <InfoGroup title={copy.tabs.productionCapacity}>
+              <InfoRow
+                label={copy.tabs.productionCapacity}
+                value={profile.production_capacity ?? undefined}
+                notSpecified={notSpecified}
+              />
+              <InfoRow
+                label={copy.tabs.minimumOrderQuantity}
+                value={profile.moq ?? undefined}
+                notSpecified={notSpecified}
+              />
+              <InfoRow
+                label={copy.tabs.leadTime}
+                value={profile.lead_time_days ?? undefined}
+                notSpecified={notSpecified}
+              />
             </InfoGroup>
 
-            <InfoGroup title="Quality Control">
-              <ChipsRow label="Quality Systems" items={quality} />
-              <ChipsRow label="Traceability" items={traceability} />
-              <ChipsRow label="Audit Readiness" items={audit} />
+            <InfoGroup title={copy.tabs.qualityControl}>
+              <ChipsRow
+                label={copy.tabs.qualitySystems}
+                items={quality}
+                notSpecified={notSpecified}
+              />
+              <ChipsRow
+                label={copy.tabs.traceability}
+                items={traceability}
+                notSpecified={notSpecified}
+              />
+              <ChipsRow
+                label={copy.tabs.auditReadiness}
+                items={audit}
+                notSpecified={notSpecified}
+              />
               <div className="py-3">
-                <p className="text-sm text-muted-foreground mb-2">Certifications</p>
+                <p className="text-sm text-muted-foreground mb-2">{copy.tabs.certifications}</p>
                 {certifications.length > 0 ? (
                   <div className="-mx-4 sm:-mx-5">
-                    <ProfileCertifications profile={profile} />
+                    <ProfileCertifications profile={profile} locale={locale} />
                   </div>
                 ) : (
-                  <span className="text-sm font-medium text-muted-foreground">{NOT_SPECIFIED}</span>
+                  <span className="text-sm font-medium text-muted-foreground">{notSpecified}</span>
                 )}
               </div>
             </InfoGroup>
 
-            <InfoGroup title="Trade Experience">
-              <ChipsRow label="Export Markets" items={markets} />
-              <ChipsRow label="Incoterms" items={incoterms} />
-              <ChipsRow label="OEM / ODM" items={oem} />
+            <InfoGroup title={copy.tabs.tradeExperience}>
+              <ChipsRow
+                label={copy.tabs.exportMarkets}
+                items={markets}
+                notSpecified={notSpecified}
+              />
+              <ChipsRow
+                label={copy.tabs.incoterms}
+                items={incoterms}
+                notSpecified={notSpecified}
+              />
+              <ChipsRow
+                label={copy.tabs.oemOdm}
+                items={oem}
+                notSpecified={notSpecified}
+              />
             </InfoGroup>
           </TabsContent>
 
           <TabsContent value="products">
-            <ProfileProducts profile={profile} />
+            <ProfileProducts profile={profile} locale={locale} />
             {(!profile.products || profile.products.length === 0) && (
               <p className="text-sm text-muted-foreground text-center py-12">
-                No products have been posted yet.
+                {copy.tabs.noProducts}
               </p>
             )}
           </TabsContent>

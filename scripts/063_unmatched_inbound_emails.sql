@@ -2,7 +2,7 @@ hận -- =======================================================================
 -- Migration 063: unmatched_inbound_emails
 -- ============================================================================
 -- Context: app/api/webhooks/resend/route.ts previously did this when a
--- buyer's reply could not be matched to any opportunity or buyer_engagement:
+-- buyer's reply could not be matched to any opportunity, buyer_engagement, or campaign enrollment:
 --
 --     if (!match && !engagementMatch) {
 --       return NextResponse.json({ ok: true, skipped: "no_match" })
@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_unmatched_inbound_emails_unreviewed
   WHERE reviewed = false;
 
 COMMENT ON TABLE public.unmatched_inbound_emails IS
-  'Inbound emails received via the Resend webhook that could not be matched to any opportunity or buyer_engagement (see findOpportunityByEmail / findEngagementByEmail in app/api/webhooks/resend/route.ts). Reviewed manually by an admin instead of being silently dropped.';
+  'Inbound emails received via the Resend webhook that could not be matched to an opportunity, buyer_engagement, or campaign enrollment (see the Resend inbound webhook matchers). Reviewed manually by an admin instead of being silently dropped.';
 
 ALTER TABLE public.unmatched_inbound_emails ENABLE ROW LEVEL SECURITY;
 

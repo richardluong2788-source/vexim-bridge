@@ -67,6 +67,13 @@ export async function approveAndSendCampaignDraft(
 
   const enrollment = await getEnrollment(d.campaign_enrollment_id)
   if (!enrollment) return { ok: false, error: "not_found", message: "enrollment missing" }
+  if (enrollment.needs_human_review) {
+    return {
+      ok: false,
+      error: "not_eligible",
+      message: enrollment.human_review_reason ?? "Enrollment đang chờ AE review; email chưa được gửi.",
+    }
+  }
   const steps = await getCampaignSteps(enrollment.campaign_id)
   const sentStepNumber = d.campaign_step_number ?? enrollment.current_step_number
   const sentStep = steps.find((s) => s.step_number === sentStepNumber)
@@ -164,11 +171,14 @@ export async function approveAndSendCampaignDraft(
     stepType: sentStep.step_type,
   })
   if (!approvalQa.passed) {
-    const issues = approvalQa.issues
-      .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
-      .map((issue) => `${issue.severity}:${issue.check}`)
     const { error } = await (supabase.from("email_drafts") as any)
-      .update({ status: "draft", error_message: `QA blocked: ${issues.join(", ")}` })
+      .update({
+        status: "draft",
+        error_message: `QA blocked: ${approvalQa.issues
+          .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
+          .map((issue) => `${issue.severity}:${issue.check} — ${issue.message}`)
+          .join(" | ")}`,
+      })
       .eq("id", draftId)
       .eq("status", "pending_approval")
     if (error) return { ok: false, error: "serverError", message: error.message }

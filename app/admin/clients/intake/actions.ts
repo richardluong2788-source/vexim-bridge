@@ -7,6 +7,18 @@ import { createClientAccount, type CreateClientInput } from "@/app/admin/clients
 import { upsertAssessment, type AssessmentInput } from "@/lib/assessment/actions"
 import { seedProductsFromMainProducts } from "@/lib/client-intake/split-main-products"
 import { INDUSTRIES, type Industry } from "@/lib/constants/industries"
+import {
+  deriveProfileSourceStatus,
+  isProfileSourceStatus,
+  isSupplierEntityType,
+  isUsSalesChannelStatus,
+  normalizeManufacturingSources,
+  normalizeSupportNeeds,
+  type ManufacturingSourceEntry,
+  type ProfileSourceStatus,
+  type SupplierEntityType,
+  type UsSalesChannelStatus,
+} from "@/lib/client-intake/sourcing"
 
 export interface IntakeEditableFields {
   contact_name: string
@@ -40,10 +52,15 @@ export interface IntakeEditableFields {
   export_markets?: string[] | null
   export_markets_other?: string | null
   traceability?: string[]
-  fda_status?: string | null
-  fda_number?: string | null
-  fda_expires_at?: string | null
-  fda_certificate_url?: string | null
+  supplier_entity_type?: SupplierEntityType | null
+  manufacturing_sources?: ManufacturingSourceEntry[]
+  source_verification_status?: ProfileSourceStatus | null
+  source_verification_consent?: boolean | null
+  source_change_acknowledged?: boolean | null
+  us_sales_channel_status?: UsSalesChannelStatus | null
+  us_sales_channel_notes?: string | null
+  vexim_support_needs?: string[]
+  vexim_support_other?: string | null
   audit_readiness?: string[]
   audit_owner?: string | null
   incoterms?: string[]
@@ -110,6 +127,31 @@ export async function updateIntakeSubmission(
 
   const admin = createAdminClient()
   const isAE = callerProfile.role === "account_executive"
+  const manufacturingSources = normalizeManufacturingSources(fields.manufacturing_sources, {
+    preserveReviewFields: true,
+  })
+  if (manufacturingSources.some((source) =>
+    source.verification_status === "verified" && !source.verification_notes.trim(),
+  )) {
+    return { ok: false, error: "verification_notes_required" }
+  }
+  const supplierEntityType = isSupplierEntityType(fields.supplier_entity_type)
+    ? fields.supplier_entity_type
+    : undefined
+  const usSalesChannelStatus = isUsSalesChannelStatus(fields.us_sales_channel_status)
+    ? fields.us_sales_channel_status
+    : undefined
+  const certifications = (Array.isArray(fields.certifications) ? fields.certifications : []).filter(
+    (value): value is string =>
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      value.trim().toLowerCase() !== "fda registration",
+  )
+  const sourceVerificationStatus = manufacturingSources.length > 0
+    ? deriveProfileSourceStatus(manufacturingSources)
+    : isProfileSourceStatus(fields.source_verification_status)
+      ? fields.source_verification_status
+      : "awaiting_details"
 
   let q = admin.from("client_intake_submissions").update({
     contact_name: fields.contact_name?.trim() || null,
@@ -132,7 +174,7 @@ export async function updateIntakeSubmission(
     cover_image_url: fields.cover_image_url?.trim() || null,
     factory_image_urls: fields.factory_image_urls ?? [],
     video_url: fields.video_url?.trim() || null,
-    certifications: fields.certifications ?? [],
+    certifications,
     certifications_other: fields.certifications_other?.trim() || null,
     certification_image_urls: fields.certification_image_urls ?? [],
     quality_systems: fields.quality_systems ?? [],
@@ -143,10 +185,15 @@ export async function updateIntakeSubmission(
     export_markets: fields.export_markets ?? [],
     export_markets_other: fields.export_markets_other?.trim() || null,
     traceability: fields.traceability ?? [],
-    fda_status: fields.fda_status?.trim() || null,
-    fda_number: fields.fda_number?.trim() || null,
-    fda_expires_at: fields.fda_expires_at || null,
-    fda_certificate_url: fields.fda_certificate_url?.trim() || null,
+    supplier_entity_type: supplierEntityType,
+    manufacturing_sources: manufacturingSources as unknown as Record<string, unknown>[],
+    source_verification_status: sourceVerificationStatus,
+    source_verification_consent: fields.source_verification_consent ?? false,
+    source_change_acknowledged: fields.source_change_acknowledged ?? false,
+    us_sales_channel_status: usSalesChannelStatus,
+    us_sales_channel_notes: fields.us_sales_channel_notes?.trim() || null,
+    vexim_support_needs: normalizeSupportNeeds(fields.vexim_support_needs),
+    vexim_support_other: fields.vexim_support_other?.trim() || null,
     audit_readiness: fields.audit_readiness ?? [],
     audit_owner: fields.audit_owner?.trim() || null,
     incoterms: fields.incoterms ?? [],
@@ -206,26 +253,104 @@ export async function approveIntakeSubmission(
     return { ok: false, error: "forbidden" }
   }
   const isSR = callerProfile.role === "supplier_researcher"
+  const manufacturingSources = normalizeManufacturingSources(fields.manufacturing_sources, {
+    preserveReviewFields: true,
+  })
+  if (manufacturingSources.some((source) =>
+    source.verification_status === "verified" && !source.verification_notes.trim(),
+  )) {
+    return { ok: false, error: "verification_notes_required" }
+  }
+  const supplierEntityType: SupplierEntityType = isSupplierEntityType(fields.supplier_entity_type)
+    ? fields.supplier_entity_type
+    : "unknown"
+  const usSalesChannelStatus: UsSalesChannelStatus = isUsSalesChannelStatus(fields.us_sales_channel_status)
+    ? fields.us_sales_channel_status
+    : "unknown"
+  const supportNeeds = normalizeSupportNeeds(fields.vexim_support_needs)
+  const requestedSourceStatus: ProfileSourceStatus = isProfileSourceStatus(fields.source_verification_status)
+    ? fields.source_verification_status
+    : "awaiting_details"
+  const sourceStatusFromRows = manufacturingSources.length > 0
+    ? deriveProfileSourceStatus(manufacturingSources)
+    : null
+  let existingProfileForNoSourceUpdate: {
+    id: string
+    email: string | null
+    source_verification_status: string | null
+  } | null = null
+  if (manufacturingSources.length === 0) {
+    let profileQuery = admin
+      .from("profiles")
+      .select("id, email, source_verification_status")
+    if (submission.client_id) {
+      profileQuery = profileQuery.eq("id", submission.client_id)
+    } else {
+      const emailToMatch = (fields.email || submission.email || "").trim().toLowerCase()
+      if (emailToMatch) profileQuery = profileQuery.eq("email", emailToMatch)
+    }
+    if (submission.client_id || (fields.email || submission.email || "").trim()) {
+      const { data, error } = await profileQuery.maybeSingle()
+      if (error) {
+        console.error("[intake approval] existing profile source-status lookup failed:", error.message)
+        return { ok: false, error: "profile_lookup_failed" }
+      }
+      existingProfileForNoSourceUpdate = data
+    }
+  }
+  const existingSourceStatus = isProfileSourceStatus(
+    existingProfileForNoSourceUpdate?.source_verification_status,
+  )
+    ? existingProfileForNoSourceUpdate.source_verification_status
+    : null
+  if (
+    manufacturingSources.length === 0 &&
+    requestedSourceStatus === "verified" &&
+    existingSourceStatus !== "verified"
+  ) {
+    return { ok: false, error: "verified_source_required" }
+  }
+  const sourceVerificationConsent = fields.source_verification_consent === true
+  const sourceChangeAcknowledged = fields.source_change_acknowledged === true
 
-  const editResult = await updateIntakeSubmission(id, fields)
+  const editResult = await updateIntakeSubmission(id, {
+    ...fields,
+    manufacturing_sources: manufacturingSources,
+    supplier_entity_type: supplierEntityType,
+    source_verification_status: sourceStatusFromRows ?? existingSourceStatus ?? requestedSourceStatus,
+    us_sales_channel_status: usSalesChannelStatus,
+    vexim_support_needs: supportNeeds,
+  })
   if (!editResult.ok) return editResult
 
   let clientId: string
 
-  // Supplement flow: if intake was generated for an existing client, reuse that client_id directly
-  if ((submission as any).client_id) {
-    clientId = (submission as any).client_id as string
-    try {
-      await admin
-        .from("profiles")
-        .update({
-          company_name: fields.company_name || undefined,
-          full_name: fields.contact_name || undefined,
-          phone: fields.phone || undefined,
-          industries: fields.industries?.length ? fields.industries : undefined,
-        })
-        .eq("id", clientId)
-    } catch {}
+  // Supplement flow: if intake was generated for an existing client, reuse that client_id directly.
+  if (submission.client_id) {
+    clientId = submission.client_id
+    const nextSourceStatus = sourceStatusFromRows ?? existingSourceStatus ?? "awaiting_details"
+
+    const { error: accountUpdateError } = await admin
+      .from("profiles")
+      .update({
+        company_name: fields.company_name || undefined,
+        full_name: fields.contact_name || undefined,
+        phone: fields.phone || undefined,
+        industries: fields.industries?.length ? fields.industries : undefined,
+        supplier_entity_type: supplierEntityType,
+        source_verification_status: nextSourceStatus,
+        source_verification_consent: sourceVerificationConsent,
+        source_change_acknowledged: sourceChangeAcknowledged,
+        us_sales_channel_status: usSalesChannelStatus,
+        us_sales_channel_notes: fields.us_sales_channel_notes?.trim() || null,
+        vexim_support_needs: supportNeeds,
+        vexim_support_other: fields.vexim_support_other?.trim() || null,
+      })
+      .eq("id", clientId)
+    if (accountUpdateError) {
+      console.error("[intake approval] supplier sourcing mirror failed:", accountUpdateError.message)
+      return { ok: false, error: "profile_update_failed" }
+    }
   } else {
     const createInput: CreateClientInput = {
       email: fields.email,
@@ -234,34 +359,76 @@ export async function approveIntakeSubmission(
       industries: fields.industries,
       phone: fields.phone,
       country: fields.country ?? null,
+      supplier_entity_type: supplierEntityType,
+      source_verification_status: sourceStatusFromRows ?? requestedSourceStatus,
+      source_verification_consent: sourceVerificationConsent,
+      source_change_acknowledged: sourceChangeAcknowledged,
+      us_sales_channel_status: usSalesChannelStatus,
+      us_sales_channel_notes: fields.us_sales_channel_notes?.trim() || null,
+      vexim_support_needs: supportNeeds,
+      vexim_support_other: fields.vexim_support_other?.trim() || null,
       sourced_by: isSR ? caller.id : null,
     }
 
     const createResult = await createClientAccount(createInput)
     if (createResult.ok && createResult.userId) {
       clientId = createResult.userId
+      // The generic account-creation action only accepts pre-verification
+      // statuses. Intake approval has already validated reviewer decisions,
+      // so now persist the derived source status (including verified).
+      const { error: sourceStatusSaveError } = await admin
+        .from("profiles")
+        .update({ source_verification_status: sourceStatusFromRows ?? requestedSourceStatus })
+        .eq("id", clientId)
+      if (sourceStatusSaveError) {
+        console.error("[intake approval] new-client source status save failed:", sourceStatusSaveError.message)
+        return { ok: false, error: "profile_update_failed" }
+      }
     } else if (createResult.error === "email_exists") {
       // Fallback supplement flow via email match
-      const { data: existingProfile } = await admin
-        .from("profiles")
-        .select("id, email")
-        .eq("email", fields.email.trim().toLowerCase())
-        .maybeSingle()
+      let existingProfile = existingProfileForNoSourceUpdate
+      if (!existingProfile?.id) {
+        const { data, error } = await admin
+          .from("profiles")
+          .select("id, email, source_verification_status")
+          .eq("email", fields.email.trim().toLowerCase())
+          .maybeSingle()
+        if (error) {
+          console.error("[intake approval] fallback profile lookup failed:", error.message)
+          return { ok: false, error: "profile_lookup_failed" }
+        }
+        existingProfile = data
+      }
       if (!existingProfile?.id) {
         return { ok: false, error: "email_exists_but_profile_not_found" }
       }
       clientId = existingProfile.id
-      try {
-        await admin
-          .from("profiles")
-          .update({
-            company_name: fields.company_name || undefined,
-            full_name: fields.contact_name || undefined,
-            phone: fields.phone || undefined,
-            industries: fields.industries?.length ? fields.industries : undefined,
-          })
-          .eq("id", clientId)
-      } catch {}
+      const fallbackSourceStatus = sourceStatusFromRows ?? (
+        isProfileSourceStatus(existingProfile.source_verification_status)
+          ? existingProfile.source_verification_status
+          : "awaiting_details"
+      )
+      const { error: fallbackProfileUpdateError } = await admin
+        .from("profiles")
+        .update({
+          company_name: fields.company_name || undefined,
+          full_name: fields.contact_name || undefined,
+          phone: fields.phone || undefined,
+          industries: fields.industries?.length ? fields.industries : undefined,
+          supplier_entity_type: supplierEntityType,
+          source_verification_status: fallbackSourceStatus,
+          source_verification_consent: sourceVerificationConsent,
+          source_change_acknowledged: sourceChangeAcknowledged,
+          us_sales_channel_status: usSalesChannelStatus,
+          us_sales_channel_notes: fields.us_sales_channel_notes?.trim() || null,
+          vexim_support_needs: supportNeeds,
+          vexim_support_other: fields.vexim_support_other?.trim() || null,
+        })
+        .eq("id", clientId)
+      if (fallbackProfileUpdateError) {
+        console.error("[intake approval] fallback supplier sourcing mirror failed:", fallbackProfileUpdateError.message)
+        return { ok: false, error: "profile_update_failed" }
+      }
     } else {
       return { ok: false, error: (createResult as any).error ?? "create_failed" }
     }
@@ -298,6 +465,60 @@ export async function approveIntakeSubmission(
     return { ok: false, error: "assessment_create_failed" }
   }
 
+  // Persist factory/source identities separately from company/public-profile
+  // fields. These locations and verification notes remain internal-only.
+  const sourceRowsToSave = manufacturingSources.map((source, index) => {
+    const isVerified = source.verification_status === "verified"
+    return {
+      client_id: clientId,
+      intake_submission_id: id,
+      source_index: index,
+      facility_name: source.facility_name || null,
+      facility_address: source.facility_address || null,
+      product_names: source.product_names,
+      relationship_type: source.relationship_type || null,
+      relationship_notes: source.relationship_notes || null,
+      verification_contact_name: source.verification_contact_name || null,
+      verification_contact_email: source.verification_contact_email || null,
+      verification_contact_phone: source.verification_contact_phone || null,
+      evidence_note: source.evidence_note || null,
+      verification_status: source.verification_status,
+      verification_notes: source.verification_notes || null,
+      verification_consent: sourceVerificationConsent,
+      source_change_acknowledged: sourceChangeAcknowledged,
+      verified_by: isVerified ? caller.id : null,
+      verified_at: isVerified ? new Date().toISOString() : null,
+      created_by: caller.id,
+    }
+  })
+
+  if (sourceRowsToSave.length > 0) {
+    const { error: sourceSaveError } = await admin
+      .from("client_manufacturing_sources")
+      .upsert(sourceRowsToSave, { onConflict: "intake_submission_id,source_index" })
+    if (sourceSaveError) {
+      console.error("[intake approval] internal manufacturing source save failed:", sourceSaveError.message)
+      return { ok: false, error: "source_save_failed" }
+    }
+  }
+  const { data: sourceRowsForSubmission } = await admin
+    .from("client_manufacturing_sources")
+    .select("id, source_index")
+    .eq("intake_submission_id", id)
+  const staleSourceIds = (sourceRowsForSubmission ?? [])
+    .filter((row) => row.source_index !== null && row.source_index >= sourceRowsToSave.length)
+    .map((row) => row.id)
+  if (staleSourceIds.length > 0) {
+    const { error: staleDeleteError } = await admin
+      .from("client_manufacturing_sources")
+      .delete()
+      .in("id", staleSourceIds)
+    if (staleDeleteError) {
+      console.error("[intake approval] stale internal source cleanup failed:", staleDeleteError.message)
+      return { ok: false, error: "source_save_failed" }
+    }
+  }
+
   const slugBase = fields.company_name
     .toLowerCase()
     .normalize("NFD")
@@ -320,6 +541,7 @@ export async function approveIntakeSubmission(
       slug,
       display_name: fields.company_name,
       tagline: fields.tagline || null,
+      description: fields.company_description || null,
       logo_url: fields.logo_url || null,
       cover_image_url: fields.cover_image_url || null,
       video_url: fields.video_url || null,
@@ -338,31 +560,18 @@ export async function approveIntakeSubmission(
     console.error("[v0] client_profiles upsert after intake approval failed:", profileErr.message)
   }
 
-  // ---- Mirror FDA + certification images into compliance_docs ----------------
-  // These images come from the intake wizard (ImageLinkField uploads to Blob)
-  // and should become visible on the supplier's public profile page.
+  // ---- Mirror certification images into compliance_docs ----------------------
+  // FDA is intentionally reviewed later against the buyer/product/facility.
   try {
     const complianceDocsToInsert: Array<{
       owner_id: string
-      kind: string
+      kind: "fda_certificate" | "other"
       title: string | null
       url: string
       mime_type: string | null
       notes: string | null
       uploaded_by: string | null
     }> = []
-
-    if (fields.fda_certificate_url) {
-      complianceDocsToInsert.push({
-        owner_id: clientId,
-        kind: "fda_certificate",
-        title: fields.fda_number ? `FDA ${fields.fda_number}` : "FDA Certificate",
-        url: fields.fda_certificate_url,
-        mime_type: "image/jpeg",
-        notes: fields.fda_number || null,
-        uploaded_by: caller.id,
-      })
-    }
 
     if (fields.certification_image_urls && fields.certification_image_urls.length > 0) {
       for (const url of fields.certification_image_urls) {
@@ -405,30 +614,6 @@ export async function approveIntakeSubmission(
           .update({ featured_certifications: mergedFeatured, updated_by: caller.id })
           .eq("client_id", clientId)
 
-        // Also update FDA registration in profiles if provided
-        if (fields.fda_number || fields.fda_status) {
-          const fdaStatusMap: Record<string, string> = {
-            valid: "valid",
-            expired: "expired",
-            in_progress: "pending_supplement",
-            pending_supplement: "pending_supplement",
-            none: "missing",
-          }
-          const mappedStatus = fdaStatusMap[fields.fda_status ?? ""] ?? "missing"
-          const fdaNumberToSave =
-            fields.fda_status === "in_progress" || fields.fda_status === "pending_supplement"
-              ? "PENDING"
-              : fields.fda_number || null
-
-          await admin
-            .from("profiles")
-            .update({
-              fda_registration_number: fdaNumberToSave,
-              fda_expires_at: fields.fda_expires_at || null,
-              fda_status: mappedStatus,
-            })
-            .eq("id", clientId)
-        }
       }
     }
   } catch (docErr) {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { siteConfig } from "@/lib/site-config"
+import { CookiePreferencesButton } from "@/components/analytics/cookie-preferences-button"
 import { LegalPage, type LegalSection } from "@/components/legal/legal-page"
 import {
   LegalSection as Section,
@@ -12,8 +13,8 @@ import {
 const PATHNAME = "/legal/cookies"
 const TITLE = "Chính sách cookie"
 const SUMMARY =
-  "Cookie và tracker mà Vexim Trade sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên và đo lường hiệu năng. Chúng tôi không dùng cookie quảng cáo của bên thứ ba."
-const EFFECTIVE_DATE = "2026-04-26"
+  "Cookie và tracker mà Vexim Trade sử dụng để duy trì phiên đăng nhập, ghi nhớ ngôn ngữ ưu tiên, đo hiệu năng và — nếu bạn đồng ý — đo lường bằng Google Analytics 4 và Meta Pixel."
+const EFFECTIVE_DATE = "2026-10-05"
 
 const SECTIONS: LegalSection[] = [
   { id: "cookie-la-gi", title: "Cookie là gì" },
@@ -101,13 +102,14 @@ export default function CookiePolicyPage() {
         <LegalList
           items={[
             <><strong>Cookie thiết yếu (strictly necessary):</strong> giữ phiên đăng nhập, bảo vệ CSRF, bảo đảm hệ thống hoạt động an toàn. Không thể tắt nếu bạn muốn dùng Dịch vụ.</>,
-            <><strong>Cookie chức năng (functional):</strong> nhớ lựa chọn của bạn (ngôn ngữ vi/en, theme).</>,
-            <><strong>Đo lường ẩn danh (analytics):</strong> Vercel Analytics đếm pageview ẩn danh để chúng tôi cải tiến UI. Không gắn ID cá nhân, không bán cho bên thứ ba.</>,
+            <><strong>Cookie chức năng (functional):</strong> nhớ lựa chọn của bạn (ngôn ngữ vi/en, theme) và lựa chọn đồng ý/từ chối công cụ đo lường tùy chọn.</>,
+            <><strong>Đo lường:</strong> Vercel Analytics đo hiệu năng; Google Analytics 4 đo lượt xem và sự kiện website, Meta Pixel đo lượt xem, nhấp CTA và Lead — cả hai chỉ chạy sau khi bạn đồng ý.</>,
           ]}
         />
         <LegalCallout>
-          Chúng tôi <strong>không sử dụng</strong> cookie quảng cáo, retargeting, fingerprinting
-          hay social tracking pixel.
+          Google Analytics 4 và Meta Pixel là công cụ đo lường tùy chọn: không tải và không gửi
+          sự kiện trước khi bạn đồng ý. Bạn có thể từ chối ngay trên banner hoặc mở lại cài đặt
+          cookie bất kỳ lúc nào.
         </LegalCallout>
       </Section>
 
@@ -167,7 +169,7 @@ export default function CookiePolicyPage() {
           </table>
         </div>
 
-        <LegalSubheading>3.3 Đo lường ẩn danh</LegalSubheading>
+        <LegalSubheading>3.3 Đo lường & marketing</LegalSubheading>
         <div className="overflow-x-auto rounded-md border border-border/60">
           <table className="w-full text-sm">
             <thead className="bg-muted/60 text-foreground">
@@ -181,7 +183,22 @@ export default function CookiePolicyPage() {
               <tr>
                 <td className="px-4 py-2 font-mono text-xs">_vercel_*</td>
                 <td className="px-4 py-2">Vercel Analytics</td>
-                <td className="px-4 py-2">Pageview, Web Vitals (không gắn ID)</td>
+                <td className="px-4 py-2">Pageview, Web Vitals theo cấu hình của Vercel.</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2 font-mono text-xs">_ga, _ga_*</td>
+                <td className="px-4 py-2">Google Analytics 4</td>
+                <td className="px-4 py-2">Đo lượt truy cập và sự kiện sau khi bạn đồng ý; thời hạn tùy cấu hình GA4 (mặc định thường tối đa 2 năm).</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2 font-mono text-xs">_fbp, _fbc</td>
+                <td className="px-4 py-2">Meta Pixel</td>
+                <td className="px-4 py-2">Đo lường quảng cáo/chuyển đổi; chỉ tạo sau khi đồng ý. _fbc có thể xuất hiện khi URL có fbclid; thời hạn tùy cookie và cài đặt trình duyệt (thường tối đa 90 ngày).</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-2 font-mono text-xs">vexim-optional-tracking-consent-v2</td>
+                <td className="px-4 py-2">Vexim Trade (localStorage)</td>
+                <td className="px-4 py-2">Ghi nhớ lựa chọn đồng ý/từ chối cho tới khi bạn đổi hoặc xóa lựa chọn.</td>
               </tr>
             </tbody>
           </table>
@@ -196,6 +213,8 @@ export default function CookiePolicyPage() {
           items={[
             "Google Fonts (Inter, Geist Mono) — phục vụ font; không gắn cookie.",
             "Vercel Blob — chỉ chạy khi tải tài liệu, không đặt cookie tracking.",
+            "Google Analytics 4 (Google) — chỉ chạy sau khi bạn đồng ý; đo PageView, contact và generate_lead trên các trang công khai. Google nhận dữ liệu kỹ thuật/trình duyệt và URL trang; Vexim không gửi giá trị trường biểu mẫu trong các sự kiện này.",
+            "Meta Pixel (Meta Platforms, Inc.) — chỉ chạy sau khi bạn đồng ý; ghi nhận PageView, Contact và Lead trên trang công khai. Meta có thể nhận IP, user agent, URL/referrer và tín hiệu thiết bị; Vexim không gửi giá trị trường biểu mẫu trong các sự kiện này.",
           ]}
         />
         <LegalParagraph>
@@ -218,10 +237,17 @@ export default function CookiePolicyPage() {
         </LegalParagraph>
         <LegalSubheading>5.3 Vercel Analytics</LegalSubheading>
         <LegalParagraph>
-          Vercel Analytics chỉ chạy khi <code>NODE_ENV=production</code> và đo lường pageview ở mức
-          ẩn danh, không lưu IP đầy đủ. Bạn có thể chặn bằng các tiện ích trình duyệt phổ biến
+          Vercel Analytics chỉ chạy khi <code>NODE_ENV=production</code> và đo lường hiệu năng
+          theo cấu hình của Vercel. Bạn có thể chặn bằng các tiện ích trình duyệt phổ biến
           (uBlock Origin, Privacy Badger, &hellip;).
         </LegalParagraph>
+        <LegalSubheading>5.4 Google Analytics 4 và Meta Pixel</LegalSubheading>
+        <LegalParagraph>
+          Hai công cụ chỉ chạy sau khi bạn chọn đồng ý. Bạn có thể rút lại hoặc đổi lựa chọn bất kỳ
+          lúc nào bằng nút dưới đây; sau khi từ chối, các công cụ ngừng gửi sự kiện và cookie đo
+          lường của bên thứ nhất sẽ được xóa khi có thể.
+        </LegalParagraph>
+        <CookiePreferencesButton className="w-fit rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </Section>
 
       <Section id="lien-he" title="6. Liên hệ">

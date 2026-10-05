@@ -26,9 +26,9 @@ export const fetchCache = "force-no-store"
  * Flow:
  * 1. Resend sends email.received event when buyer replies to trade@veximtrade.com
  * 2. Webhook contains metadata only (no body) - we fetch body via Resend API
- * 3. Match email to opportunity via:
- *    - In-Reply-To header (matches our sent email's Message-ID)
- *    - OR sender email (matches lead's contact_email)
+ * 3. Match email to an opportunity, engagement, or campaign enrollment via:
+ *    - In-Reply-To header when it maps to a stored sent-message identifier
+ *    - OR the sender address against buyer contacts / sent recipients / lead email
  * 4. Auto-create buyer_reply record with AI classification
  *
  * Setup in Resend Dashboard:
@@ -708,7 +708,7 @@ export async function POST(req: NextRequest) {
         in_reply_to: data.in_reply_to ?? null,
         raw_content: extractReplyBody(bodyForLog) || bodyForLog || null,
         match_attempt_note:
-          "No buyer_contacts entry, no email_drafts.recipient_email match, and no In-Reply-To match against a sent draft.",
+          "No opportunity/engagement match, no campaign enrollment match by thread or sent recipient, and no buyer/contact email match.",
         received_at: data.created_at,
       })
       if (unmatchedErr) {

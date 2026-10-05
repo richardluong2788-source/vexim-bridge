@@ -4,6 +4,9 @@ import { ClientIntakeForm } from "@/components/client-intake/client-intake-form"
 import { siteConfig } from "@/lib/site-config"
 import type { Industry } from "@/lib/constants/industries"
 
+// The submit Server Action may call the AI translation service before saving.
+export const maxDuration = 60
+
 interface IntakeSubmissionRow {
   id: string
   status: string
@@ -39,10 +42,14 @@ interface IntakeSubmissionRow {
   export_markets: string[] | null
   export_markets_other: string | null
   traceability: string[] | null
-  fda_status: string | null
-  fda_number: string | null
-  fda_expires_at: string | null
-  fda_certificate_url: string | null
+  supplier_entity_type: string | null
+  manufacturing_sources: Record<string, unknown>[] | null
+  source_verification_consent: boolean | null
+  source_change_acknowledged: boolean | null
+  us_sales_channel_status: string | null
+  us_sales_channel_notes: string | null
+  vexim_support_needs: string[] | null
+  vexim_support_other: string | null
   audit_readiness: string[] | null
   audit_owner: string | null
   incoterms: string[] | null

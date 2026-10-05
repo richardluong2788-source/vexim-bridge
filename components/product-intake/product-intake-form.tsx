@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Loader2, X, ImageIcon, CheckCircle2, ShieldCheck, Languages } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -251,7 +251,7 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
 
       const res = await submitProductIntakeAction(token, payload)
       if (res.success) {
-        toast.success(`Đã gửi "${payload.product_name}" thành công!`)
+        toast.success(`Đã gửi "${payload.product_name}" thành công! Nội dung mô tả đã được dịch sang tiếng Anh.`)
         setSubmitted((prev) => [
           ...prev,
           { name: payload.product_name, code: formData.product_code, at: Date.now() },
@@ -272,7 +272,17 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
         // off-screen and the supplier thinks nothing happened.
         summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       } else {
-        toast.error(res.error || 'Gửi thất bại')
+        if (res.error === 'translation_failed') {
+          // Keep successfully uploaded files in form state so a translation retry
+          // does not upload duplicate public image blobs.
+          if (newImageUrls.length > 0) {
+            setImageUrls((prev) => [...prev, ...newImageUrls])
+            setFiles([])
+          }
+          toast.error('Chưa thể dịch nội dung sang tiếng Anh nên sản phẩm chưa được gửi. Thông tin và hình ảnh vẫn còn nguyên; vui lòng thử lại sau ít phút hoặc rút gọn nội dung mô tả.')
+        } else {
+          toast.error(res.error || 'Gửi thất bại')
+        }
       }
     } catch (err) {
       console.error(err)
@@ -319,6 +329,13 @@ export function ProductIntakeForm({ token, clientId, companyName }: Props) {
         <p className="text-sm text-muted-foreground">
           Một link dùng được cho nhiều sản phẩm trong 30 ngày. Mỗi lần bấm &ldquo;Gửi sản phẩm&rdquo;
           sẽ gửi đúng <strong>một</strong> sản phẩm.
+        </p>
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-100">
+        <Languages className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+        <p className="text-sm">
+          <strong>Bạn có thể điền bằng ngôn ngữ thuận tiện nhất.</strong> Ngay sau khi gửi, AI sẽ tự động dịch tên và các trường mô tả sản phẩm sang tiếng Anh. Sản phẩm vẫn được xét duyệt theo quy trình thông thường; xuất xứ, cảng/địa điểm giao hàng, mã SKU, mã HS, giá, Incoterm và các lựa chọn dạng mã được giữ nguyên.
         </p>
       </div>
 

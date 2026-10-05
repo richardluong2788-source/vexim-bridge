@@ -11,6 +11,7 @@
 import { requireCap } from "@/lib/auth/guard"
 import { CAPS } from "@/lib/auth/permissions"
 import { enrollLeads } from "@/lib/campaign/enrollments"
+import { NON_TERMINAL_ENROLLMENT_STATES } from "@/lib/campaign/constants"
 import { approveAndSendCampaignDraft, rejectCampaignDraft } from "@/lib/campaign/approve"
 import { runCampaignSchedulerTick } from "@/lib/campaign/scheduler"
 import { buildBuyerContext } from "@/lib/campaign/context-builder"
@@ -18,6 +19,16 @@ import { generateCampaignEmail } from "@/lib/campaign/email-generator"
 import { runEmailQA } from "@/lib/campaign/email-qa"
 import { countriesMatch, getCampaignCountryMismatch } from "@/lib/campaign/country-validation"
 import { COUNTRY_SUGGESTIONS } from "@/lib/constants/countries"
+import { normalizeIndustry, type Industry } from "@/lib/constants/industries"
+import {
+  campaignTargetConsistencyIssue,
+  matchBuyerToCampaign,
+  normalizeCampaignHsCodes,
+  type CampaignBuyerSignals,
+  type CampaignMatchConfig,
+  type CampaignMatchDecision,
+  type CampaignMatchLevel,
+} from "@/lib/campaign/product-industry-matcher"
 import { appendInteraction } from "@/lib/campaign/interactions"
 import { onManualPause, onManualStop, onReviewResolved } from "@/lib/campaign/state-machine"
 import { applyTransition, getCampaignSteps, getEnrollment } from "@/lib/campaign/enrollments"
@@ -68,7 +79,10 @@ export async function createCampaignAction(input: {
   description?: string
   targetSegment?: string
   targetCountry: string
+  targetProductName?: string
   productCategory?: string
+  targetIndustries?: string[]
+  targetHsCodes?: string[]
   dailySendLimit?: number
 }): Promise<CreateCampaignResult> {
   const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
@@ -81,6 +95,32 @@ export async function createCampaignAction(input: {
     return { ok: false, error: "validation", message: "Chọn quốc gia mục tiêu hợp lệ cho campaign." }
   }
 
+  const targetProductName = input.targetProductName?.trim() || null
+  const productCategory = input.productCategory?.trim() || null
+  const rawIndustries = Array.isArray(input.targetIndustries) ? input.targetIndustries : []
+  if (rawIndustries.length > 20) {
+    return { ok: false, error: "validation", message: "Chọn tối đa 20 ngành mục tiêu." }
+  }
+  const normalizedIndustries = rawIndustries.map((industry) => normalizeIndustry(industry))
+  if (normalizedIndustries.some((industry) => !industry)) {
+    return { ok: false, error: "validation", message: "Có ngành mục tiêu không hợp lệ; hãy chọn từ danh sách chuẩn." }
+  }
+  const targetIndustries = [...new Set(normalizedIndustries.filter((industry): industry is Industry => industry !== null))]
+  const { codes: targetHsCodes, invalid: invalidHsCodes } = normalizeCampaignHsCodes(input.targetHsCodes)
+  if (invalidHsCodes.length > 0) {
+    return { ok: false, error: "validation", message: `HS code phải có từ 2 đến 10 chữ số: ${invalidHsCodes.join(", ")}` }
+  }
+  if (!targetProductName && !productCategory && targetIndustries.length === 0) {
+    return { ok: false, error: "validation", message: "Nhập product name/category hoặc chọn ít nhất một industry để phân loại buyer." }
+  }
+  if ((targetProductName?.length ?? 0) > 160 || (productCategory?.length ?? 0) > 100) {
+    return { ok: false, error: "validation", message: "Product name tối đa 160 ký tự; category tối đa 100 ký tự." }
+  }
+  const targetConflict = campaignTargetConsistencyIssue({ target_product_name: targetProductName, product_category: productCategory })
+  if (targetConflict) {
+    return { ok: false, error: "validation", message: `${targetConflict} Hãy sửa target trước khi tạo campaign.` }
+  }
+
   try {
     const { data, error } = await (guard.admin.from("campaigns") as any)
       .insert({
@@ -88,7 +128,10 @@ export async function createCampaignAction(input: {
         description: input.description?.trim() || null,
         target_segment: input.targetSegment?.trim() || null,
         target_country: input.targetCountry.trim(),
-        product_category: input.productCategory?.trim() || null,
+        target_product_name: targetProductName,
+        product_category: productCategory,
+        target_industries: targetIndustries,
+        target_hs_codes: targetHsCodes,
         status: "draft",
         daily_send_limit: Math.max(1, Math.min(input.dailySendLimit ?? 20, 200)),
         created_by: guard.userId,
@@ -245,8 +288,11 @@ export interface PilotCandidate {
   contactEmail: string | null
   contactName: string | null
   shipmentCount: number | null
-  vietnamSignal: string | null
-  hsCodes: string[] | null
+  matchLevel: CampaignMatchLevel
+  matchConfidence: number
+  matchReason: string
+  matchEvidence: string[]
+  requiresHumanReview: boolean
 }
 
 export type PilotPreviewResult =
@@ -254,12 +300,9 @@ export type PilotPreviewResult =
   | { ok: false; error: ActionError | "campaign_not_found" | "serverError"; message?: string }
 
 /**
- * Preview danh sách lead đạt tiêu chí pilot (không enroll):
- *   - country khớp campaign.target_country
- *   - contact_email hợp lệ, chưa unsubscribe/bounce/complain
- *   - industry food-related (food|beverage|agriculture|seafood|snack|grocery...)
- *   - có tín hiệu VN: purchase_history hoặc top_suppliers nhắc "viet"
- * Shipment count chỉ là biến sắp xếp ưu tiên (desc), KHÔNG phải điều kiện.
+ * Preview candidates using LR product evidence first, then category evidence.
+ * Industry-only matches are included as AE-review/discovery candidates. HS codes
+ * only reinforce or flag a text match; they never create a candidate alone.
  */
 export async function previewPilotCandidatesAction(campaignId: string): Promise<PilotPreviewResult> {
   const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
@@ -267,18 +310,22 @@ export async function previewPilotCandidatesAction(campaignId: string): Promise<
 
   try {
     const { data: campaign, error: campaignError } = await (guard.admin.from("campaigns") as any)
-      .select("id, target_country")
+      .select("id, target_country, target_product_name, product_category, target_industries, target_hs_codes")
       .eq("id", campaignId)
       .single()
     if (campaignError || !campaign) return { ok: false, error: "campaign_not_found" }
     if (!campaign.target_country) {
       return { ok: false, error: "serverError", message: "Campaign chưa có quốc gia mục tiêu; hãy tạo lại campaign và chọn quốc gia." }
     }
+    if (!campaign.target_product_name && !campaign.product_category && !(campaign.target_industries ?? []).length) {
+      return { ok: false, error: "serverError", message: "Campaign chưa có product/category/industry target để phân loại buyer." }
+    }
 
     const { data, error } = await (guard.admin.from("leads") as any)
       .select(
         `id, company_name, country, industry, contact_email, contact_person,
-         customs_shipment_count, purchase_history, top_suppliers, hs_codes,
+         customs_shipment_count, main_product, product_keywords, hs_code, hs_codes,
+         secondary_hs_codes, bol_description,
          email_unsubscribed, email_hard_bounced_at, email_complained_at`,
       )
       .not("contact_email", "is", null)
@@ -290,12 +337,10 @@ export async function previewPilotCandidatesAction(campaignId: string): Promise<
 
     if (error) return { ok: false, error: "serverError", message: error.message }
 
-    const FOOD_RE = /food|beverage|agricultur|seafood|snack|grocer|organic|natural|coffee|rice|spice|fruit|nut/i
-    const VN_RE = /viet|vn\b/i
-
+    const campaignConfig = campaign as CampaignMatchConfig & { target_country: string }
     const candidates: PilotCandidate[] = []
     for (const raw of (data ?? []) as never[]) {
-      const l = raw as {
+      const lead = raw as CampaignBuyerSignals & {
         id: string
         company_name: string | null
         country: string | null
@@ -303,28 +348,25 @@ export async function previewPilotCandidatesAction(campaignId: string): Promise<
         contact_email: string | null
         contact_person: string | null
         customs_shipment_count: number | null
-        purchase_history: string | null
-        top_suppliers: Array<{ supplier_name?: string; name?: string; country?: string }> | null
-        hs_codes: string[] | null
       }
-      if (!countriesMatch(l.country, campaign.target_country)) continue
-      const industry = l.industry ?? ""
-      if (!FOOD_RE.test(industry)) continue
-      const historyHasVN = l.purchase_history ? VN_RE.test(l.purchase_history) : false
-      const supplierHasVN = (l.top_suppliers ?? []).some(
-        (s) => (s.country ? VN_RE.test(s.country) : false) || (s.supplier_name ? VN_RE.test(s.supplier_name) : false) || (s.name ? VN_RE.test(s.name) : false),
-      )
-      if (!historyHasVN && !supplierHasVN) continue
+      if (!countriesMatch(lead.country, campaignConfig.target_country)) continue
+      if (!lead.contact_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.contact_email)) continue
+      const match = matchBuyerToCampaign(campaignConfig, lead)
+      if (match.status !== "matched" || !match.level || match.confidence === null) continue
+
       candidates.push({
-        leadId: l.id,
-        companyName: l.company_name,
-        country: l.country,
-        industry: l.industry,
-        contactEmail: l.contact_email,
-        contactName: l.contact_person,
-        shipmentCount: l.customs_shipment_count,
-        vietnamSignal: historyHasVN ? "purchase_history" : "top_suppliers",
-        hsCodes: l.hs_codes,
+        leadId: lead.id,
+        companyName: lead.company_name,
+        country: lead.country,
+        industry: lead.industry,
+        contactEmail: lead.contact_email,
+        contactName: lead.contact_person,
+        shipmentCount: lead.customs_shipment_count,
+        matchLevel: match.level,
+        matchConfidence: match.confidence,
+        matchReason: match.reason,
+        matchEvidence: match.evidence,
+        requiresHumanReview: match.requiresHumanReview,
       })
       if (candidates.length >= 200) break
     }
@@ -332,12 +374,26 @@ export async function previewPilotCandidatesAction(campaignId: string): Promise<
     // Loại lead đang có engagement MỞ (AE đã claim) — tránh enroll người đang
     // ở lane con người; chống double-email từ đầu thay vì vá sau.
     if (candidates.length > 0) {
+      const candidateIds = candidates.map((candidate) => candidate.leadId)
       const { data: busyEng } = await (guard.admin.from("buyer_engagements") as any)
         .select("lead_id")
-        .in("lead_id", candidates.map((c) => c.leadId))
+        .in("lead_id", candidateIds)
         .not("stage", "in", '("converted","dropped")')
-      const busyLeadIds = new Set(((busyEng ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id))
-      const filtered = candidates.filter((c) => !busyLeadIds.has(c.leadId))
+      const busyLeadIds = new Set(((busyEng ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id))
+
+      // Buyers already in any non-terminal campaign enrollment are omitted too.
+      // The database's unique active-enrollment index remains the final guard,
+      // but the preview should not invite an AE to select buyers that will skip.
+      const { data: enrolledRows, error: enrolledError } = await (guard.admin.from("campaign_enrollments") as any)
+        .select("lead_id")
+        .in("lead_id", candidateIds)
+        .in("state", NON_TERMINAL_ENROLLMENT_STATES as readonly string[])
+      if (enrolledError) {
+        return { ok: false, error: "serverError", message: "Không kiểm tra được enrollment campaign hiện tại; vui lòng thử lại." }
+      }
+      const enrolledLeadIds = new Set(((enrolledRows ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id))
+
+      const filtered = candidates.filter((candidate) => !busyLeadIds.has(candidate.leadId) && !enrolledLeadIds.has(candidate.leadId))
       return { ok: true, candidates: filtered }
     }
 
@@ -359,13 +415,14 @@ export async function enrollLeadsAction(input: {
 }): Promise<EnrollLeadsResult> {
   const guard = await requireCap(CAPS.CAMPAIGN_MANAGE)
   if (!guard.ok) return { ok: false, error: guard.error }
-  if (!input.leadIds?.length) return { ok: true, enrolled: 0, skipped: [] }
-  if (input.leadIds.length > 100) {
+  const leadIds = [...new Set(input.leadIds ?? [])]
+  if (leadIds.length === 0) return { ok: true, enrolled: 0, skipped: [] }
+  if (leadIds.length > 100) {
     return { ok: false, error: "validation", message: "Tối đa 100 lead mỗi lần enroll (pilot)." }
   }
   try {
     const { data: campaign, error: campaignError } = await (guard.admin.from("campaigns") as any)
-      .select("id, target_country")
+      .select("id, target_country, target_product_name, product_category, target_industries, target_hs_codes")
       .eq("id", input.campaignId)
       .single()
     if (campaignError || !campaign) return { ok: false, error: "campaign_not_found" }
@@ -373,24 +430,44 @@ export async function enrollLeadsAction(input: {
       return { ok: false, error: "validation", message: "Campaign chưa có quốc gia mục tiêu." }
     }
 
+    const campaignConfig = campaign as CampaignMatchConfig & { target_country: string }
     const { data: leads, error: leadsError } = await (guard.admin.from("leads") as any)
-      .select("id, country")
-      .in("id", input.leadIds)
+      .select(
+        "id, country, industry, main_product, product_keywords, hs_code, hs_codes, secondary_hs_codes, bol_description",
+      )
+      .in("id", leadIds)
     if (leadsError) return { ok: false, error: "serverError", message: leadsError.message }
-    const leadRows = (leads ?? []) as Array<{ id: string; country: string | null }>
-    const byId = new Map(leadRows.map((lead) => [lead.id, lead]))
-    const eligibleIds = input.leadIds.filter((id) => countriesMatch(byId.get(id)?.country, campaign.target_country))
-    const skippedCountry = input.leadIds
-      .filter((id) => !eligibleIds.includes(id))
-      .map((leadId) => ({ leadId, reason: `country_mismatch:${byId.get(leadId)?.country ?? "missing"}` }))
+
+    const byId = new Map(((leads ?? []) as Array<CampaignBuyerSignals & { id: string; country: string | null }>).map((lead) => [lead.id, lead]))
+    const eligibleIds: string[] = []
+    const matches = new Map<string, CampaignMatchDecision>()
+    const skippedValidation: Array<{ leadId: string; reason: string }> = []
+    for (const leadId of leadIds) {
+      const lead = byId.get(leadId)
+      if (!lead) {
+        skippedValidation.push({ leadId, reason: "lead_not_found" })
+        continue
+      }
+      if (!countriesMatch(lead.country, campaignConfig.target_country)) {
+        skippedValidation.push({ leadId, reason: `country_mismatch:${lead.country ?? "missing"}` })
+        continue
+      }
+      const match = matchBuyerToCampaign(campaignConfig, lead)
+      if (match.status !== "matched" || !match.level || match.confidence === null) {
+        skippedValidation.push({ leadId, reason: `campaign_match_failed:${match.reason}` })
+        continue
+      }
+      matches.set(leadId, match)
+      eligibleIds.push(leadId)
+    }
 
     const result = eligibleIds.length
-      ? await enrollLeads(input.campaignId, eligibleIds, input.ownerId, guard.userId)
+      ? await enrollLeads(input.campaignId, eligibleIds, input.ownerId, guard.userId, matches)
       : { ok: true as const, enrolled: 0, skipped: [] as Array<{ leadId: string; reason: string }> }
     if (!result.ok) {
       return { ok: false, error: result.error, message: result.message }
     }
-    return { ...result, skipped: [...result.skipped, ...skippedCountry] }
+    return { ...result, skipped: [...result.skipped, ...skippedValidation] }
   } catch (err) {
     console.error("[campaign] enrollLeadsAction:", err)
     return { ok: false, error: "serverError" }
@@ -458,6 +535,9 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
     if (guard.role === "account_executive" && enrollment.owner_id !== guard.userId) {
       return { ok: false, error: "forbidden", message: "Bạn không sở hữu enrollment này." }
     }
+    if (enrollment.needs_human_review) {
+      return { ok: false, error: "not_eligible", message: enrollment.human_review_reason ?? "Enrollment đang chờ AE review; chưa thể tạo draft." }
+    }
 
     const steps = await getCampaignSteps(enrollment.campaign_id)
     const step = steps.find((item) => item.step_number === draft.campaign_step_number)
@@ -499,7 +579,12 @@ export async function regenerateCampaignDraftAction(draftId: string): Promise<Re
         translated_content_vi: generated.contentVi,
         ai_prompt: `campaign:${ctx.campaign.name} step ${step.step_number} (${step.step_type}). Objective: ${step.objective ?? ""}. Guidance: ${step.ai_prompt_guidance ?? ""}. Regenerated by ${guard.userId}. QA: ${qa.risk_level}.`,
         status,
-        error_message: qaBlocked ? `QA blocked: ${qa.issues.filter((issue) => issue.severity === "HIGH" || issue.blocking).map((issue) => `${issue.severity}:${issue.check}`).join(", ")}` : null,
+        error_message: qaBlocked
+          ? `QA blocked: ${qa.issues
+              .filter((issue) => issue.severity === "HIGH" || issue.blocking === true)
+              .map((issue) => `${issue.severity}:${issue.check} — ${issue.message}`)
+              .join(" | ")}`
+          : null,
       })
       .eq("id", draftId)
       .in("status", ["pending_approval", "draft"])

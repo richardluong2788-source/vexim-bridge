@@ -21,14 +21,13 @@ export function publicUrl(path: string): string {
 
 export interface LocalizedAlternatesOptions {
   /**
-   * True when a real translation exists for the page (the landing page and the
-   * catalog index render from the dictionary in both locales).
+   * True when a translated interface exists for the page (for example, the
+   * landing page, catalog index and supplier profile).
    *
-   * False (default) for single-language pages — the product detail page and the
-   * supplier profile are written for US buyers and only exist in English. Then
-   * the canonical is the unprefixed URL and hreflang declares just that one
-   * language, so `/vi/products/<id>` (same English copy) collapses onto a single
-   * document instead of becoming a near-duplicate page.
+   * False (default) for single-language pages such as product details, which
+   * are written for US buyers and only exist in English. Then the canonical is
+   * the unprefixed URL and hreflang declares just that one language, so
+   * `/vi/products/<id>` (the same English copy) collapses onto one document.
    */
   bilingual?: boolean
   /** Locale currently being rendered; decides which URL is canonical. */

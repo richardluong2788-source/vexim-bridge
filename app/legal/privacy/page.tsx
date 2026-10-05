@@ -13,8 +13,8 @@ import {
 const PATHNAME = "/legal/privacy"
 const TITLE = "Chính sách bảo mật"
 const SUMMARY =
-  "Cách Vexim Trade thu thập, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L và email outreach do AI hỗ trợ."
-const EFFECTIVE_DATE = "2026-04-26"
+  "Cách Vexim Trade thu thập, lưu trữ và bảo vệ dữ liệu của khách hàng (nhà sản xuất Việt Nam) cùng dữ liệu buyer Hoa Kỳ — bao gồm thông tin FDA, hợp đồng, hóa đơn, tài liệu SWIFT/B/L, email outreach do AI hỗ trợ và dữ liệu đo lường website khi bạn đồng ý."
+const EFFECTIVE_DATE = "2026-10-05"
 
 const SECTIONS: LegalSection[] = [
   { id: "tong-quan", title: "Tổng quan" },
@@ -130,6 +130,7 @@ export default function PrivacyPolicyPage() {
           items={[
             "Thông tin lead/buyer do Vexim Trade nghiên cứu và quản lý để hỗ trợ khách hàng.",
             "Nội dung email tiếp cận buyer có thể được AI hỗ trợ soạn và được nhân sự Vexim Trade xem xét trước khi gửi.",
+            "Một số trường mô tả doanh nghiệp/sản phẩm do supplier nhập được xử lý qua Vercel AI Gateway để dịch sang tiếng Anh. Tên doanh nghiệp, tên người liên hệ, thông tin đăng nhập, email, số điện thoại, mã số thuế, quốc gia, địa chỉ và mã sản phẩm không được gửi để dịch. Nội dung gốc không được lưu lại trong hồ sơ sau khi dịch.",
             "Phản hồi của buyer được phân loại tự động (intent: price_request, sample_request, objection, closing_signal, general).",
             "Hóa đơn (setup_fee, retainer, success_fee, manual) cùng tài liệu PO, SWIFT, B/L.",
             "Lịch sử pipeline (stage_transitions) — append-only audit log.",
@@ -142,6 +143,7 @@ export default function PrivacyPolicyPage() {
           items={[
             "Cookie phiên làm việc giúp duy trì trạng thái đăng nhập và bảo vệ phiên truy cập.",
             "Địa chỉ IP, user agent, timestamp request — phục vụ phát hiện gian lận và debug.",
+            "Khi bạn đồng ý công cụ đo lường tùy chọn, Google Analytics 4 và Meta Pixel có thể nhận URL trang công khai, referrer, tín hiệu trình duyệt/thiết bị và các sự kiện page_view, contact, generate_lead, PageView, Contact, Lead. Chúng tôi không gửi giá trị trường biểu mẫu (như email, điện thoại hoặc nội dung yêu cầu) trong các sự kiện này.",
             "Số liệu truy cập tổng hợp, được sử dụng để theo dõi và cải thiện hoạt động của nền tảng.",
           ]}
         />
@@ -157,10 +159,12 @@ export default function PrivacyPolicyPage() {
           items={[
             { term: "Cung cấp dịch vụ", definition: "Vexim Trade sử dụng thông tin để tiếp nhận yêu cầu, quản lý hồ sơ khách hàng và hỗ trợ hoạt động phát triển xuất khẩu." },
             { term: "Xử lý hồ sơ sản phẩm", definition: "Tiếp nhận, xem xét và quản lý thông tin sản phẩm do khách hàng cung cấp. Hồ sơ không tự động được công khai; trước khi chia sẻ với buyer/đối tác, Vexim Trade sẽ xin chấp thuận của khách hàng." },
+            { term: "Dịch hồ sơ intake", definition: "Một số trường mô tả tự do được AI dịch sang tiếng Anh ngay sau khi supplier gửi để thống nhất ngôn ngữ làm việc. Nội dung gốc không được lưu lại trong hồ sơ. Vexim vẫn xem xét và phê duyệt hồ sơ theo quy trình thông thường; nhân sự không cần dịch hoặc rà soát riêng bản dịch." },
             { term: "Hỗ trợ giao tiếp", definition: "Soạn và quản lý nội dung trao đổi với khách hàng hoặc buyer; công cụ AI có thể hỗ trợ một số bước, còn nội dung gửi đi được nhân sự Vexim Trade xem xét." },
             { term: "Bảo mật và vận hành", definition: "Phân quyền truy cập, phát hiện hoạt động bất thường, duy trì nhật ký kiểm tra và bảo vệ tài khoản/hồ sơ." },
             { term: "Tuân thủ pháp luật", definition: "Lưu trữ hồ sơ kế toán, hợp đồng và tài liệu giao dịch trong thời hạn pháp luật yêu cầu." },
             { term: "Thông báo dịch vụ", definition: "Gửi thông tin liên quan đến tài khoản, hồ sơ, yêu cầu hỗ trợ và các cập nhật dịch vụ cần thiết." },
+            { term: "Đo lường website", definition: "Sau khi bạn đồng ý, Google Analytics 4 đo lượt xem trang, nhấp CTA và gửi yêu cầu trên các trang công khai; Meta Pixel đo lượt xem, nhấp CTA và lead để đánh giá hiệu quả quảng cáo. Google và Meta xử lý dữ liệu kỹ thuật/trình duyệt theo chính sách riêng của họ; Vexim không gửi nội dung trường biểu mẫu hoặc thông tin liên hệ trong các sự kiện." },
           ]}
         />
       </Section>
@@ -174,7 +178,7 @@ export default function PrivacyPolicyPage() {
           items={[
             "Thực hiện hợp đồng — phần lớn xử lý dữ liệu là cần thiết để cung cấp Dịch vụ theo Điều khoản dịch vụ.",
             "Lợi ích hợp pháp — tìm kiếm buyer, phát hiện gian lận, cải tiến sản phẩm.",
-            "Đồng ý — với email marketing không bắt buộc; bạn có thể rút lại đồng ý bất kỳ lúc nào.",
+            "Đồng ý — với email marketing không bắt buộc và công cụ đo lường tùy chọn (Google Analytics 4, Meta Pixel); bạn có thể từ chối hoặc rút lại lựa chọn bất kỳ lúc nào qua cài đặt cookie.",
             "Nghĩa vụ pháp lý — lưu hồ sơ thuế, kế toán, hóa đơn theo luật Việt Nam.",
           ]}
         />
@@ -211,7 +215,8 @@ export default function PrivacyPolicyPage() {
           Do hoạt động hỗ trợ xuất khẩu quốc tế, dữ liệu của bạn có thể được Vexim Trade xử lý tại
           Việt Nam hoặc một số quốc gia khác khi cần thiết cho việc cung cấp dịch vụ. Khi có hoạt
           động chuyển dữ liệu xuyên biên giới, Vexim Trade áp dụng các biện pháp phù hợp theo
-          pháp luật hiện hành.
+          pháp luật hiện hành. Nếu bạn đồng ý công cụ đo lường, một số dữ liệu kỹ thuật và sự kiện
+          tương tác được truyền tới Google và Meta Platforms, Inc. theo chính sách riêng của họ.
         </LegalParagraph>
       </Section>
 
@@ -240,7 +245,7 @@ export default function PrivacyPolicyPage() {
             <><strong>Hạn chế xử lý</strong> — tạm dừng một số hoạt động xử lý.</>,
             <><strong>Phản đối</strong> — phản đối xử lý dựa trên lợi ích hợp pháp.</>,
             <><strong>Di chuyển dữ liệu</strong> — xuất CSV danh sách clients, opportunities, invoices.</>,
-            <><strong>Rút lại đồng ý</strong> — tắt từng kênh tại /settings/notifications hoặc một-cú-nhấp qua link unsubscribe trong email.</>,
+            <><strong>Rút lại đồng ý</strong> — tắt công cụ đo lường tùy chọn qua cài đặt cookie; tắt email tại /settings/notifications hoặc một-cú-nhấp qua link unsubscribe trong email.</>,
           ]}
         />
         <LegalParagraph>

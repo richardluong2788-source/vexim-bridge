@@ -75,14 +75,22 @@ async function findNurtureEnrollmentForLead(leadId: string) {
   return rows.length > 0 ? ((rows[0] as unknown) as Awaited<ReturnType<typeof getEnrollment>>) : null
 }
 
+/** Escape SQL LIKE wildcards so email lookup stays an exact address match. */
+function escapeEmailLikePattern(email: string): string {
+  return email.replace(/[\\%_]/g, "\\$&")
+}
+
 /** Resolve lead từ email người gửi (contact_email trước, buyer_contacts sau). */
 async function findLeadIdByEmail(fromEmail: string): Promise<string | null> {
+  const email = fromEmail.trim()
+  if (!email) return null
+  const pattern = escapeEmailLikePattern(email)
   const admin = createAdminClient()
 
   const { data: byContactEmail } = await admin
     .from("leads")
     .select("id")
-    .ilike("contact_email", fromEmail)
+    .ilike("contact_email", pattern)
     .limit(1)
   if (byContactEmail && byContactEmail.length > 0) {
     return (byContactEmail[0] as { id: string }).id
@@ -92,7 +100,7 @@ async function findLeadIdByEmail(fromEmail: string): Promise<string | null> {
     .from("buyer_contacts")
     .select("lead_id")
     .eq("status", "active")
-    .ilike("email", fromEmail)
+    .ilike("email", pattern)
     .limit(1)
   if (byBuyerContact && byBuyerContact.length > 0) {
     return (byBuyerContact[0] as { lead_id: string }).lead_id
@@ -106,11 +114,44 @@ async function findEnrollmentByThread(inReplyTo: string | null): Promise<string 
   if (!inReplyTo) return null
   const admin = createAdminClient()
   const clean = inReplyTo.replace(/^<|>$/g, "")
-  const { data } = await (admin.from("email_drafts") as any)
+  const { data, error } = await (admin.from("email_drafts") as any)
     .select("campaign_enrollment_id")
     .or(`smtp_message_id.eq.${clean},resend_message_id.eq.${clean}`)
     .not("campaign_enrollment_id", "is", null)
     .limit(1)
+  if (error) {
+    console.error("[campaign] In-Reply-To enrollment lookup failed:", error)
+    return null
+  }
+  const rows = (data ?? []) as Array<{ campaign_enrollment_id: string | null }>
+  return rows[0]?.campaign_enrollment_id ?? null
+}
+
+/**
+ * Fallback for replies whose inbound In-Reply-To header doesn't match the
+ * provider's outbound ID (or is absent). The exact recipient on a sent
+ * campaign draft is a stronger link than requiring the address to also be
+ * copied into leads.contact_email / buyer_contacts.
+ */
+async function findEnrollmentBySentRecipient(fromEmail: string): Promise<string | null> {
+  const recipient = fromEmail.trim()
+  if (!recipient) return null
+
+  const admin = createAdminClient()
+  const { data, error } = await (admin.from("email_drafts") as any)
+    .select("campaign_enrollment_id")
+    .eq("status", "sent")
+    .not("campaign_enrollment_id", "is", null)
+    .ilike("recipient_email", escapeEmailLikePattern(recipient))
+    .order("sent_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  if (error) {
+    console.error("[campaign] sent-recipient enrollment lookup failed:", error)
+    return null
+  }
+
   const rows = (data ?? []) as Array<{ campaign_enrollment_id: string | null }>
   return rows[0]?.campaign_enrollment_id ?? null
 }
@@ -123,9 +164,17 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
   try {
     const admin = createAdminClient()
 
-    // 1. Tìm enrollment: thread matching (mạnh nhất) → lead match cũ → email.
+    // 1. Tìm enrollment: In-Reply-To → exact sent recipient → lead/contact email.
+    // Recipient fallback is essential for campaign sends: Resend's API ID is
+    // not guaranteed to equal the RFC Message-ID in the buyer's In-Reply-To,
+    // and some buyers reply from an address absent from the lead/contact list.
     let enrollmentId = await findEnrollmentByThread(input.inReplyTo)
     let enrollment = enrollmentId ? await getEnrollment(enrollmentId) : null
+
+    if (!enrollment || enrollment.state === undefined) {
+      enrollmentId = await findEnrollmentBySentRecipient(input.fromEmail)
+      enrollment = enrollmentId ? await getEnrollment(enrollmentId) : null
+    }
 
     const leadId =
       input.matchedLeadId ?? (await findLeadIdByEmail(input.fromEmail))
@@ -174,6 +223,28 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
     if (replyErr) {
       console.error("[campaign] reply insert failed:", replyErr)
       return { handled: false } // để flow cũ lưu reply (không mất dữ liệu)
+    }
+
+    // If this message was already triaged as unmatched before the recipient
+    // fallback existed (e.g. replayed Resend webhook), link that queue row to
+    // the saved reply instead of leaving a duplicate in the unmatched inbox.
+    if (input.messageId) {
+      try {
+        const { error: resolveErr } = await (admin.from("unmatched_inbound_emails") as any)
+          .update({
+            reviewed: true,
+            reviewed_at: new Date().toISOString(),
+            review_note: `Auto-linked to campaign enrollment ${enrollment.id} after webhook replay.`,
+            resolved_buyer_reply_id: (replyRow as { id: string }).id,
+          })
+          .eq("message_id", input.messageId)
+          .eq("reviewed", false)
+        if (resolveErr) {
+          console.error("[campaign] failed to resolve previous unmatched row:", resolveErr)
+        }
+      } catch (resolveErr) {
+        console.error("[campaign] failed to resolve previous unmatched row:", resolveErr)
+      }
     }
 
     // 4. Interaction REPLY (append-only).
@@ -235,39 +306,47 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
         .eq("id", enrollment.lead_id)
     }
 
+    // Resolve a responsible person even when the campaign was enrolled without
+    // an explicit AE owner. The campaign creator is the documented fallback;
+    // enrolled_by is the last-resort actor for older campaigns with no creator.
+    const campaign = await getCampaign(enrollment.campaign_id)
+    const notificationOwnerId =
+      enrollment.owner_id ?? campaign?.created_by ?? enrollment.enrolled_by ?? null
+
     // 7. Handoff khi INTERESTED tự tin.
     let handoffEngagementId: string | null = null
-    if (classification.intent === "INTERESTED" && !classification.requiresHuman) {
-      const campaign = await getCampaign(enrollment.campaign_id)
-      if (campaign) {
-        const handoff = await handoffToEngagement(
-          enrollment,
-          { id: campaign.id, name: campaign.name, created_by: campaign.created_by },
-          {
-            fromEmail: input.fromEmail,
-            replySummary: input.body.slice(0, 300),
-          },
-        )
-        handoffEngagementId = handoff.engagementId
-      }
+    if (classification.intent === "INTERESTED" && !classification.requiresHuman && campaign) {
+      const handoff = await handoffToEngagement(
+        enrollment,
+        {
+          id: campaign.id,
+          name: campaign.name,
+          created_by: campaign.created_by ?? enrollment.enrolled_by,
+        },
+        {
+          fromEmail: input.fromEmail,
+          replySummary: input.body.slice(0, 300),
+        },
+      )
+      handoffEngagementId = handoff.engagementId
     }
 
-    // 8. Notify AE — MỌI reply của campaign đều chạm owner, chia 2 mức:
-    //    • action_required  → cần tay người (review HOLD, NOT_NOW): chuông + email
-    //    • status_update    → chỉ để biết (INTERESTED qua handoff, STOPPED,
-    //      SUPPRESSED, INVALID, OOO pause): chuông + email theo preferences
-    // Chuông luôn tạo; email đi tới profiles.email (tài khoản AE) trừ khi AE
-    // tắt category đó trong notification_preferences (mặc định bật).
+    // 8. Notify the responsible AE/user on EVERY campaign reply:
+    //    • action_required → ambiguous/HOLD and NOT_NOW need a human decision
+    //    • status_update   → clear STOP/OPT_OUT/WRONG_CONTACT/OOO outcomes,
+    //                        plus later INTERESTED replies after handoff
+    //    • first INTERESTED → handoffToEngagement notifies the AE taking over
+    // In-app notification is always created; email follows user preferences.
     const replyId = (replyRow as { id: string }).id
     const replySnippet = input.body.replace(/\s+/g, " ").trim().slice(0, 140)
     const buyerLink = `/admin/buyers/${enrollment.lead_id}` // reply hiển thị ở buyer page
 
-    if ((classification.requiresHuman || classification.intent === "NOT_NOW") && enrollment.owner_id) {
+    if ((classification.requiresHuman || classification.intent === "NOT_NOW") && notificationOwnerId) {
       await dispatchNotification({
-        userId: enrollment.owner_id,
+        userId: notificationOwnerId,
         category: "action_required",
         opportunityId: null,
-        linkPath: `/admin/campaigns/${enrollment.campaign_id}`,
+        linkPath: buyerLink,
         dedupKey: `campaign_reply_review:${replyId}`,
         title: {
           vi: "Campaign: reply cần AE xem",
@@ -279,12 +358,16 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
         },
         ctaLabel: { vi: "Xử lý", en: "Review" },
       })
-    } else if (enrollment.owner_id) {
+    } else if (notificationOwnerId) {
       interface IntentNotice {
         title: { vi: string; en: string }
         body: { vi: string; en: string }
       }
       const NOTIFY_BY_INTENT: Record<string, IntentNotice> = {
+        INTERESTED: {
+          title: { vi: "Campaign: buyer quan tâm", en: "Campaign: buyer is interested" },
+          body: { vi: `${input.fromEmail} trả lời INTERESTED. Mở buyer để AE tiếp tục xử lý.`, en: `${input.fromEmail} replied INTERESTED. Open the buyer record for AE follow-up.` },
+        },
         NOT_INTERESTED: {
           title: { vi: "Campaign: buyer từ chối — sequence đã dừng", en: "Campaign: buyer declined — sequence stopped" },
           body: { vi: `${input.fromEmail} trả lời NOT_INTERESTED. Enrollment chuyển STOPPED, không email tiếp.`, en: `${input.fromEmail} replied NOT_INTERESTED. Enrollment stopped — no further emails.` },
@@ -303,9 +386,13 @@ export async function maybeHandleCampaignReply(input: CampaignReplyInput): Promi
         },
       }
       const n = NOTIFY_BY_INTENT[classification.intent]
-      if (n) {
+      const handoffAlreadyNotified =
+        classification.intent === "INTERESTED" &&
+        !enrollment.handoff_engagement_id &&
+        Boolean(handoffEngagementId)
+      if (n && !handoffAlreadyNotified) {
         await dispatchNotification({
-          userId: enrollment.owner_id,
+          userId: notificationOwnerId,
           category: "status_update",
           opportunityId: null,
           linkPath: buyerLink,

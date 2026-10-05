@@ -36,6 +36,7 @@ import { siteConfig } from "@/lib/site-config"
 import { localizePath } from "@/lib/i18n/routing"
 import { localizedAlternates } from "@/lib/seo/alternates"
 import { JsonLd } from "@/components/seo/json-ld"
+import { CookiePreferencesButton } from "@/components/analytics/cookie-preferences-button"
 import type { Metadata } from "next"
 
 /**
@@ -286,7 +287,7 @@ export default async function RootPage() {
               <a href="#faq" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary">{t.nav[3]}</a>
             </div>
           </details>
-          <div className="flex items-center gap-2"><LanguageSwitcher compact /><Button asChild variant="outline" className="hidden border-primary/20 text-primary hover:bg-primary/5 sm:inline-flex"><Link href="/auth/login">{t.signIn}</Link></Button><Button asChild className="bg-cta text-cta-foreground shadow-sm hover:bg-cta/90"><a href="#consultation">{t.contact}</a></Button></div>
+          <div className="flex items-center gap-2"><LanguageSwitcher compact /><Button asChild variant="outline" className="hidden border-primary/20 text-primary hover:bg-primary/5 sm:inline-flex"><Link href="/auth/login">{t.signIn}</Link></Button><Button asChild className="bg-cta text-cta-foreground shadow-sm hover:bg-cta/90"><a href="#consultation" data-meta-cta="supplier_consultation">{t.contact}</a></Button></div>
         </div>
       </header>
 
@@ -294,7 +295,7 @@ export default async function RootPage() {
         <div className="pointer-events-none absolute -left-32 -top-40 h-[32rem] w-[32rem] rounded-full bg-accent/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-48 right-0 h-[30rem] w-[30rem] rounded-full bg-cta/10 blur-3xl" />
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10 lg:py-28">
-          <div className="max-w-xl lg:pr-4"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.16em] text-sky-100"><span className="h-1.5 w-1.5 rounded-full bg-cta" />{t.eyebrow}</div><h1 className="max-w-2xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-balance sm:text-5xl lg:text-[3.75rem]">{t.heroTitle}</h1><p className="mt-6 max-w-xl text-base leading-8 text-slate-200 sm:text-lg">{t.heroText}</p><div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"><Button asChild size="lg" className="h-12 bg-cta px-6 text-cta-foreground shadow-lg shadow-amber-950/20 hover:bg-cta/90"><a href="#consultation">{t.heroCta}<ArrowRight className="h-4 w-4" /></a></Button><Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white"><a href="#process">{t.heroSecondary}</a></Button></div><div className="mt-8 flex items-start gap-3 text-sm leading-6 text-slate-300"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-accent" />{t.heroNote}</div></div>
+          <div className="max-w-xl lg:pr-4"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.16em] text-sky-100"><span className="h-1.5 w-1.5 rounded-full bg-cta" />{t.eyebrow}</div><h1 className="max-w-2xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-balance sm:text-5xl lg:text-[3.75rem]">{t.heroTitle}</h1><p className="mt-6 max-w-xl text-base leading-8 text-slate-200 sm:text-lg">{t.heroText}</p><div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"><Button asChild size="lg" className="h-12 bg-cta px-6 text-cta-foreground shadow-lg shadow-amber-950/20 hover:bg-cta/90"><a href="#consultation" data-meta-cta="supplier_consultation">{t.heroCta}<ArrowRight className="h-4 w-4" /></a></Button><Button asChild size="lg" variant="ghost" className="h-12 text-slate-100 hover:bg-white/10 hover:text-white"><a href="#process">{t.heroSecondary}</a></Button></div><div className="mt-8 flex items-start gap-3 text-sm leading-6 text-slate-300"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-accent" />{t.heroNote}</div></div>
           <div className="relative mx-auto w-full max-w-lg lg:ml-auto lg:justify-self-end"><div className="absolute -inset-4 rounded-[2rem] bg-accent/10 blur-2xl" /><div className="relative overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/10 p-2 shadow-2xl shadow-slate-950/30 backdrop-blur-sm"><div className="relative aspect-[1.18/1] overflow-hidden rounded-[1rem]"><Image src="/landing/hero-dashboard.jpg" alt="Export operations in a modern warehouse" fill priority sizes="(max-width: 1024px) 90vw, 48vw" className="object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-transparent to-transparent" /><div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-100/80">Vexim operating system</p><p className="mt-1 text-lg font-semibold text-white">Demand → supplier → deal</p></div><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cta text-cta-foreground shadow-lg"><ArrowRight className="h-5 w-5" /></div></div></div></div><div className="absolute -bottom-5 -left-4 hidden rounded-xl border border-white/20 bg-slate-950/80 px-4 py-3 shadow-xl backdrop-blur-md sm:block"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-accent"><BarChart3 className="h-4 w-4" /></span><div><p className="text-[10px] uppercase tracking-wider text-slate-400">Pipeline visibility</p><p className="text-sm font-semibold text-white">Built for action</p></div></div></div><div className="absolute -right-4 top-8 hidden rounded-xl border border-white/20 bg-white px-4 py-3 shadow-xl sm:block"><div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-primary" /><p className="text-sm font-semibold text-primary">Compliance-ready</p></div></div></div>
         </div>
         <div className="relative mx-auto grid max-w-7xl grid-cols-2 border-t border-white/10 px-5 sm:grid-cols-4 sm:px-8 lg:px-10"><Stat value="100%" label={t.statOne} /><Stat value="7" label={t.statTwo} /><Stat value={locale === "vi" ? "Hàng tuần" : "Weekly"} label={t.statThree} /><Stat value="USA" label={t.statFour} /></div>
@@ -373,6 +374,13 @@ export default async function RootPage() {
                 <Link href={localizePath("/how-we-verify", locale)} className="text-slate-400 hover:text-white">
                   {locale === "vi" ? "Cách chúng tôi sàng lọc" : "How we verify"}
                 </Link>
+                <Link href={localizePath("/legal/cookies", locale)} className="text-slate-400 hover:text-white">
+                  {locale === "vi" ? "Chính sách cookie" : "Cookie policy"}
+                </Link>
+                <CookiePreferencesButton
+                  label={locale === "vi" ? "Cài đặt cookie" : "Cookie settings"}
+                  className="w-fit text-left text-sm text-slate-400 hover:text-white"
+                />
               </div>
             </div>
           </div>

@@ -19,6 +19,8 @@ import {
 } from "@/lib/buyers/engagement-queries"
 import { BuyerPerformanceCard } from "@/components/admin/analytics/buyer-performance-card"
 import { canAny } from "@/lib/auth/permissions"
+import { NON_TERMINAL_ENROLLMENT_STATES } from "@/lib/campaign/constants"
+import type { CampaignEnrollmentSummary } from "@/lib/campaign/types"
 import { listContacts } from "@/lib/buyers/contacts-actions"
 import type { BuyerContact } from "@/lib/supabase/types"
 // Type-only imports — this is a server component and must not drag the `ai`
@@ -86,6 +88,34 @@ export default async function BuyerDetailPage({ params }: PageProps) {
     .single()
 
   if (!buyer) notFound()
+
+  // Show the buyer's one non-terminal campaign enrollment to roles that can
+  // view campaigns. Account Executives only see their own enrollment, matching
+  // the campaign detail page's owner scope.
+  let campaignEnrollment: CampaignEnrollmentSummary | null = null
+  if (can(current.role, CAPS.CAMPAIGN_VIEW)) {
+    let enrollmentQuery = (current.admin.from("campaign_enrollments") as any)
+      .select("lead_id, state, current_step_number, updated_at, campaign:campaigns(id, name, status)")
+      .eq("lead_id", id)
+      .in("state", NON_TERMINAL_ENROLLMENT_STATES as readonly string[])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+    if (current.role === "account_executive") enrollmentQuery = enrollmentQuery.eq("owner_id", current.userId)
+
+    const { data: enrollmentRows, error: enrollmentError } = await enrollmentQuery
+    if (enrollmentError) console.error("[buyer-detail] campaign enrollment lookup failed:", enrollmentError)
+    const enrollment = (enrollmentRows ?? [])[0] as any
+    const campaign = Array.isArray(enrollment?.campaign) ? enrollment.campaign[0] : enrollment?.campaign
+    if (enrollment && campaign) {
+      campaignEnrollment = {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        campaignStatus: campaign.status,
+        state: enrollment.state,
+        currentStepNumber: enrollment.current_step_number ?? 1,
+      }
+    }
+  }
 
   const analysisSnapshot = readAnalysisSnapshot(
     buyer.buyer_analysis,
@@ -378,6 +408,7 @@ export default async function BuyerDetailPage({ params }: PageProps) {
         clients={assignableClients}
         pendingMatch={pendingMatch}
         canDecideMatch={current.role !== "lead_researcher"}
+        campaignEnrollment={campaignEnrollment}
       />
 
       {/* Aggregate buyer KPIs across all clients — gated by analytics caps.

@@ -15,6 +15,7 @@ import {
 } from "./constants"
 import type { StateTransition } from "./state-machine"
 import type { CampaignEnrollmentRow, CampaignRow, CampaignStepRow } from "./types"
+import type { CampaignMatchDecision } from "./product-industry-matcher"
 import { logSystemEvent } from "./interactions"
 import { checkLeadStop } from "./suppression"
 
@@ -107,6 +108,7 @@ export async function enrollLeads(
   leadIds: string[],
   ownerId: string | null,
   enrolledBy: string | null,
+  matches: ReadonlyMap<string, CampaignMatchDecision>,
 ): Promise<EnrollResult> {
   const admin = await adminAny()
 
@@ -163,6 +165,11 @@ export async function enrollLeads(
   }
 
   for (const leadId of leadIds) {
+    const match = matches.get(leadId)
+    if (!match || match.status !== "matched" || !match.level || match.confidence === null) {
+      skipped.push({ leadId, reason: "campaign_match_missing_or_invalid" })
+      continue
+    }
     if (slots <= 0) {
       skipped.push({ leadId, reason: "pilot_cap_reached" })
       continue
@@ -192,6 +199,13 @@ export async function enrollLeads(
       next_action_type: "step1_due",
       owner_id: ownerId,
       enrolled_by: enrolledBy,
+      match_level: match.level,
+      match_confidence: match.confidence,
+      match_reason: match.reason,
+      match_evidence: match.evidence,
+      match_requires_human_review: match.requiresHumanReview,
+      needs_human_review: match.requiresHumanReview,
+      human_review_reason: match.requiresHumanReview ? match.reason : null,
     })
 
     if (insErr) {

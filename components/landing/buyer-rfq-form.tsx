@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react"
 import { CheckCircle2, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { trackMetaEvent } from "@/lib/analytics/meta-pixel"
+import { trackGoogleAnalyticsEvent } from "@/lib/analytics/google-analytics"
 
 type Props = {
   locale: "vi" | "en"
@@ -48,6 +50,14 @@ export function BuyerRfqForm({ locale }: Props) {
       if (!response.ok || !result.ok) {
         throw new Error(result.error || (vi ? "Vui lòng kiểm tra lại thông tin." : "Please check your information and try again."))
       }
+      trackMetaEvent("Lead", {
+        content_name: "buyer_sourcing_request",
+        content_category: "buyer",
+      })
+      trackGoogleAnalyticsEvent("generate_lead", {
+        form_type: "buyer_sourcing_request",
+        audience: "buyer",
+      })
       setReference(result.reference ?? "")
       setSubmitted(true)
       form.reset()

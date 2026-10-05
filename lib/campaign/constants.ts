@@ -31,6 +31,18 @@ export const TERMINAL_STATES: readonly EnrollmentState[] = [
   "invalid_contact",
 ]
 
+/** Enrollment states that still occupy the active-campaign slot for a buyer. */
+export const NON_TERMINAL_ENROLLMENT_STATES: readonly EnrollmentState[] =
+  ENROLLMENT_STATES.filter((state) => !TERMINAL_STATES.includes(state))
+
+export const CAMPAIGN_STATUS_LABELS = {
+  draft: { vi: "Bản nháp", en: "Draft" },
+  active: { vi: "Đang chạy", en: "Running" },
+  paused: { vi: "Tạm dừng", en: "Paused" },
+  completed: { vi: "Hoàn tất", en: "Completed" },
+  archived: { vi: "Lưu trữ", en: "Archived" },
+} as const
+
 export function isTerminalState(state: string): boolean {
   return (TERMINAL_STATES as readonly string[]).includes(state)
 }

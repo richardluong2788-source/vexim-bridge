@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { PlusCircle, Sparkles } from "lucide-react"
+import { Download, PlusCircle, Sparkles } from "lucide-react"
 import { getDictionary } from "@/lib/i18n/server"
 import { getCurrentRole } from "@/lib/auth/guard"
 import { CAPS, can } from "@/lib/auth/permissions"
@@ -42,6 +42,9 @@ export default async function BuyersDirectoryPage() {
   const canWriteBuyer = (isLR || isAdmin) && !isSR
   // LR and Admin can trigger AI matching for buyers
   const canRunMatch = (isLR || isAdmin) && !isSR
+  // Export contains unmasked contact details and is available only to roles
+  // with both buyer visibility and the existing PII-view capability.
+  const canExportBuyers = can(role, CAPS.BUYER_VIEW) && can(role, CAPS.BUYER_PII_VIEW)
   // Only super_admin/admin may override AI ownership and pin a buyer to an AE
   const canAssignBuyer = can(role, CAPS.BUYER_ASSIGN)
 
@@ -240,20 +243,32 @@ export default async function BuyersDirectoryPage() {
             </p>
           )}
         </div>
-        {canWriteBuyer && (
+        {(canWriteBuyer || canExportBuyers) && (
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link href="/admin/buyers/import-importyeti">
-                <Sparkles className="mr-2 h-4 w-4" />
-                {locale === "vi" ? "Import từ ImportYeti" : "Import from ImportYeti"}
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/admin/leads/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {locale === "vi" ? "Thêm Buyer" : "Add buyer"}
-              </Link>
-            </Button>
+            {canExportBuyers && (
+              <Button asChild variant="outline">
+                <a href="/api/export/buyers" download>
+                  <Download className="mr-2 h-4 w-4" />
+                  {locale === "vi" ? "Xuất Excel (.csv)" : "Export Excel (.csv)"}
+                </a>
+              </Button>
+            )}
+            {canWriteBuyer && (
+              <>
+                <Button asChild variant="outline">
+                  <Link href="/admin/buyers/import-importyeti">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {locale === "vi" ? "Import từ ImportYeti" : "Import from ImportYeti"}
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/admin/leads/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    {locale === "vi" ? "Thêm Buyer" : "Add buyer"}
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

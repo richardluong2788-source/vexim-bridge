@@ -14,8 +14,8 @@
  *     diacritics. Numbers/Sheets/LibreOffice ignore the BOM, so this is
  *     safe across the board.
  *   - We use CRLF line terminators per RFC 4180.
- *   - We always quote fields. Cheaper than scanning every cell for
- *     special characters and produces identical output every run.
+ *   - We always quote fields. Formula-like strings are prefixed with an
+ *     apostrophe to prevent spreadsheet formula injection from imported data.
  */
 
 export type CsvCell = string | number | boolean | null | undefined | Date
@@ -42,6 +42,10 @@ function quote(raw: CsvCell): string {
     s = raw ? "true" : "false"
   } else {
     s = String(raw)
+    // A leading apostrophe makes spreadsheet apps treat untrusted cell text
+    // as data, not a formula (e.g. `=HYPERLINK(...)`). Include leading
+    // whitespace/control characters because spreadsheet importers may skip them.
+    if (/^[\s\uFEFF]*[=+\-@]/u.test(s)) s = `'${s}`
   }
   // Escape internal double quotes by doubling them.
   return `"${s.replace(/"/g, '""')}"`
